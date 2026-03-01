@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreDeliveryConfirmationRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'transport_trip_id' => ['required', 'exists:transport_trips,id'],
+            'receiving_facility_id' => ['required', 'exists:facilities,id'],
+            'received_quantity' => ['required', 'integer', 'min:0'],
+            'received_date' => ['required', 'date'],
+            'receiver_name' => ['required', 'string', 'max:255'],
+            'confirmation_status' => ['required', 'string', 'in:pending,confirmed,disputed'],
+        ];
+    }
+}
