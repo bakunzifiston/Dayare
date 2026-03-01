@@ -49,7 +49,11 @@ class AnteMortemInspectionController extends Controller
             ->latest('inspection_date')
             ->paginate(10);
 
-        return view('ante-mortem-inspections.index', compact('inspections'));
+        $kpis = [
+            'total' => AnteMortemInspection::whereIn('slaughter_plan_id', $planIds)->count(),
+        ];
+
+        return view('ante-mortem-inspections.index', compact('inspections', 'kpis'));
     }
 
     public function create(Request $request): View

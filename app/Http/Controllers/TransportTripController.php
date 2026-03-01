@@ -74,7 +74,13 @@ class TransportTripController extends Controller
             ->latest('departure_date')
             ->paginate(10);
 
-        return view('transport-trips.index', compact('trips'));
+        $kpis = [
+            'total' => TransportTrip::whereIn('certificate_id', $certificateIds)->count(),
+            'arrived' => TransportTrip::whereIn('certificate_id', $certificateIds)->where('status', TransportTrip::STATUS_ARRIVED)->count(),
+            'completed' => TransportTrip::whereIn('certificate_id', $certificateIds)->where('status', TransportTrip::STATUS_COMPLETED)->count(),
+        ];
+
+        return view('transport-trips.index', compact('trips', 'kpis'));
     }
 
     public function create(Request $request): View

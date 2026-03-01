@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreBusinessRequest;
 use App\Http\Requests\UpdateBusinessRequest;
 use App\Models\Business;
+use App\Models\BusinessOwnershipMember;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,7 +20,12 @@ class BusinessController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('businesses.index', compact('businesses'));
+        $kpis = [
+            'total' => $request->user()->businesses()->count(),
+            'facilities' => \App\Models\Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))->count(),
+        ];
+
+        return view('businesses.index', compact('businesses', 'kpis'));
     }
 
     public function create(): View
@@ -29,7 +35,24 @@ class BusinessController extends Controller
 
     public function store(StoreBusinessRequest $request): RedirectResponse
     {
-        $request->user()->businesses()->create($request->validated());
+        $validated = $request->validated();
+        $members = $validated['members'] ?? [];
+        unset($validated['members']);
+
+        $business = $request->user()->businesses()->create($validated);
+
+        foreach (array_values($members) as $i => $m) {
+            $firstName = trim((string) ($m['first_name'] ?? ''));
+            $lastName = trim((string) ($m['last_name'] ?? ''));
+            if ($firstName !== '' || $lastName !== '') {
+                $business->ownershipMembers()->create([
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'date_of_birth' => $m['date_of_birth'] ?? null,
+                    'sort_order' => $i,
+                ]);
+            }
+        }
 
         return redirect()->route('businesses.index')
             ->with('status', __('Business registered successfully.'));
@@ -41,7 +64,7 @@ class BusinessController extends Controller
             abort(404);
         }
 
-        $business->load('facilities');
+        $business->load(['facilities', 'ownershipMembers', 'countryDivision', 'provinceDivision', 'districtDivision', 'sectorDivision', 'cellDivision', 'villageDivision']);
 
         return view('businesses.show', compact('business'));
     }
@@ -52,6 +75,8 @@ class BusinessController extends Controller
             abort(404);
         }
 
+        $business->load('ownershipMembers');
+
         return view('businesses.edit', compact('business'));
     }
 
@@ -61,7 +86,25 @@ class BusinessController extends Controller
             abort(404);
         }
 
-        $business->update($request->validated());
+        $validated = $request->validated();
+        $members = $validated['members'] ?? [];
+        unset($validated['members']);
+
+        $business->update($validated);
+
+        $business->ownershipMembers()->delete();
+        foreach (array_values($members) as $i => $m) {
+            $firstName = trim((string) ($m['first_name'] ?? ''));
+            $lastName = trim((string) ($m['last_name'] ?? ''));
+            if ($firstName !== '' || $lastName !== '') {
+                $business->ownershipMembers()->create([
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'date_of_birth' => $m['date_of_birth'] ?? null,
+                    'sort_order' => $i,
+                ]);
+            }
+        }
 
         return redirect()->route('businesses.index')
             ->with('status', __('Business updated successfully.'));

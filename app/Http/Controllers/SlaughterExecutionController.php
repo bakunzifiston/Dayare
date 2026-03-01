@@ -48,7 +48,12 @@ class SlaughterExecutionController extends Controller
             ->latest('slaughter_time')
             ->paginate(10);
 
-        return view('slaughter-executions.index', compact('executions'));
+        $kpis = [
+            'total' => SlaughterExecution::whereIn('slaughter_plan_id', $planIds)->count(),
+            'completed' => SlaughterExecution::whereIn('slaughter_plan_id', $planIds)->where('status', SlaughterExecution::STATUS_COMPLETED)->count(),
+        ];
+
+        return view('slaughter-executions.index', compact('executions', 'kpis'));
     }
 
     public function create(Request $request): View

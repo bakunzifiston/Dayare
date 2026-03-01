@@ -81,7 +81,12 @@ class DeliveryConfirmationController extends Controller
             ->latest('received_date')
             ->paginate(10);
 
-        return view('delivery-confirmations.index', compact('confirmations'));
+        $kpis = [
+            'total' => DeliveryConfirmation::whereIn('transport_trip_id', $tripIds)->count(),
+            'confirmed' => DeliveryConfirmation::whereIn('transport_trip_id', $tripIds)->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)->count(),
+        ];
+
+        return view('delivery-confirmations.index', compact('confirmations', 'kpis'));
     }
 
     public function create(Request $request): View

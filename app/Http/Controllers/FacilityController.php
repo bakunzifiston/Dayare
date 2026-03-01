@@ -25,7 +25,12 @@ class FacilityController extends Controller
 
         $facilities = $business->facilities()->latest()->paginate(10);
 
-        return view('facilities.index', compact('business', 'facilities'));
+        $kpis = [
+            'total' => $business->facilities()->count(),
+            'active' => $business->facilities()->where('status', Facility::STATUS_ACTIVE)->count(),
+        ];
+
+        return view('facilities.index', compact('business', 'facilities', 'kpis'));
     }
 
     public function create(Request $request, Business $business): View|RedirectResponse

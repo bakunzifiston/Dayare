@@ -45,7 +45,12 @@ class InspectorController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('inspectors.index', compact('inspectors'));
+        $kpis = [
+            'total' => Inspector::whereIn('facility_id', $facilityIds)->count(),
+            'active' => Inspector::whereIn('facility_id', $facilityIds)->where('status', Inspector::STATUS_ACTIVE)->count(),
+        ];
+
+        return view('inspectors.index', compact('inspectors', 'kpis'));
     }
 
     public function create(Request $request): View

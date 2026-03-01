@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdministrativeDivisionController;
 use App\Http\Controllers\AnteMortemInspectionController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\BusinessController;
@@ -42,6 +43,7 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::resource('transport-trips', TransportTripController::class);
     Route::resource('delivery-confirmations', DeliveryConfirmationController::class);
     Route::get('compliance', [ComplianceController::class, 'index'])->name('compliance.index');
+    Route::get('divisions', [AdministrativeDivisionController::class, 'index'])->name('divisions.index');
     Route::resource('ante-mortem-inspections', AnteMortemInspectionController::class);
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

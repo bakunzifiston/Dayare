@@ -42,7 +42,13 @@ class SlaughterPlanController extends Controller
             ->latest('slaughter_date')
             ->paginate(10);
 
-        return view('slaughter-plans.index', compact('plans'));
+        $kpis = [
+            'total' => SlaughterPlan::whereIn('facility_id', $facilityIds)->count(),
+            'planned' => SlaughterPlan::whereIn('facility_id', $facilityIds)->where('status', SlaughterPlan::STATUS_PLANNED)->count(),
+            'approved' => SlaughterPlan::whereIn('facility_id', $facilityIds)->where('status', SlaughterPlan::STATUS_APPROVED)->count(),
+        ];
+
+        return view('slaughter-plans.index', compact('plans', 'kpis'));
     }
 
     public function create(Request $request): View

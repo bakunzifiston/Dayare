@@ -94,6 +94,20 @@ class ComplianceController extends Controller
             ->latest('issued_at')
             ->get();
 
+        $kpis = [
+            'expired_licenses' => $expiredFacilityLicenses->count(),
+            'expired_authorizations' => $expiredInspectorAuthorizations->count(),
+            'over_capacity_plans' => $overCapacityPlans->count(),
+            'missing_ante_mortem' => $missingAnteMortemPlans->count(),
+            'missing_post_mortem' => $missingPostMortemBatches->count(),
+            'missing_certificates' => $missingCertificateBatches->count(),
+            'missing_transport' => $missingTransportCertificates->count(),
+            'total_issues' => $expiredFacilityLicenses->count() + $expiredInspectorAuthorizations->count()
+                + $overCapacityPlans->count() + $missingAnteMortemPlans->count()
+                + $missingPostMortemBatches->count() + $missingCertificateBatches->count()
+                + $missingTransportCertificates->count(),
+        ];
+
         return view('compliance.index', [
             'expiredFacilityLicenses' => $expiredFacilityLicenses,
             'expiredInspectorAuthorizations' => $expiredInspectorAuthorizations,
@@ -102,6 +116,7 @@ class ComplianceController extends Controller
             'missingPostMortemBatches' => $missingPostMortemBatches,
             'missingCertificateBatches' => $missingCertificateBatches,
             'missingTransportCertificates' => $missingTransportCertificates,
+            'kpis' => $kpis,
         ]);
     }
 }

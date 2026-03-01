@@ -12,6 +12,11 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="flex flex-nowrap items-center gap-3 mb-6 overflow-x-auto pb-1 rounded-xl border border-slate-200/60 bg-white px-4 py-3 shadow-sm">
+                <x-kpi-card inline title="{{ __('Total trips') }}" :value="$kpis['total']" color="blue" />
+                <x-kpi-card inline title="{{ __('Arrived') }}" :value="$kpis['arrived']" color="green" />
+                <x-kpi-card inline title="{{ __('Completed') }}" :value="$kpis['completed']" color="slate" />
+            </div>
             @if (session('status'))
                 <div class="mb-4 p-4 rounded-md bg-green-50 text-green-800">
                     {{ session('status') }}
@@ -19,17 +24,17 @@
             @endif
 
             @if ($trips->isEmpty())
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-8 text-center text-gray-600">
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No transport trips recorded yet.') }}</p>
                     <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
                         {{ __('Record first trip') }}
                     </a>
                 </div>
             @else
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <ul class="divide-y divide-gray-200">
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
+                    <ul class="divide-y divide-slate-100">
                         @foreach ($trips as $trip)
-                            <li class="p-4 flex justify-between items-center hover:bg-gray-50">
+                            <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
                                     <a href="{{ route('transport-trips.show', $trip) }}" class="font-medium text-gray-900 hover:underline">
                                         {{ $trip->vehicle_plate_number }} — {{ $trip->driver_name }}

@@ -56,7 +56,13 @@ class BatchController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('batches.index', compact('batches'));
+        $kpis = [
+            'total' => Batch::whereIn('slaughter_execution_id', $executionIds)->count(),
+            'approved' => Batch::whereIn('slaughter_execution_id', $executionIds)->where('status', Batch::STATUS_APPROVED)->count(),
+            'pending' => Batch::whereIn('slaughter_execution_id', $executionIds)->where('status', Batch::STATUS_PENDING)->count(),
+        ];
+
+        return view('batches.index', compact('batches', 'kpis'));
     }
 
     public function create(Request $request): View

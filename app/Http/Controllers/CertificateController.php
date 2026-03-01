@@ -68,7 +68,16 @@ class CertificateController extends Controller
             ->latest('issued_at')
             ->paginate(10);
 
-        return view('certificates.index', compact('certificates'));
+        $baseCertificates = Certificate::where(function ($q) use ($batchIds, $facilityIds) {
+            $q->whereIn('batch_id', $batchIds)
+                ->orWhere(fn ($q2) => $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds));
+        });
+        $kpis = [
+            'total' => (clone $baseCertificates)->count(),
+            'active' => (clone $baseCertificates)->where('status', Certificate::STATUS_ACTIVE)->count(),
+        ];
+
+        return view('certificates.index', compact('certificates', 'kpis'));
     }
 
     public function create(Request $request): View

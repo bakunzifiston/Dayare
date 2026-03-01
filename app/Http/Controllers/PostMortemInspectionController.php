@@ -63,7 +63,11 @@ class PostMortemInspectionController extends Controller
             ->latest('inspection_date')
             ->paginate(10);
 
-        return view('post-mortem-inspections.index', compact('inspections'));
+        $kpis = [
+            'total' => PostMortemInspection::whereIn('batch_id', $batchIds)->count(),
+        ];
+
+        return view('post-mortem-inspections.index', compact('inspections', 'kpis'));
     }
 
     public function create(Request $request): View
