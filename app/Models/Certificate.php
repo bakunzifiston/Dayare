@@ -69,4 +69,15 @@ class Certificate extends Model
     {
         return $this->hasMany(TransportTrip::class);
     }
+
+    /** Certificate (1) → Required before storage; can have many warehouse storages over time */
+    public function warehouseStorages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(WarehouseStorage::class);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
+    }
 }

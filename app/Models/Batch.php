@@ -83,6 +83,12 @@ class Batch extends Model
         return $this->hasOne(Certificate::class);
     }
 
+    /** Batch (1) → Can have One WarehouseStorage */
+    public function warehouseStorage(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(WarehouseStorage::class);
+    }
+
     public function canIssueCertificate(): bool
     {
         $pm = $this->postMortemInspection;

@@ -27,13 +27,9 @@
                         <dt class="text-sm font-medium text-gray-500">{{ __('Facility Type') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ $facility->facility_type }}</dd>
                     </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('District') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->district }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Sector') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->sector }}</dd>
+                    <div class="sm:col-span-2">
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Location') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->location_display }}</dd>
                     </div>
                     <div class="sm:col-span-2">
                         <dt class="text-sm font-medium text-gray-500">{{ __('GPS') }}</dt>
@@ -57,7 +53,7 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Daily Capacity') }}</dt>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Daily Production Capacity') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ $facility->daily_capacity ?? '—' }}</dd>
                     </div>
                     <div>

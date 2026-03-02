@@ -17,6 +17,7 @@ class TransportTrip extends Model
 
     protected $fillable = [
         'certificate_id',
+        'warehouse_storage_id',
         'batch_id',
         'origin_facility_id',
         'destination_facility_id',
@@ -51,6 +52,11 @@ class TransportTrip extends Model
     public function certificate(): BelongsTo
     {
         return $this->belongsTo(Certificate::class);
+    }
+
+    public function warehouseStorage(): BelongsTo
+    {
+        return $this->belongsTo(WarehouseStorage::class);
     }
 
     public function batch(): BelongsTo

@@ -17,6 +17,12 @@ class Facility extends Model
         'facility_type',
         'district',
         'sector',
+        'country_id',
+        'province_id',
+        'district_id',
+        'sector_id',
+        'cell_id',
+        'village_id',
         'gps',
         'license_number',
         'license_issue_date',
@@ -35,11 +41,13 @@ class Facility extends Model
 
     public const TYPE_SLAUGHTERHOUSE = 'Slaughterhouse';
     public const TYPE_BUTCHERY = 'Butchery';
+    public const TYPE_STORAGE = 'storage';
     public const TYPE_OTHER = 'Other';
 
     public const TYPES = [
         self::TYPE_SLAUGHTERHOUSE,
         self::TYPE_BUTCHERY,
+        self::TYPE_STORAGE,
         self::TYPE_OTHER,
     ];
 
@@ -54,6 +62,57 @@ class Facility extends Model
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'country_id');
+    }
+
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'province_id');
+    }
+
+    public function districtDivision(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'district_id');
+    }
+
+    public function sectorDivision(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'sector_id');
+    }
+
+    public function cell(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'cell_id');
+    }
+
+    public function village(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'village_id');
+    }
+
+    /** Location string from divisions (Rwanda) or fallback to legacy district, sector */
+    public function getLocationDisplayAttribute(): string
+    {
+        $parts = array_filter([
+            $this->village?->name,
+            $this->cell?->name,
+            $this->sectorDivision?->name,
+            $this->districtDivision?->name,
+            $this->province?->name,
+        ]);
+        if ($parts !== []) {
+            return implode(', ', $parts);
+        }
+        $legacyDistrict = $this->getRawOriginal('district');
+        $legacySector = $this->getRawOriginal('sector');
+        if ($legacyDistrict || $legacySector) {
+            return trim(($legacyDistrict ?? '') . ', ' . ($legacySector ?? ''), ', ');
+        }
+        return '—';
     }
 
     /** Facility (1) → Many Inspectors */
@@ -97,5 +156,22 @@ class Facility extends Model
     public function deliveryConfirmationsReceived(): HasMany
     {
         return $this->hasMany(DeliveryConfirmation::class, 'receiving_facility_id');
+    }
+
+    /** Facility (type = storage) → Many WarehouseStorages */
+    public function warehouseStorages(): HasMany
+    {
+        return $this->hasMany(WarehouseStorage::class, 'warehouse_facility_id');
+    }
+
+    public function isStorage(): bool
+    {
+        return $this->facility_type === self::TYPE_STORAGE;
+    }
+
+    /** Facility (slaughterhouse) → Many AnimalIntakes */
+    public function animalIntakes(): HasMany
+    {
+        return $this->hasMany(AnimalIntake::class);
     }
 }

@@ -42,7 +42,10 @@
                                         {{ $c->received_date->format('d M Y') }} · {{ $c->receiver_name }} · {{ $c->received_quantity }} {{ __('received') }} · {{ ucfirst($c->confirmation_status) }}
                                     </p>
                                 </div>
-                                <a href="{{ route('delivery-confirmations.edit', $c) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('Edit') }}</a>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('delivery-confirmations.show', $c) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('delivery-confirmations.edit', $c) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
+                                </div>
                             </li>
                         @endforeach
                     </ul>

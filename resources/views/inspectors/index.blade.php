@@ -59,7 +59,8 @@
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('inspectors.edit', $inspector) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('Edit') }}</a>
+                                    <a href="{{ route('inspectors.show', $inspector) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('inspectors.edit', $inspector) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
                                 </div>
                             </li>
                         @endforeach

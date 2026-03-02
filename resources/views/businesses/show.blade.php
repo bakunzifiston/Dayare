@@ -195,7 +195,7 @@
                                     <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}" class="font-medium text-gray-900 hover:underline">
                                         {{ $facility->facility_name }}
                                     </a>
-                                    <p class="text-sm text-gray-500">{{ $facility->facility_type }} · {{ $facility->district }}, {{ $facility->sector }}</p>
+                                    <p class="text-sm text-gray-500">{{ $facility->facility_type }} · {{ $facility->location_display }}</p>
                                 </div>
                                 <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('Edit') }}</a>
                             </li>

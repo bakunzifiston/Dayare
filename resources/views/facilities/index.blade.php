@@ -44,7 +44,7 @@
                                         {{ $facility->facility_name }}
                                     </a>
                                     <p class="text-sm text-gray-500">
-                                        {{ $facility->facility_type }} · {{ $facility->district }}, {{ $facility->sector }}
+                                        {{ $facility->facility_type }} · {{ $facility->location_display }}
                                     </p>
                                     <p class="text-xs text-gray-400 mt-1">
                                         {{ __('License') }}: {{ $facility->license_number ?? '—' }} · {{ ucfirst($facility->status) }}
@@ -54,7 +54,8 @@
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('Edit') }}</a>
+                                    <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
                                     <form method="post" action="{{ route('businesses.facilities.destroy', [$business, $facility]) }}" class="inline" onsubmit="return confirm('{{ __('Delete this facility?') }}');">
                                         @csrf
                                         @method('delete')

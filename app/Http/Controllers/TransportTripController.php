@@ -10,6 +10,7 @@ use App\Models\Facility;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
 use App\Models\TransportTrip;
+use App\Models\WarehouseStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -107,10 +108,21 @@ class TransportTripController extends Controller
             ->get()
             ->map(fn (Batch $b) => ['id' => $b->id, 'label' => $b->batch_code]);
 
+        $releasedStorages = WarehouseStorage::with(['batch', 'warehouseFacility'])
+            ->whereIn('certificate_id', $certificateIds)
+            ->where('status', WarehouseStorage::STATUS_RELEASED)
+            ->latest('released_date')
+            ->get()
+            ->map(fn (WarehouseStorage $ws) => [
+                'id' => $ws->id,
+                'label' => $ws->batch->batch_code . ' — ' . ($ws->warehouseFacility->facility_name ?? '') . ' (' . __('released') . ')',
+            ]);
+
         return view('transport-trips.create', [
             'certificates' => $certificates,
             'facilities' => $facilities,
             'batches' => $batches,
+            'releasedStorages' => $releasedStorages,
         ]);
     }
 
@@ -123,6 +135,16 @@ class TransportTripController extends Controller
         if (! $facilityIds->contains((int) $request->validated('origin_facility_id')) ||
             ! $facilityIds->contains((int) $request->validated('destination_facility_id'))) {
             abort(404);
+        }
+        $wid = $request->validated('warehouse_storage_id');
+        if ($wid) {
+            $ws = WarehouseStorage::find($wid);
+            if (! $ws || ! $this->userCertificateIds($request)->contains($ws->certificate_id)) {
+                abort(404);
+            }
+            if ($ws->status !== WarehouseStorage::STATUS_RELEASED) {
+                return redirect()->back()->withErrors(['warehouse_storage_id' => __('Cannot transport: storage must be released first.')])->withInput();
+            }
         }
 
         TransportTrip::create($request->validated());
@@ -140,6 +162,7 @@ class TransportTripController extends Controller
             'certificate.inspector',
             'originFacility',
             'destinationFacility',
+            'warehouseStorage.batch',
             'deliveryConfirmation.receivingFacility',
         ]);
 
@@ -172,11 +195,22 @@ class TransportTripController extends Controller
             ->get()
             ->map(fn (Batch $b) => ['id' => $b->id, 'label' => $b->batch_code]);
 
+        $releasedStorages = WarehouseStorage::with(['batch', 'warehouseFacility'])
+            ->whereIn('certificate_id', $certificateIds)
+            ->where('status', WarehouseStorage::STATUS_RELEASED)
+            ->latest('released_date')
+            ->get()
+            ->map(fn (WarehouseStorage $ws) => [
+                'id' => $ws->id,
+                'label' => $ws->batch->batch_code . ' — ' . ($ws->warehouseFacility->facility_name ?? '') . ' (' . __('released') . ')',
+            ]);
+
         return view('transport-trips.edit', [
             'trip' => $transportTrip,
             'certificates' => $certificates,
             'facilities' => $facilities,
             'batches' => $batches,
+            'releasedStorages' => $releasedStorages,
         ]);
     }
 
@@ -190,6 +224,16 @@ class TransportTripController extends Controller
         if (! $facilityIds->contains((int) $request->validated('origin_facility_id')) ||
             ! $facilityIds->contains((int) $request->validated('destination_facility_id'))) {
             abort(404);
+        }
+        $wid = $request->validated('warehouse_storage_id');
+        if ($wid) {
+            $ws = WarehouseStorage::find($wid);
+            if (! $ws || ! $this->userCertificateIds($request)->contains($ws->certificate_id)) {
+                abort(404);
+            }
+            if ($ws->status !== WarehouseStorage::STATUS_RELEASED) {
+                return redirect()->back()->withErrors(['warehouse_storage_id' => __('Cannot transport: storage must be released first.')])->withInput();
+            }
         }
 
         $transportTrip->update($request->validated());

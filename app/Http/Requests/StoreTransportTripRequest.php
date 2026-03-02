@@ -18,6 +18,7 @@ class StoreTransportTripRequest extends FormRequest
     {
         return [
             'certificate_id' => ['required', 'exists:certificates,id'],
+            'warehouse_storage_id' => ['nullable', 'exists:warehouse_storages,id'],
             'batch_id' => ['nullable', 'exists:batches,id'],
             'origin_facility_id' => ['required', 'exists:facilities,id'],
             'destination_facility_id' => ['required', 'exists:facilities,id', 'different:origin_facility_id'],

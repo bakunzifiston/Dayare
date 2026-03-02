@@ -4,8 +4,12 @@ namespace Database\Seeders;
 
 use App\Models\Batch;
 use App\Models\Certificate;
+use App\Models\CertificateQr;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seed certificates and QR codes for traceability (Rwanda).
+ */
 class CertificateSeeder extends Seeder
 {
     public function run(): void
@@ -28,11 +32,11 @@ class CertificateSeeder extends Seeder
                 continue;
             }
             $counter++;
-            $certNum = 'CERT-TEST-' . str_pad((string) $counter, 4, '0');
-            Certificate::firstOrCreate(
-                ['certificate_number' => $certNum],
+            $certNum = 'CERT-RW-' . str_pad((string) $counter, 4, '0');
+            $cert = Certificate::firstOrCreate(
+                ['batch_id' => $batch->id],
                 [
-                    'batch_id' => $batch->id,
+                    'certificate_number' => $certNum,
                     'inspector_id' => $batch->inspector_id,
                     'facility_id' => $facility->id,
                     'issued_at' => now(),
@@ -40,7 +44,10 @@ class CertificateSeeder extends Seeder
                     'status' => Certificate::STATUS_ACTIVE,
                 ]
             );
+            if (! $cert->certificateQr) {
+                $cert->certificateQr()->create(['slug' => CertificateQr::generateSlug()]);
+            }
         }
-        $this->command?->info('Certificates seeded.');
+        $this->command?->info('Certificates and QR codes seeded.');
     }
 }

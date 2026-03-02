@@ -51,7 +51,10 @@
                                         {{ __('Inspector') }}: {{ $cert->inspector->full_name }}
                                     </p>
                                 </div>
-                                <a href="{{ route('certificates.edit', $cert) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('Edit') }}</a>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('certificates.show', $cert) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('certificates.edit', $cert) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
+                                </div>
                             </li>
                         @endforeach
                     </ul>

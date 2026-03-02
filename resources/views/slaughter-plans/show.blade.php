@@ -35,6 +35,16 @@
                             </a>
                         </dd>
                     </div>
+                    @if ($plan->animalIntake)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">{{ __('Animal intake') }}</dt>
+                            <dd class="mt-1 text-sm text-gray-900">
+                                <a href="{{ route('animal-intakes.show', $plan->animalIntake) }}" class="text-indigo-600 hover:underline">
+                                    {{ $plan->animalIntake->intake_date->format('d M Y') }} — {{ $plan->animalIntake->supplier_firstname }} {{ $plan->animalIntake->supplier_lastname }}
+                                </a>
+                            </dd>
+                        </div>
+                    @endif
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Inspector') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">

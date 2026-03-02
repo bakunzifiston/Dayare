@@ -45,7 +45,10 @@
                                         {{ __('Inspector') }}: {{ $inspection->inspector->full_name }}
                                     </p>
                                 </div>
-                                <a href="{{ route('post-mortem-inspections.edit', $inspection) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('Edit') }}</a>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('post-mortem-inspections.show', $inspection) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('post-mortem-inspections.edit', $inspection) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
+                                </div>
                             </li>
                         @endforeach
                     </ul>

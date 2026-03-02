@@ -23,7 +23,7 @@ class FacilityController extends Controller
     {
         $this->authorizeBusiness($request, $business);
 
-        $facilities = $business->facilities()->latest()->paginate(10);
+        $facilities = $business->facilities()->with(['province', 'districtDivision', 'sectorDivision', 'cell', 'village'])->latest()->paginate(10);
 
         $kpis = [
             'total' => $business->facilities()->count(),
@@ -57,6 +57,8 @@ class FacilityController extends Controller
         if ($facility->business_id !== $business->id) {
             abort(404);
         }
+
+        $facility->load(['province', 'districtDivision', 'sectorDivision', 'cell', 'village']);
 
         return view('facilities.show', compact('business', 'facility'));
     }

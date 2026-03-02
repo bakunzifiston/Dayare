@@ -22,10 +22,22 @@
                         <select id="facility_id" name="facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
                             <option value="">{{ __('Select facility') }}</option>
                             @foreach ($facilities as $f)
-                                <option value="{{ $f->id }}" @selected(old('facility_id') == $f->id)>{{ $f->facility_name }} ({{ $f->facility_type }})</option>
+                                <option value="{{ $f->id }}" @selected(old('facility_id', request('facility_id')) == $f->id)>{{ $f->facility_name }} ({{ $f->facility_type }})</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('facility_id')" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="animal_intake_id" :value="__('Animal intake (required)')" />
+                        <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                            <option value="">{{ __('Select facility first') }}</option>
+                            @foreach ($eligibleIntakes ?? [] as $intake)
+                                <option value="{{ $intake['id'] }}" data-facility-id="{{ $intake['facility_id'] }}" @selected(old('animal_intake_id', request('animal_intake_id')) == $intake['id'])>{{ $intake['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('Slaughter cannot be created without a linked animal intake. Health certificate must be valid.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('animal_intake_id')" />
                     </div>
 
                     <div>
@@ -82,8 +94,19 @@
         (function() {
             const facilitySelect = document.getElementById('facility_id');
             const inspectorSelect = document.getElementById('inspector_id');
-            const oldFacilityId = '{{ old('facility_id') }}';
+            const intakeSelect = document.getElementById('animal_intake_id');
+            const oldFacilityId = '{{ old('facility_id', request('facility_id')) }}';
             const oldInspectorId = '{{ old('inspector_id') }}';
+            function filterByFacility(select, dataAttr) {
+                if (!select || !facilitySelect) return;
+                const fid = facilitySelect.value;
+                Array.from(select.options).forEach(opt => {
+                    if (opt.value === '') { opt.hidden = false; return; }
+                    const optFid = opt.getAttribute(dataAttr);
+                    opt.hidden = optFid !== fid;
+                });
+                if (select.value && select.options[select.selectedIndex].hidden) select.value = '';
+            }
             function filterInspectors() {
                 const fid = facilitySelect && facilitySelect.value;
                 if (!inspectorSelect) return;
@@ -97,8 +120,19 @@
                 });
                 inspectorSelect.value = fid && oldFacilityId === fid ? oldInspectorId : '';
             }
-            if (facilitySelect) facilitySelect.addEventListener('change', filterInspectors);
-            document.addEventListener('DOMContentLoaded', filterInspectors);
+            function filterIntakes() {
+                filterByFacility(intakeSelect, 'data-facility-id');
+            }
+            if (facilitySelect) {
+                facilitySelect.addEventListener('change', function() {
+                    filterInspectors();
+                    filterIntakes();
+                });
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                filterInspectors();
+                filterIntakes();
+            });
         })();
     </script>
 </x-app-layout>

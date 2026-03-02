@@ -29,6 +29,17 @@
                     </div>
 
                     <div>
+                        <x-input-label for="animal_intake_id" :value="__('Animal intake')" />
+                        <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <option value="">{{ __('Select facility first') }}</option>
+                            @foreach ($eligibleIntakes ?? [] as $intake)
+                                <option value="{{ $intake['id'] }}" data-facility-id="{{ $intake['facility_id'] }}" @selected(old('animal_intake_id', $plan->animal_intake_id) == $intake['id'])>{{ $intake['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('animal_intake_id')" />
+                    </div>
+
+                    <div>
                         <x-input-label for="inspector_id" :value="__('Inspector')" />
                         <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
                             <option value="">{{ __('Select inspector') }}</option>
@@ -82,6 +93,20 @@
         (function() {
             const facilitySelect = document.getElementById('facility_id');
             const inspectorSelect = document.getElementById('inspector_id');
+            const intakeSelect = document.getElementById('animal_intake_id');
+            function filterByFacility(select, dataAttr) {
+                if (!select || !facilitySelect) return;
+                const fid = facilitySelect.value;
+                Array.from(select.options).forEach(opt => {
+                    if (opt.value === '') { opt.hidden = false; return; }
+                    opt.hidden = opt.getAttribute(dataAttr) !== fid;
+                });
+                const cur = select.options[select.selectedIndex];
+                if (cur && cur.hidden) {
+                    const visible = Array.from(select.options).find(o => o.value && !o.hidden);
+                    select.value = visible ? visible.value : '';
+                }
+            }
             function filterInspectors() {
                 const fid = facilitySelect && facilitySelect.value;
                 if (!inspectorSelect) return;
@@ -95,8 +120,11 @@
                     inspectorSelect.value = visible ? visible.value : '';
                 }
             }
-            if (facilitySelect) facilitySelect.addEventListener('change', filterInspectors);
-            document.addEventListener('DOMContentLoaded', filterInspectors);
+            function filterIntakes() { filterByFacility(intakeSelect, 'data-facility-id'); }
+            if (facilitySelect) {
+                facilitySelect.addEventListener('change', function() { filterInspectors(); filterIntakes(); });
+            }
+            document.addEventListener('DOMContentLoaded', function() { filterInspectors(); filterIntakes(); });
         })();
     </script>
 </x-app-layout>

@@ -46,10 +46,11 @@
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('businesses.facilities.index', $business) }}" class="text-sm text-gray-600 hover:text-gray-900">
+                                    <a href="{{ route('businesses.show', $business) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('businesses.facilities.index', $business) }}" class="text-sm text-slate-600 hover:text-slate-900">
                                         {{ __('Facilities') }}
                                     </a>
-                                    <a href="{{ route('businesses.edit', $business) }}" class="text-sm text-indigo-600 hover:text-indigo-900">
+                                    <a href="{{ route('businesses.edit', $business) }}" class="text-sm text-slate-600 hover:text-slate-900">
                                         {{ __('Edit') }}
                                     </a>
                                 </div>

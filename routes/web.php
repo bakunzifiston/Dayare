@@ -11,10 +11,12 @@ use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\PostMortemInspectionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SlaughterExecutionController;
+use App\Http\Controllers\AnimalIntakeController;
 use App\Http\Controllers\SlaughterPlanController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DeliveryConfirmationController;
 use App\Http\Controllers\TransportTripController;
+use App\Http\Controllers\WarehouseStorageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -34,12 +36,16 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::resource('businesses', BusinessController::class);
     Route::resource('businesses.facilities', FacilityController::class);
     Route::resource('inspectors', InspectorController::class);
+    Route::resource('animal-intakes', AnimalIntakeController::class);
     Route::resource('slaughter-plans', SlaughterPlanController::class);
     Route::resource('slaughter-executions', SlaughterExecutionController::class);
     Route::resource('batches', BatchController::class);
     Route::resource('post-mortem-inspections', PostMortemInspectionController::class);
     Route::resource('certificates', CertificateController::class);
     Route::get('certificates/{certificate}/qr', [CertificateController::class, 'qr'])->name('certificates.qr');
+    Route::resource('warehouse-storages', WarehouseStorageController::class);
+    Route::post('warehouse-storages/{warehouse_storage}/temperature-logs', [WarehouseStorageController::class, 'storeTemperatureLog'])->name('warehouse-storages.temperature-logs.store');
+    Route::delete('warehouse-storages/{warehouse_storage}/temperature-logs/{temperature_log}', [WarehouseStorageController::class, 'destroyTemperatureLog'])->name('warehouse-storages.temperature-logs.destroy');
     Route::resource('transport-trips', TransportTripController::class);
     Route::resource('delivery-confirmations', DeliveryConfirmationController::class);
     Route::get('compliance', [ComplianceController::class, 'index'])->name('compliance.index');

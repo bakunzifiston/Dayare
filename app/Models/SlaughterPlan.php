@@ -20,6 +20,7 @@ class SlaughterPlan extends Model
     protected $fillable = [
         'slaughter_date',
         'facility_id',
+        'animal_intake_id',
         'inspector_id',
         'species',
         'number_of_animals_scheduled',
@@ -59,6 +60,12 @@ class SlaughterPlan extends Model
     public function facility(): BelongsTo
     {
         return $this->belongsTo(Facility::class);
+    }
+
+    /** SlaughterPlan belongs to AnimalIntake (required before slaughter). */
+    public function animalIntake(): BelongsTo
+    {
+        return $this->belongsTo(AnimalIntake::class);
     }
 
     /** SlaughterSession belongs to Inspector */

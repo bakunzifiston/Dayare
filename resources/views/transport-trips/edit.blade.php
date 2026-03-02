@@ -34,6 +34,17 @@
                     </div>
 
                     <div>
+                        <x-input-label for="warehouse_storage_id" :value="__('Warehouse storage (released, optional)')" />
+                        <select id="warehouse_storage_id" name="warehouse_storage_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <option value="">{{ __('None') }}</option>
+                            @foreach ($releasedStorages ?? [] as $ws)
+                                <option value="{{ $ws['id'] }}" @selected(old('warehouse_storage_id', $trip->warehouse_storage_id) == $ws['id'])>{{ $ws['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('warehouse_storage_id')" />
+                    </div>
+
+                    <div>
                         <x-input-label for="origin_facility_id" :value="__('Origin facility')" />
                         <select id="origin_facility_id" name="origin_facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
                             @foreach ($facilities as $f)

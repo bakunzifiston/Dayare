@@ -34,6 +34,18 @@
                     </div>
 
                     <div>
+                        <x-input-label for="warehouse_storage_id" :value="__('Warehouse storage (released, optional)')" />
+                        <select id="warehouse_storage_id" name="warehouse_storage_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <option value="">{{ __('None') }}</option>
+                            @foreach ($releasedStorages ?? [] as $ws)
+                                <option value="{{ $ws['id'] }}" @selected(old('warehouse_storage_id') == $ws['id'])>{{ $ws['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('Transport can only start when storage status is released.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('warehouse_storage_id')" />
+                    </div>
+
+                    <div>
                         <x-input-label for="origin_facility_id" :value="__('Origin facility')" />
                         <select id="origin_facility_id" name="origin_facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
                             <option value="">{{ __('Select facility') }}</option>

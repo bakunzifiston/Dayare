@@ -2,41 +2,52 @@
 
 namespace Database\Seeders;
 
-use App\Models\Facility;
-use App\Models\Inspector;
+use App\Models\AnimalIntake;
 use App\Models\SlaughterPlan;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seed slaughter plans linked to animal intakes (Rwanda). Requires AnimalIntakeSeeder first.
+ */
 class SlaughterPlanSeeder extends Seeder
 {
     public function run(): void
     {
-        $facilities = Facility::with('inspectors')->has('inspectors')->get();
-        if ($facilities->isEmpty()) {
-            $this->command?->warn('No facilities with inspectors. Run TestDataSeeder first.');
+        $intakes = AnimalIntake::with('facility.inspectors')
+            ->where('status', AnimalIntake::STATUS_APPROVED)
+            ->get()
+            ->filter(fn (AnimalIntake $i) => ! $i->isHealthCertificateExpired() && $i->remainingAnimalsAvailable() > 0);
+
+        if ($intakes->isEmpty()) {
+            $this->command?->warn('No approved animal intakes with valid health cert. Run AnimalIntakeSeeder first.');
             return;
         }
 
-        foreach ($facilities->take(3) as $facility) {
-            $inspector = $facility->inspectors->first();
+        $slaughterDate = now()->addDays(5)->format('Y-m-d');
+        foreach ($intakes->take(4) as $intake) {
+            $inspector = $intake->facility->inspectors->first();
             if (! $inspector) {
                 continue;
             }
-            $slaughterDate = now()->addDays(7)->format('Y-m-d');
+            $num = min($intake->remainingAnimalsAvailable(), rand(5, 15));
+            if ($num < 1) {
+                continue;
+            }
             SlaughterPlan::firstOrCreate(
                 [
-                    'facility_id' => $facility->id,
+                    'facility_id' => $intake->facility_id,
+                    'animal_intake_id' => $intake->id,
                     'slaughter_date' => $slaughterDate,
                 ],
                 [
                     'inspector_id' => $inspector->id,
-                    'species' => SlaughterPlan::SPECIES_CATTLE,
-                    'number_of_animals_scheduled' => 15,
+                    'species' => $intake->species,
+                    'number_of_animals_scheduled' => $num,
                     'status' => SlaughterPlan::STATUS_APPROVED,
                 ]
             );
         }
 
-        $this->command?->info('Slaughter plans seeded.');
+        $this->command?->info('Slaughter plans seeded (linked to Rwanda animal intakes).');
     }
 }

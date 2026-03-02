@@ -15,10 +15,9 @@ class TestDataSeeder extends Seeder
 {
     /**
      * Seed test data for development: users, businesses, facilities, inspectors.
-     * Run after AdministrativeDivisionSeeder (e.g. php artisan db:seed).
+     * All data is Rwanda-related. Run after AdministrativeDivisionSeeder.
      *
-     * Test login: test@example.com / password
-     * Or: tester@dayare.me / password
+     * Test login: test@example.com / password  or  tester@dayare.me / password
      */
     public function run(): void
     {
@@ -28,32 +27,35 @@ class TestDataSeeder extends Seeder
             return;
         }
 
-        $provinces = AdministrativeDivision::byParent($country->id)->get();
-        $district = null;
-        $sector = null;
-        if ($provinces->isNotEmpty()) {
-            $district = AdministrativeDivision::byParent($provinces->first()->id)->first();
-            if ($district) {
-                $sector = AdministrativeDivision::byParent($district->id)->first();
-            }
-        }
+        $provinces = AdministrativeDivision::byParent($country->id)->orderBy('name')->get();
+        $provinceKigali = $provinces->firstWhere('name', 'City of Kigali') ?? $provinces->first();
+        $provinceEast = $provinces->firstWhere('name', 'Eastern Province') ?? $provinces->get(1) ?? $provinces->first();
+        $provinceNorth = $provinces->firstWhere('name', 'Northern Province') ?? $provinces->first();
+
+        $districtKigali = $provinceKigali ? AdministrativeDivision::byParent($provinceKigali->id)->orderBy('name')->first() : null;
+        $districtEast = $provinceEast ? AdministrativeDivision::byParent($provinceEast->id)->orderBy('name')->first() : null;
+        $districtNorth = $provinceNorth ? AdministrativeDivision::byParent($provinceNorth->id)->orderBy('name')->first() : null;
+
+        $sectorKigali = $districtKigali ? AdministrativeDivision::byParent($districtKigali->id)->orderBy('name')->first() : null;
+        $sectorEast = $districtEast ? AdministrativeDivision::byParent($districtEast->id)->orderBy('name')->first() : null;
+        $sectorNorth = $districtNorth ? AdministrativeDivision::byParent($districtNorth->id)->orderBy('name')->first() : null;
+
+        $cellKigali = $sectorKigali ? AdministrativeDivision::byParent($sectorKigali->id)->orderBy('name')->first() : null;
+        $villageKigali = $cellKigali ? AdministrativeDivision::byParent($cellKigali->id)->orderBy('name')->first() : null;
 
         $password = Hash::make('password');
 
-        // --- Test users ---
         $user1 = User::firstOrCreate(
             ['email' => 'test@example.com'],
             ['name' => 'Test User', 'password' => $password, 'email_verified_at' => now()]
         );
-
         $user2 = User::firstOrCreate(
             ['email' => 'tester@dayare.me'],
             ['name' => 'Tester One', 'password' => $password, 'email_verified_at' => now()]
         );
+        $this->command?->info('Test users: test@example.com / tester@dayare.me — password: password');
 
-        $this->command?->info('Test users ready (test@example.com / tester@dayare.me — password: password).');
-
-        // --- Businesses for user1 ---
+        // --- Dayare Meat Co. (Kigali) ---
         $b1 = $this->createBusiness($user1, [
             'business_name' => 'Dayare Meat Co.',
             'registration_number' => 'REG-TEST-001',
@@ -68,13 +70,15 @@ class TestDataSeeder extends Seeder
             'owner_email' => 'jean@dayaremeat.test',
             'ownership_type' => 'sole_proprietor',
             'country_id' => $country->id,
-            'province_id' => $provinces->first()?->id,
-            'district_id' => $district?->id,
-            'sector_id' => $sector?->id,
+            'province_id' => $provinceKigali?->id,
+            'district_id' => $districtKigali?->id,
+            'sector_id' => $sectorKigali?->id,
         ]);
-        $this->createFacility($b1, 'Kigali Slaughterhouse', Facility::TYPE_SLAUGHTERHOUSE, 'Kicukiro', 'Gikondo');
-        $this->createFacility($b1, 'Downtown Butchery', Facility::TYPE_BUTCHERY, 'Gasabo', 'Remera');
+        $this->createFacility($b1, 'Kigali Slaughterhouse', Facility::TYPE_SLAUGHTERHOUSE, $provinceKigali, $districtKigali, $sectorKigali, $cellKigali, $villageKigali);
+        $this->createFacility($b1, 'Downtown Butchery Kigali', Facility::TYPE_BUTCHERY, $provinceKigali, $districtKigali, $sectorKigali, null, null);
+        $storageFacility = $this->createFacility($b1, 'Kigali Cold Storage', Facility::TYPE_STORAGE, $provinceKigali, $districtKigali, $sectorKigali, null, null, 500);
 
+        // --- Rwanda Fresh Meats Ltd (Eastern Province) ---
         $b2 = $this->createBusiness($user1, [
             'business_name' => 'Rwanda Fresh Meats Ltd',
             'registration_number' => 'REG-TEST-002',
@@ -89,17 +93,17 @@ class TestDataSeeder extends Seeder
             'owner_email' => 'marie@rwandafresh.test',
             'ownership_type' => 'company',
             'country_id' => $country->id,
-            'province_id' => $provinces->first()?->id,
-            'district_id' => $district?->id,
-            'sector_id' => $sector?->id,
+            'province_id' => $provinceEast?->id,
+            'district_id' => $districtEast?->id,
+            'sector_id' => $sectorEast?->id,
         ]);
         $this->createOwnershipMember($b2, 'Patrick', 'Habimana', '1988-11-10');
         $this->createOwnershipMember($b2, 'Grace', 'Mukiza', '1992-07-05');
-        $f2 = $this->createFacility($b2, 'Eastern Slaughterhouse', Facility::TYPE_SLAUGHTERHOUSE, 'Nyagatare', 'Gatunda');
-        $this->createInspector($f2, 'Inspector', 'One');
-        $this->createInspector($f2, 'Inspector', 'Two');
+        $f2 = $this->createFacility($b2, 'Nyagatare Slaughterhouse', Facility::TYPE_SLAUGHTERHOUSE, $provinceEast, $districtEast, $sectorEast, null, null);
+        $this->createInspector($f2, 'Eric', 'Nkusi');
+        $this->createInspector($f2, 'Claudine', 'Uwineza');
 
-        // --- Business for user2 ---
+        // --- Hilltop Butchery (Northern Province, user2) ---
         $b3 = $this->createBusiness($user2, [
             'business_name' => 'Hilltop Butchery',
             'registration_number' => 'REG-TEST-003',
@@ -111,26 +115,21 @@ class TestDataSeeder extends Seeder
             'owner_dob' => '1982-09-12',
             'ownership_type' => 'sole_proprietor',
             'country_id' => $country->id,
-            'province_id' => $provinces->first()?->id,
-            'district_id' => $district?->id,
+            'province_id' => $provinceNorth?->id,
+            'district_id' => $districtNorth?->id,
+            'sector_id' => $sectorNorth?->id,
         ]);
-        $f3 = $this->createFacility($b3, 'Hilltop Main', Facility::TYPE_BUTCHERY, 'Musanze', 'Muhoza');
+        $f3 = $this->createFacility($b3, 'Musanze Butchery', Facility::TYPE_BUTCHERY, $provinceNorth, $districtNorth, $sectorNorth, null, null);
         $this->createInspector($f3, 'Jean Pierre', 'Ndayisaba');
 
-        $this->command?->info('Test data seeded: businesses, facilities, inspectors.');
+        $this->command?->info('Test data seeded: businesses, facilities (including cold storage), inspectors — Rwanda.');
     }
 
     private function createBusiness(User $user, array $attrs): Business
     {
-        $defaults = [
-            'user_id' => $user->id,
-            'status' => Business::STATUS_ACTIVE,
-        ];
+        $defaults = ['user_id' => $user->id, 'status' => Business::STATUS_ACTIVE];
         return Business::firstOrCreate(
-            [
-                'user_id' => $user->id,
-                'registration_number' => $attrs['registration_number'],
-            ],
+            ['user_id' => $user->id, 'registration_number' => $attrs['registration_number']],
             array_merge($defaults, $attrs)
         );
     }
@@ -139,33 +138,41 @@ class TestDataSeeder extends Seeder
     {
         $sort = $business->ownershipMembers()->count();
         BusinessOwnershipMember::firstOrCreate(
-            [
-                'business_id' => $business->id,
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-            ],
-            [
-                'date_of_birth' => $dob,
-                'sort_order' => $sort,
-            ]
+            ['business_id' => $business->id, 'first_name' => $firstName, 'last_name' => $lastName],
+            ['date_of_birth' => $dob, 'sort_order' => $sort]
         );
     }
 
-    private function createFacility(Business $business, string $name, string $type, string $district, string $sector): Facility
-    {
+    private function createFacility(
+        Business $business,
+        string $name,
+        string $type,
+        ?AdministrativeDivision $province,
+        ?AdministrativeDivision $district,
+        ?AdministrativeDivision $sector = null,
+        ?AdministrativeDivision $cell = null,
+        ?AdministrativeDivision $village = null,
+        ?int $dailyCapacity = null
+    ): Facility {
+        $districtName = $district?->name ?? '';
+        $sectorName = $sector?->name ?? '';
+        $capacity = $dailyCapacity ?? ($type === Facility::TYPE_SLAUGHTERHOUSE ? 50 : ($type === Facility::TYPE_STORAGE ? 200 : 200));
         return Facility::firstOrCreate(
-            [
-                'business_id' => $business->id,
-                'facility_name' => $name,
-            ],
+            ['business_id' => $business->id, 'facility_name' => $name],
             [
                 'facility_type' => $type,
-                'district' => $district,
-                'sector' => $sector,
-                'license_number' => 'LIC-' . strtoupper(substr(uniqid(), -6)),
+                'district' => $districtName,
+                'sector' => $sectorName,
+                'country_id' => $province?->parent_id ? AdministrativeDivision::find($province->parent_id)?->id : null,
+                'province_id' => $province?->id,
+                'district_id' => $district?->id,
+                'sector_id' => $sector?->id,
+                'cell_id' => $cell?->id,
+                'village_id' => $village?->id,
+                'license_number' => 'LIC-RW-' . strtoupper(substr(uniqid(), -6)),
                 'license_issue_date' => now()->subMonths(6),
                 'license_expiry_date' => now()->addYear(),
-                'daily_capacity' => $type === Facility::TYPE_SLAUGHTERHOUSE ? 50 : 200,
+                'daily_capacity' => $capacity,
                 'status' => Facility::STATUS_ACTIVE,
             ]
         );
@@ -173,23 +180,22 @@ class TestDataSeeder extends Seeder
 
     private function createInspector(Facility $facility, string $firstName, string $lastName): Inspector
     {
-        $nationalId = 'TEST-NI-' . $facility->id . '-' . substr(md5($firstName . $lastName), 0, 6);
+        $nationalId = 'NI-RW-' . $facility->id . '-' . substr(md5($firstName . $lastName), 0, 6);
+        $districtName = $facility->district ?: $facility->districtDivision?->name ?? 'Kigali';
+        $sectorName = $facility->sector ?: $facility->sectorDivision?->name ?? '';
         return Inspector::firstOrCreate(
-            [
-                'facility_id' => $facility->id,
-                'national_id' => $nationalId,
-            ],
+            ['facility_id' => $facility->id, 'national_id' => $nationalId],
             [
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'phone_number' => '+250788' . random_int(100000, 999999),
-                'email' => strtolower($firstName . '.' . $lastName) . '@inspector.test',
+                'email' => strtolower(str_replace(' ', '.', $firstName . '.' . $lastName)) . '@inspector.rw',
                 'dob' => now()->subYears(30)->format('Y-m-d'),
                 'nationality' => 'Rwandan',
                 'country' => 'Rwanda',
-                'district' => $facility->district,
-                'sector' => $facility->sector,
-                'authorization_number' => 'AUTH-' . strtoupper(substr(uniqid(), -6)),
+                'district' => $districtName,
+                'sector' => $sectorName,
+                'authorization_number' => 'AUTH-RW-' . strtoupper(substr(uniqid(), -6)),
                 'authorization_issue_date' => now()->subMonths(12),
                 'authorization_expiry_date' => now()->addYear(),
                 'species_allowed' => 'Cattle, Goat, Sheep',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreSlaughterPlanRequest;
 use App\Http\Requests\UpdateSlaughterPlanRequest;
+use App\Models\AnimalIntake;
 use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\SlaughterPlan;
@@ -66,9 +67,22 @@ class SlaughterPlanController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
+        $eligibleIntakes = AnimalIntake::whereIn('facility_id', $facilityIds)
+            ->where('status', AnimalIntake::STATUS_APPROVED)
+            ->with('facility')
+            ->latest('intake_date')
+            ->get()
+            ->filter(fn (AnimalIntake $i) => ! $i->isHealthCertificateExpired() && $i->remainingAnimalsAvailable() > 0)
+            ->map(fn (AnimalIntake $i) => [
+                'id' => $i->id,
+                'facility_id' => $i->facility_id,
+                'label' => $i->intake_date->format('d M Y') . ' — ' . $i->supplier_firstname . ' ' . $i->supplier_lastname . ' · ' . $i->species . ' · ' . $i->remainingAnimalsAvailable() . ' ' . __('available'),
+            ]);
+
         return view('slaughter-plans.create', [
             'facilities' => $facilities,
             'inspectorsByFacility' => $inspectorsByFacility,
+            'eligibleIntakes' => $eligibleIntakes,
         ]);
     }
 
@@ -85,7 +99,7 @@ class SlaughterPlanController extends Controller
     public function show(Request $request, SlaughterPlan $slaughterPlan): View|RedirectResponse
     {
         $this->authorizePlan($request, $slaughterPlan);
-        $slaughterPlan->load(['facility.business', 'inspector', 'anteMortemInspections', 'slaughterExecutions']);
+        $slaughterPlan->load(['facility.business', 'inspector', 'animalIntake', 'anteMortemInspections', 'slaughterExecutions']);
 
         return view('slaughter-plans.show', ['plan' => $slaughterPlan]);
     }
@@ -107,10 +121,23 @@ class SlaughterPlanController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
+        $eligibleIntakes = AnimalIntake::whereIn('facility_id', $facilityIds)
+            ->where('status', AnimalIntake::STATUS_APPROVED)
+            ->with('facility')
+            ->latest('intake_date')
+            ->get()
+            ->filter(fn (AnimalIntake $i) => ! $i->isHealthCertificateExpired() && ($i->remainingAnimalsAvailable() > 0 || ($slaughterPlan->animal_intake_id == $i->id)))
+            ->map(fn (AnimalIntake $i) => [
+                'id' => $i->id,
+                'facility_id' => $i->facility_id,
+                'label' => $i->intake_date->format('d M Y') . ' — ' . $i->supplier_firstname . ' ' . $i->supplier_lastname . ' · ' . $i->species . ' · ' . $i->remainingAnimalsAvailable() . ' ' . __('available'),
+            ]);
+
         return view('slaughter-plans.edit', [
             'plan' => $slaughterPlan,
             'facilities' => $facilities,
             'inspectorsByFacility' => $inspectorsByFacility,
+            'eligibleIntakes' => $eligibleIntakes,
         ]);
     }
 

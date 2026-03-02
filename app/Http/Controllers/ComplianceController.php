@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AnimalIntake;
 use App\Models\Batch;
 use App\Models\Certificate;
 use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\SlaughterPlan;
+use App\Models\TemperatureLog;
 use App\Models\TransportTrip;
+use App\Models\WarehouseStorage;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -94,6 +97,31 @@ class ComplianceController extends Controller
             ->latest('issued_at')
             ->get();
 
+        // Warehouse: temperature alerts (warning/critical)
+        $userWarehouseStorageIds = WarehouseStorage::whereIn('certificate_id', $userCertificateIds)->pluck('id');
+        $temperatureAlerts = TemperatureLog::with('warehouseStorage.batch')
+            ->whereIn('warehouse_storage_id', $userWarehouseStorageIds)
+            ->whereIn('status', [TemperatureLog::STATUS_WARNING, TemperatureLog::STATUS_CRITICAL])
+            ->latest('recorded_at')
+            ->get();
+
+        // Warehouse: storage duration exceeded (e.g. > 30 days in storage)
+        $maxStorageDays = (int) config('warehouse.max_storage_days', 30);
+        $storageDurationExceeded = WarehouseStorage::with(['warehouseFacility', 'batch'])
+            ->whereIn('certificate_id', $userCertificateIds)
+            ->where('status', WarehouseStorage::STATUS_IN_STORAGE)
+            ->get()
+            ->filter(fn (WarehouseStorage $ws) => $ws->entry_date->diffInDays(Carbon::today()) > $maxStorageDays)
+            ->values();
+
+        // Animal intakes with expired health certificate (block slaughter)
+        $intakesWithExpiredHealthCert = AnimalIntake::with('facility')
+            ->whereIn('facility_id', $facilityIds)
+            ->where('status', AnimalIntake::STATUS_APPROVED)
+            ->get()
+            ->filter(fn (AnimalIntake $i) => $i->isHealthCertificateExpired())
+            ->values();
+
         $kpis = [
             'expired_licenses' => $expiredFacilityLicenses->count(),
             'expired_authorizations' => $expiredInspectorAuthorizations->count(),
@@ -102,10 +130,15 @@ class ComplianceController extends Controller
             'missing_post_mortem' => $missingPostMortemBatches->count(),
             'missing_certificates' => $missingCertificateBatches->count(),
             'missing_transport' => $missingTransportCertificates->count(),
+            'temperature_alerts' => $temperatureAlerts->count(),
+            'storage_duration_exceeded' => $storageDurationExceeded->count(),
+            'intakes_expired_health_cert' => $intakesWithExpiredHealthCert->count(),
             'total_issues' => $expiredFacilityLicenses->count() + $expiredInspectorAuthorizations->count()
                 + $overCapacityPlans->count() + $missingAnteMortemPlans->count()
                 + $missingPostMortemBatches->count() + $missingCertificateBatches->count()
-                + $missingTransportCertificates->count(),
+                + $missingTransportCertificates->count()
+                + $temperatureAlerts->count() + $storageDurationExceeded->count()
+                + $intakesWithExpiredHealthCert->count(),
         ];
 
         return view('compliance.index', [
@@ -116,6 +149,9 @@ class ComplianceController extends Controller
             'missingPostMortemBatches' => $missingPostMortemBatches,
             'missingCertificateBatches' => $missingCertificateBatches,
             'missingTransportCertificates' => $missingTransportCertificates,
+            'temperatureAlerts' => $temperatureAlerts,
+            'storageDurationExceeded' => $storageDurationExceeded,
+            'intakesWithExpiredHealthCert' => $intakesWithExpiredHealthCert,
             'kpis' => $kpis,
         ]);
     }

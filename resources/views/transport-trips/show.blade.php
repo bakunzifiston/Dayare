@@ -38,6 +38,14 @@
                             </dd>
                         </div>
                     @endif
+                    @if ($trip->warehouseStorage)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">{{ __('Warehouse storage') }}</dt>
+                            <dd class="mt-1 text-sm text-gray-900">
+                                <a href="{{ route('warehouse-storages.show', $trip->warehouseStorage) }}" class="text-indigo-600 hover:underline">{{ $trip->warehouseStorage->batch->batch_code ?? '#' . $trip->warehouse_storage_id }}</a> ({{ __('released') }})
+                            </dd>
+                        </div>
+                    @endif
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Vehicle plate number') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ $trip->vehicle_plate_number }}</dd>

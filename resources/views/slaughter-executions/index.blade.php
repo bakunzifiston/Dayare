@@ -45,7 +45,10 @@
                                         {{ ucfirst(str_replace('_', ' ', $execution->status)) }}
                                     </p>
                                 </div>
-                                <a href="{{ route('slaughter-executions.edit', $execution) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('Edit') }}</a>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('slaughter-executions.show', $execution) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('slaughter-executions.edit', $execution) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
+                                </div>
                             </li>
                         @endforeach
                     </ul>
