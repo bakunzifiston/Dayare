@@ -23,18 +23,12 @@
             {{ __('Your session expired or the page was open too long. For your security, please refresh the page and try again.') }}
         </p>
         <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-            <a href="{{ url()->current() }}" class="inline-flex items-center justify-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ $refreshUrl ?? url('/') }}" class="inline-flex items-center justify-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
                 {{ __('Refresh page') }}
             </a>
-            @auth
-                <a href="{{ route('dashboard') }}" class="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">
-                    {{ __('Dashboard') }}
-                </a>
-            @else
-                <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">
-                    {{ __('Log in') }}
-                </a>
-            @endauth
+            <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">
+                {{ __('Log in') }}
+            </a>
         </div>
     </div>
 </body>

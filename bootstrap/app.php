@@ -20,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson()) {
                 return response()->json(['message' => __('Page expired. Please refresh and try again.')], 419);
             }
-            return response()->view('errors.419', [], 419);
+            $refreshUrl = $request->headers->get('referer');
+            if (!$refreshUrl || !\Illuminate\Support\Str::startsWith($refreshUrl, [config('app.url'), $request->getSchemeAndHttpHost()])) {
+                $refreshUrl = url('/');
+            }
+            return response()->view('errors.419', ['refreshUrl' => $refreshUrl], 419);
         });
     })->create();
