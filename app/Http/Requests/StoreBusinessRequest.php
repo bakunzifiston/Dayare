@@ -34,11 +34,12 @@ class StoreBusinessRequest extends FormRequest
             'owner_email' => ['nullable', 'email', 'max:255'],
             'ownership_type' => ['nullable', 'string', 'max:100', Rule::in(Business::OWNERSHIP_TYPES)],
             'members' => ['nullable', 'array'],
-            'members.*.first_name' => ['required_with:members.*', 'string', 'max:255'],
-            'members.*.last_name' => ['required_with:members.*', 'string', 'max:255'],
+            // Members are optional; when provided, we validate but do not force them if left blank.
+            'members.*.first_name' => ['nullable', 'string', 'max:255'],
+            'members.*.last_name' => ['nullable', 'string', 'max:255'],
             'members.*.date_of_birth' => ['nullable', 'date', 'before:today'],
-            // Location info
-            'country_id' => ['required', 'exists:administrative_divisions,id'],
+            // Location info (optional – allow registering without full location)
+            'country_id' => ['nullable', 'exists:administrative_divisions,id'],
             'province_id' => ['nullable', 'exists:administrative_divisions,id'],
             'district_id' => ['nullable', 'exists:administrative_divisions,id'],
             'sector_id' => ['nullable', 'exists:administrative_divisions,id'],

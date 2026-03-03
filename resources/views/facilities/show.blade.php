@@ -8,6 +8,13 @@
                 <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                     {{ __('Edit') }}
                 </a>
+                <form method="POST" action="{{ route('businesses.facilities.destroy', [$business, $facility]) }}" onsubmit="return confirm('{{ __('Are you sure you want to delete this facility? This cannot be undone.') }}');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700">
+                        {{ __('Delete') }}
+                    </button>
+                </form>
                 <a href="{{ route('businesses.facilities.index', $business) }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
                     {{ __('Back to Facilities') }}
                 </a>

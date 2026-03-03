@@ -161,7 +161,7 @@
                             @foreach ($missingTransportCertificates as $c)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
                                     <a href="{{ route('certificates.show', $c) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $c->certificate_number ?: '#' . $c->id }}</a>
-                                    <span class="text-slate-500 text-sm"> · {{ $c->batch ? $c->batch->batch_code : ($c->facility->facility_name ?? '') }}</span>
+                                    <span class="text-slate-500 text-sm"> · {{ $c->batch ? $c->batch->batch_code : ($c->facility?->facility_name ?? '') }}</span>
                                 </li>
                             @endforeach
                         </ul>

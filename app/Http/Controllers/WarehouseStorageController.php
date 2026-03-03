@@ -79,7 +79,7 @@ class WarehouseStorageController extends Controller
             ->get()
             ->map(fn (Certificate $c) => [
                 'id' => $c->id,
-                'label' => ($c->certificate_number ?: '#' . $c->id) . ' — ' . $c->batch->batch_code . ' (' . $c->batch->quantity . ' ' . __('carcasses') . ')',
+                'label' => ($c->certificate_number ?: '#' . $c->id) . ' — ' . ($c->batch?->batch_code ?? '—') . ' (' . ($c->batch?->quantity ?? 0) . ' ' . __('carcasses') . ')',
                 'batch_id' => $c->batch_id,
             ]);
 

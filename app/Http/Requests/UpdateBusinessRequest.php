@@ -37,11 +37,11 @@ class UpdateBusinessRequest extends FormRequest
             'owner_email' => ['nullable', 'email', 'max:255'],
             'ownership_type' => ['nullable', 'string', 'max:100', Rule::in(Business::OWNERSHIP_TYPES)],
             'members' => ['nullable', 'array'],
-            'members.*.first_name' => ['required_with:members.*', 'string', 'max:255'],
-            'members.*.last_name' => ['required_with:members.*', 'string', 'max:255'],
+            'members.*.first_name' => ['nullable', 'string', 'max:255'],
+            'members.*.last_name' => ['nullable', 'string', 'max:255'],
             'members.*.date_of_birth' => ['nullable', 'date', 'before:today'],
-            // Location info
-            'country_id' => ['required', 'exists:administrative_divisions,id'],
+            // Location info (optional – allow editing without forcing location)
+            'country_id' => ['nullable', 'exists:administrative_divisions,id'],
             'province_id' => ['nullable', 'exists:administrative_divisions,id'],
             'district_id' => ['nullable', 'exists:administrative_divisions,id'],
             'sector_id' => ['nullable', 'exists:administrative_divisions,id'],
