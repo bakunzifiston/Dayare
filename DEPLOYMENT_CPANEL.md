@@ -82,18 +82,33 @@ If you don’t use SSH, run these via cPanel **Terminal** or a **Setup / Deploym
 
 ---
 
-## 6. Sessions and HTTPS / HTTP
+## 6. Sessions when your domain is HTTPS (secured)
 
-**If the site is HTTP** (e.g. `http://dayare.sandbox.rw`):
+**If the site is HTTPS** (e.g. `https://dayare.sandbox.rw` – “domain is now secured”):
+
+1. In `.env` on the server set **exactly**:
+   ```env
+   APP_URL=https://dayare.sandbox.rw
+   ```
+   (Use `https://` and your real domain. No trailing slash.)
+
+2. The app will set the session cookie as **Secure** when `APP_URL` starts with `https://`, so the browser sends it on HTTPS. You do **not** need to set `SESSION_SECURE_COOKIE` in `.env` (the app does it from `APP_URL`).
+
+3. Run on the server:
+   ```bash
+   php artisan config:clear
+   ```
+
+4. In the browser: clear cookies for `dayare.sandbox.rw` (or use a private window), then open `https://dayare.sandbox.rw`, log in, and in the **same tab** click **Businesses** → **View** or **Facilities** or **Edit**. The session should persist.
+
+**If the site is still HTTP** (e.g. `http://dayare.sandbox.rw`):
 
 - Set `APP_URL=http://dayare.sandbox.rw` (use `http://`, not `https://`).
 - Do **not** set `SESSION_SECURE_COOKIE=true` (leave it unset or set to `false`).  
   Otherwise the session cookie is marked “Secure” and the browser will not send it over HTTP, so you get sent to the login page when you click View / Facilities / Edit.
 - The app will set the session cookie so it works over HTTP when `APP_URL` starts with `http://`.
 
-**If the site is HTTPS**:
-
-- Set `APP_URL=https://dayare.sandbox.rw` and `SESSION_SECURE_COOKIE=true`.
+*(HTTPS is covered above; the app sets the Secure cookie from APP_URL.)*
 
 **If you keep getting sent to the login page** when clicking View / Facilities / Edit:
 
@@ -130,7 +145,7 @@ Upload the built files (e.g. `public/build/`) to the server. Do **not** run `npm
 | vendor/ | Present (`composer install`) |
 | Migrations | Run (`php artisan migrate --force`) |
 | Config cache | Cleared (`php artisan config:clear`) |
-| HTTPS | `SESSION_SECURE_COOKIE=true` if using HTTPS |
+| HTTPS | Set `APP_URL=https://...`; app sets Secure cookie automatically |
 
 After changes to `.env`, always run:
 
@@ -154,8 +169,4 @@ php artisan config:clear
    Right‑click **View** on a business → “Copy link address”. The link must start with your real domain (e.g. `https://dayare.sandbox.rw/...`). If it starts with `http://localhost`, APP_URL is not set or not applied (wrong .env or config cache).
 
 3. **If you are sent to the login page with a message**  
-   If you now see the **login page** with a message like “Your session may have expired. Please log in again.” instead of 404, the app is working but the session was not valid (e.g. cookie not sent). **Log in again**; the new session cookie should then work. If the site is **HTTPS**, set in `.env`:
-   ```env
-   SESSION_SECURE_COOKIE=true
-   ```
-   and run `php artisan config:clear`.
+   If you now see the **login page** with a message like “Your session may have expired. Please log in again.” instead of 404, the app is working but the session was not valid (e.g. cookie not sent). **Log in again**; the new session cookie should then work. If the site is **HTTPS**, ensure `APP_URL=https://dayare.sandbox.rw` in `.env` (the app sets the Secure cookie from APP_URL). Then run `php artisan config:clear`, clear site cookies, and log in again.

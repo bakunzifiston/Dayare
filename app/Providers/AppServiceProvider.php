@@ -21,10 +21,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Session cookie: if site is HTTP, do not use Secure cookie so the browser sends it.
+        // Session cookie: must match your site (HTTP vs HTTPS) so the browser sends it.
         $appUrl = config('app.url');
-        if ($appUrl && str_starts_with($appUrl, 'http://')) {
-            config(['session.secure' => false]);
+        if ($appUrl) {
+            if (str_starts_with($appUrl, 'https://')) {
+                config(['session.secure' => true]);  // HTTPS: cookie must be Secure so browser sends it
+            } else {
+                config(['session.secure' => false]); // HTTP: do not use Secure or browser won't send cookie
+            }
         }
 
         // Use correct domain for links (View, Facilities, Edit) so they work on cPanel/production.
