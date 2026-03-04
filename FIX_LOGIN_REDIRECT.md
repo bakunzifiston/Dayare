@@ -2,6 +2,8 @@
 
 Do these **3 steps** on your cPanel server. No need to understand why — just follow them.
 
+**If you cannot log in at all** (correct password but still sent back to login): In `.env` remove the line `SESSION_DRIVER=cookie` or set `SESSION_DRIVER=database`, then run `php artisan config:clear` and try again.
+
 ---
 
 ## Step 1: Edit `.env` on the server
@@ -46,9 +48,11 @@ It should work. If you open the link in a new tab, try again in the same tab.
 
 ---
 
-## If it still sends you to login
+## If it still sends you to login (after you can log in)
 
-1. In `.env` on the server, add this line (or change it if it already exists):
+Only try this if you **can** log in but then get sent to login when you click View/Facilities. If you **cannot log in at all**, do **not** use cookie driver — keep `SESSION_DRIVER=database` or remove that line.
+
+1. In `.env` on the server, add (or change to):
 
 ```env
 SESSION_DRIVER=cookie

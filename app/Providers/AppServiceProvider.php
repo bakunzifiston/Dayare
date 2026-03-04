@@ -35,8 +35,6 @@ class AppServiceProvider extends ServiceProvider
                 && !str_ends_with((string) $appHost, '.local') && !str_ends_with((string) $appHost, '.test');
             if ($isProductionHost && $appHost !== null) {
                 config(['session.domain' => $appHost]);
-                // Use cookie driver on production so session persists without file/DB (fixes "redirect to login" on cPanel).
-                config(['session.driver' => 'cookie']);
             }
         }
 
