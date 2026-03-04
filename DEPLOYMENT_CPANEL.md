@@ -2,6 +2,8 @@
 
 If the app works on **localhost** but not on **cPanel**, check the following.
 
+**→ If you are only trying to fix “redirected to login” when you click View / Facilities / Edit:** use the short guide **[FIX_LOGIN_REDIRECT.md](FIX_LOGIN_REDIRECT.md)** (3 steps).
+
 ---
 
 ## Why you get redirected to login (View / Facilities / Edit)
