@@ -82,14 +82,24 @@ If you don’t use SSH, run these via cPanel **Terminal** or a **Setup / Deploym
 
 ---
 
-## 6. Sessions and HTTPS
+## 6. Sessions and HTTPS / HTTP
 
-If the site is **HTTPS**:
+**If the site is HTTP** (e.g. `http://dayare.sandbox.rw`):
 
-- In `.env` set:
-  - `APP_URL=https://dayare.sandbox.rw`
-  - `SESSION_SECURE_COOKIE=true`  
-  so the session cookie is sent and login works.
+- Set `APP_URL=http://dayare.sandbox.rw` (use `http://`, not `https://`).
+- Do **not** set `SESSION_SECURE_COOKIE=true` (leave it unset or set to `false`).  
+  Otherwise the session cookie is marked “Secure” and the browser will not send it over HTTP, so you get sent to the login page when you click View / Facilities / Edit.
+- The app will set the session cookie so it works over HTTP when `APP_URL` starts with `http://`.
+
+**If the site is HTTPS**:
+
+- Set `APP_URL=https://dayare.sandbox.rw` and `SESSION_SECURE_COOKIE=true`.
+
+**If you keep getting sent to the login page** when clicking View / Facilities / Edit:
+
+- Confirm `APP_URL` in `.env` matches the URL in the browser (scheme and domain).
+- Try `SESSION_DRIVER=file` instead of `database` (no `sessions` table needed; good for testing). Ensure `storage/framework/sessions` is writable.
+- Clear cookies for the site, log in again, then in the **same tab** click Facilities (do not open in a new tab).
 
 ---
 

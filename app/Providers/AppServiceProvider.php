@@ -21,6 +21,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Session cookie: if site is HTTP, do not use Secure cookie so the browser sends it.
+        $appUrl = config('app.url');
+        if ($appUrl && str_starts_with($appUrl, 'http://')) {
+            config(['session.secure' => false]);
+        }
+
         // Use correct domain for links (View, Facilities, Edit) so they work on cPanel/production.
         $appUrl = config('app.url');
         $appHost = $appUrl ? parse_url($appUrl, PHP_URL_HOST) : null;
