@@ -22,9 +22,21 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Use correct domain for links (View, Facilities, Edit) so they work on cPanel/production.
-        // Prefer request URL when the request is to a real domain (not localhost), so it works even if APP_URL is wrong.
+        $appUrl = config('app.url');
+        $appHost = $appUrl ? parse_url($appUrl, PHP_URL_HOST) : null;
+        $appUrlIsProduction = $appHost && !in_array($appHost, ['localhost', '127.0.0.1'], true)
+            && !str_ends_with((string) $appHost, '.local') && !str_ends_with((string) $appHost, '.test');
+
+        if ($appUrlIsProduction && $appUrl) {
+            // On server: APP_URL is set to real domain (e.g. https://dayare.sandbox.rw) – use it for all links.
+            URL::forceRootUrl(rtrim($appUrl, '/'));
+            if (str_starts_with($appUrl, 'https://')) {
+                URL::forceScheme('https');
+            }
+            return;
+        }
+
         if ($this->app->runningInConsole()) {
-            $appUrl = config('app.url');
             if ($appUrl) {
                 URL::forceRootUrl(rtrim($appUrl, '/'));
             }
@@ -37,7 +49,6 @@ class AppServiceProvider extends ServiceProvider
             || str_ends_with($host, '.local') || str_ends_with($host, '.test');
 
         if (!$isLocal) {
-            // Production-like host: force root URL from the request so links use the same domain.
             $scheme = $request->getScheme();
             $port = $request->getPort();
             $url = $scheme . '://' . $host . (in_array($port, [80, 443, null], true) ? '' : ':' . $port);
@@ -45,11 +56,8 @@ class AppServiceProvider extends ServiceProvider
             if ($scheme === 'https') {
                 URL::forceScheme('https');
             }
-        } else {
-            $appUrl = config('app.url');
-            if ($appUrl) {
-                URL::forceRootUrl(rtrim($appUrl, '/'));
-            }
+        } elseif ($appUrl) {
+            URL::forceRootUrl(rtrim($appUrl, '/'));
         }
     }
 }

@@ -130,8 +130,22 @@ php artisan config:clear
 
 ---
 
-## 9. If you still get 404 on View / Facilities / Edit
+## 9. If you still get 404 or “Page not found” on View / Facilities / Edit
 
-- Confirm **APP_URL** in `.env` on the server is exactly the URL you use (e.g. `https://dayare.sandbox.rw`).
-- Run `php artisan config:clear` on the server.
-- In the browser, right‑click **View** → Copy link. The link should start with your domain, not `localhost`. If it still shows localhost, APP_URL is not applied (wrong .env or cache).
+1. **Set APP_URL on the server**  
+   In `.env` on the server set exactly the URL you use in the browser, for example:
+   ```env
+   APP_URL=https://dayare.sandbox.rw
+   ```
+   Then run: `php artisan config:clear`  
+   The app uses this for all links (View, Facilities, Edit). If APP_URL is wrong or missing, links can point to localhost and you get 404.
+
+2. **Check the link in the browser**  
+   Right‑click **View** on a business → “Copy link address”. The link must start with your real domain (e.g. `https://dayare.sandbox.rw/...`). If it starts with `http://localhost`, APP_URL is not set or not applied (wrong .env or config cache).
+
+3. **If you are sent to the login page with a message**  
+   If you now see the **login page** with a message like “Your session may have expired. Please log in again.” instead of 404, the app is working but the session was not valid (e.g. cookie not sent). **Log in again**; the new session cookie should then work. If the site is **HTTPS**, set in `.env`:
+   ```env
+   SESSION_SECURE_COOKIE=true
+   ```
+   and run `php artisan config:clear`.

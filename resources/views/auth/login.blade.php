@@ -4,6 +4,11 @@
         <p class="text-sm text-gray-500 mt-1 mb-6">{{ __('Enter your credentials to access your account.') }}</p>
 
         <x-auth-session-status class="mb-4" :status="session('status')" />
+        @if (session('error'))
+            <div class="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                {{ session('error') }}
+            </div>
+        @endif
 
         <form method="POST" action="{{ route('login') }}" class="space-y-4">
             @csrf

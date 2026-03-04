@@ -61,7 +61,8 @@ class BusinessController extends Controller
     public function show(Request $request, Business $business): View|RedirectResponse
     {
         if ($business->user_id !== $request->user()->id) {
-            abort(404);
+            return redirect()->route('login')
+                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
         }
 
         $business->load(['facilities', 'ownershipMembers', 'countryDivision', 'provinceDivision', 'districtDivision', 'sectorDivision', 'cellDivision', 'villageDivision']);
@@ -72,7 +73,8 @@ class BusinessController extends Controller
     public function edit(Request $request, Business $business): View|RedirectResponse
     {
         if ($business->user_id !== $request->user()->id) {
-            abort(404);
+            return redirect()->route('login')
+                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
         }
 
         $business->load('ownershipMembers');
@@ -83,7 +85,8 @@ class BusinessController extends Controller
     public function update(UpdateBusinessRequest $request, Business $business): RedirectResponse
     {
         if ($business->user_id !== $request->user()->id) {
-            abort(404);
+            return redirect()->route('login')
+                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
         }
 
         $validated = $request->validated();
@@ -113,7 +116,8 @@ class BusinessController extends Controller
     public function destroy(Request $request, Business $business): RedirectResponse
     {
         if ($business->user_id !== $request->user()->id) {
-            abort(404);
+            return redirect()->route('login')
+                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
         }
 
         $business->delete();
