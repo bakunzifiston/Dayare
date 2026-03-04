@@ -45,11 +45,12 @@ class TestDataSeeder extends Seeder
 
         $password = Hash::make('password');
 
-        $user1 = User::firstOrCreate(
+        // updateOrCreate so password is always reset to "password" when seeders run (test@example.com always works)
+        $user1 = User::updateOrCreate(
             ['email' => 'test@example.com'],
             ['name' => 'Test User', 'password' => $password, 'email_verified_at' => now()]
         );
-        $user2 = User::firstOrCreate(
+        $user2 = User::updateOrCreate(
             ['email' => 'tester@dayare.me'],
             ['name' => 'Tester One', 'password' => $password, 'email_verified_at' => now()]
         );
