@@ -28,40 +28,6 @@ Route::get('/', function () {
 
 Route::get('/trace/{slug}', [\App\Http\Controllers\TraceabilityController::class, 'show'])->name('traceability.show');
 
-// Login not working? Visit this URL on your site to see what to fix (e.g. https://dayare.sandbox.rw/login-check)
-Route::get('/login-check', function () {
-    $secure = request()->secure();
-    $host = request()->getHost();
-    $sessionSecure = config('session.secure');
-    $sessionDomain = config('session.domain');
-    $sessionDriver = config('session.driver');
-    $lines = [
-        '=== Login check ===',
-        'Your request: ' . request()->getScheme() . '://' . $host,
-        'Site is HTTPS: ' . ($secure ? 'yes' : 'no'),
-        '',
-        'Current session config:',
-        'SESSION_DRIVER=' . $sessionDriver,
-        'SESSION_SECURE_COOKIE=' . ($sessionSecure ? 'true' : 'false or unset'),
-        'SESSION_DOMAIN=' . ($sessionDomain ?: '(empty)'),
-        '',
-    ];
-    if ($secure && ! $sessionSecure) {
-        $lines[] = '>>> FIX: Site is HTTPS but session cookie is not Secure — browser may not send it.';
-        $lines[] = '>>> In .env on the server add: SESSION_SECURE_COOKIE=true';
-        $lines[] = '>>> Run: php artisan config:clear';
-        $lines[] = '>>> Clear browser cookies, then try login again.';
-    } elseif (! $secure && $sessionSecure) {
-        $lines[] = '>>> FIX: Site is HTTP but SESSION_SECURE_COOKIE is true — cookie will not be sent.';
-        $lines[] = '>>> In .env set: SESSION_SECURE_COOKIE=false (or remove the line)';
-        $lines[] = '>>> Run: php artisan config:clear';
-    } else {
-        $lines[] = '>>> If login still fails, try in .env: SESSION_DRIVER=cookie';
-        $lines[] = '>>> Run: php artisan config:clear and clear browser cookies.';
-    }
-    return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
-})->name('login.check');
-
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'tenant'])
     ->name('dashboard');

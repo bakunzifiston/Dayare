@@ -28,7 +28,8 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Always go to dashboard after login (intended() can send to a stored URL that then loses session on cPanel)
+        return redirect()->to(route('dashboard', absolute: false));
     }
 
     /**

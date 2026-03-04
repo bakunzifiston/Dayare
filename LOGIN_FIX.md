@@ -1,14 +1,6 @@
 # Login not working on live server
 
-**First:** Open this URL in your browser (use your real domain):
-
-**https://dayare.sandbox.rw/login-check**
-
-That page will tell you exactly what is wrong and what to change in `.env`.
-
----
-
-Then do these steps **on the server** (cPanel / SSH).
+Do these steps **on the server** (cPanel / SSH).
 
 ## 1. Edit `.env` on the server
 
