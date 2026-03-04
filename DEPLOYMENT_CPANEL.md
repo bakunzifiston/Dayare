@@ -191,11 +191,6 @@ php artisan config:clear
 
 ---
 
-## 10. Diagnostics (when session still fails)
+## 10. If session still fails
 
-Temporarily set `APP_DEBUG=true` in `.env` on the server and run `php artisan config:clear`. Then:
-
-- **After login**, open `https://your-domain/session-debug`. You will see JSON with `request.host`, `config.app_url`, `config.session_domain`, `authenticated`, and `session_cookie_received`. If `authenticated` is true here but you are sent to login when clicking View/Facilities, the cookie is not being sent on the next request (try `SESSION_DRIVER=cookie`).
-- **Cookie test:** Open `https://your-domain/cookie-test` twice. The first visit sets a test cookie and redirects; the second should show that the cookie was received. If not, the issue is cookie domain, Secure, or SameSite.
-
-Set `APP_DEBUG=false` again after debugging.
+See **LOGIN_FIX.md** for steps. Set `APP_URL`, `SESSION_SECURE_COOKIE=true` (for HTTPS), and optionally `SESSION_DRIVER=cookie` in `.env`, then run `php artisan config:clear` and clear browser cookies.

@@ -28,41 +28,6 @@ Route::get('/', function () {
 
 Route::get('/trace/{slug}', [\App\Http\Controllers\TraceabilityController::class, 'show'])->name('traceability.show');
 
-// Diagnostics (only when APP_DEBUG=true): find why session is lost after login on production
-if (config('app.debug')) {
-    Route::get('/session-debug', function () {
-        return response()->json([
-            'request' => [
-                'host' => request()->getHost(),
-                'scheme' => request()->getScheme(),
-                'url' => request()->fullUrl(),
-            ],
-            'config' => [
-                'app_url' => config('app.url'),
-                'session_domain' => config('session.domain'),
-                'session_secure' => config('session.secure'),
-                'session_driver' => config('session.driver'),
-                'session_cookie_name' => config('session.cookie'),
-            ],
-            'session_id' => session()->getId(),
-            'authenticated' => auth()->check(),
-            'user_id' => auth()->id(),
-            'session_cookie_received' => request()->hasCookie(config('session.cookie')),
-        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    })->name('session.debug');
-
-    // Cookie test: visit /cookie-test twice. First visit sets cookie and redirects; second shows if cookie was received.
-    Route::get('/cookie-test', function () {
-        if (request()->cookie('_dayare_cookie_test') === null) {
-            return redirect()->to(url('/cookie-test'))->cookie('_dayare_cookie_test', '1', 5);
-        }
-        return response()->json([
-            'cookie_received' => true,
-            'message' => 'Cookie was set and received. If session still fails, use SESSION_DRIVER=cookie or check session domain/secure.',
-        ], 200, [], JSON_PRETTY_PRINT);
-    });
-}
-
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'tenant'])
     ->name('dashboard');
