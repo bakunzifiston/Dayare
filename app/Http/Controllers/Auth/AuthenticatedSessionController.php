@@ -28,7 +28,8 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Use absolute URL (default) so redirect goes to APP_URL domain; avoids cookie set for wrong host behind proxy.
+        return redirect()->intended(route('dashboard'));
     }
 
     /**

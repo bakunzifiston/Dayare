@@ -21,13 +21,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Session cookie: must match your site (HTTP vs HTTPS) so the browser sends it.
+        // Session cookie: must match your site (HTTP vs HTTPS) and correct domain so the browser sends it.
         $appUrl = config('app.url');
         if ($appUrl) {
             if (str_starts_with($appUrl, 'https://')) {
                 config(['session.secure' => true]);  // HTTPS: cookie must be Secure so browser sends it
             } else {
                 config(['session.secure' => false]); // HTTP: do not use Secure or browser won't send cookie
+            }
+            // When behind a proxy, the request Host can be internal; set cookie domain from APP_URL so cookie is for the public domain.
+            $appHost = parse_url($appUrl, PHP_URL_HOST);
+            $isProductionHost = $appHost && !in_array($appHost, ['localhost', '127.0.0.1'], true)
+                && !str_ends_with((string) $appHost, '.local') && !str_ends_with((string) $appHost, '.test');
+            if ($isProductionHost && $appHost !== null) {
+                config(['session.domain' => $appHost]);
             }
         }
 

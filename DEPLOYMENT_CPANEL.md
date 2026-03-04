@@ -4,6 +4,20 @@ If the app works on **localhost** but not on **cPanel**, check the following.
 
 ---
 
+## Why you get redirected to login (View / Facilities / Edit)
+
+**Root cause:** On cPanel the app often runs behind a proxy. The request that PHP sees can have a different **Host** (e.g. internal server name) than the public URL (e.g. `dayare.sandbox.rw`). If the session cookie is set for that internal host, the browser will not send it when you open links to `https://dayare.sandbox.rw/...`, so the next request has no session and you are sent to login.
+
+**Fixes applied in the app:**
+
+1. **Session cookie domain** – When `APP_URL` is set to your production URL (e.g. `https://dayare.sandbox.rw`), the app sets the session cookie domain to that host. The cookie is then valid for your public domain even if the server sees a different Host.
+2. **Redirects use APP_URL** – After login (and similar auth flows), redirects use absolute URLs from `APP_URL`, so you stay on the public domain and the cookie is sent on the next request.
+3. **Force HTTPS** – If `APP_URL` is `https://`, HTTP requests are redirected to HTTPS so the Secure cookie is always used.
+
+**What you must do:** Set `APP_URL=https://dayare.sandbox.rw` in `.env` (no trailing slash), run `php artisan config:clear`, then clear browser cookies and log in again. If it still fails, set `SESSION_DRIVER=cookie` in `.env` and try again (session is then stored in the cookie, no file/DB).
+
+---
+
 ## 1. Document root must point to `public`
 
 Laravel must be served from the **`public`** folder, not the project root.
@@ -171,4 +185,15 @@ php artisan config:clear
    Right‑click **View** on a business → “Copy link address”. The link must start with your real domain (e.g. `https://dayare.sandbox.rw/...`). If it starts with `http://localhost`, APP_URL is not set or not applied (wrong .env or config cache).
 
 3. **If you are sent to the login page with a message**  
-   If you now see the **login page** with a message like “Your session may have expired. Please log in again.” instead of 404, the app is working but the session was not valid (e.g. cookie not sent). **Log in again**; the new session cookie should then work. If the site is **HTTPS**, ensure `APP_URL=https://dayare.sandbox.rw` in `.env` (the app sets the Secure cookie from APP_URL). Then run `php artisan config:clear`, clear site cookies, and log in again.
+   If you now see the **login page** with a message like “Your session may have expired. Please log in again.” instead of 404, the app is working but the session was not valid (e.g. cookie not sent). **Log in again**; the new session cookie should then work. If the site is **HTTPS**, ensure `APP_URL=https://dayare.sandbox.rw` in `.env` (the app sets the Secure cookie from APP_URL). Then run `php artisan config:clear`, clear site cookies, and log in again. If it still happens, set `SESSION_DRIVER=cookie` in `.env`.
+
+---
+
+## 10. Diagnostics (when session still fails)
+
+Temporarily set `APP_DEBUG=true` in `.env` on the server and run `php artisan config:clear`. Then:
+
+- **After login**, open `https://your-domain/session-debug`. You will see JSON with `request.host`, `config.app_url`, `config.session_domain`, `authenticated`, and `session_cookie_received`. If `authenticated` is true here but you are sent to login when clicking View/Facilities, the cookie is not being sent on the next request (try `SESSION_DRIVER=cookie`).
+- **Cookie test:** Open `https://your-domain/cookie-test` twice. The first visit sets a test cookie and redirects; the second should show that the cookie was received. If not, the issue is cookie domain, Secure, or SameSite.
+
+Set `APP_DEBUG=false` again after debugging.
