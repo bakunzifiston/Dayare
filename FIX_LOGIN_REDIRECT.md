@@ -4,15 +4,13 @@ Do these **3 steps** on your cPanel server. No need to understand why — just f
 
 ---
 
-## Can't log in on live at all? (correct password, still see login page)
+## Can't log in? (correct password, still see login page)
 
-The app no longer overrides session or URLs. On your **live server** `.env` set only what you need:
+The app sets the session cookie from the **current request** only (no domain or APP_URL required). It should work on any host.
 
-1. **APP_URL** = the exact address you use in the browser, e.g. `APP_URL=https://dayare.sandbox.rw` (no slash at end).
-2. If your site is **HTTPS**, add: `SESSION_SECURE_COOKIE=true`
-3. **Do not set** `SESSION_DOMAIN` (leave it out, or leave it empty).
-4. Run: `php artisan config:clear`
-5. Clear your browser cookies for the site (or use a private window), then try logging in again.
+1. Run on the server: `php artisan config:clear`
+2. Clear your browser cookies for the site (or use a private window), then try logging in again.
+3. If you use a **proxy** (e.g. cPanel), ensure it forwards the correct scheme (X-Forwarded-Proto for HTTPS). The app trusts proxies so the request is seen as HTTPS when the user uses HTTPS.
 
 ---
 
