@@ -26,4 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
             }
             return response()->view('errors.419', ['refreshUrl' => $refreshUrl], 419);
         });
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => __('Not found.')], 404);
+            }
+            return response()->view('errors.404', [], 404);
+        });
     })->create();
