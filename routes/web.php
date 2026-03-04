@@ -28,6 +28,18 @@ Route::get('/', function () {
 
 Route::get('/trace/{slug}', [\App\Http\Controllers\TraceabilityController::class, 'show'])->name('traceability.show');
 
+// Session debug (only when APP_DEBUG=true): visit /session-debug after login to verify session persists
+if (config('app.debug')) {
+    Route::get('/session-debug', function () {
+        return response()->json([
+            'session_id' => session()->getId(),
+            'authenticated' => auth()->check(),
+            'user_id' => auth()->id(),
+            'cookie_sent' => request()->hasCookie(config('session.cookie')),
+        ]);
+    })->name('session.debug');
+}
+
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'tenant'])
     ->name('dashboard');

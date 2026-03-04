@@ -110,11 +110,13 @@ If you don’t use SSH, run these via cPanel **Terminal** or a **Setup / Deploym
 
 *(HTTPS is covered above; the app sets the Secure cookie from APP_URL.)*
 
-**If you keep getting sent to the login page** when clicking View / Facilities / Edit:
+**If you are still redirected to login** when clicking View / Facilities / Edit, use the **cookie** session driver (session stored in the browser; no file or database needed; often fixes cPanel):
 
-- Confirm `APP_URL` in `.env` matches the URL in the browser (scheme and domain).
-- Try `SESSION_DRIVER=file` instead of `database` (no `sessions` table needed; good for testing). Ensure `storage/framework/sessions` is writable.
-- Clear cookies for the site, log in again, then in the **same tab** click Facilities (do not open in a new tab).
+1. In `.env` add: `SESSION_DRIVER=cookie`
+2. Run: `php artisan config:clear`
+3. Clear browser cookies for the site, log in again, then try View/Facilities in the **same tab**.
+
+You can also try `SESSION_DRIVER=file` and ensure `storage/framework/sessions` is writable.
 
 ---
 

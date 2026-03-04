@@ -12,6 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->prependToGroup('web', \App\Http\Middleware\ForceHttps::class);
         $middleware->alias([
             'tenant' => \App\Http\Middleware\EnsureUserIsTenant::class,
         ]);
