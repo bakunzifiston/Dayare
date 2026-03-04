@@ -58,11 +58,10 @@ class BusinessController extends Controller
             ->with('status', __('Business registered successfully.'));
     }
 
-    public function show(Request $request, Business $business): View|RedirectResponse
+    public function show(Request $request, Business $business): View
     {
         if ($business->user_id !== $request->user()->id) {
-            return redirect()->route('login')
-                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
+            abort(404);
         }
 
         $business->load(['facilities', 'ownershipMembers', 'countryDivision', 'provinceDivision', 'districtDivision', 'sectorDivision', 'cellDivision', 'villageDivision']);
@@ -70,11 +69,10 @@ class BusinessController extends Controller
         return view('businesses.show', compact('business'));
     }
 
-    public function edit(Request $request, Business $business): View|RedirectResponse
+    public function edit(Request $request, Business $business): View
     {
         if ($business->user_id !== $request->user()->id) {
-            return redirect()->route('login')
-                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
+            abort(404);
         }
 
         $business->load('ownershipMembers');
@@ -85,8 +83,7 @@ class BusinessController extends Controller
     public function update(UpdateBusinessRequest $request, Business $business): RedirectResponse
     {
         if ($business->user_id !== $request->user()->id) {
-            return redirect()->route('login')
-                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
+            abort(404);
         }
 
         $validated = $request->validated();
@@ -116,8 +113,7 @@ class BusinessController extends Controller
     public function destroy(Request $request, Business $business): RedirectResponse
     {
         if ($business->user_id !== $request->user()->id) {
-            return redirect()->route('login')
-                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
+            abort(404);
         }
 
         $business->delete();

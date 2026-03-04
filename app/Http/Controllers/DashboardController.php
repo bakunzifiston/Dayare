@@ -24,6 +24,28 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $businessIds = $user->businesses()->pluck('id');
+
+        if ($businessIds->isEmpty()) {
+            $kpis = [
+                'businesses' => 0,
+                'facilities' => 0,
+                'inspectors' => 0,
+                'slaughter_plans' => 0,
+                'slaughter_plans_planned' => 0,
+                'slaughter_plans_approved' => 0,
+                'slaughter_executions' => 0,
+                'executions_completed' => 0,
+                'batches' => 0,
+                'certificates' => 0,
+                'certificates_active' => 0,
+                'transport_trips' => 0,
+                'delivery_confirmations' => 0,
+            ];
+            $charts = $this->buildChartDataEmpty();
+
+            return view('dashboard', ['user' => $user, 'kpis' => $kpis, 'charts' => $charts]);
+        }
+
         $facilityIds = Facility::whereIn('business_id', $businessIds)->pluck('id');
 
         $plans = SlaughterPlan::whereIn('facility_id', $facilityIds);
@@ -60,6 +82,26 @@ class DashboardController extends Controller
             'kpis' => $kpis,
             'charts' => $charts,
         ]);
+    }
+
+    /**
+     * Empty chart structure (no data).
+     */
+    private function buildChartDataEmpty(): array
+    {
+        $months = collect();
+        $now = Carbon::now();
+        for ($i = 5; $i >= 0; $i--) {
+            $months->push($now->copy()->subMonths($i));
+        }
+        $labels = $months->map(fn ($d) => $d->locale(app()->getLocale())->translatedFormat('M Y'))->values()->all();
+        $zeros = array_fill(0, count($labels), 0);
+
+        return [
+            'slaughter_plans' => ['labels' => $labels, 'datasets' => [['label' => __('Slaughter plans'), 'data' => $zeros]], 'type' => 'bar'],
+            'certificates' => ['labels' => $labels, 'datasets' => [['label' => __('Certificates issued'), 'data' => $zeros]], 'type' => 'bar'],
+            'batches_executions' => ['labels' => $labels, 'datasets' => [['label' => __('Batches'), 'data' => $zeros], ['label' => __('Executions'), 'data' => $zeros]], 'type' => 'line'],
+        ];
     }
 
     /**

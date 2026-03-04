@@ -4,9 +4,11 @@
         <p class="text-sm text-gray-500 mt-1 mb-6">{{ __('Enter your credentials to access your account.') }}</p>
 
         <x-auth-session-status class="mb-4" :status="session('status')" />
-        @if (session('error'))
-            <div class="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                {{ session('error') }}
+
+        @if ($errors->any())
+            <div class="mb-4 p-4 rounded-lg bg-red-100 border-2 border-red-400 text-red-900 text-sm shadow-sm" role="alert">
+                <p class="font-semibold">{{ __('Login failed') }}</p>
+                <p class="mt-1">{{ $errors->first('email') ?: $errors->first('password') ?: __('Wrong email or password. Please check and try again.') }}</p>
             </div>
         @endif
 

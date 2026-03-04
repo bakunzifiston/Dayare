@@ -44,8 +44,10 @@ class LoginRequest extends FormRequest
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
+            $message = __('These credentials do not match our records.');
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => $message,
+                'password' => $message,
             ]);
         }
 
@@ -77,9 +79,10 @@ class LoginRequest extends FormRequest
 
     /**
      * Get the rate limiting throttle key for the request.
+     * Short key to avoid cache driver issues (e.g. database key length limit).
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return 'login|'.md5(Str::lower($this->string('email')).'|'.$this->ip());
     }
 }

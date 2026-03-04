@@ -12,20 +12,16 @@ use Illuminate\View\View;
 
 class FacilityController extends Controller
 {
-    private function authorizeBusiness(Request $request, Business $business): RedirectResponse|null
+    private function authorizeBusiness(Request $request, Business $business): void
     {
         if ($business->user_id !== $request->user()->id) {
-            return redirect()->route('login')
-                ->with('error', __('You do not have access to this business, or your session may have expired. Please log in again.'));
+            abort(404);
         }
-        return null;
     }
 
-    public function index(Request $request, Business $business): View|RedirectResponse
+    public function index(Request $request, Business $business): View
     {
-        if ($redirect = $this->authorizeBusiness($request, $business)) {
-            return $redirect;
-        }
+        $this->authorizeBusiness($request, $business);
 
         $facilities = $business->facilities()->with(['province', 'districtDivision', 'sectorDivision', 'cell', 'village'])->latest()->paginate(10);
 
@@ -37,20 +33,16 @@ class FacilityController extends Controller
         return view('facilities.index', compact('business', 'facilities', 'kpis'));
     }
 
-    public function create(Request $request, Business $business): View|RedirectResponse
+    public function create(Request $request, Business $business): View
     {
-        if ($redirect = $this->authorizeBusiness($request, $business)) {
-            return $redirect;
-        }
+        $this->authorizeBusiness($request, $business);
 
         return view('facilities.create', compact('business'));
     }
 
     public function store(StoreFacilityRequest $request, Business $business): RedirectResponse
     {
-        if ($redirect = $this->authorizeBusiness($request, $business)) {
-            return $redirect;
-        }
+        $this->authorizeBusiness($request, $business);
 
         $business->facilities()->create($request->validated());
 
@@ -58,11 +50,9 @@ class FacilityController extends Controller
             ->with('status', __('Facility added successfully.'));
     }
 
-    public function show(Request $request, Business $business, Facility $facility): View|RedirectResponse
+    public function show(Request $request, Business $business, Facility $facility): View
     {
-        if ($redirect = $this->authorizeBusiness($request, $business)) {
-            return $redirect;
-        }
+        $this->authorizeBusiness($request, $business);
 
         if ($facility->business_id !== $business->id) {
             abort(404);
@@ -73,11 +63,9 @@ class FacilityController extends Controller
         return view('facilities.show', compact('business', 'facility'));
     }
 
-    public function edit(Request $request, Business $business, Facility $facility): View|RedirectResponse
+    public function edit(Request $request, Business $business, Facility $facility): View
     {
-        if ($redirect = $this->authorizeBusiness($request, $business)) {
-            return $redirect;
-        }
+        $this->authorizeBusiness($request, $business);
 
         if ($facility->business_id !== $business->id) {
             abort(404);
@@ -88,9 +76,7 @@ class FacilityController extends Controller
 
     public function update(UpdateFacilityRequest $request, Business $business, Facility $facility): RedirectResponse
     {
-        if ($redirect = $this->authorizeBusiness($request, $business)) {
-            return $redirect;
-        }
+        $this->authorizeBusiness($request, $business);
 
         if ($facility->business_id !== $business->id) {
             abort(404);
@@ -104,9 +90,7 @@ class FacilityController extends Controller
 
     public function destroy(Request $request, Business $business, Facility $facility): RedirectResponse
     {
-        if ($redirect = $this->authorizeBusiness($request, $business)) {
-            return $redirect;
-        }
+        $this->authorizeBusiness($request, $business);
 
         if ($facility->business_id !== $business->id) {
             abort(404);

@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -11,26 +10,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
         $middleware->alias([
             'tenant' => \App\Http\Middleware\EnsureUserIsTenant::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
-            if ($request->expectsJson()) {
-                return response()->json(['message' => __('Page expired. Please refresh and try again.')], 419);
-            }
-            $refreshUrl = $request->headers->get('referer');
-            if (!$refreshUrl || !\Illuminate\Support\Str::startsWith($refreshUrl, [config('app.url'), $request->getSchemeAndHttpHost()])) {
-                $refreshUrl = url('/');
-            }
-            return response()->view('errors.419', ['refreshUrl' => $refreshUrl], 419);
-        });
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
-            if ($request->expectsJson()) {
-                return response()->json(['message' => __('Not found.')], 404);
-            }
-            return response()->view('errors.404', [], 404);
-        });
-    })->create();
+    ->create();
