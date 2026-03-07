@@ -48,6 +48,9 @@
                     <x-nav-link :href="route('ante-mortem-inspections.index')" :active="request()->routeIs('ante-mortem-inspections.*')">
                         {{ __('Ante-mortem') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('settings.edit')" :active="request()->routeIs('settings.*')">
+                        {{ __('Settings') }}
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -135,6 +138,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('ante-mortem-inspections.index')" :active="request()->routeIs('ante-mortem-inspections.*')">
                 {{ __('Ante-mortem') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('settings.edit')" :active="request()->routeIs('settings.*')">
+                {{ __('Settings') }}
             </x-responsive-nav-link>
         </div>
 

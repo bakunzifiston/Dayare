@@ -22,7 +22,7 @@ class StoreBatchRequest extends FormRequest
         return [
             'slaughter_execution_id' => ['required', 'exists:slaughter_executions,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
-            'species' => ['required', 'string', 'max:50', Rule::in(Batch::SPECIES_OPTIONS)],
+            'species' => ['required', 'string', 'max:50', Rule::exists('species', 'name')->where('is_active', true)],
             'quantity' => ['required', 'integer', 'min:1'],
             'status' => ['required', 'string', Rule::in(Batch::STATUSES)],
         ];

@@ -17,6 +17,7 @@ class AnimalIntake extends Model
 
     protected $fillable = [
         'facility_id',
+        'supplier_id',
         'intake_date',
         'supplier_firstname',
         'supplier_lastname',
@@ -78,6 +79,11 @@ class AnimalIntake extends Model
     public function facility(): BelongsTo
     {
         return $this->belongsTo(Facility::class);
+    }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     public function country(): BelongsTo

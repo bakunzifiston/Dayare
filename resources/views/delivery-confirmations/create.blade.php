@@ -24,13 +24,45 @@
 
                     <div>
                         <x-input-label for="receiving_facility_id" :value="__('Receiving facility')" />
-                        <select id="receiving_facility_id" name="receiving_facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
-                            <option value="">{{ __('Select facility') }}</option>
+                        <select id="receiving_facility_id" name="receiving_facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <option value="">{{ __('External / non-registered (e.g. client in another country)') }}</option>
                             @foreach ($facilities as $f)
                                 <option value="{{ $f['id'] }}" @selected(old('receiving_facility_id') == $f['id'])>{{ $f['label'] }}</option>
                             @endforeach
                         </select>
+                        <p class="mt-1 text-sm text-gray-500">{{ __('Leave empty if delivery was to a recipient outside your registered facilities.') }}</p>
                         <x-input-error class="mt-2" :messages="$errors->get('receiving_facility_id')" />
+                    </div>
+
+                    <div id="client-block" class="hidden">
+                        <x-input-label for="client_id" :value="__('Link to client (optional)')" />
+                        <select id="client_id" name="client_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <option value="">{{ __('No client') }}</option>
+                            @foreach ($clients as $c)
+                                <option value="{{ $c['id'] }}" data-name="{{ e($c['name']) }}" data-country="{{ e($c['country']) }}" data-address="{{ e($c['address']) }}" @selected(old('client_id') == $c['id'])>{{ $c['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">{{ __('Select a client to link this delivery and optionally prefill receiver details.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('client_id')" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="receiver_name" :value="__('Receiver name')" />
+                        <x-text-input id="receiver_name" name="receiver_name" type="text" class="mt-1 block w-full" :value="old('receiver_name')" required />
+                        <x-input-error class="mt-2" :messages="$errors->get('receiver_name')" />
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <x-input-label for="receiver_country" :value="__('Receiver country (optional)')" />
+                            <x-text-input id="receiver_country" name="receiver_country" type="text" class="mt-1 block w-full" :value="old('receiver_country')" placeholder="e.g. Uganda, Kenya" />
+                            <x-input-error class="mt-2" :messages="$errors->get('receiver_country')" />
+                        </div>
+                        <div>
+                            <x-input-label for="receiver_address" :value="__('Receiver address (optional)')" />
+                            <x-text-input id="receiver_address" name="receiver_address" type="text" class="mt-1 block w-full" :value="old('receiver_address')" />
+                            <x-input-error class="mt-2" :messages="$errors->get('receiver_address')" />
+                        </div>
                     </div>
 
                     <div>
@@ -43,12 +75,6 @@
                         <x-input-label for="received_date" :value="__('Received date')" />
                         <x-text-input id="received_date" name="received_date" type="date" class="mt-1 block w-full" :value="old('received_date', date('Y-m-d'))" required />
                         <x-input-error class="mt-2" :messages="$errors->get('received_date')" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="receiver_name" :value="__('Receiver name')" />
-                        <x-text-input id="receiver_name" name="receiver_name" type="text" class="mt-1 block w-full" :value="old('receiver_name')" required />
-                        <x-input-error class="mt-2" :messages="$errors->get('receiver_name')" />
                     </div>
 
                     <div>
@@ -71,4 +97,28 @@
             </div>
         </div>
     </div>
+    <script>
+        (function() {
+            var receivingSelect = document.getElementById('receiving_facility_id');
+            var clientBlock = document.getElementById('client-block');
+            var clientSelect = document.getElementById('client_id');
+            var receiverName = document.getElementById('receiver_name');
+            var receiverCountry = document.getElementById('receiver_country');
+            var receiverAddress = document.getElementById('receiver_address');
+            function toggleClientBlock() {
+                var isExternal = !receivingSelect.value;
+                clientBlock.classList.toggle('hidden', !isExternal);
+            }
+            function prefillFromClient() {
+                var opt = clientSelect.options[clientSelect.selectedIndex];
+                if (!opt || !opt.value) return;
+                if (receiverName) receiverName.value = opt.dataset.name || '';
+                if (receiverCountry) receiverCountry.value = opt.dataset.country || '';
+                if (receiverAddress) receiverAddress.value = opt.dataset.address || '';
+            }
+            receivingSelect.addEventListener('change', toggleClientBlock);
+            clientSelect.addEventListener('change', prefillFromClient);
+            toggleClientBlock();
+        })();
+    </script>
 </x-app-layout>

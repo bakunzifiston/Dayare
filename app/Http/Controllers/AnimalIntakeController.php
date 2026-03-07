@@ -6,6 +6,7 @@ use App\Http\Requests\StoreAnimalIntakeRequest;
 use App\Http\Requests\UpdateAnimalIntakeRequest;
 use App\Models\AnimalIntake;
 use App\Models\Facility;
+use App\Models\Supplier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,6 +24,43 @@ class AnimalIntakeController extends Controller
         if (! $this->userFacilityIds($request)->contains($intake->facility_id)) {
             abort(404);
         }
+    }
+
+    private function supplierFirstLastNames(Supplier $supplier): array
+    {
+        $first = $supplier->first_name ?? null;
+        $last = $supplier->last_name ?? null;
+        if (($first === null || $first === '') && ($last === null || $last === '') && ! empty($supplier->name ?? null)) {
+            $parts = explode(' ', (string) $supplier->name, 2);
+            $first = $parts[0] ?? '';
+            $last = $parts[1] ?? '';
+        }
+        return ['first' => $first ?? '', 'last' => $last ?? ''];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Supplier>  $suppliers
+     * @return array<int, array{first_name: string, last_name: string, phone: string, registration_number: string}>
+     */
+    private function suppliersPrefillData(\Illuminate\Support\Collection $suppliers): array
+    {
+        $out = [];
+        foreach ($suppliers as $s) {
+            $fn = $s->first_name ?? '';
+            $ln = $s->last_name ?? '';
+            if ($fn === '' && $ln === '' && ! empty($s->name ?? null)) {
+                $parts = explode(' ', (string) $s->name, 2);
+                $fn = $parts[0] ?? '';
+                $ln = $parts[1] ?? '';
+            }
+            $out[$s->id] = [
+                'first_name' => $fn,
+                'last_name' => $ln,
+                'phone' => $s->phone ?? '',
+                'registration_number' => $s->registration_number ?? '',
+            ];
+        }
+        return $out;
     }
 
     public function index(Request $request): View
@@ -48,17 +86,43 @@ class AnimalIntakeController extends Controller
         $facilities = Facility::whereIn('id', $facilityIds)
             ->orderBy('facility_name')
             ->get(['id', 'facility_name', 'facility_type']);
+        $businessIds = Facility::whereIn('id', $facilityIds)->pluck('business_id')->unique()->filter()->values();
+        $suppliers = $businessIds->isNotEmpty()
+            ? Supplier::whereIn('business_id', $businessIds)->orderBy('id')->get()
+            : collect();
+        $suppliersForIntake = $this->suppliersPrefillData($suppliers);
 
-        return view('animal-intakes.create', compact('facilities'));
+        return view('animal-intakes.create', compact('facilities', 'suppliers', 'suppliersForIntake'));
     }
 
     public function store(StoreAnimalIntakeRequest $request): RedirectResponse
     {
-        if (! $this->userFacilityIds($request)->contains((int) $request->validated('facility_id'))) {
+        $facilityId = (int) $request->validated('facility_id');
+        if (! $this->userFacilityIds($request)->contains($facilityId)) {
             abort(404);
         }
 
-        AnimalIntake::create($request->validated());
+        $data = $request->validated();
+        if (! empty($data['supplier_id'])) {
+            $facility = Facility::find($facilityId);
+            $supplier = Supplier::find($data['supplier_id']);
+            if (! $supplier || ! $facility || $supplier->business_id !== $facility->business_id) {
+                abort(404);
+            }
+            $names = $this->supplierFirstLastNames($supplier);
+            $data['supplier_firstname'] = $data['supplier_firstname'] ?? $names['first'];
+            $data['supplier_lastname'] = $data['supplier_lastname'] ?? $names['last'];
+            $data['supplier_contact'] = $data['supplier_contact'] ?? $supplier->phone;
+            $data['farm_registration_number'] = $data['farm_registration_number'] ?? $supplier->registration_number;
+            $data['country_id'] = $data['country_id'] ?? $supplier->country_id;
+            $data['province_id'] = $data['province_id'] ?? $supplier->province_id;
+            $data['district_id'] = $data['district_id'] ?? $supplier->district_id;
+            $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
+            $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
+            $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
+        }
+
+        AnimalIntake::create($data);
 
         return redirect()->route('animal-intakes.index')
             ->with('status', __('Animal intake recorded.'));
@@ -67,7 +131,7 @@ class AnimalIntakeController extends Controller
     public function show(Request $request, AnimalIntake $animalIntake): View
     {
         $this->authorizeIntake($request, $animalIntake);
-        $animalIntake->load(['facility', 'country', 'province', 'district', 'sector', 'cell', 'village', 'slaughterPlans']);
+        $animalIntake->load(['facility', 'supplier', 'country', 'province', 'district', 'sector', 'cell', 'village', 'slaughterPlans']);
 
         return view('animal-intakes.show', ['intake' => $animalIntake]);
     }
@@ -79,18 +143,44 @@ class AnimalIntakeController extends Controller
         $facilities = Facility::whereIn('id', $facilityIds)
             ->orderBy('facility_name')
             ->get(['id', 'facility_name', 'facility_type']);
+        $businessIds = Facility::whereIn('id', $facilityIds)->pluck('business_id')->unique()->filter()->values();
+        $suppliers = $businessIds->isNotEmpty()
+            ? Supplier::whereIn('business_id', $businessIds)->orderBy('id')->get()
+            : collect();
+        $suppliersForIntake = $this->suppliersPrefillData($suppliers);
 
-        return view('animal-intakes.edit', ['intake' => $animalIntake, 'facilities' => $facilities]);
+        return view('animal-intakes.edit', ['intake' => $animalIntake, 'facilities' => $facilities, 'suppliers' => $suppliers, 'suppliersForIntake' => $suppliersForIntake]);
     }
 
     public function update(UpdateAnimalIntakeRequest $request, AnimalIntake $animalIntake): RedirectResponse
     {
         $this->authorizeIntake($request, $animalIntake);
-        if (! $this->userFacilityIds($request)->contains((int) $request->validated('facility_id'))) {
+        $facilityId = (int) $request->validated('facility_id');
+        if (! $this->userFacilityIds($request)->contains($facilityId)) {
             abort(404);
         }
 
-        $animalIntake->update($request->validated());
+        $data = $request->validated();
+        if (! empty($data['supplier_id'])) {
+            $facility = Facility::find($facilityId);
+            $supplier = Supplier::find($data['supplier_id']);
+            if (! $supplier || ! $facility || $supplier->business_id !== $facility->business_id) {
+                abort(404);
+            }
+            $names = $this->supplierFirstLastNames($supplier);
+            $data['supplier_firstname'] = $data['supplier_firstname'] ?? $names['first'];
+            $data['supplier_lastname'] = $data['supplier_lastname'] ?? $names['last'];
+            $data['supplier_contact'] = $data['supplier_contact'] ?? $supplier->phone;
+            $data['farm_registration_number'] = $data['farm_registration_number'] ?? $supplier->registration_number;
+            $data['country_id'] = $data['country_id'] ?? $supplier->country_id;
+            $data['province_id'] = $data['province_id'] ?? $supplier->province_id;
+            $data['district_id'] = $data['district_id'] ?? $supplier->district_id;
+            $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
+            $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
+            $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
+        }
+
+        $animalIntake->update($data);
 
         return redirect()->route('animal-intakes.show', $animalIntake)
             ->with('status', __('Animal intake updated.'));

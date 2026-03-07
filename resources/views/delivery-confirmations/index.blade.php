@@ -36,7 +36,7 @@
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
                                     <a href="{{ route('delivery-confirmations.show', $c) }}" class="font-medium text-gray-900 hover:underline">
-                                        {{ $c->transportTrip->vehicle_plate_number ?? '' }} — {{ $c->receivingFacility->facility_name ?? '' }}
+                                        {{ $c->transportTrip->vehicle_plate_number ?? '' }} — {{ $c->receiver_display }}
                                     </a>
                                     <p class="text-sm text-gray-500">
                                         {{ $c->received_date->format('d M Y') }} · {{ $c->receiver_name }} · {{ $c->received_quantity }} {{ __('received') }} · {{ ucfirst($c->confirmation_status) }}

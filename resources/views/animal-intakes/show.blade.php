@@ -37,7 +37,7 @@
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Facility') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->facility->facility_name ?? '' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Intake date') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->intake_date->format('d M Y') }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_firstname }} {{ $intake->supplier_lastname }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_firstname }} {{ $intake->supplier_lastname }}@if ($intake->supplier)<a href="{{ route('suppliers.show', $intake->supplier) }}" class="ml-2 text-indigo-600 hover:underline">{{ __('View supplier') }}</a>@endif</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier contact') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_contact ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm registration number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_registration_number ?? '—' }}</dd></div>

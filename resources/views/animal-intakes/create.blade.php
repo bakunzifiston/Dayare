@@ -29,6 +29,17 @@
 
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
                     <h3 class="text-base font-semibold text-slate-800">{{ __('Supplier & farm') }}</h3>
+                    <div>
+                        <x-input-label for="supplier_id" :value="__('Use existing supplier')" />
+                        <select id="supplier_id" name="supplier_id" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <option value="">{{ __('None — enter details below') }}</option>
+                            @foreach ($suppliers as $s)
+                                <option value="{{ $s->id }}" @selected(old('supplier_id') == $s->id)>{{ trim(($s->first_name ?? '') . ' ' . ($s->last_name ?? '')) ?: ($s->name ?? '') }}{!! $s->phone ? ' · ' . e($s->phone) : '' !!}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-sm text-slate-500">{{ __('Optional: select a supplier to prefill name, contact and location.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('supplier_id')" />
+                    </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <x-input-label for="supplier_firstname" :value="__('Supplier first name')" />
@@ -129,8 +140,11 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <x-input-label for="species" :value="__('Species')" />
+                            @php
+                                $speciesOptions = \App\Models\Species::active()->pluck('name');
+                            @endphp
                             <select id="species" name="species" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
-                                @foreach (\App\Models\AnimalIntake::SPECIES_OPTIONS as $s)
+                                @foreach ($speciesOptions as $s)
                                     <option value="{{ $s }}" @selected(old('species') === $s)>{{ $s }}</option>
                                 @endforeach
                             </select>
@@ -285,5 +299,16 @@
                 }
             };
         }
+        window.suppliersForIntake = @json($suppliersForIntake);
+        document.getElementById('supplier_id')?.addEventListener('change', function () {
+            var id = this.value, data = window.suppliersForIntake && window.suppliersForIntake[id];
+            if (data) {
+                var fn = document.getElementById('supplier_firstname'), ln = document.getElementById('supplier_lastname'), c = document.getElementById('supplier_contact'), r = document.getElementById('farm_registration_number');
+                if (fn) fn.value = data.first_name || '';
+                if (ln) ln.value = data.last_name || '';
+                if (c) c.value = data.phone || '';
+                if (r) r.value = data.registration_number || '';
+            }
+        });
     </script>
 </x-app-layout>

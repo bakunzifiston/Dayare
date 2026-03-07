@@ -6,6 +6,7 @@ use App\Http\Requests\StoreDeliveryConfirmationRequest;
 use App\Http\Requests\UpdateDeliveryConfirmationRequest;
 use App\Models\Batch;
 use App\Models\Certificate;
+use App\Models\Client;
 use App\Models\DeliveryConfirmation;
 use App\Models\Facility;
 use App\Models\SlaughterExecution;
@@ -76,6 +77,7 @@ class DeliveryConfirmationController extends Controller
             'transportTrip.originFacility',
             'transportTrip.destinationFacility',
             'receivingFacility',
+            'client',
         ])
             ->whereIn('transport_trip_id', $tripIds)
             ->latest('received_date')
@@ -109,9 +111,23 @@ class DeliveryConfirmationController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
+        $businessIds = $request->user()->businesses()->pluck('id');
+        $clients = Client::whereIn('business_id', $businessIds)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Client $c) => [
+                'id' => $c->id,
+                'label' => $c->display_name,
+                'name' => $c->name,
+                'country' => $c->country ?? '',
+                'address' => $c->address_line,
+            ]);
+
         return view('delivery-confirmations.create', [
             'trips' => $trips,
             'facilities' => $facilities,
+            'clients' => $clients,
         ]);
     }
 
@@ -122,7 +138,12 @@ class DeliveryConfirmationController extends Controller
         if (! $tripIds->contains((int) $request->validated('transport_trip_id'))) {
             abort(404);
         }
-        if (! $facilityIds->contains((int) $request->validated('receiving_facility_id'))) {
+        $receivingFacilityId = $request->validated('receiving_facility_id');
+        if ($receivingFacilityId !== null && $receivingFacilityId !== '' && ! $facilityIds->contains((int) $receivingFacilityId)) {
+            abort(404);
+        }
+        $clientId = $request->validated('client_id');
+        if ($clientId && ! $request->user()->businesses()->pluck('id')->contains(Client::find($clientId)?->business_id)) {
             abort(404);
         }
 
@@ -140,6 +161,7 @@ class DeliveryConfirmationController extends Controller
             'transportTrip.originFacility',
             'transportTrip.destinationFacility',
             'receivingFacility',
+            'client',
         ]);
 
         return view('delivery-confirmations.show', ['confirmation' => $deliveryConfirmation]);
@@ -165,10 +187,24 @@ class DeliveryConfirmationController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
+        $businessIds = $request->user()->businesses()->pluck('id');
+        $clients = Client::whereIn('business_id', $businessIds)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Client $c) => [
+                'id' => $c->id,
+                'label' => $c->display_name,
+                'name' => $c->name,
+                'country' => $c->country ?? '',
+                'address' => $c->address_line,
+            ]);
+
         return view('delivery-confirmations.edit', [
             'confirmation' => $deliveryConfirmation,
             'trips' => $trips,
             'facilities' => $facilities,
+            'clients' => $clients,
         ]);
     }
 
@@ -180,7 +216,12 @@ class DeliveryConfirmationController extends Controller
         if (! $tripIds->contains((int) $request->validated('transport_trip_id'))) {
             abort(404);
         }
-        if (! $facilityIds->contains((int) $request->validated('receiving_facility_id'))) {
+        $receivingFacilityId = $request->validated('receiving_facility_id');
+        if ($receivingFacilityId !== null && $receivingFacilityId !== '' && ! $facilityIds->contains((int) $receivingFacilityId)) {
+            abort(404);
+        }
+        $clientId = $request->validated('client_id');
+        if ($clientId && ! $request->user()->businesses()->pluck('id')->contains(Client::find($clientId)?->business_id)) {
             abort(404);
         }
 

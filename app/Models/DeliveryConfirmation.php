@@ -17,9 +17,12 @@ class DeliveryConfirmation extends Model
     protected $fillable = [
         'transport_trip_id',
         'receiving_facility_id',
+        'client_id',
         'received_quantity',
         'received_date',
         'receiver_name',
+        'receiver_country',
+        'receiver_address',
         'confirmation_status',
     ];
 
@@ -48,5 +51,29 @@ class DeliveryConfirmation extends Model
     public function receivingFacility(): BelongsTo
     {
         return $this->belongsTo(Facility::class, 'receiving_facility_id');
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
+    }
+
+    /** True when delivery was to a non-registered facility (e.g. external / international). */
+    public function isExternalRecipient(): bool
+    {
+        return $this->receiving_facility_id === null;
+    }
+
+    /** Display label for where product was received (facility, client, or name/country). */
+    public function getReceiverDisplayAttribute(): string
+    {
+        if ($this->receiving_facility_id && $this->relationLoaded('receivingFacility') && $this->receivingFacility) {
+            return $this->receivingFacility->facility_name;
+        }
+        if ($this->client_id && $this->relationLoaded('client') && $this->client) {
+            return $this->client->display_name;
+        }
+        $parts = array_filter([$this->receiver_name, $this->receiver_country ?? null]);
+        return implode(' — ', $parts) ?: ($this->receiver_name ?? '—');
     }
 }

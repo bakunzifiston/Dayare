@@ -38,8 +38,11 @@
 
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
+                        @php
+                            $speciesOptions = \App\Models\Species::active()->pluck('name');
+                        @endphp
                         <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
-                            @foreach (\App\Models\Batch::SPECIES_OPTIONS as $s)
+                            @foreach ($speciesOptions as $s)
                                 <option value="{{ $s }}" @selected(old('species') === $s)>{{ $s }}</option>
                             @endforeach
                         </select>

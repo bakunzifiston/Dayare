@@ -28,7 +28,7 @@ class StoreSlaughterPlanRequest extends FormRequest
                 'exists:inspectors,id',
                 Rule::exists('inspectors', 'id')->where('facility_id', $this->input('facility_id')),
             ],
-            'species' => ['required', 'string', 'max:50', Rule::in(SlaughterPlan::SPECIES_OPTIONS)],
+            'species' => ['required', 'string', 'max:50', Rule::exists('species', 'name')->where('is_active', true)],
             'number_of_animals_scheduled' => ['required', 'integer', 'min:1'],
             'status' => ['required', 'string', Rule::in(SlaughterPlan::STATUSES)],
         ];

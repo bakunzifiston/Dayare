@@ -19,9 +19,10 @@ class StoreAnimalIntakeRequest extends FormRequest
     {
         return [
             'facility_id' => ['required', 'exists:facilities,id'],
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
             'intake_date' => ['required', 'date'],
-            'supplier_firstname' => ['required', 'string', 'max:255'],
-            'supplier_lastname' => ['required', 'string', 'max:255'],
+            'supplier_firstname' => ['required_unless:supplier_id,null', 'nullable', 'string', 'max:255'],
+            'supplier_lastname' => ['required_unless:supplier_id,null', 'nullable', 'string', 'max:255'],
             'supplier_contact' => ['nullable', 'string', 'max:100'],
             'farm_name' => ['nullable', 'string', 'max:255'],
             'farm_registration_number' => ['nullable', 'string', 'max:100'],

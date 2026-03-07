@@ -18,10 +18,13 @@ class StoreDeliveryConfirmationRequest extends FormRequest
     {
         return [
             'transport_trip_id' => ['required', 'exists:transport_trips,id'],
-            'receiving_facility_id' => ['required', 'exists:facilities,id'],
+            'receiving_facility_id' => ['nullable', 'exists:facilities,id'],
+            'client_id' => ['nullable', 'exists:clients,id'],
             'received_quantity' => ['required', 'integer', 'min:0'],
             'received_date' => ['required', 'date'],
             'receiver_name' => ['required', 'string', 'max:255'],
+            'receiver_country' => ['nullable', 'string', 'max:100'],
+            'receiver_address' => ['nullable', 'string'],
             'confirmation_status' => ['required', 'string', 'in:pending,confirmed,disputed'],
         ];
     }

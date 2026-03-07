@@ -17,6 +17,12 @@ use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DeliveryConfirmationController;
 use App\Http\Controllers\TransportTripController;
 use App\Http\Controllers\WarehouseStorageController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\SpeciesController;
+use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ContractController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -51,6 +57,17 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::get('compliance', [ComplianceController::class, 'index'])->name('compliance.index');
     Route::get('divisions', [AdministrativeDivisionController::class, 'index'])->name('divisions.index');
     Route::resource('ante-mortem-inspections', AnteMortemInspectionController::class);
+
+    Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
+    Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
+
+    Route::resource('species', SpeciesController::class)->except('show');
+
+    // CRM / HR modules (full CRUD)
+    Route::resource('employees', EmployeeController::class);
+    Route::resource('suppliers', SupplierController::class);
+    Route::resource('contracts', ContractController::class);
+    Route::resource('clients', ClientController::class);
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

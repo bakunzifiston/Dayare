@@ -31,9 +31,29 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Receiving facility') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $confirmation->receivingFacility ? $confirmation->receivingFacility->facility_name : '—' }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Receiving at') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            @if ($confirmation->receivingFacility)
+                                {{ $confirmation->receivingFacility->facility_name }}
+                            @else
+                                <span class="text-gray-600">{{ __('External / non-registered') }}</span> — {{ $confirmation->receiver_name }}{!! $confirmation->receiver_country ? ' (' . e($confirmation->receiver_country) . ')' : '' !!}
+                            @endif
+                        </dd>
                     </div>
+                    @if ($confirmation->client_id && $confirmation->client)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Client') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            <a href="{{ route('clients.show', $confirmation->client) }}" class="text-indigo-600 hover:underline">{{ $confirmation->client->display_name }}</a>
+                        </dd>
+                    </div>
+                    @endif
+                    @if ($confirmation->receiver_address)
+                    <div class="sm:col-span-2">
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Receiver address') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $confirmation->receiver_address }}</dd>
+                    </div>
+                    @endif
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Received quantity') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ $confirmation->received_quantity }}</dd>
