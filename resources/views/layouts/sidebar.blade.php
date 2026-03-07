@@ -15,10 +15,12 @@
         ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check'],
         ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield'],
         // New CRM / HR modules
+        ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard'],
         ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user'],
         ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building'],
         ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard'],
         ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user'],
+        ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list'],
         ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
     ];
 @endphp

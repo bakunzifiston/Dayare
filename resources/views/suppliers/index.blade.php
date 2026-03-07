@@ -32,6 +32,7 @@
                             <th class="py-2 pr-4">{{ __('Phone') }}</th>
                             <th class="py-2 pr-4">{{ __('Email') }}</th>
                             <th class="py-2 pr-4">{{ __('Status') }}</th>
+                            <th class="py-2 pr-4">{{ __('Supplier status') }}</th>
                             <th class="py-2 pr-4 text-right">{{ __('Actions') }}</th>
                         </tr>
                     </thead>
@@ -57,6 +58,13 @@
                                     <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
                                         {{ $supplier->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700' }}">
                                         {{ $supplier->is_active ? __('Active') : __('Inactive') }}
+                                    </span>
+                                </td>
+                                <td class="py-2 pr-4">
+                                    @php $ss = $supplier->supplier_status ?? 'approved'; @endphp
+                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                                        {{ $ss === 'approved' ? 'bg-emerald-50 text-emerald-700' : ($ss === 'suspended' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700') }}">
+                                        {{ \App\Models\Supplier::STATUSES[$ss] ?? $ss }}
                                     </span>
                                 </td>
                                 <td class="py-2 pr-4 text-right whitespace-nowrap">

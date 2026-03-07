@@ -43,6 +43,18 @@
                         <p class="mt-1 text-sm text-slate-500">{{ __('Optional: select a supplier to prefill name, contact and location.') }}</p>
                         <x-input-error class="mt-2" :messages="$errors->get('supplier_id')" />
                     </div>
+                    @if (isset($supplierContracts) && $supplierContracts->isNotEmpty())
+                    <div>
+                        <x-input-label for="contract_id" :value="__('Supplier contract (optional)')" />
+                        <select id="contract_id" name="contract_id" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <option value="">{{ __('None') }}</option>
+                            @foreach ($supplierContracts as $c)
+                                <option value="{{ $c->id }}" @selected(old('contract_id', $intake->contract_id) == $c->id)>{{ $c->contract_number }} — {{ $c->title }} @if($c->supplier)({{ trim(($c->supplier->first_name ?? '') . ' ' . ($c->supplier->last_name ?? '')) ?: 'Supplier' }})@endif</option>
+                            @endforeach
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('contract_id')" />
+                    </div>
+                    @endif
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <x-input-label for="supplier_firstname" :value="__('Supplier first name')" />

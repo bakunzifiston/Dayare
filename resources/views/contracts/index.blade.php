@@ -11,10 +11,15 @@
     </x-slot>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
             <p class="text-sm text-slate-600">
-                {{ __('Agreements with suppliers or facilities.') }}
+                {{ __('Employee and supplier contracts. Select type when adding.') }}
             </p>
+            <div class="flex gap-2">
+                <a href="{{ route('contracts.index', request()->except('category')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ !request('category') ? 'bg-[#3B82F6] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('All') }}</a>
+                <a href="{{ route('contracts.index', ['category' => 'employee'] + request()->only('page')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ request('category') === 'employee' ? 'bg-[#3B82F6] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('Employee') }}</a>
+                <a href="{{ route('contracts.index', ['category' => 'supplier'] + request()->only('page')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ request('category') === 'supplier' ? 'bg-[#3B82F6] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('Supplier') }}</a>
+            </div>
         </div>
 
         @if (session('status'))
@@ -33,6 +38,7 @@
                         <tr class="border-b border-slate-200 text-left text-xs font-semibold text-slate-500 uppercase">
                             <th class="py-2 pr-4">{{ __('Contract number') }}</th>
                             <th class="py-2 pr-4">{{ __('Title') }}</th>
+                            <th class="py-2 pr-4">{{ __('Category') }}</th>
                             <th class="py-2 pr-4">{{ __('Type') }}</th>
                             <th class="py-2 pr-4">{{ __('Business') }}</th>
                             <th class="py-2 pr-4">{{ __('Counterparty') }}</th>
@@ -49,7 +55,12 @@
                                     <a href="{{ route('contracts.show', $contract) }}" class="text-indigo-600 hover:underline font-medium">{{ $contract->contract_number }}</a>
                                 </td>
                                 <td class="py-2 pr-4">{{ $contract->title }}</td>
-                                <td class="py-2 pr-4">{{ \App\Models\Contract::TYPES[$contract->type] ?? $contract->type }}</td>
+                                <td class="py-2 pr-4">
+                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ $contract->contract_category === 'employee' ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700' }}">
+                                        {{ \App\Models\Contract::CATEGORIES[$contract->contract_category] ?? $contract->contract_category }}
+                                    </span>
+                                </td>
+                                <td class="py-2 pr-4">{{ $contract->type_label }}</td>
                                 <td class="py-2 pr-4">{{ $contract->business?->business_name ?? '—' }}</td>
                                 <td class="py-2 pr-4">{{ $contract->counterparty_name }}</td>
                                 <td class="py-2 pr-4">{{ $contract->start_date?->format('Y-m-d') ?? '—' }}</td>

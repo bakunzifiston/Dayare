@@ -18,6 +18,7 @@ class Client extends Model
         'email',
         'phone',
         'country',
+        'business_type',
         'address_line_1',
         'address_line_2',
         'city',
@@ -25,6 +26,8 @@ class Client extends Model
         'postal_code',
         'tax_id',
         'registration_number',
+        'preferred_facility_id',
+        'preferred_species',
         'notes',
         'is_active',
     ];
@@ -41,9 +44,38 @@ class Client extends Model
         return $this->belongsTo(Business::class);
     }
 
+    public function preferredFacility(): BelongsTo
+    {
+        return $this->belongsTo(Facility::class, 'preferred_facility_id');
+    }
+
+    public const BUSINESS_TYPE_BUTCHERY = 'butchery';
+    public const BUSINESS_TYPE_RESTAURANT = 'restaurant';
+    public const BUSINESS_TYPE_DISTRIBUTOR = 'distributor';
+    public const BUSINESS_TYPE_SUPERMARKET = 'supermarket';
+    public const BUSINESS_TYPE_OTHER = 'other';
+
+    public const BUSINESS_TYPES = [
+        self::BUSINESS_TYPE_BUTCHERY => 'Butchery',
+        self::BUSINESS_TYPE_RESTAURANT => 'Restaurant',
+        self::BUSINESS_TYPE_DISTRIBUTOR => 'Distributor',
+        self::BUSINESS_TYPE_SUPERMARKET => 'Supermarket',
+        self::BUSINESS_TYPE_OTHER => 'Other',
+    ];
+
     public function deliveryConfirmations(): HasMany
     {
         return $this->hasMany(DeliveryConfirmation::class);
+    }
+
+    public function demands(): HasMany
+    {
+        return $this->hasMany(Demand::class);
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(ClientActivity::class)->orderByDesc('occurred_at');
     }
 
     /** Single-line address for display (city, country, etc.). */

@@ -20,6 +20,7 @@ class StoreDeliveryConfirmationRequest extends FormRequest
             'transport_trip_id' => ['required', 'exists:transport_trips,id'],
             'receiving_facility_id' => ['nullable', 'exists:facilities,id'],
             'client_id' => ['nullable', 'exists:clients,id'],
+            'contract_id' => ['nullable', 'exists:contracts,id'],
             'received_quantity' => ['required', 'integer', 'min:0'],
             'received_date' => ['required', 'date'],
             'receiver_name' => ['required', 'string', 'max:255'],

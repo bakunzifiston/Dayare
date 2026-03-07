@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreClientActivityRequest;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Business;
 use App\Models\Client;
+use App\Models\ClientActivity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -37,11 +39,11 @@ class ClientController extends Controller
 
     public function create(Request $request): View
     {
-        $businesses = Business::whereIn('id', $this->userBusinessIds($request))
-            ->orderBy('business_name')
-            ->get();
+        $businessIds = $this->userBusinessIds($request);
+        $businesses = Business::whereIn('id', $businessIds)->orderBy('business_name')->get();
+        $facilities = \App\Models\Facility::whereIn('business_id', $businessIds)->orderBy('facility_name')->get();
 
-        return view('clients.create', compact('businesses'));
+        return view('clients.create', compact('businesses', 'facilities'));
     }
 
     public function store(StoreClientRequest $request): RedirectResponse
@@ -61,19 +63,41 @@ class ClientController extends Controller
     public function show(Request $request, Client $client): View
     {
         $this->authorizeClient($request, $client);
-        $client->load(['business', 'deliveryConfirmations' => fn ($q) => $q->with('transportTrip')->latest('received_date')->limit(20)]);
+        $client->load([
+            'business',
+            'preferredFacility',
+            'deliveryConfirmations' => fn ($q) => $q->with('transportTrip')->latest('received_date')->limit(20),
+            'demands' => fn ($q) => $q->latest('requested_delivery_date')->limit(20),
+            'activities' => fn ($q) => $q->with('user')->latest('occurred_at')->limit(50),
+        ]);
 
         return view('clients.show', compact('client'));
+    }
+
+    public function storeActivity(StoreClientActivityRequest $request, Client $client): RedirectResponse
+    {
+        $this->authorizeClient($request, $client);
+        ClientActivity::create([
+            'business_id' => $client->business_id,
+            'client_id' => $client->id,
+            'activity_type' => $request->validated('activity_type'),
+            'subject' => $request->validated('subject'),
+            'notes' => $request->validated('notes'),
+            'occurred_at' => $request->validated('occurred_at'),
+            'user_id' => $request->user()->id,
+        ]);
+
+        return redirect()->route('clients.show', $client)->with('status', __('Activity logged.'));
     }
 
     public function edit(Request $request, Client $client): View
     {
         $this->authorizeClient($request, $client);
-        $businesses = Business::whereIn('id', $this->userBusinessIds($request))
-            ->orderBy('business_name')
-            ->get();
+        $businessIds = $this->userBusinessIds($request);
+        $businesses = Business::whereIn('id', $businessIds)->orderBy('business_name')->get();
+        $facilities = \App\Models\Facility::whereIn('business_id', $businessIds)->orderBy('facility_name')->get();
 
-        return view('clients.edit', compact('client', 'businesses'));
+        return view('clients.edit', compact('client', 'businesses', 'facilities'));
     }
 
     public function update(UpdateClientRequest $request, Client $client): RedirectResponse

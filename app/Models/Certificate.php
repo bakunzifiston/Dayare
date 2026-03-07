@@ -80,4 +80,21 @@ class Certificate extends Model
     {
         return $this->status === self::STATUS_ACTIVE;
     }
+
+    /** Certificate is valid for use (active and not expired). */
+    public function isCompliant(): bool
+    {
+        if ($this->status !== self::STATUS_ACTIVE) {
+            return false;
+        }
+        return ! $this->expiry_date || ! $this->expiry_date->isPast();
+    }
+
+    /** Scope: only certificates that are compliant (active and not expired). */
+    public function scopeCompliant($query)
+    {
+        return $query
+            ->where('status', self::STATUS_ACTIVE)
+            ->where(fn ($q) => $q->whereNull('expiry_date')->orWhere('expiry_date', '>=', now()->startOfDay()));
+    }
 }

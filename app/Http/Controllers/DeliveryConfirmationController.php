@@ -71,8 +71,9 @@ class DeliveryConfirmationController extends Controller
     public function index(Request $request): View
     {
         $tripIds = $this->userTransportTripIds($request);
+        $facilityIds = $this->userFacilityIds($request);
 
-        $confirmations = DeliveryConfirmation::with([
+        $query = DeliveryConfirmation::with([
             'transportTrip.certificate',
             'transportTrip.originFacility',
             'transportTrip.destinationFacility',
@@ -80,12 +81,21 @@ class DeliveryConfirmationController extends Controller
             'client',
         ])
             ->whereIn('transport_trip_id', $tripIds)
-            ->latest('received_date')
-            ->paginate(10);
+            ->latest('received_date');
 
+        if ($request->filled('receiving_facility_id') && $facilityIds->contains((int) $request->receiving_facility_id)) {
+            $query->where('receiving_facility_id', $request->receiving_facility_id);
+        }
+
+        $confirmations = $query->paginate(10)->withQueryString();
+
+        $kpiQuery = DeliveryConfirmation::whereIn('transport_trip_id', $tripIds);
+        if ($request->filled('receiving_facility_id') && $facilityIds->contains((int) $request->receiving_facility_id)) {
+            $kpiQuery->where('receiving_facility_id', $request->receiving_facility_id);
+        }
         $kpis = [
-            'total' => DeliveryConfirmation::whereIn('transport_trip_id', $tripIds)->count(),
-            'confirmed' => DeliveryConfirmation::whereIn('transport_trip_id', $tripIds)->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)->count(),
+            'total' => (clone $kpiQuery)->count(),
+            'confirmed' => (clone $kpiQuery)->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)->count(),
         ];
 
         return view('delivery-confirmations.index', compact('confirmations', 'kpis'));
@@ -143,8 +153,14 @@ class DeliveryConfirmationController extends Controller
             abort(404);
         }
         $clientId = $request->validated('client_id');
-        if ($clientId && ! $request->user()->businesses()->pluck('id')->contains(Client::find($clientId)?->business_id)) {
-            abort(404);
+        if ($clientId) {
+            $client = Client::find($clientId);
+            if (! $client || ! $request->user()->businesses()->pluck('id')->contains($client->business_id)) {
+                abort(404);
+            }
+            if (! $client->is_active) {
+                return redirect()->back()->withInput()->withErrors(['client_id' => __('Deliveries can only be created for active customers.')]);
+            }
         }
 
         DeliveryConfirmation::create($request->validated());
@@ -162,6 +178,8 @@ class DeliveryConfirmationController extends Controller
             'transportTrip.destinationFacility',
             'receivingFacility',
             'client',
+            'contract',
+            'fulfillingDemand',
         ]);
 
         return view('delivery-confirmations.show', ['confirmation' => $deliveryConfirmation]);
@@ -221,8 +239,14 @@ class DeliveryConfirmationController extends Controller
             abort(404);
         }
         $clientId = $request->validated('client_id');
-        if ($clientId && ! $request->user()->businesses()->pluck('id')->contains(Client::find($clientId)?->business_id)) {
-            abort(404);
+        if ($clientId) {
+            $client = Client::find($clientId);
+            if (! $client || ! $request->user()->businesses()->pluck('id')->contains($client->business_id)) {
+                abort(404);
+            }
+            if (! $client->is_active) {
+                return redirect()->back()->withInput()->withErrors(['client_id' => __('Deliveries can only be created for active customers.')]);
+            }
         }
 
         $deliveryConfirmation->update($request->validated());

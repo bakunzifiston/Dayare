@@ -174,4 +174,9 @@ class Facility extends Model
     {
         return $this->hasMany(AnimalIntake::class);
     }
+
+    public function demandsAsDestination(): HasMany
+    {
+        return $this->hasMany(Demand::class, 'destination_facility_id');
+    }
 }

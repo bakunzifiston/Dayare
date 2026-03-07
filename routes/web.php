@@ -23,6 +23,10 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContractController;
+use App\Http\Controllers\DemandController;
+use App\Http\Controllers\RecipientController;
+use App\Http\Controllers\CrmDashboardController;
+use App\Http\Controllers\ClientActivityController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -67,7 +71,12 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::resource('employees', EmployeeController::class);
     Route::resource('suppliers', SupplierController::class);
     Route::resource('contracts', ContractController::class);
+    Route::get('crm', [CrmDashboardController::class, 'index'])->name('crm.dashboard');
     Route::resource('clients', ClientController::class);
+    Route::post('clients/{client}/activities', [ClientController::class, 'storeActivity'])->name('clients.activities.store');
+    Route::resource('demands', DemandController::class);
+    Route::get('recipients', [RecipientController::class, 'index'])->name('recipients.index');
+    Route::delete('client-activities/{client_activity}', [App\Http\Controllers\ClientActivityController::class, 'destroy'])->name('client-activities.destroy');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

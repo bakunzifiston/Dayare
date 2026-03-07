@@ -103,6 +103,30 @@
                         <x-input-error class="mt-2" :messages="$errors->get('registration_number')" />
                     </div>
                 </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label for="business_type" :value="__('Business type')" />
+                        <select id="business_type" name="business_type" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]">
+                            <option value="">{{ __('None') }}</option>
+                            @foreach (\App\Models\Client::BUSINESS_TYPES as $value => $label)
+                                <option value="{{ $value }}" @selected(old('business_type') === $value)>{{ __($label) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <x-input-label for="preferred_facility_id" :value="__('Preferred facility')" />
+                        <select id="preferred_facility_id" name="preferred_facility_id" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]">
+                            <option value="">{{ __('None') }}</option>
+                            @foreach ($facilities ?? [] as $f)
+                                <option value="{{ $f->id }}" @selected(old('preferred_facility_id') == $f->id)>{{ $f->facility_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <x-input-label for="preferred_species" :value="__('Preferred species')" />
+                    <x-text-input id="preferred_species" name="preferred_species" type="text" class="mt-1 block w-full" :value="old('preferred_species')" placeholder="e.g. Cattle, Goat" />
+                </div>
                 <div>
                     <x-input-label for="notes" :value="__('Notes')" />
                     <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]">{{ old('notes') }}</textarea>

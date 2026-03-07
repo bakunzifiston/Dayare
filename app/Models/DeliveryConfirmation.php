@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Delivery Confirmation – confirm meat received.
@@ -18,6 +19,7 @@ class DeliveryConfirmation extends Model
         'transport_trip_id',
         'receiving_facility_id',
         'client_id',
+        'contract_id',
         'received_quantity',
         'received_date',
         'receiver_name',
@@ -56,6 +58,17 @@ class DeliveryConfirmation extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function contract(): BelongsTo
+    {
+        return $this->belongsTo(Contract::class);
+    }
+
+    /** Demand that this delivery fulfills (demands.fulfilled_by_delivery_id = this id). */
+    public function fulfillingDemand(): HasOne
+    {
+        return $this->hasOne(Demand::class, 'fulfilled_by_delivery_id');
     }
 
     /** True when delivery was to a non-registered facility (e.g. external / international). */

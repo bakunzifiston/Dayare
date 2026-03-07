@@ -31,8 +31,25 @@ class Supplier extends Model
         'cell_id',
         'village_id',
         'is_active',
+        'supplier_status',
         'notes',
     ];
+
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_SUSPENDED = 'suspended';
+    public const STATUS_BLACKLISTED = 'blacklisted';
+
+    public const STATUSES = [
+        self::STATUS_APPROVED => 'Approved',
+        self::STATUS_SUSPENDED => 'Suspended',
+        self::STATUS_BLACKLISTED => 'Blacklisted',
+    ];
+
+    /** Only approved suppliers can be used for animal intake. */
+    public function isApproved(): bool
+    {
+        return $this->supplier_status === self::STATUS_APPROVED;
+    }
 
     protected $casts = [
         'date_of_birth' => 'date',
@@ -46,6 +63,11 @@ class Supplier extends Model
     public function animalIntakes(): HasMany
     {
         return $this->hasMany(AnimalIntake::class);
+    }
+
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(Contract::class);
     }
 
     public function country(): BelongsTo

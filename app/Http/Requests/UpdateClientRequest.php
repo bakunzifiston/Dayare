@@ -23,6 +23,7 @@ class UpdateClientRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'country' => ['required', 'string', 'max:100'],
+            'business_type' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Models\Client::BUSINESS_TYPES))],
             'address_line_1' => ['nullable', 'string', 'max:255'],
             'address_line_2' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:100'],
@@ -30,6 +31,8 @@ class UpdateClientRequest extends FormRequest
             'postal_code' => ['nullable', 'string', 'max:20'],
             'tax_id' => ['nullable', 'string', 'max:100'],
             'registration_number' => ['nullable', 'string', 'max:100'],
+            'preferred_facility_id' => ['nullable', 'exists:facilities,id'],
+            'preferred_species' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
             'is_active' => ['sometimes', 'boolean'],
         ];

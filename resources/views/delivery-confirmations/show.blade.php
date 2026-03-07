@@ -48,6 +48,22 @@
                         </dd>
                     </div>
                     @endif
+                    @if ($confirmation->contract_id && $confirmation->contract)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Customer contract') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            <a href="{{ route('contracts.show', $confirmation->contract) }}" class="text-indigo-600 hover:underline">{{ $confirmation->contract->contract_number }} — {{ $confirmation->contract->title }}</a>
+                        </dd>
+                    </div>
+                    @endif
+                    @if ($confirmation->fulfillingDemand)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Fulfills demand') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            <a href="{{ route('demands.show', $confirmation->fulfillingDemand) }}" class="text-indigo-600 hover:underline">{{ $confirmation->fulfillingDemand->demand_number }} — {{ $confirmation->fulfillingDemand->title }}</a>
+                        </dd>
+                    </div>
+                    @endif
                     @if ($confirmation->receiver_address)
                     <div class="sm:col-span-2">
                         <dt class="text-sm font-medium text-gray-500">{{ __('Receiver address') }}</dt>

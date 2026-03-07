@@ -88,6 +88,15 @@
                     <input id="is_active" name="is_active" type="checkbox" value="1" class="rounded border-gray-300 text-[#3B82F6] focus:ring-[#3B82F6]" @checked(old('is_active', $supplier->is_active)) />
                     <label for="is_active" class="text-sm text-slate-700">{{ __('Active') }}</label>
                 </div>
+                <div>
+                    <x-input-label for="supplier_status" :value="__('Supplier status')" />
+                    <select id="supplier_status" name="supplier_status" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]">
+                        @foreach (\App\Models\Supplier::STATUSES as $value => $label)
+                            <option value="{{ $value }}" @selected(old('supplier_status', $supplier->supplier_status ?? 'approved') === $value)>{{ __($label) }}</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-slate-500">{{ __('Only Approved suppliers can be used for animal intake.') }}</p>
+                </div>
 
                 @php
                     $cid = old('country_id', $supplier->country_id);

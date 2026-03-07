@@ -3,7 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Models\AnimalIntake;
+use App\Models\Supplier;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreAnimalIntakeRequest extends FormRequest
 {
@@ -19,7 +21,8 @@ class StoreAnimalIntakeRequest extends FormRequest
     {
         return [
             'facility_id' => ['required', 'exists:facilities,id'],
-            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'supplier_id' => ['nullable', Rule::exists('suppliers', 'id')->where('supplier_status', Supplier::STATUS_APPROVED)],
+            'contract_id' => ['nullable', 'exists:contracts,id'],
             'intake_date' => ['required', 'date'],
             'supplier_firstname' => ['required_unless:supplier_id,null', 'nullable', 'string', 'max:255'],
             'supplier_lastname' => ['required_unless:supplier_id,null', 'nullable', 'string', 'max:255'],

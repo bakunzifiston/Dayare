@@ -88,6 +88,15 @@
                     <input id="is_active" name="is_active" type="checkbox" value="1" class="rounded border-gray-300 text-[#3B82F6] focus:ring-[#3B82F6]" @checked(old('is_active', true)) />
                     <label for="is_active" class="text-sm text-slate-700">{{ __('Active') }}</label>
                 </div>
+                <div>
+                    <x-input-label for="supplier_status" :value="__('Supplier status')" />
+                    <select id="supplier_status" name="supplier_status" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]">
+                        @foreach (\App\Models\Supplier::STATUSES as $value => $label)
+                            <option value="{{ $value }}" @selected(old('supplier_status', 'approved') === $value)>{{ __($label) }}</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-slate-500">{{ __('Only Approved suppliers can be used for animal intake.') }}</p>
+                </div>
 
                 {{-- Address: country → province → district → sector → cell → village --}}
                 <div class="mt-6 border-t border-slate-200 pt-4" x-data="supplierLocationDropdowns()" x-init="loadCountries()">

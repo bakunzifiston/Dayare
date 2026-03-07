@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreAnimalIntakeRequest;
 use App\Http\Requests\UpdateAnimalIntakeRequest;
 use App\Models\AnimalIntake;
+use App\Models\Contract;
 use App\Models\Facility;
 use App\Models\Supplier;
 use Illuminate\Http\RedirectResponse;
@@ -88,11 +89,22 @@ class AnimalIntakeController extends Controller
             ->get(['id', 'facility_name', 'facility_type']);
         $businessIds = Facility::whereIn('id', $facilityIds)->pluck('business_id')->unique()->filter()->values();
         $suppliers = $businessIds->isNotEmpty()
-            ? Supplier::whereIn('business_id', $businessIds)->orderBy('id')->get()
+            ? Supplier::whereIn('business_id', $businessIds)->where('supplier_status', Supplier::STATUS_APPROVED)->orderBy('id')->get()
             : collect();
         $suppliersForIntake = $this->suppliersPrefillData($suppliers);
+        $supplierContracts = $businessIds->isNotEmpty()
+            ? Contract::where('contract_category', Contract::CATEGORY_SUPPLIER)
+                ->where('status', Contract::STATUS_ACTIVE)
+                ->whereIn('business_id', $businessIds)
+                ->where(function ($q) {
+                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                })
+                ->with('supplier')
+                ->orderBy('contract_number')
+                ->get()
+            : collect();
 
-        return view('animal-intakes.create', compact('facilities', 'suppliers', 'suppliersForIntake'));
+        return view('animal-intakes.create', compact('facilities', 'suppliers', 'suppliersForIntake', 'supplierContracts'));
     }
 
     public function store(StoreAnimalIntakeRequest $request): RedirectResponse
@@ -106,7 +118,7 @@ class AnimalIntakeController extends Controller
         if (! empty($data['supplier_id'])) {
             $facility = Facility::find($facilityId);
             $supplier = Supplier::find($data['supplier_id']);
-            if (! $supplier || ! $facility || $supplier->business_id !== $facility->business_id) {
+            if (! $supplier || ! $facility || $supplier->business_id !== $facility->business_id || ! $supplier->isApproved()) {
                 abort(404);
             }
             $names = $this->supplierFirstLastNames($supplier);
@@ -121,6 +133,12 @@ class AnimalIntakeController extends Controller
             $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
             $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
         }
+        if (! empty($data['contract_id'])) {
+            $contract = Contract::find($data['contract_id']);
+            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->businesses()->pluck('id')->contains($contract->business_id)) {
+                abort(404);
+            }
+        }
 
         AnimalIntake::create($data);
 
@@ -131,7 +149,7 @@ class AnimalIntakeController extends Controller
     public function show(Request $request, AnimalIntake $animalIntake): View
     {
         $this->authorizeIntake($request, $animalIntake);
-        $animalIntake->load(['facility', 'supplier', 'country', 'province', 'district', 'sector', 'cell', 'village', 'slaughterPlans']);
+        $animalIntake->load(['facility', 'supplier', 'contract', 'country', 'province', 'district', 'sector', 'cell', 'village', 'slaughterPlans']);
 
         return view('animal-intakes.show', ['intake' => $animalIntake]);
     }
@@ -145,11 +163,22 @@ class AnimalIntakeController extends Controller
             ->get(['id', 'facility_name', 'facility_type']);
         $businessIds = Facility::whereIn('id', $facilityIds)->pluck('business_id')->unique()->filter()->values();
         $suppliers = $businessIds->isNotEmpty()
-            ? Supplier::whereIn('business_id', $businessIds)->orderBy('id')->get()
+            ? Supplier::whereIn('business_id', $businessIds)->where('supplier_status', Supplier::STATUS_APPROVED)->orderBy('id')->get()
             : collect();
         $suppliersForIntake = $this->suppliersPrefillData($suppliers);
+        $supplierContracts = $businessIds->isNotEmpty()
+            ? Contract::where('contract_category', Contract::CATEGORY_SUPPLIER)
+                ->where('status', Contract::STATUS_ACTIVE)
+                ->whereIn('business_id', $businessIds)
+                ->where(function ($q) {
+                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                })
+                ->with('supplier')
+                ->orderBy('contract_number')
+                ->get()
+            : collect();
 
-        return view('animal-intakes.edit', ['intake' => $animalIntake, 'facilities' => $facilities, 'suppliers' => $suppliers, 'suppliersForIntake' => $suppliersForIntake]);
+        return view('animal-intakes.edit', ['intake' => $animalIntake, 'facilities' => $facilities, 'suppliers' => $suppliers, 'suppliersForIntake' => $suppliersForIntake, 'supplierContracts' => $supplierContracts]);
     }
 
     public function update(UpdateAnimalIntakeRequest $request, AnimalIntake $animalIntake): RedirectResponse
@@ -164,7 +193,7 @@ class AnimalIntakeController extends Controller
         if (! empty($data['supplier_id'])) {
             $facility = Facility::find($facilityId);
             $supplier = Supplier::find($data['supplier_id']);
-            if (! $supplier || ! $facility || $supplier->business_id !== $facility->business_id) {
+            if (! $supplier || ! $facility || $supplier->business_id !== $facility->business_id || ! $supplier->isApproved()) {
                 abort(404);
             }
             $names = $this->supplierFirstLastNames($supplier);
@@ -178,6 +207,12 @@ class AnimalIntakeController extends Controller
             $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
             $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
             $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
+        }
+        if (array_key_exists('contract_id', $data) && ! empty($data['contract_id'])) {
+            $contract = Contract::find($data['contract_id']);
+            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->businesses()->pluck('id')->contains($contract->business_id)) {
+                abort(404);
+            }
         }
 
         $animalIntake->update($data);

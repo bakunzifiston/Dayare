@@ -54,9 +54,11 @@ class SupplierController extends Controller
             'address_line_2' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'is_active' => ['sometimes', 'boolean'],
+            'supplier_status' => ['nullable', 'string', 'in:'.implode(',', array_keys(Supplier::STATUSES))],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['supplier_status'] = $validated['supplier_status'] ?? Supplier::STATUS_APPROVED;
 
         Supplier::create($validated);
 
@@ -114,9 +116,11 @@ class SupplierController extends Controller
             'address_line_2' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'is_active' => ['sometimes', 'boolean'],
+            'supplier_status' => ['nullable', 'string', 'in:'.implode(',', array_keys(Supplier::STATUSES))],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['supplier_status'] = $validated['supplier_status'] ?? $supplier->supplier_status;
 
         $supplier->update($validated);
 
