@@ -40,6 +40,33 @@ Route::get('/', function () {
 
 Route::get('/trace/{slug}', [\App\Http\Controllers\TraceabilityController::class, 'show'])->name('traceability.show');
 
+// Temporary: debug why /businesses/{id}/facilities 404 on cPanel. Remove after fixing.
+Route::get('/debug-facilities-route', function () {
+    if (! config('app.debug')) {
+        abort(404);
+    }
+    $businessId = (int) (request('business_id', 5));
+    $business = \App\Models\Business::find($businessId);
+    $user = auth()->user();
+    $facilitiesRouteExists = collect(\Illuminate\Support\Facades\Route::getRoutes())->contains(fn ($r) => $r->getName() === 'businesses.facilities.index');
+
+    return response()->json([
+        'message' => 'Debug: facilities route check',
+        'business_id_checked' => $businessId,
+        'business_exists' => (bool) $business,
+        'business_user_id' => $business?->user_id,
+        'logged_in_user_id' => $user?->id,
+        'logged_in_email' => $user?->email,
+        'ownership_match' => $business && $user ? ($business->user_id === $user->id) : false,
+        'facilities_route_registered' => $facilitiesRouteExists,
+        'suggestion' => ! $facilitiesRouteExists
+            ? 'Run: php artisan route:clear && php artisan config:clear'
+            : ($business && $user && $business->user_id !== $user->id
+                ? 'Business belongs to another user. Update businesses.user_id to ' . $user->id . ' for this business.'
+                : 'Route and ownership OK. If still 404, check document root points to /public and .htaccess is in use.'),
+    ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+})->middleware('auth');
+
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'tenant'])
     ->name('dashboard');
