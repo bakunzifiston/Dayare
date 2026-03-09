@@ -15,7 +15,7 @@ class FacilityController extends Controller
     private function authorizeBusiness(Request $request, Business $business): void
     {
         if ($business->user_id !== $request->user()->id) {
-            abort(404);
+            abort(404, 'Facility access denied: this business does not belong to your account (business user_id=' . $business->user_id . ', your user_id=' . $request->user()->id . ').');
         }
     }
 
@@ -55,7 +55,7 @@ class FacilityController extends Controller
         $this->authorizeBusiness($request, $business);
 
         if ($facility->business_id !== $business->id) {
-            abort(404);
+            abort(404, 'Facility does not belong to this business.');
         }
 
         $facility->load(['province', 'districtDivision', 'sectorDivision', 'cell', 'village', 'inspectors', 'employees']);
@@ -68,7 +68,7 @@ class FacilityController extends Controller
         $this->authorizeBusiness($request, $business);
 
         if ($facility->business_id !== $business->id) {
-            abort(404);
+            abort(404, 'Facility does not belong to this business.');
         }
 
         return view('facilities.edit', compact('business', 'facility'));
@@ -79,7 +79,7 @@ class FacilityController extends Controller
         $this->authorizeBusiness($request, $business);
 
         if ($facility->business_id !== $business->id) {
-            abort(404);
+            abort(404, 'Facility does not belong to this business.');
         }
 
         $facility->update($request->validated());
@@ -93,7 +93,7 @@ class FacilityController extends Controller
         $this->authorizeBusiness($request, $business);
 
         if ($facility->business_id !== $business->id) {
-            abort(404);
+            abort(404, 'Facility does not belong to this business.');
         }
 
         $facility->delete();
