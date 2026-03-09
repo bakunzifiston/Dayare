@@ -64,6 +64,16 @@ class Demand extends Model
         self::UNIT_OTHER => 'Other',
     ];
 
+    /** Display label for quantity_unit (from configured Unit name, or legacy label, or code). */
+    public function getQuantityUnitLabelAttribute(): string
+    {
+        $unit = Unit::where('code', $this->quantity_unit)->first();
+        if ($unit) {
+            return $unit->name;
+        }
+        return self::QUANTITY_UNITS[$this->quantity_unit] ?? $this->quantity_unit;
+    }
+
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
@@ -119,7 +129,7 @@ class Demand extends Model
     public function getFulfillmentInfo(): array
     {
         $required = (float) $this->quantity;
-        $unit = $this->quantity_unit;
+        $unit = $this->quantity_unit_label;
 
         $baseQuery = \App\Models\WarehouseStorage::query()
             ->where('status', \App\Models\WarehouseStorage::STATUS_IN_STORAGE)

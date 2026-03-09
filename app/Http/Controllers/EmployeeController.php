@@ -20,7 +20,13 @@ class EmployeeController extends Controller
             ->orderByDesc('created_at')
             ->paginate(10);
 
-        return view('employees.index', compact('employees'));
+        $baseQuery = Employee::whereIn('business_id', $businessIds);
+        $kpis = [
+            'total' => (clone $baseQuery)->count(),
+            'active' => (clone $baseQuery)->where('status', 'active')->count(),
+        ];
+
+        return view('employees.index', compact('employees', 'kpis'));
     }
 
     public function create(Request $request): View

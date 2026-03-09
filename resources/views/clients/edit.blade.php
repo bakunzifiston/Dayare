@@ -6,9 +6,17 @@
     </x-slot>
 
     <div class="max-w-3xl mx-auto">
-        <form method="POST" action="{{ route('clients.update', $client) }}" class="space-y-6">
+        <form method="POST" action="{{ route('clients.update', $client) }}" class="space-y-6" id="client-edit-form" onsubmit="var f=document.getElementById('client-edit-form');if(f){['country_id','province_id','district_id','sector_id','cell_id','village_id'].forEach(function(id){var s=document.getElementById(id),h=f.querySelector('input[name='+id+']');if(s&&h)h.value=s?s.value:'';});}return true;">
             @csrf
             @method('PUT')
+            @php
+                $cid = old('country_id', $client->country_id);
+                $pid = old('province_id', $client->province_id);
+                $did = old('district_id', $client->district_id);
+                $sid = old('sector_id', $client->sector_id);
+                $cellId = old('cell_id', $client->cell_id);
+                $vid = old('village_id', $client->village_id);
+            @endphp
 
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                 <h2 class="text-base font-semibold text-slate-800">{{ __('Basic information') }}</h2>
@@ -54,39 +62,74 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-                <h2 class="text-base font-semibold text-slate-800">{{ __('Address') }}</h2>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4" x-data="locationDropdowns()" x-init="loadCountries()">
+                <h2 class="text-base font-semibold text-slate-800">{{ __('Location') }}</h2>
+                <p class="text-sm text-slate-500">{{ __('Select Country, Province, District, Sector, Cell and Village.') }}</p>
+                <input type="hidden" name="country_id" :value="countryId || ''">
+                <input type="hidden" name="province_id" :value="provinceId || ''">
+                <input type="hidden" name="district_id" :value="districtId || ''">
+                <input type="hidden" name="sector_id" :value="sectorId || ''">
+                <input type="hidden" name="cell_id" :value="cellId || ''">
+                <input type="hidden" name="village_id" :value="villageId || ''">
                 <div>
-                    <x-input-label for="country" :value="__('Country')" />
-                    <x-text-input id="country" name="country" type="text" class="mt-1 block w-full" :value="old('country', $client->country)" required placeholder="e.g. Rwanda, Uganda, Kenya" />
-                    <x-input-error class="mt-2" :messages="$errors->get('country')" />
+                    <x-input-label for="country_id" :value="__('Country')" />
+                    <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm">
+                        <option value="">{{ __('Select country') }}</option>
+                        <template x-for="d in countries" :key="d.id">
+                            <option :value="d.id" x-text="d.name"></option>
+                        </template>
+                    </select>
+                    <x-input-error class="mt-2" :messages="$errors->get('country_id')" />
                 </div>
                 <div>
-                    <x-input-label for="address_line_1" :value="__('Address line 1')" />
-                    <x-text-input id="address_line_1" name="address_line_1" type="text" class="mt-1 block w-full" :value="old('address_line_1', $client->address_line_1)" />
-                    <x-input-error class="mt-2" :messages="$errors->get('address_line_1')" />
+                    <x-input-label for="province_id" :value="__('Province')" />
+                    <select id="province_id" x-model="provinceId" @change="onProvinceChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!countryId">
+                        <option value="">{{ __('Select province') }}</option>
+                        <template x-for="d in provinces" :key="d.id">
+                            <option :value="d.id" x-text="d.name"></option>
+                        </template>
+                    </select>
+                    <x-input-error class="mt-2" :messages="$errors->get('province_id')" />
                 </div>
                 <div>
-                    <x-input-label for="address_line_2" :value="__('Address line 2')" />
-                    <x-text-input id="address_line_2" name="address_line_2" type="text" class="mt-1 block w-full" :value="old('address_line_2', $client->address_line_2)" />
-                    <x-input-error class="mt-2" :messages="$errors->get('address_line_2')" />
+                    <x-input-label for="district_id" :value="__('District')" />
+                    <select id="district_id" x-model="districtId" @change="onDistrictChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!provinceId">
+                        <option value="">{{ __('Select district') }}</option>
+                        <template x-for="d in districts" :key="d.id">
+                            <option :value="d.id" x-text="d.name"></option>
+                        </template>
+                    </select>
+                    <x-input-error class="mt-2" :messages="$errors->get('district_id')" />
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                        <x-input-label for="city" :value="__('City')" />
-                        <x-text-input id="city" name="city" type="text" class="mt-1 block w-full" :value="old('city', $client->city)" />
-                        <x-input-error class="mt-2" :messages="$errors->get('city')" />
-                    </div>
-                    <div>
-                        <x-input-label for="state_region" :value="__('State / Region')" />
-                        <x-text-input id="state_region" name="state_region" type="text" class="mt-1 block w-full" :value="old('state_region', $client->state_region)" />
-                        <x-input-error class="mt-2" :messages="$errors->get('state_region')" />
-                    </div>
-                    <div>
-                        <x-input-label for="postal_code" :value="__('Postal code')" />
-                        <x-text-input id="postal_code" name="postal_code" type="text" class="mt-1 block w-full" :value="old('postal_code', $client->postal_code)" />
-                        <x-input-error class="mt-2" :messages="$errors->get('postal_code')" />
-                    </div>
+                <div>
+                    <x-input-label for="sector_id" :value="__('Sector')" />
+                    <select id="sector_id" x-model="sectorId" @change="onSectorChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!districtId">
+                        <option value="">{{ __('Select sector') }}</option>
+                        <template x-for="d in sectors" :key="d.id">
+                            <option :value="d.id" x-text="d.name"></option>
+                        </template>
+                    </select>
+                    <x-input-error class="mt-2" :messages="$errors->get('sector_id')" />
+                </div>
+                <div>
+                    <x-input-label for="cell_id" :value="__('Cell')" />
+                    <select id="cell_id" x-model="cellId" @change="onCellChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!sectorId">
+                        <option value="">{{ __('Select cell') }}</option>
+                        <template x-for="d in cells" :key="d.id">
+                            <option :value="d.id" x-text="d.name"></option>
+                        </template>
+                    </select>
+                    <x-input-error class="mt-2" :messages="$errors->get('cell_id')" />
+                </div>
+                <div>
+                    <x-input-label for="village_id" :value="__('Village')" />
+                    <select id="village_id" x-model="villageId" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!cellId">
+                        <option value="">{{ __('Select village') }}</option>
+                        <template x-for="d in villages" :key="d.id">
+                            <option :value="d.id" x-text="d.name"></option>
+                        </template>
+                    </select>
+                    <x-input-error class="mt-2" :messages="$errors->get('village_id')" />
                 </div>
             </div>
 
@@ -145,4 +188,72 @@
             </div>
         </form>
     </div>
+    <script>
+        function locationDropdowns() {
+            const baseUrl = '{{ route("divisions.index") }}';
+            return {
+                countries: [], provinces: [], districts: [], sectors: [], cells: [], villages: [],
+                countryId: '{{ $cid }}' || '',
+                provinceId: '{{ $pid }}' || '',
+                districtId: '{{ $did }}' || '',
+                sectorId: '{{ $sid }}' || '',
+                cellId: '{{ $cellId }}' || '',
+                villageId: '{{ $vid }}' || '',
+                async fetchChildren(parentId) {
+                    try {
+                        const url = parentId ? `${baseUrl}?parent_id=${parentId}` : baseUrl;
+                        const res = await fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                        const data = await res.json();
+                        return Array.isArray(data) ? data : [];
+                    } catch (e) { return []; }
+                },
+                async loadCountries() {
+                    try {
+                        this.countries = await this.fetchChildren(null);
+                        await this.restoreCascade();
+                    } catch (e) { this.countries = []; }
+                },
+                async restoreCascade() {
+                    if (this.countryId) {
+                        this.provinces = await this.fetchChildren(this.countryId);
+                        if (this.provinceId) {
+                            this.districts = await this.fetchChildren(this.provinceId);
+                            if (this.districtId) {
+                                this.sectors = await this.fetchChildren(this.districtId);
+                                if (this.sectorId) {
+                                    this.cells = await this.fetchChildren(this.sectorId);
+                                    if (this.cellId) this.villages = await this.fetchChildren(this.cellId);
+                                }
+                            }
+                        }
+                    }
+                },
+                async onCountryChange() {
+                    this.provinceId = this.districtId = this.sectorId = this.cellId = this.villageId = '';
+                    this.provinces = this.districts = this.sectors = this.cells = this.villages = [];
+                    if (this.countryId) this.provinces = await this.fetchChildren(this.countryId);
+                },
+                async onProvinceChange() {
+                    this.districtId = this.sectorId = this.cellId = this.villageId = '';
+                    this.districts = this.sectors = this.cells = this.villages = [];
+                    if (this.provinceId) this.districts = await this.fetchChildren(this.provinceId);
+                },
+                async onDistrictChange() {
+                    this.sectorId = this.cellId = this.villageId = '';
+                    this.sectors = this.cells = this.villages = [];
+                    if (this.districtId) this.sectors = await this.fetchChildren(this.districtId);
+                },
+                async onSectorChange() {
+                    this.cellId = this.villageId = '';
+                    this.cells = this.villages = [];
+                    if (this.sectorId) this.cells = await this.fetchChildren(this.sectorId);
+                },
+                async onCellChange() {
+                    this.villageId = '';
+                    this.villages = [];
+                    if (this.cellId) this.villages = await this.fetchChildren(this.cellId);
+                }
+            };
+        }
+    </script>
 </x-app-layout>

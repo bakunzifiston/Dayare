@@ -9,7 +9,7 @@
     </x-slot>
 
     <div class="max-w-3xl mx-auto">
-        <form method="POST" action="{{ route('contracts.update', $contract) }}" class="space-y-6">
+        <form method="POST" action="{{ route('contracts.update', $contract) }}" class="space-y-6" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             <input type="hidden" name="contract_category" value="{{ $contract->contract_category ?? 'supplier' }}" />
@@ -154,13 +154,28 @@
                     <div><x-input-label for="medical_certificate_expiry_date" :value="__('Medical cert. expiry')" /><x-text-input id="medical_certificate_expiry_date" name="medical_certificate_expiry_date" type="date" class="mt-1 block w-full" :value="old('medical_certificate_expiry_date', $contract->medical_certificate_expiry_date?->format('Y-m-d'))" /></div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div><x-input-label for="hygiene_training_status" :value="__('Hygiene training status')" /><x-text-input id="hygiene_training_status" name="hygiene_training_status" type="text" class="mt-1 block w-full" :value="old('hygiene_training_status', $contract->hygiene_training_status)" /></div>
                     <div><x-input-label for="safety_training_date" :value="__('Safety training date')" /><x-text-input id="safety_training_date" name="safety_training_date" type="date" class="mt-1 block w-full" :value="old('safety_training_date', $contract->safety_training_date?->format('Y-m-d'))" /></div>
                 </div>
                 <div><x-input-label for="certification_requirements" :value="__('Certification requirements')" /><textarea id="certification_requirements" name="certification_requirements" rows="2" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]">{{ old('certification_requirements', $contract->certification_requirements) }}</textarea></div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div><x-input-label for="signed_contract_file" :value="__('Signed contract file')" /><x-text-input id="signed_contract_file" name="signed_contract_file" type="text" class="mt-1 block w-full" :value="old('signed_contract_file', $contract->signed_contract_file)" /></div>
-                    <div><x-input-label for="supporting_documents" :value="__('Supporting documents')" /><x-text-input id="supporting_documents" name="supporting_documents" type="text" class="mt-1 block w-full" :value="old('supporting_documents', $contract->supporting_documents)" /></div>
+                    <div>
+                        <x-input-label for="signed_contract_file" :value="__('Signed contract file')" />
+                        @if ($contract->signed_contract_file)
+                            <p class="mt-1 text-sm text-slate-600">{{ __('Current:') }} <a href="{{ route('contracts.file.download', [$contract, 'signed', basename($contract->signed_contract_file)]) }}" class="text-indigo-600 hover:underline">{{ basename($contract->signed_contract_file) }}</a></p>
+                        @endif
+                        <input id="signed_contract_file" name="signed_contract_file" type="file" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                        <p class="mt-1 text-xs text-slate-500">{{ __('Leave empty to keep current. PDF, DOC, DOCX, JPG, PNG. Max 10 MB.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('signed_contract_file')" />
+                    </div>
+                    <div>
+                        <x-input-label for="supporting_documents" :value="__('Supporting documents')" />
+                        @if ($contract->supporting_documents && count($contract->supporting_documents) > 0)
+                            <p class="mt-1 text-sm text-slate-600">{{ __('Current:') }} @foreach ($contract->supporting_documents as $path) <a href="{{ route('contracts.file.download', [$contract, 'supporting', basename($path)]) }}" class="text-indigo-600 hover:underline mr-2">{{ basename($path) }}</a> @endforeach</p>
+                        @endif
+                        <input id="supporting_documents" name="supporting_documents[]" type="file" multiple class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                        <p class="mt-1 text-xs text-slate-500">{{ __('Add more files. Existing files are kept. PDF, DOC, DOCX, JPG, PNG. Max 10 MB each.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('supporting_documents')" />
+                    </div>
                 </div>
             </div>
             @else
@@ -229,8 +244,24 @@
                 </div>
                 <div><x-input-label for="driver_name" :value="__('Driver name')" /><x-text-input id="driver_name" name="driver_name" type="text" class="mt-1 block w-full" :value="old('driver_name', $contract->driver_name)" /></div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div><x-input-label for="signed_contract_file" :value="__('Signed contract file')" /><x-text-input id="signed_contract_file" name="signed_contract_file" type="text" class="mt-1 block w-full" :value="old('signed_contract_file', $contract->signed_contract_file)" /></div>
-                    <div><x-input-label for="supporting_documents" :value="__('Supporting documents')" /><x-text-input id="supporting_documents" name="supporting_documents" type="text" class="mt-1 block w-full" :value="old('supporting_documents', $contract->supporting_documents)" /></div>
+                    <div>
+                        <x-input-label for="signed_contract_file_supplier" :value="__('Signed contract file')" />
+                        @if ($contract->signed_contract_file)
+                            <p class="mt-1 text-sm text-slate-600">{{ __('Current:') }} <a href="{{ route('contracts.file.download', [$contract, 'signed', basename($contract->signed_contract_file)]) }}" class="text-indigo-600 hover:underline">{{ basename($contract->signed_contract_file) }}</a></p>
+                        @endif
+                        <input id="signed_contract_file_supplier" name="signed_contract_file" type="file" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                        <p class="mt-1 text-xs text-slate-500">{{ __('Leave empty to keep current. PDF, DOC, DOCX, JPG, PNG. Max 10 MB.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('signed_contract_file')" />
+                    </div>
+                    <div>
+                        <x-input-label for="supporting_documents_supplier" :value="__('Supporting documents')" />
+                        @if ($contract->supporting_documents && count($contract->supporting_documents) > 0)
+                            <p class="mt-1 text-sm text-slate-600">{{ __('Current:') }} @foreach ($contract->supporting_documents as $path) <a href="{{ route('contracts.file.download', [$contract, 'supporting', basename($path)]) }}" class="text-indigo-600 hover:underline mr-2">{{ basename($path) }}</a> @endforeach</p>
+                        @endif
+                        <input id="supporting_documents_supplier" name="supporting_documents[]" type="file" multiple class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                        <p class="mt-1 text-xs text-slate-500">{{ __('Add more files. Existing files are kept. PDF, DOC, DOCX, JPG, PNG. Max 10 MB each.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('supporting_documents')" />
+                    </div>
                 </div>
             </div>
             @endif

@@ -135,7 +135,6 @@ class Contract extends Model
         'probation_period',
         'medical_certificate_number',
         'medical_certificate_expiry_date',
-        'hygiene_training_status',
         'safety_training_date',
         'certification_requirements',
         'signed_contract_file',
@@ -167,6 +166,7 @@ class Contract extends Model
             'renewal_date' => 'date',
             'medical_certificate_expiry_date' => 'date',
             'safety_training_date' => 'date',
+            'supporting_documents' => 'array', // JSON array of file paths
         ];
     }
 

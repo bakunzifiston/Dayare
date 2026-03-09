@@ -19,6 +19,7 @@ use App\Http\Controllers\TransportTripController;
 use App\Http\Controllers\WarehouseStorageController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SpeciesController;
+use App\Http\Controllers\UnitController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ClientController;
@@ -27,11 +28,12 @@ use App\Http\Controllers\DemandController;
 use App\Http\Controllers\RecipientController;
 use App\Http\Controllers\CrmDashboardController;
 use App\Http\Controllers\ClientActivityController;
+use App\Http\Controllers\SuperAdminDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('dashboard');
+        return redirect()->route(auth()->user()->isSuperAdmin() ? 'super-admin.dashboard' : 'dashboard');
     }
     return view('welcome');
 })->name('home');
@@ -66,10 +68,12 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
 
     Route::resource('species', SpeciesController::class)->except('show');
+    Route::resource('units', UnitController::class)->except('show');
 
     // CRM / HR modules (full CRUD)
     Route::resource('employees', EmployeeController::class);
     Route::resource('suppliers', SupplierController::class);
+    Route::get('contracts/{contract}/file/{type}/{filename}', [ContractController::class, 'downloadFile'])->name('contracts.file.download');
     Route::resource('contracts', ContractController::class);
     Route::get('crm', [CrmDashboardController::class, 'index'])->name('crm.dashboard');
     Route::resource('clients', ClientController::class);
@@ -77,6 +81,10 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::resource('demands', DemandController::class);
     Route::get('recipients', [RecipientController::class, 'index'])->name('recipients.index');
     Route::delete('client-activities/{client_activity}', [App\Http\Controllers\ClientActivityController::class, 'destroy'])->name('client-activities.destroy');
+
+    Route::middleware('super_admin')->prefix('super-admin')->name('super-admin.')->group(function () {
+        Route::get('/', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
+    });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

@@ -12,6 +12,7 @@ use App\Models\Facility;
 use App\Models\DeliveryConfirmation;
 use App\Models\Species;
 use App\Models\TransportTrip;
+use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -54,7 +55,17 @@ class DemandController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('demands.index', compact('demands'));
+        $baseQuery = Demand::whereIn('business_id', $businessIds);
+        $kpis = [
+            'total' => (clone $baseQuery)->count(),
+            'draft' => (clone $baseQuery)->where('status', Demand::STATUS_DRAFT)->count(),
+            'confirmed' => (clone $baseQuery)->where('status', Demand::STATUS_CONFIRMED)->count(),
+            'in_progress' => (clone $baseQuery)->where('status', Demand::STATUS_IN_PROGRESS)->count(),
+            'fulfilled' => (clone $baseQuery)->where('status', Demand::STATUS_FULFILLED)->count(),
+            'cancelled' => (clone $baseQuery)->where('status', Demand::STATUS_CANCELLED)->count(),
+        ];
+
+        return view('demands.index', compact('demands', 'kpis'));
     }
 
     public function create(Request $request): View
@@ -68,8 +79,9 @@ class DemandController extends Controller
         if (empty($speciesOptions)) {
             $speciesOptions = \App\Models\AnimalIntake::SPECIES_OPTIONS;
         }
+        $units = Unit::active()->get();
 
-        return view('demands.create', compact('businesses', 'facilities', 'clients', 'contracts', 'speciesOptions'));
+        return view('demands.create', compact('businesses', 'facilities', 'clients', 'contracts', 'speciesOptions', 'units'));
     }
 
     public function store(StoreDemandRequest $request): RedirectResponse
@@ -119,6 +131,7 @@ class DemandController extends Controller
         if (empty($speciesOptions)) {
             $speciesOptions = \App\Models\AnimalIntake::SPECIES_OPTIONS;
         }
+        $units = Unit::active()->get();
 
         $tripIds = $this->userTransportTripIds($request);
         $candidateDeliveries = collect();
@@ -148,7 +161,7 @@ class DemandController extends Controller
             $candidateDeliveries = $candidateDeliveries->sortByDesc('received_date')->values();
         }
 
-        return view('demands.edit', compact('demand', 'businesses', 'facilities', 'clients', 'contracts', 'speciesOptions', 'candidateDeliveries'));
+        return view('demands.edit', compact('demand', 'businesses', 'facilities', 'clients', 'contracts', 'speciesOptions', 'units', 'candidateDeliveries'));
     }
 
     public function update(UpdateDemandRequest $request, Demand $demand): RedirectResponse

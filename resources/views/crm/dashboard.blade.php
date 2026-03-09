@@ -13,12 +13,18 @@
                     <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Overview') }}</h2>
                 </div>
                 <div class="p-6">
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <x-kpi-card
                             title="{{ __('Total clients') }}"
                             :value="$totalClients"
                             :href="route('clients.index')"
                             color="blue"
+                        />
+                        <x-kpi-card
+                            title="{{ __('Suppliers with contract') }}"
+                            :value="$suppliersWithContractCount"
+                            :href="route('suppliers.index')"
+                            color="amber"
                         />
                         <x-kpi-card
                             title="{{ __('Open demands') }}"
@@ -36,7 +42,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                 {{-- Recent clients --}}
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -54,6 +60,38 @@
                                         <a href="{{ route('clients.show', $client) }}" class="text-sm font-medium text-slate-900 hover:text-indigo-600">{{ $client->name }}</a>
                                         @if ($client->country)
                                             <span class="text-slate-500 text-sm"> — {{ $client->country }}</span>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Suppliers with contract --}}
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Suppliers with contract') }}</h2>
+                        <a href="{{ route('suppliers.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">{{ __('View all') }}</a>
+                    </div>
+                    <div class="p-6">
+                        @if ($suppliersWithContract->isEmpty())
+                            <p class="text-sm text-slate-500">{{ __('No suppliers with a contract yet.') }}</p>
+                            <a href="{{ route('suppliers.index') }}" class="inline-flex items-center mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">{{ __('Suppliers') }}</a>
+                            <span class="text-slate-400 mx-1">·</span>
+                            <a href="{{ route('contracts.index') }}" class="inline-flex items-center mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">{{ __('Contracts') }}</a>
+                        @else
+                            <ul class="divide-y divide-slate-100">
+                                @foreach ($suppliersWithContract as $supplier)
+                                    @php
+                                        $contract = $supplier->contracts->first();
+                                    @endphp
+                                    <li class="py-2 first:pt-0 last:pb-0">
+                                        <a href="{{ route('suppliers.show', $supplier) }}" class="text-sm font-medium text-slate-900 hover:text-indigo-600">{{ trim(($supplier->first_name ?? '') . ' ' . ($supplier->last_name ?? '')) ?: '—' }}</a>
+                                        @if ($contract)
+                                            <a href="{{ route('contracts.show', $contract) }}" class="text-slate-500 text-sm block mt-0.5">{{ $contract->contract_number }} · {{ $contract->status }}</a>
+                                        @else
+                                            <span class="text-slate-400 text-xs block mt-0.5">{{ __('Contract') }}</span>
                                         @endif
                                     </li>
                                 @endforeach
@@ -122,6 +160,8 @@
 
             <div class="flex flex-wrap gap-3">
                 <a href="{{ route('clients.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563eb]">{{ __('Clients') }}</a>
+                <a href="{{ route('suppliers.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">{{ __('Suppliers') }}</a>
+                <a href="{{ route('contracts.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">{{ __('Contracts') }}</a>
                 <a href="{{ route('demands.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">{{ __('Demand') }}</a>
                 <a href="{{ route('recipients.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">{{ __('Recipients') }}</a>
             </div>

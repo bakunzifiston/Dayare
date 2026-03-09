@@ -58,7 +58,7 @@ class FacilityController extends Controller
             abort(404);
         }
 
-        $facility->load(['province', 'districtDivision', 'sectorDivision', 'cell', 'village']);
+        $facility->load(['province', 'districtDivision', 'sectorDivision', 'cell', 'village', 'inspectors', 'employees']);
 
         return view('facilities.show', compact('business', 'facility'));
     }

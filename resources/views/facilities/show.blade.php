@@ -70,14 +70,33 @@
                 </dl>
             </div>
 
+            @if ($facility->employees->isNotEmpty())
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 mt-6">
+                    <h3 class="text-base font-semibold text-slate-800 mb-3">{{ __('Employees at this facility') }}</h3>
+                    <ul class="divide-y divide-slate-100">
+                        @foreach ($facility->employees as $emp)
+                            <li class="py-2.5 flex justify-between items-center">
+                                <div>
+                                    <a href="{{ route('employees.show', $emp) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $emp->first_name }} {{ $emp->last_name }}</a>
+                                    <span class="text-sm text-slate-500 ml-1">— {{ $emp->job_title ? (\App\Models\Employee::JOB_TITLES[$emp->job_title] ?? $emp->job_title) : __('—') }}</span>
+                                </div>
+                                @if ($emp->status)
+                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ $emp->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">{{ ucfirst($emp->status) }}</span>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             @if ($facility->inspectors->isNotEmpty())
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Inspectors assigned to this facility') }}</h3>
-                    <ul class="divide-y divide-gray-200">
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 mt-6">
+                    <h3 class="text-base font-semibold text-slate-800 mb-3">{{ __('Inspectors assigned to this facility') }}</h3>
+                    <ul class="divide-y divide-slate-100">
                         @foreach ($facility->inspectors as $insp)
-                            <li class="py-2">
-                                <a href="{{ route('inspectors.show', $insp) }}" class="font-medium text-indigo-600 hover:underline">{{ $insp->full_name }}</a>
-                                <span class="text-sm text-gray-500"> — {{ $insp->authorization_number }} · {{ ucfirst($insp->status) }}</span>
+                            <li class="py-2.5">
+                                <a href="{{ route('inspectors.show', $insp) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $insp->full_name }}</a>
+                                <span class="text-sm text-slate-500"> — {{ $insp->authorization_number }} · {{ ucfirst($insp->status) }}</span>
                             </li>
                         @endforeach
                     </ul>

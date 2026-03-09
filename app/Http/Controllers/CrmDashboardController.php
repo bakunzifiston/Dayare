@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\Contract;
 use App\Models\DeliveryConfirmation;
 use App\Models\Demand;
 use App\Models\Facility;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -20,9 +22,11 @@ class CrmDashboardController extends Controller
                 'totalClients' => 0,
                 'openDemandsCount' => 0,
                 'deliveriesThisMonth' => 0,
+                'suppliersWithContractCount' => 0,
                 'recentClients' => collect(),
                 'openDemands' => collect(),
                 'recipients' => collect(),
+                'suppliersWithContract' => collect(),
             ]);
         }
 
@@ -52,13 +56,30 @@ class CrmDashboardController extends Controller
 
         $recipients = $this->getRecipientsForDashboard($businessIds)->take(8);
 
+        $suppliersWithContractIds = Contract::whereIn('business_id', $businessIds)
+            ->where('contract_category', Contract::CATEGORY_SUPPLIER)
+            ->whereNotNull('supplier_id')
+            ->pluck('supplier_id')
+            ->unique()
+            ->filter();
+        $suppliersWithContractCount = $suppliersWithContractIds->count();
+        $suppliersWithContract = Supplier::with(['business', 'contracts' => fn ($q) => $q->where('contract_category', Contract::CATEGORY_SUPPLIER)->orderByDesc('start_date')])
+            ->whereIn('business_id', $businessIds)
+            ->whereIn('id', $suppliersWithContractIds)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->limit(8)
+            ->get();
+
         return view('crm.dashboard', compact(
             'totalClients',
             'openDemandsCount',
             'deliveriesThisMonth',
+            'suppliersWithContractCount',
             'recentClients',
             'openDemands',
-            'recipients'
+            'recipients',
+            'suppliersWithContract'
         ));
     }
 

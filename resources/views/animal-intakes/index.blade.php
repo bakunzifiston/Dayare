@@ -18,7 +18,7 @@
                 <x-kpi-card inline title="{{ __('Approved') }}" :value="$kpis['approved']" color="green" />
             </div>
             @if (session('status'))
-                <div class="mb-4 p-4 rounded-md bg-green-50 text-green-800">{{ session('status') }}</div>
+                <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
 
             @if ($intakes->isEmpty())
@@ -33,7 +33,7 @@
                         @foreach ($intakes as $i)
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
-                                    <a href="{{ route('animal-intakes.show', $i) }}" class="font-medium text-slate-900 hover:underline">
+                                    <a href="{{ route('animal-intakes.show', $i) }}" class="font-medium text-slate-900 hover:text-indigo-600">
                                         {{ $i->intake_date->format('d M Y') }} — {{ $i->facility->facility_name ?? '' }}
                                     </a>
                                     <p class="text-sm text-slate-500">
@@ -50,7 +50,7 @@
                             </li>
                         @endforeach
                     </ul>
-                    <div class="p-4 border-t">{{ $intakes->links() }}</div>
+                    <div class="px-4 py-3 border-t border-slate-100">{{ $intakes->links() }}</div>
                 </div>
             @endif
         </div>

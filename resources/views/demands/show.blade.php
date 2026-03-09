@@ -46,7 +46,7 @@
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Contract') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('contracts.show', $demand->contract) }}" class="text-indigo-600 hover:underline">{{ $demand->contract->contract_number }}</a></dd></div>
                     @endif
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Species') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $demand->species }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Quantity') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $demand->quantity }} {{ $demand->quantity_unit }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Quantity') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $demand->quantity }} {{ $demand->quantity_unit_label }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Requested delivery date') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $demand->requested_delivery_date?->format('d M Y') ?? '—' }}</dd></div>
                     @if ($demand->product_description)<div class="sm:col-span-2"><dt class="text-sm font-medium text-slate-500">{{ __('Product description') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $demand->product_description }}</dd></div>@endif
                     @if ($demand->isExternalClient())

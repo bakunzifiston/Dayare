@@ -18,7 +18,7 @@
                 <x-kpi-card inline title="{{ __('Released') }}" :value="$kpis['released']" color="slate" />
             </div>
             @if (session('status'))
-                <div class="mb-4 p-4 rounded-md bg-green-50 text-green-800">{{ session('status') }}</div>
+                <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
 
             @if ($storages->isEmpty())
@@ -33,11 +33,11 @@
                         @foreach ($storages as $s)
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
-                                    <a href="{{ route('warehouse-storages.show', $s) }}" class="font-medium text-slate-900 hover:underline">
+                                    <a href="{{ route('warehouse-storages.show', $s) }}" class="font-medium text-slate-900 hover:text-indigo-600">
                                         {{ $s->batch->batch_code ?? '' }} — {{ $s->warehouseFacility->facility_name ?? '' }}
                                     </a>
                                     <p class="text-sm text-slate-500">
-                                        {{ $s->entry_date->format('d M Y') }} · {{ $s->storage_location ?? '—' }} · {{ $s->quantity_stored }} {{ __('stored') }}
+                                        {{ $s->entry_date->format('d M Y') }} · {{ $s->storage_location ?? '—' }} · {{ $s->quantity_stored }} {{ $s->quantity_unit_label }}
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1">
                                         {{ __('Certificate') }} {{ $s->certificate->certificate_number ?: '#' . $s->certificate_id }} · {{ ucfirst(str_replace('_', ' ', $s->status)) }}
@@ -50,7 +50,7 @@
                             </li>
                         @endforeach
                     </ul>
-                    <div class="p-4 border-t">{{ $storages->links() }}</div>
+                    <div class="px-4 py-3 border-t border-slate-100">{{ $storages->links() }}</div>
                 </div>
             @endif
         </div>

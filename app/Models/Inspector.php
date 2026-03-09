@@ -21,6 +21,12 @@ class Inspector extends Model
         'dob',
         'nationality',
         'country',
+        'country_id',
+        'province_id',
+        'district_id',
+        'sector_id',
+        'cell_id',
+        'village_id',
         'district',
         'sector',
         'cell',
@@ -85,6 +91,54 @@ class Inspector extends Model
     public function postMortemInspections(): HasMany
     {
         return $this->hasMany(PostMortemInspection::class);
+    }
+
+    public function countryDivision(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\AdministrativeDivision::class, 'country_id');
+    }
+
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\AdministrativeDivision::class, 'province_id');
+    }
+
+    public function districtDivision(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\AdministrativeDivision::class, 'district_id');
+    }
+
+    public function sectorDivision(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\AdministrativeDivision::class, 'sector_id');
+    }
+
+    public function cellDivision(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\AdministrativeDivision::class, 'cell_id');
+    }
+
+    public function villageDivision(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\AdministrativeDivision::class, 'village_id');
+    }
+
+    /** Location string from divisions (Country → Province → District → Sector → Cell → Village) or legacy text fields. */
+    public function getLocationLineAttribute(): string
+    {
+        if ($this->country_id && $this->relationLoaded('countryDivision') && $this->countryDivision) {
+            $parts = array_filter([
+                $this->countryDivision->name ?? null,
+                $this->province?->name ?? null,
+                $this->districtDivision?->name ?? null,
+                $this->sectorDivision?->name ?? null,
+                $this->cellDivision?->name ?? null,
+                $this->villageDivision?->name ?? null,
+            ]);
+            return implode(', ', $parts) ?: '—';
+        }
+        $parts = array_filter([$this->country, $this->district, $this->sector, $this->cell, $this->village]);
+        return implode(', ', $parts) ?: '—';
     }
 
     public function getFullNameAttribute(): string

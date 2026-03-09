@@ -11,6 +11,7 @@ use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
 use App\Models\TransportTrip;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -20,8 +21,12 @@ class DashboardController extends Controller
      * Display the authenticated user's (tenant's) dashboard.
      * Each user only sees their own dashboard and data.
      */
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request): View|\Illuminate\Http\RedirectResponse
     {
+        if ($request->user()->isSuperAdmin()) {
+            return redirect()->route('super-admin.dashboard');
+        }
+
         $user = $request->user();
         $businessIds = $user->businesses()->pluck('id');
 

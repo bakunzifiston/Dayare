@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Batch;
 use App\Models\Certificate;
+use App\Models\Demand;
 use App\Models\Facility;
 use App\Models\TemperatureLog;
+use App\Models\Unit;
 use App\Models\WarehouseStorage;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class WarehouseStorageController extends Controller
@@ -83,13 +85,18 @@ class WarehouseStorageController extends Controller
                 'batch_id' => $c->batch_id,
             ]);
 
-        return view('warehouse-storages.create', compact('warehouseFacilities', 'certificates'));
+        $units = Unit::active()->get();
+
+        return view('warehouse-storages.create', compact('warehouseFacilities', 'certificates', 'units'));
     }
 
     public function store(Request $request): RedirectResponse
     {
         $facilityIds = $this->userFacilityIds($request);
         $certificateIds = $this->userCertificateIds($request);
+
+        $allowedUnits = Unit::active()->pluck('code')->all();
+        $allowedUnits = empty($allowedUnits) ? array_keys(Demand::QUANTITY_UNITS) : array_values(array_unique(array_merge($allowedUnits, array_keys(Demand::QUANTITY_UNITS))));
 
         $valid = $request->validate([
             'warehouse_facility_id' => ['required', Rule::in($facilityIds->all())],
@@ -98,6 +105,7 @@ class WarehouseStorageController extends Controller
             'storage_location' => ['nullable', 'string', 'max:255'],
             'temperature_at_entry' => ['nullable', 'numeric', 'min:-50', 'max:50'],
             'quantity_stored' => ['required', 'integer', 'min:1'],
+            'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],
         ]);
 
         $cert = Certificate::findOrFail($valid['certificate_id']);
@@ -132,7 +140,8 @@ class WarehouseStorageController extends Controller
             ->orderBy('facility_name')
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
-        return view('warehouse-storages.edit', compact('warehouseStorage', 'warehouseFacilities'));
+        $units = Unit::active()->get();
+        return view('warehouse-storages.edit', compact('warehouseStorage', 'warehouseFacilities', 'units'));
     }
 
     public function update(Request $request, WarehouseStorage $warehouseStorage): RedirectResponse
@@ -140,11 +149,15 @@ class WarehouseStorageController extends Controller
         $this->authorizeStorage($request, $warehouseStorage);
         $facilityIds = $this->userFacilityIds($request);
 
+        $allowedUnits = Unit::active()->pluck('code')->all();
+        $allowedUnits = empty($allowedUnits) ? array_keys(Demand::QUANTITY_UNITS) : array_values(array_unique(array_merge($allowedUnits, array_keys(Demand::QUANTITY_UNITS))));
+
         $valid = $request->validate([
             'warehouse_facility_id' => ['required', Rule::in($facilityIds->all())],
             'storage_location' => ['nullable', 'string', 'max:255'],
             'temperature_at_entry' => ['nullable', 'numeric', 'min:-50', 'max:50'],
             'quantity_stored' => ['required', 'integer', 'min:0'],
+            'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],
             'status' => ['required', Rule::in(WarehouseStorage::STATUSES)],
             'released_date' => ['nullable', 'required_if:status,released', 'date'],
         ]);

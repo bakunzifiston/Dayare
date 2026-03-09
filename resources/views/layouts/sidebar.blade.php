@@ -1,47 +1,47 @@
 @php
-    $navGroups = [
-        [
-            'label' => __('Dashboard'),
-            'route' => 'dashboard',
-            'icon' => 'dashboard',
-        ],
-        [
-            'group' => __('Operations'),
-            'icon' => 'box',
-            'children' => [
-                ['label' => __('Businesses'), 'route' => 'businesses.index', 'icon' => 'building'],
-                ['label' => __('Inspectors'), 'route' => 'inspectors.index', 'icon' => 'user'],
-                ['label' => __('Animal intake'), 'route' => 'animal-intakes.index', 'icon' => 'intake'],
-                ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.index', 'icon' => 'calendar'],
-                ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list'],
-                ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.index', 'icon' => 'play'],
-                ['label' => __('Batches'), 'route' => 'batches.index', 'icon' => 'box'],
-                ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard'],
-                ['label' => __('Certificates'), 'route' => 'certificates.index', 'icon' => 'certificate'],
-                ['label' => __('Warehouse'), 'route' => 'warehouse-storages.index', 'icon' => 'box'],
-                ['label' => __('Transport'), 'route' => 'transport-trips.index', 'icon' => 'truck'],
-                ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check'],
-                ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield'],
+    $isSuperAdmin = Auth::user()?->isSuperAdmin();
+
+    // Super Admin sees only platform-level items (no tenant Operations / CRM modules)
+    $navGroups = $isSuperAdmin
+        ? [
+            ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield'],
+            ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
+        ]
+        : [
+            ['label' => __('Dashboard'), 'route' => 'dashboard', 'icon' => 'dashboard'],
+            [
+                'group' => __('Operations'),
+                'icon' => 'box',
+                'children' => [
+                    ['label' => __('Businesses'), 'route' => 'businesses.index', 'icon' => 'building'],
+                    ['label' => __('Inspectors'), 'route' => 'inspectors.index', 'icon' => 'user'],
+                    ['label' => __('Animal intake'), 'route' => 'animal-intakes.index', 'icon' => 'intake'],
+                    ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.index', 'icon' => 'calendar'],
+                    ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list'],
+                    ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.index', 'icon' => 'play'],
+                    ['label' => __('Batches'), 'route' => 'batches.index', 'icon' => 'box'],
+                    ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard'],
+                    ['label' => __('Certificates'), 'route' => 'certificates.index', 'icon' => 'certificate'],
+                    ['label' => __('Warehouse'), 'route' => 'warehouse-storages.index', 'icon' => 'box'],
+                    ['label' => __('Transport'), 'route' => 'transport-trips.index', 'icon' => 'truck'],
+                    ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check'],
+                    ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield'],
+                ],
             ],
-        ],
-        [
-            'group' => __('CRM & HR'),
-            'icon' => 'user',
-            'children' => [
-                ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard'],
-                ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user'],
-                ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building'],
-                ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard'],
-                ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user'],
-                ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list'],
+            [
+                'group' => __('CRM & HR'),
+                'icon' => 'user',
+                'children' => [
+                    ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard'],
+                    ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user'],
+                    ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building'],
+                    ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard'],
+                    ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user'],
+                    ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list'],
+                ],
             ],
-        ],
-        [
-            'label' => __('Settings'),
-            'route' => 'settings.edit',
-            'icon' => 'settings',
-        ],
-    ];
+            ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
+        ];
 @endphp
 <aside
     id="sidebar"
@@ -50,9 +50,9 @@
     aria-label="Sidebar"
 >
     <div class="flex items-center justify-between px-5 mb-6">
-        <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5">
+        <a href="{{ $isSuperAdmin ? route('super-admin.dashboard') : route('dashboard') }}" class="flex items-center gap-2.5">
             <x-application-logo class="h-8 w-auto fill-white" />
-            <span class="text-lg font-semibold text-white">{{ config('app.name') }}</span>
+            <span class="text-lg font-semibold text-white">{{ config('app.name') }}{{ $isSuperAdmin ? ' · ' . __('Admin') : '' }}</span>
         </a>
         <button @click="sidebarOpen = false" type="button" class="lg:hidden p-2 rounded-lg text-white/80 hover:text-white hover:bg-[#1D4ED8]">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

@@ -61,6 +61,21 @@
                             <x-input-error class="mt-2" :messages="$errors->get('quantity_stored')" />
                         </div>
                     </div>
+                    <div>
+                        <x-input-label for="quantity_unit" :value="__('Unit')" />
+                        <select id="quantity_unit" name="quantity_unit" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                            @if (isset($units) && $units->isNotEmpty())
+                                @foreach ($units as $unit)
+                                    <option value="{{ $unit->code }}" @selected(old('quantity_unit', $units->first()?->code ?? 'kg') === $unit->code)>{{ $unit->name }}</option>
+                                @endforeach
+                            @else
+                                @foreach (\App\Models\Demand::QUANTITY_UNITS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('quantity_unit', 'kg') === $value)>{{ $label }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('quantity_unit')" />
+                    </div>
 
                     <div class="flex gap-3">
                         <button type="submit" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Save') }}</button>

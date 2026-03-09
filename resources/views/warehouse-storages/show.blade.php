@@ -50,7 +50,7 @@
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Quantity stored') }}</dt>
-                        <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->quantity_stored }}</dd>
+                        <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->quantity_stored }} {{ $warehouseStorage->quantity_unit_label }}</dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Status') }}</dt>

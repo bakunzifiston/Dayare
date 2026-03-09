@@ -39,41 +39,46 @@ class AnimalIntakeSeeder extends Seeder
         $species = [AnimalIntake::SPECIES_CATTLE, AnimalIntake::SPECIES_GOAT, AnimalIntake::SPECIES_SHEEP];
         $index = 0;
         foreach ($slaughterhouses as $facility) {
+            $businessId = $facility->business_id;
+            $supplier = \App\Models\Supplier::where('business_id', $businessId)->where('supplier_status', \App\Models\Supplier::STATUS_APPROVED)->inRandomOrder()->first();
+            $contract = \App\Models\Contract::where('business_id', $businessId)->where('contract_category', \App\Models\Contract::CATEGORY_SUPPLIER)->where('status', \App\Models\Contract::STATUS_ACTIVE)->inRandomOrder()->first();
+
             for ($i = 0; $i < 2; $i++) {
-                $supplier = self::RWANDA_SUPPLIERS[$index % count(self::RWANDA_SUPPLIERS)];
+                $supplierRow = self::RWANDA_SUPPLIERS[$index % count(self::RWANDA_SUPPLIERS)];
                 $index++;
                 $intakeDate = now()->subDays(rand(5, 25));
                 $certIssue = $intakeDate->copy()->subDays(10);
                 $certExpiry = $intakeDate->copy()->addMonths(3);
-                AnimalIntake::firstOrCreate(
-                    [
-                        'facility_id' => $facility->id,
-                        'intake_date' => $intakeDate->format('Y-m-d'),
-                        'supplier_firstname' => $supplier['first'],
-                        'supplier_lastname' => $supplier['last'],
-                        'farm_name' => $supplier['farm'],
-                    ],
-                    [
-                        'supplier_contact' => '+250788' . random_int(100000, 999999),
-                        'farm_registration_number' => 'FARM-RW-' . strtoupper(substr(uniqid(), -6)),
-                        'country_id' => $country?->id,
-                        'province_id' => $province?->id,
-                        'district_id' => $district?->id,
-                        'sector_id' => $sector?->id,
-                        'cell_id' => $cell?->id,
-                        'village_id' => $village?->id,
-                        'species' => $species[$index % count($species)],
-                        'number_of_animals' => rand(8, 25),
-                        'unit_price' => rand(200, 450) * 1000,
-                        'total_price' => null,
-                        'transport_vehicle_plate' => 'RAB ' . rand(100, 999) . ' ' . chr(65 + rand(0, 25)),
-                        'driver_name' => 'Driver ' . ['Mugisha', 'Niyonzima', 'Habimana', 'Uwera'][$index % 4],
-                        'animal_health_certificate_number' => 'AHC-RW-' . strtoupper(substr(uniqid(), -8)),
-                        'health_certificate_issue_date' => $certIssue,
-                        'health_certificate_expiry_date' => $certExpiry,
-                        'status' => AnimalIntake::STATUS_APPROVED,
-                    ]
-                );
+                $base = [
+                    'facility_id' => $facility->id,
+                    'intake_date' => $intakeDate->format('Y-m-d'),
+                    'supplier_firstname' => $supplierRow['first'],
+                    'supplier_lastname' => $supplierRow['last'],
+                    'farm_name' => $supplierRow['farm'],
+                ];
+                $attrs = [
+                    'supplier_id' => $supplier?->id,
+                    'contract_id' => $contract?->id,
+                    'supplier_contact' => '+250788' . random_int(100000, 999999),
+                    'farm_registration_number' => 'FARM-RW-' . strtoupper(substr(uniqid(), -6)),
+                    'country_id' => $country?->id,
+                    'province_id' => $province?->id,
+                    'district_id' => $district?->id,
+                    'sector_id' => $sector?->id,
+                    'cell_id' => $cell?->id,
+                    'village_id' => $village?->id,
+                    'species' => $species[$index % count($species)],
+                    'number_of_animals' => rand(8, 25),
+                    'unit_price' => rand(200, 450) * 1000,
+                    'total_price' => null,
+                    'transport_vehicle_plate' => 'RAB ' . rand(100, 999) . ' ' . chr(65 + rand(0, 25)),
+                    'driver_name' => 'Driver ' . ['Mugisha', 'Niyonzima', 'Habimana', 'Uwera'][$index % 4],
+                    'animal_health_certificate_number' => 'AHC-RW-' . strtoupper(substr(uniqid(), -8)),
+                    'health_certificate_issue_date' => $certIssue,
+                    'health_certificate_expiry_date' => $certExpiry,
+                    'status' => AnimalIntake::STATUS_APPROVED,
+                ];
+                AnimalIntake::firstOrCreate($base, $attrs);
             }
         }
 

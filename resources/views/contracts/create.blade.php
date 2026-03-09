@@ -27,7 +27,7 @@
                 </p>
             </div>
         @else
-        <form method="POST" action="{{ route('contracts.store') }}" class="space-y-6">
+        <form method="POST" action="{{ route('contracts.store') }}" class="space-y-6" enctype="multipart/form-data">
             @csrf
             <input type="hidden" name="contract_category" value="{{ $category }}" />
 
@@ -225,11 +225,6 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <x-input-label for="hygiene_training_status" :value="__('Hygiene training status')" />
-                            <x-text-input id="hygiene_training_status" name="hygiene_training_status" type="text" class="mt-1 block w-full" :value="old('hygiene_training_status')" />
-                            <x-input-error class="mt-2" :messages="$errors->get('hygiene_training_status')" />
-                        </div>
-                        <div>
                             <x-input-label for="safety_training_date" :value="__('Safety training date')" />
                             <x-text-input id="safety_training_date" name="safety_training_date" type="date" class="mt-1 block w-full" :value="old('safety_training_date')" />
                             <x-input-error class="mt-2" :messages="$errors->get('safety_training_date')" />
@@ -242,13 +237,15 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <x-input-label for="signed_contract_file" :value="__('Signed contract file (path or reference)')" />
-                            <x-text-input id="signed_contract_file" name="signed_contract_file" type="text" class="mt-1 block w-full" :value="old('signed_contract_file')" />
+                            <x-input-label for="signed_contract_file" :value="__('Signed contract file')" />
+                            <input id="signed_contract_file" name="signed_contract_file" type="file" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                            <p class="mt-1 text-xs text-slate-500">{{ __('PDF, DOC, DOCX, JPG, PNG. Max 10 MB.') }}</p>
                             <x-input-error class="mt-2" :messages="$errors->get('signed_contract_file')" />
                         </div>
                         <div>
                             <x-input-label for="supporting_documents" :value="__('Supporting documents')" />
-                            <x-text-input id="supporting_documents" name="supporting_documents" type="text" class="mt-1 block w-full" :value="old('supporting_documents')" />
+                            <input id="supporting_documents" name="supporting_documents[]" type="file" multiple class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                            <p class="mt-1 text-xs text-slate-500">{{ __('Multiple files. PDF, DOC, DOCX, JPG, PNG. Max 10 MB each.') }}</p>
                             <x-input-error class="mt-2" :messages="$errors->get('supporting_documents')" />
                         </div>
                     </div>
@@ -387,13 +384,15 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <x-input-label for="signed_contract_file" :value="__('Signed contract file (path or reference)')" />
-                            <x-text-input id="signed_contract_file" name="signed_contract_file" type="text" class="mt-1 block w-full" :value="old('signed_contract_file')" />
+                            <x-input-label for="signed_contract_file_supplier" :value="__('Signed contract file')" />
+                            <input id="signed_contract_file_supplier" name="signed_contract_file" type="file" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                            <p class="mt-1 text-xs text-slate-500">{{ __('PDF, DOC, DOCX, JPG, PNG. Max 10 MB.') }}</p>
                             <x-input-error class="mt-2" :messages="$errors->get('signed_contract_file')" />
                         </div>
                         <div>
-                            <x-input-label for="supporting_documents" :value="__('Supporting documents')" />
-                            <x-text-input id="supporting_documents" name="supporting_documents" type="text" class="mt-1 block w-full" :value="old('supporting_documents')" />
+                            <x-input-label for="supporting_documents_supplier" :value="__('Supporting documents')" />
+                            <input id="supporting_documents_supplier" name="supporting_documents[]" type="file" multiple class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                            <p class="mt-1 text-xs text-slate-500">{{ __('Multiple files. PDF, DOC, DOCX, JPG, PNG. Max 10 MB each.') }}</p>
                             <x-input-error class="mt-2" :messages="$errors->get('supporting_documents')" />
                         </div>
                     </div>

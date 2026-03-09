@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Slaughter planning') }}
             </h2>
             <a href="{{ route('slaughter-plans.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
@@ -18,9 +18,7 @@
                 <x-kpi-card inline title="{{ __('Approved') }}" :value="$kpis['approved']" color="green" />
             </div>
             @if (session('status'))
-                <div class="mb-4 p-4 rounded-md bg-green-50 text-green-800">
-                    {{ session('status') }}
-                </div>
+                <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
 
             @if ($plans->isEmpty())
@@ -36,13 +34,13 @@
                         @foreach ($plans as $plan)
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
-                                    <a href="{{ route('slaughter-plans.show', $plan) }}" class="font-medium text-gray-900 hover:underline">
+                                    <a href="{{ route('slaughter-plans.show', $plan) }}" class="font-medium text-slate-900 hover:text-indigo-600">
                                         {{ $plan->slaughter_date->format('d M Y') }} — {{ $plan->facility->facility_name }}
                                     </a>
-                                    <p class="text-sm text-gray-500">
+                                    <p class="text-sm text-slate-500">
                                         {{ $plan->species }} · {{ $plan->number_of_animals_scheduled }} {{ __('animals') }}
                                     </p>
-                                    <p class="text-xs text-gray-400 mt-1">
+                                    <p class="text-xs text-slate-400 mt-1">
                                         {{ __('Inspector') }}: {{ $plan->inspector->full_name }} · {{ ucfirst($plan->status) }}
                                     </p>
                                 </div>
@@ -53,9 +51,7 @@
                             </li>
                         @endforeach
                     </ul>
-                    <div class="p-4 border-t">
-                        {{ $plans->links() }}
-                    </div>
+                    <div class="px-4 py-3 border-t border-slate-100">{{ $plans->links() }}</div>
                 </div>
             @endif
         </div>

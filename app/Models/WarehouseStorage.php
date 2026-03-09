@@ -26,6 +26,7 @@ class WarehouseStorage extends Model
         'storage_location',
         'temperature_at_entry',
         'quantity_stored',
+        'quantity_unit',
         'status',
         'released_date',
     ];
@@ -47,6 +48,16 @@ class WarehouseStorage extends Model
         self::STATUS_RELEASED,
         self::STATUS_DISPOSED,
     ];
+
+    /** Display label for quantity_unit (from configured Unit name, or Demand legacy label, or code). */
+    public function getQuantityUnitLabelAttribute(): string
+    {
+        $unit = Unit::where('code', $this->quantity_unit)->first();
+        if ($unit) {
+            return $unit->name;
+        }
+        return Demand::QUANTITY_UNITS[$this->quantity_unit] ?? $this->quantity_unit;
+    }
 
     public function warehouseFacility(): BelongsTo
     {

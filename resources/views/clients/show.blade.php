@@ -29,7 +29,9 @@
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Contact person') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->contact_person ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Email') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->email ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Phone') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->phone ?? '—' }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Country') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->country ?? '—' }}</dd></div>
+                    @if ($client->country_id || $client->country)
+                    <div class="sm:col-span-2"><dt class="text-sm font-medium text-slate-500">{{ __('Location') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->location_line }}</dd></div>
+                    @endif
                     @if ($client->business_type)<div><dt class="text-sm font-medium text-slate-500">{{ __('Business type') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ \App\Models\Client::BUSINESS_TYPES[$client->business_type] ?? $client->business_type }}</dd></div>@endif
                     @if ($client->preferredFacility)<div><dt class="text-sm font-medium text-slate-500">{{ __('Preferred facility') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('businesses.facilities.show', [$client->preferredFacility->business, $client->preferredFacility]) }}" class="text-indigo-600 hover:underline">{{ $client->preferredFacility->facility_name }}</a></dd></div>@endif
                     @if ($client->preferred_species)<div><dt class="text-sm font-medium text-slate-500">{{ __('Preferred species') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->preferred_species }}</dd></div>@endif
@@ -162,7 +164,7 @@
                                     <tr>
                                         <td class="py-2 pr-4"><a href="{{ route('demands.show', $demand) }}" class="text-indigo-600 hover:underline font-medium">{{ $demand->demand_number }}</a></td>
                                         <td class="py-2 pr-4">{{ $demand->title }}</td>
-                                        <td class="py-2 pr-4">{{ $demand->quantity }} {{ $demand->quantity_unit }}</td>
+                                        <td class="py-2 pr-4">{{ $demand->quantity }} {{ $demand->quantity_unit_label }}</td>
                                         <td class="py-2 pr-4">{{ $demand->requested_delivery_date?->format('d M Y') ?? '—' }}</td>
                                         <td class="py-2 pr-4">{{ \App\Models\Demand::STATUSES[$demand->status] ?? $demand->status }}</td>
                                         <td class="py-2 pr-4 text-right"><a href="{{ route('demands.show', $demand) }}" class="text-indigo-600 hover:underline font-medium">{{ __('View') }}</a></td>

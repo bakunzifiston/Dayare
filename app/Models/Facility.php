@@ -121,6 +121,12 @@ class Facility extends Model
         return $this->hasMany(Inspector::class);
     }
 
+    /** Facility (1) → Many Employees (assigned to this facility) */
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;

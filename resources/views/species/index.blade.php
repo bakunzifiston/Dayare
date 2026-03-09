@@ -24,6 +24,16 @@
                         </div>
                     @endif
 
+                    @if ($errors->any())
+                        <div class="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800 mb-4">
+                            <p class="font-medium">{{ __('Please fix the errors below.') }}</p>
+                            <ul class="mt-1 list-disc list-inside">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     <form method="POST" action="{{ route('species.store') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         @csrf
                         <div class="md:col-span-2">
@@ -39,7 +49,7 @@
                         </div>
                         <div class="flex items-center gap-3">
                             <div class="flex items-center">
-                                <input id="is_active" name="is_active" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" checked>
+                                <input id="is_active" name="is_active" type="checkbox" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" checked>
                                 <label for="is_active" class="ml-2 text-sm text-gray-700">{{ __('Active') }}</label>
                             </div>
                             <x-primary-button class="ml-auto">
@@ -79,6 +89,7 @@
                                                     <input type="checkbox" name="is_active" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked($item->is_active)>
                                                     <span class="ml-1">{{ __('Active') }}</span>
                                                 </label>
+                                                <button type="submit" class="ml-2 text-xs text-indigo-600 hover:text-indigo-800">{{ __('Save') }}</button>
                                             </form>
                                         </td>
                                         <td class="px-3 py-2 text-right">

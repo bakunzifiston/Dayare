@@ -3,7 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Models\Demand;
+use App\Models\Unit;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreDemandRequest extends FormRequest
 {
@@ -14,6 +16,14 @@ class StoreDemandRequest extends FormRequest
 
     public function rules(): array
     {
+        $allowedUnits = Unit::active()->pluck('code')->all();
+        $legacyUnits = array_keys(Demand::QUANTITY_UNITS);
+        if (empty($allowedUnits)) {
+            $allowedUnits = $legacyUnits;
+        } else {
+            $allowedUnits = array_values(array_unique(array_merge($allowedUnits, $legacyUnits)));
+        }
+
         return [
             'business_id' => ['required', 'exists:businesses,id'],
             'demand_number' => ['nullable', 'string', 'max:100', 'unique:demands,demand_number'],
@@ -29,7 +39,7 @@ class StoreDemandRequest extends FormRequest
             'species' => ['required', 'string', 'max:50'],
             'product_description' => ['nullable', 'string'],
             'quantity' => ['required', 'numeric', 'min:0'],
-            'quantity_unit' => ['required', 'string', 'in:'.implode(',', array_keys(Demand::QUANTITY_UNITS))],
+            'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],
             'requested_delivery_date' => ['required', 'date'],
             'status' => ['required', 'string', 'in:'.implode(',', array_keys(Demand::STATUSES))],
             'notes' => ['nullable', 'string'],

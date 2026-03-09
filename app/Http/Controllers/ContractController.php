@@ -11,7 +11,9 @@ use App\Models\Facility;
 use App\Models\Supplier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ContractController extends Controller
 {
@@ -38,7 +40,14 @@ class ContractController extends Controller
         }
         $contracts = $query->latest('start_date')->paginate(10)->withQueryString();
 
-        return view('contracts.index', compact('contracts'));
+        $baseQuery = Contract::whereIn('business_id', $businessIds);
+        $kpis = [
+            'total' => (clone $baseQuery)->count(),
+            'active' => (clone $baseQuery)->where('status', Contract::STATUS_ACTIVE)->count(),
+            'draft' => (clone $baseQuery)->where('status', Contract::STATUS_DRAFT)->count(),
+        ];
+
+        return view('contracts.index', compact('contracts', 'kpis'));
     }
 
     public function create(Request $request): View
@@ -68,7 +77,10 @@ class ContractController extends Controller
         }
         $this->validateCounterparty($request, $request->validated());
 
-        Contract::create($request->validated());
+        $data = $request->safe()->except(['signed_contract_file', 'supporting_documents']);
+        $contract = Contract::create($data);
+
+        $this->storeContractFiles($request, $contract);
 
         return redirect()->route('contracts.index')->with('status', __('Contract created.'));
     }
@@ -103,7 +115,10 @@ class ContractController extends Controller
         }
         $this->validateCounterparty($request, $request->validated());
 
-        $contract->update($request->validated());
+        $data = $request->safe()->except(['signed_contract_file', 'supporting_documents']);
+        $contract->update($data);
+
+        $this->storeContractFiles($request, $contract);
 
         return redirect()->route('contracts.show', $contract)->with('status', __('Contract updated.'));
     }
@@ -145,5 +160,58 @@ class ContractController extends Controller
                 abort(404);
             }
         }
+    }
+
+    private function storeContractFiles(Request $request, Contract $contract): void
+    {
+        $disk = 'local';
+        $baseDir = 'contracts/'.$contract->id;
+
+        if ($request->hasFile('signed_contract_file')) {
+            $file = $request->file('signed_contract_file');
+            if ($contract->signed_contract_file) {
+                Storage::disk($disk)->delete($contract->signed_contract_file);
+            }
+            $path = $file->store($baseDir.'/signed', $disk);
+            $contract->update(['signed_contract_file' => $path]);
+        }
+
+        if ($request->hasFile('supporting_documents')) {
+            $paths = $contract->supporting_documents ?? [];
+            foreach ($request->file('supporting_documents') as $file) {
+                if (! $file->isValid()) {
+                    continue;
+                }
+                $path = $file->store($baseDir.'/supporting', $disk);
+                $paths[] = $path;
+            }
+            if (! empty($paths)) {
+                $contract->update(['supporting_documents' => $paths]);
+            }
+        }
+    }
+
+    public function downloadFile(Request $request, Contract $contract, string $type, string $filename): StreamedResponse
+    {
+        $this->authorizeContract($request, $contract);
+
+        if ($type === 'signed' && $contract->signed_contract_file) {
+            $path = $contract->signed_contract_file;
+            if (basename($path) !== $filename || ! Storage::disk('local')->exists($path)) {
+                abort(404);
+            }
+            return Storage::disk('local')->download($path, $filename);
+        }
+
+        if ($type === 'supporting') {
+            $supporting = $contract->supporting_documents ?? [];
+            foreach ($supporting as $p) {
+                if (basename($p) === $filename && Storage::disk('local')->exists($p)) {
+                    return Storage::disk('local')->download($p, $filename);
+                }
+            }
+        }
+
+        abort(404);
     }
 }

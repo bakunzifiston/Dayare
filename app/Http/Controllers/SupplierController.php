@@ -19,7 +19,14 @@ class SupplierController extends Controller
             ->orderBy('first_name')
             ->paginate(10);
 
-        return view('suppliers.index', compact('suppliers'));
+        $baseQuery = Supplier::whereIn('business_id', $businessIds);
+        $kpis = [
+            'total' => (clone $baseQuery)->count(),
+            'active' => (clone $baseQuery)->where('is_active', true)->count(),
+            'approved' => (clone $baseQuery)->where('supplier_status', 'approved')->count(),
+        ];
+
+        return view('suppliers.index', compact('suppliers', 'kpis'));
     }
 
     public function create(Request $request): View

@@ -116,9 +116,15 @@
                     <div>
                         <x-input-label for="quantity_unit" :value="__('Unit')" />
                         <select id="quantity_unit" name="quantity_unit" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" required>
-                            @foreach (\App\Models\Demand::QUANTITY_UNITS as $value => $label)
-                                <option value="{{ $value }}" @selected(old('quantity_unit', $demand->quantity_unit) === $value)>{{ $label }}</option>
-                            @endforeach
+                            @if (isset($units) && $units->isNotEmpty())
+                                @foreach ($units as $unit)
+                                    <option value="{{ $unit->code }}" @selected(old('quantity_unit', $demand->quantity_unit) === $unit->code)>{{ $unit->name }}</option>
+                                @endforeach
+                            @else
+                                @foreach (\App\Models\Demand::QUANTITY_UNITS as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('quantity_unit', $demand->quantity_unit) === $value)>{{ $label }}</option>
+                                @endforeach
+                            @endif
                         </select>
                     </div>
                 </div>

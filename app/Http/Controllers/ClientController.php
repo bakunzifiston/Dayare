@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreClientActivityRequest;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
+use App\Models\AdministrativeDivision;
 use App\Models\Business;
 use App\Models\Client;
 use App\Models\ClientActivity;
@@ -34,7 +35,13 @@ class ClientController extends Controller
             ->orderBy('name')
             ->paginate(10);
 
-        return view('clients.index', compact('clients'));
+        $baseQuery = Client::whereIn('business_id', $businessIds);
+        $kpis = [
+            'total' => (clone $baseQuery)->count(),
+            'active' => (clone $baseQuery)->where('is_active', true)->count(),
+        ];
+
+        return view('clients.index', compact('clients', 'kpis'));
     }
 
     public function create(Request $request): View
@@ -54,6 +61,9 @@ class ClientController extends Controller
 
         $data = $request->validated();
         $data['is_active'] = $request->boolean('is_active', true);
+        if (! empty($data['country_id'])) {
+            $data['country'] = AdministrativeDivision::find($data['country_id'])?->name ?? $data['country'] ?? null;
+        }
 
         Client::create($data);
 
@@ -66,6 +76,12 @@ class ClientController extends Controller
         $client->load([
             'business',
             'preferredFacility',
+            'countryDivision',
+            'province',
+            'districtDivision',
+            'sectorDivision',
+            'cell',
+            'village',
             'deliveryConfirmations' => fn ($q) => $q->with('transportTrip')->latest('received_date')->limit(20),
             'demands' => fn ($q) => $q->latest('requested_delivery_date')->limit(20),
             'activities' => fn ($q) => $q->with('user')->latest('occurred_at')->limit(50),
@@ -109,6 +125,9 @@ class ClientController extends Controller
 
         $data = $request->validated();
         $data['is_active'] = $request->boolean('is_active', true);
+        if (! empty($data['country_id'])) {
+            $data['country'] = AdministrativeDivision::find($data['country_id'])?->name ?? $data['country'] ?? null;
+        }
 
         $client->update($data);
 

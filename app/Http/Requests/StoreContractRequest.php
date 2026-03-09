@@ -52,11 +52,11 @@ class StoreContractRequest extends FormRequest
             $rules['probation_period'] = ['nullable', 'string'];
             $rules['medical_certificate_number'] = ['nullable', 'string', 'max:255'];
             $rules['medical_certificate_expiry_date'] = ['nullable', 'date'];
-            $rules['hygiene_training_status'] = ['nullable', 'string'];
             $rules['safety_training_date'] = ['nullable', 'date'];
             $rules['certification_requirements'] = ['nullable', 'string'];
-            $rules['signed_contract_file'] = ['nullable', 'string', 'max:500'];
-            $rules['supporting_documents'] = ['nullable', 'string'];
+            $rules['signed_contract_file'] = ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'];
+            $rules['supporting_documents'] = ['nullable', 'array'];
+            $rules['supporting_documents.*'] = ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'];
         } else {
             $rules['supplier_id'] = ['required', 'exists:suppliers,id'];
             $rules['employee_id'] = ['nullable', 'exists:employees,id'];
@@ -77,8 +77,9 @@ class StoreContractRequest extends FormRequest
             $rules['transport_responsibility'] = ['nullable', 'string', 'in:'.implode(',', array_keys(Contract::TRANSPORT_RESPONSIBILITY))];
             $rules['vehicle_plate'] = ['nullable', 'string', 'max:100'];
             $rules['driver_name'] = ['nullable', 'string', 'max:255'];
-            $rules['signed_contract_file'] = ['nullable', 'string', 'max:500'];
-            $rules['supporting_documents'] = ['nullable', 'string'];
+            $rules['signed_contract_file'] = ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'];
+            $rules['supporting_documents'] = ['nullable', 'array'];
+            $rules['supporting_documents.*'] = ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'];
         }
 
         return $rules;

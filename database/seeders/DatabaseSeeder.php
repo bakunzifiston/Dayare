@@ -29,5 +29,7 @@ class DatabaseSeeder extends Seeder
         $this->call(TemperatureLogSeeder::class);
         $this->call(TransportTripSeeder::class);
         $this->call(DeliveryConfirmationSeeder::class);
+        $this->call(DemandSeeder::class);
+        $this->call(ClientActivitySeeder::class);
     }
 }

@@ -44,6 +44,7 @@ class WarehouseStorageSeeder extends Seeder
                     'storage_location' => 'Cold Room A - Rwanda',
                     'temperature_at_entry' => -18.5,
                     'quantity_stored' => $qty,
+                    'quantity_unit' => \App\Models\Unit::where('code', 'kg')->value('code') ?: 'kg',
                     'status' => WarehouseStorage::STATUS_IN_STORAGE,
                 ]
             );

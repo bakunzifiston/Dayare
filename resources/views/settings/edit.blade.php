@@ -36,6 +36,18 @@
                         </a>
                     </div>
 
+                    <div class="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-800">{{ __('Units configuration') }}</h4>
+                            <p class="text-xs text-slate-600 mt-0.5">
+                                {{ __('Manage the list of units (e.g. kg, heads) that can be selected in demands and other modules.') }}
+                            </p>
+                        </div>
+                        <a href="{{ route('units.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">
+                            {{ __('Open units settings') }}
+                        </a>
+                    </div>
+
                     <form method="POST" action="{{ route('settings.update') }}" class="space-y-8">
                         @csrf
                         @method('PUT')

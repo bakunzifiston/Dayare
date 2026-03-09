@@ -61,11 +61,7 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Location') }}</h3>
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div><dt class="text-sm font-medium text-gray-500">{{ __('Country') }}</dt><dd class="mt-1 text-sm text-gray-900">{{ $inspector->country }}</dd></div>
-                    <div><dt class="text-sm font-medium text-gray-500">{{ __('District') }}</dt><dd class="mt-1 text-sm text-gray-900">{{ $inspector->district }}</dd></div>
-                    <div><dt class="text-sm font-medium text-gray-500">{{ __('Sector') }}</dt><dd class="mt-1 text-sm text-gray-900">{{ $inspector->sector }}</dd></div>
-                    <div><dt class="text-sm font-medium text-gray-500">{{ __('Cell') }}</dt><dd class="mt-1 text-sm text-gray-900">{{ $inspector->cell ?? '—' }}</dd></div>
-                    <div><dt class="text-sm font-medium text-gray-500">{{ __('Village') }}</dt><dd class="mt-1 text-sm text-gray-900">{{ $inspector->village ?? '—' }}</dd></div>
+                    <div class="sm:col-span-2"><dt class="text-sm font-medium text-gray-500">{{ __('Location') }}</dt><dd class="mt-1 text-sm text-gray-900">{{ $inspector->location_line }}</dd></div>
                 </dl>
             </div>
 
@@ -91,7 +87,7 @@
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Species allowed') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $inspector->species_allowed }}</dd>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $inspector->species_allowed ?: '—' }}</dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Daily capacity') }}</dt>
