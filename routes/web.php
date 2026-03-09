@@ -73,7 +73,15 @@ Route::get('/dashboard', DashboardController::class)
 
 Route::middleware(['auth', 'tenant'])->group(function () {
     Route::resource('businesses', BusinessController::class);
-    Route::resource('businesses.facilities', FacilityController::class);
+    // Explicit facilities routes (nested under business) – avoids 404 on some cPanel setups
+    Route::get('businesses/{business}/facilities', [FacilityController::class, 'index'])->name('businesses.facilities.index');
+    Route::get('businesses/{business}/facilities/create', [FacilityController::class, 'create'])->name('businesses.facilities.create');
+    Route::post('businesses/{business}/facilities', [FacilityController::class, 'store'])->name('businesses.facilities.store');
+    Route::get('businesses/{business}/facilities/{facility}', [FacilityController::class, 'show'])->name('businesses.facilities.show');
+    Route::get('businesses/{business}/facilities/{facility}/edit', [FacilityController::class, 'edit'])->name('businesses.facilities.edit');
+    Route::put('businesses/{business}/facilities/{facility}', [FacilityController::class, 'update'])->name('businesses.facilities.update');
+    Route::delete('businesses/{business}/facilities/{facility}', [FacilityController::class, 'destroy'])->name('businesses.facilities.destroy');
+
     Route::resource('inspectors', InspectorController::class);
     Route::resource('animal-intakes', AnimalIntakeController::class);
     Route::resource('slaughter-plans', SlaughterPlanController::class);
