@@ -14,8 +14,8 @@ class FacilityController extends Controller
 {
     private function authorizeBusiness(Request $request, Business $business): void
     {
-        if ($business->user_id !== $request->user()->id) {
-            abort(404, 'Facility access denied: this business does not belong to your account (business user_id=' . $business->user_id . ', your user_id=' . $request->user()->id . ').');
+        if ((int) $business->user_id !== (int) $request->user()->id) {
+            abort(404, 'Facility access denied: this business does not belong to your account.');
         }
     }
 

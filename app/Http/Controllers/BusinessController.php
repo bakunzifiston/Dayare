@@ -60,8 +60,10 @@ class BusinessController extends Controller
 
     public function show(Request $request, Business $business): View
     {
-        if ($business->user_id !== $request->user()->id) {
-            abort(404);
+        $userId = (int) $request->user()->id;
+        $businessUserId = (int) $business->user_id;
+        if ($businessUserId !== $userId) {
+            abort(404, 'This business does not belong to your account. Business user_id=' . ($business->user_id ?? 'null') . ', your user_id=' . $userId . '. Fix in DB: UPDATE businesses SET user_id=' . $userId . ' WHERE id=' . $business->id . ';');
         }
 
         $business->load(['facilities', 'ownershipMembers', 'countryDivision', 'provinceDivision', 'districtDivision', 'sectorDivision', 'cellDivision', 'villageDivision']);
@@ -71,8 +73,8 @@ class BusinessController extends Controller
 
     public function edit(Request $request, Business $business): View
     {
-        if ($business->user_id !== $request->user()->id) {
-            abort(404);
+        if ((int) $business->user_id !== (int) $request->user()->id) {
+            abort(404, 'This business does not belong to your account.');
         }
 
         $business->load('ownershipMembers');
@@ -82,8 +84,8 @@ class BusinessController extends Controller
 
     public function update(UpdateBusinessRequest $request, Business $business): RedirectResponse
     {
-        if ($business->user_id !== $request->user()->id) {
-            abort(404);
+        if ((int) $business->user_id !== (int) $request->user()->id) {
+            abort(404, 'This business does not belong to your account.');
         }
 
         $validated = $request->validated();
@@ -112,8 +114,8 @@ class BusinessController extends Controller
 
     public function destroy(Request $request, Business $business): RedirectResponse
     {
-        if ($business->user_id !== $request->user()->id) {
-            abort(404);
+        if ((int) $business->user_id !== (int) $request->user()->id) {
+            abort(404, 'This business does not belong to your account.');
         }
 
         $business->delete();
