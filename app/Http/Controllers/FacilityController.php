@@ -54,7 +54,7 @@ class FacilityController extends Controller
     {
         $this->authorizeBusiness($request, $business);
 
-        if ($facility->business_id !== $business->id) {
+        if ((int) $facility->business_id !== (int) $business->id) {
             abort(404, 'Facility does not belong to this business.');
         }
 
@@ -67,7 +67,7 @@ class FacilityController extends Controller
     {
         $this->authorizeBusiness($request, $business);
 
-        if ($facility->business_id !== $business->id) {
+        if ((int) $facility->business_id !== (int) $business->id) {
             abort(404, 'Facility does not belong to this business.');
         }
 
@@ -78,7 +78,7 @@ class FacilityController extends Controller
     {
         $this->authorizeBusiness($request, $business);
 
-        if ($facility->business_id !== $business->id) {
+        if ((int) $facility->business_id !== (int) $business->id) {
             abort(404, 'Facility does not belong to this business.');
         }
 
@@ -92,7 +92,7 @@ class FacilityController extends Controller
     {
         $this->authorizeBusiness($request, $business);
 
-        if ($facility->business_id !== $business->id) {
+        if ((int) $facility->business_id !== (int) $business->id) {
             abort(404, 'Facility does not belong to this business.');
         }
 
