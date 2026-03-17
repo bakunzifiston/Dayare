@@ -17,7 +17,7 @@ class ClientController extends Controller
 {
     private function userBusinessIds(Request $request): \Illuminate\Support\Collection
     {
-        return $request->user()->businesses()->pluck('id');
+        return $request->user()->accessibleBusinessIds();
     }
 
     private function authorizeClient(Request $request, Client $client): void

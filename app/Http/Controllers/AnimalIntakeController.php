@@ -16,7 +16,7 @@ class AnimalIntakeController extends Controller
 {
     private function userFacilityIds(Request $request): \Illuminate\Support\Collection
     {
-        return Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))
+        return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
             ->pluck('id');
     }
 
@@ -135,7 +135,7 @@ class AnimalIntakeController extends Controller
         }
         if (! empty($data['contract_id'])) {
             $contract = Contract::find($data['contract_id']);
-            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->businesses()->pluck('id')->contains($contract->business_id)) {
+            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->accessibleBusinessIds()->contains($contract->business_id)) {
                 abort(404);
             }
         }
@@ -210,7 +210,7 @@ class AnimalIntakeController extends Controller
         }
         if (array_key_exists('contract_id', $data) && ! empty($data['contract_id'])) {
             $contract = Contract::find($data['contract_id']);
-            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->businesses()->pluck('id')->contains($contract->business_id)) {
+            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->accessibleBusinessIds()->contains($contract->business_id)) {
                 abort(404);
             }
         }

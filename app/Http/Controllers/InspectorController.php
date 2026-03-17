@@ -19,7 +19,7 @@ class InspectorController extends Controller
      */
     private function userFacilityIds(Request $request): \Illuminate\Support\Collection
     {
-        return Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))
+        return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
             ->pluck('id');
     }
 
@@ -57,7 +57,7 @@ class InspectorController extends Controller
 
     public function create(Request $request): View
     {
-        $facilities = Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))
+        $facilities = Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
             ->orderBy('facility_name')
             ->get(['id', 'facility_name', 'facility_type', 'business_id'])
             ->map(fn (Facility $f) => [
@@ -104,7 +104,7 @@ class InspectorController extends Controller
     {
         $this->authorizeInspector($request, $inspector);
 
-        $facilities = Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))
+        $facilities = Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
             ->orderBy('facility_name')
             ->get(['id', 'facility_name', 'facility_type'])
             ->map(fn (Facility $f) => [

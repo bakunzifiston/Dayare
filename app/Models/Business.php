@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Business extends Model
@@ -102,6 +103,15 @@ class Business extends Model
     public function ownershipMembers(): HasMany
     {
         return $this->hasMany(BusinessOwnershipMember::class)->orderBy('sort_order');
+    }
+
+    /** Users who are members of this business (manager/staff), not the owner. */
+    public function memberUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'business_user')
+            ->withPivot('role')
+            ->withTimestamps()
+            ->using(BusinessUser::class);
     }
 
     public function hasOwnershipMembers(): bool

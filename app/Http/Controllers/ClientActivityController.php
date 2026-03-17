@@ -10,7 +10,7 @@ class ClientActivityController extends Controller
 {
     public function destroy(Request $request, ClientActivity $client_activity): RedirectResponse
     {
-        if (! $request->user()->businesses()->pluck('id')->contains($client_activity->business_id)) {
+        if (! $request->user()->accessibleBusinessIds()->contains($client_activity->business_id)) {
             abort(404);
         }
         $client = $client_activity->client;

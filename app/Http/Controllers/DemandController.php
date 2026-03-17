@@ -21,7 +21,7 @@ class DemandController extends Controller
 {
     private function userBusinessIds(Request $request): \Illuminate\Support\Collection
     {
-        return $request->user()->businesses()->pluck('id');
+        return $request->user()->accessibleBusinessIds();
     }
 
     private function authorizeDemand(Request $request, Demand $demand): void

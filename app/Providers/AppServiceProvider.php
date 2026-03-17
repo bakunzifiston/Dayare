@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,6 +22,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Super Admin bypasses all permission checks (roles/permissions still apply to tenants).
+        Gate::before(function ($user, $ability) {
+            if ($user && method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+                return true;
+            }
+        });
+
         // Session cookie: must match your site (HTTP vs HTTPS) so the browser sends it.
         $appUrl = config('app.url');
         if ($appUrl) {

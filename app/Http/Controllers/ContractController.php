@@ -19,7 +19,7 @@ class ContractController extends Controller
 {
     private function userBusinessIds(Request $request): \Illuminate\Support\Collection
     {
-        return $request->user()->businesses()->pluck('id');
+        return $request->user()->accessibleBusinessIds();
     }
 
     private function authorizeContract(Request $request, Contract $contract): void

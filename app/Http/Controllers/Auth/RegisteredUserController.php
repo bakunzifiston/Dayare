@@ -41,6 +41,11 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
+        // New tenant: make them the Tenant Owner role so they start with full access for their workspace.
+        if (! $user->hasRole('owner')) {
+            $user->assignRole('owner');
+        }
+
         event(new Registered($user));
 
         Auth::login($user);

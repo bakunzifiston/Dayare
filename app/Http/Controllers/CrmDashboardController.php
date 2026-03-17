@@ -16,7 +16,7 @@ class CrmDashboardController extends Controller
 {
     public function index(Request $request): View
     {
-        $businessIds = $request->user()->businesses()->pluck('id');
+        $businessIds = $request->user()->accessibleBusinessIds();
         if ($businessIds->isEmpty()) {
             return view('crm.dashboard', [
                 'totalClients' => 0,
@@ -108,7 +108,7 @@ class CrmDashboardController extends Controller
 
     private function userTransportTripIds(Request $request): \Illuminate\Support\Collection
     {
-        $businessIds = $request->user()->businesses()->pluck('id');
+        $businessIds = $request->user()->accessibleBusinessIds();
         $facilityIds = Facility::whereIn('business_id', $businessIds)->pluck('id');
         $certificateIds = \App\Models\Certificate::where(function ($q) use ($facilityIds) {
             $q->whereIn('batch_id', \App\Models\Batch::whereIn('slaughter_execution_id',

@@ -59,8 +59,14 @@ class TestDataSeeder extends Seeder
             ['email' => 'tester@dayare.me'],
             ['name' => 'Tester One', 'password' => $password, 'email_verified_at' => now(), 'is_super_admin' => false]
         );
+        // Assign tenant role (owner) so permission checks apply; Super Admin bypass is in Gate::before
+        foreach ([$user1, $user2] as $u) {
+            if (! $u->hasRole('owner')) {
+                $u->assignRole('owner');
+            }
+        }
 
-        // Super Admin (platform owner) — separate credentials to access /super-admin dashboard
+        // Super Admin (platform owner) — separate credentials to access /super-admin dashboard (no role; is_super_admin + Gate::before)
         User::updateOrCreate(
             ['email' => 'superadmin@dayare.me'],
             ['name' => 'Super Admin', 'password' => $superAdminPassword, 'email_verified_at' => now(), 'is_super_admin' => true]

@@ -17,7 +17,7 @@ class BatchController extends Controller
 {
     private function userFacilityIds(Request $request): \Illuminate\Support\Collection
     {
-        return Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))
+        return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
             ->pluck('id');
     }
 

@@ -1,47 +1,68 @@
 @php
     $isSuperAdmin = Auth::user()?->isSuperAdmin();
+    $user = Auth::user();
 
-    // Super Admin sees only platform-level items (no tenant Operations / CRM modules)
+    $tenantNav = [
+        ['label' => __('Dashboard'), 'route' => 'dashboard', 'icon' => 'dashboard', 'permission' => null],
+        [
+            'group' => __('Operations'),
+            'icon' => 'box',
+            'children' => [
+                ['label' => __('Businesses'), 'route' => 'businesses.index', 'icon' => 'building', 'permission' => 'manage businesses'],
+                ['label' => __('Inspectors'), 'route' => 'inspectors.index', 'icon' => 'user', 'permission' => 'manage inspectors'],
+                ['label' => __('Animal intake'), 'route' => 'animal-intakes.index', 'icon' => 'intake', 'permission' => 'manage animal intakes'],
+                ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.index', 'icon' => 'calendar', 'permission' => 'manage slaughter plans'],
+                ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list', 'permission' => 'manage ante-mortem'],
+                ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.index', 'icon' => 'play', 'permission' => 'manage slaughter executions'],
+                ['label' => __('Batches'), 'route' => 'batches.index', 'icon' => 'box', 'permission' => 'manage batches'],
+                ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard', 'permission' => 'manage post-mortem'],
+                ['label' => __('Certificates'), 'route' => 'certificates.index', 'icon' => 'certificate', 'permission' => 'manage certificates'],
+                ['label' => __('Warehouse'), 'route' => 'warehouse-storages.index', 'icon' => 'box', 'permission' => 'manage warehouse'],
+                ['label' => __('Transport'), 'route' => 'transport-trips.index', 'icon' => 'truck', 'permission' => 'manage transport'],
+                ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check', 'permission' => 'manage delivery confirmations'],
+                ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield', 'permission' => 'view compliance'],
+            ],
+        ],
+        [
+            'group' => __('CRM & HR'),
+            'icon' => 'user',
+            'children' => [
+                ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard', 'permission' => 'view crm'],
+                ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user', 'permission' => 'manage employees'],
+                ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building', 'permission' => 'manage suppliers'],
+                ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard', 'permission' => 'manage contracts'],
+                ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user', 'permission' => 'manage clients'],
+                ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list', 'permission' => 'manage demands'],
+            ],
+        ],
+    ];
+    $tenantNav[] = ['label' => __('Users'), 'route' => 'tenant-users.index', 'icon' => 'users', 'permission' => 'manage tenant users'];
+    $tenantNav[] = ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => 'manage settings'];
+
+    if (! $isSuperAdmin && $user && ! $user->canManageTenantUsers()) {
+        $filtered = [];
+        foreach ($tenantNav as $item) {
+            if (isset($item['group'])) {
+                $children = array_values(array_filter($item['children'] ?? [], fn ($c) => empty($c['permission']) || $user->can($c['permission'])));
+                if (count($children) > 0) {
+                    $item['children'] = $children;
+                    $filtered[] = $item;
+                }
+            } else {
+                if (empty($item['permission']) || $user->can($item['permission'])) {
+                    $filtered[] = $item;
+                }
+            }
+        }
+        $tenantNav = $filtered;
+    }
+
     $navGroups = $isSuperAdmin
         ? [
             ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield'],
             ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
         ]
-        : [
-            ['label' => __('Dashboard'), 'route' => 'dashboard', 'icon' => 'dashboard'],
-            [
-                'group' => __('Operations'),
-                'icon' => 'box',
-                'children' => [
-                    ['label' => __('Businesses'), 'route' => 'businesses.index', 'icon' => 'building'],
-                    ['label' => __('Inspectors'), 'route' => 'inspectors.index', 'icon' => 'user'],
-                    ['label' => __('Animal intake'), 'route' => 'animal-intakes.index', 'icon' => 'intake'],
-                    ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.index', 'icon' => 'calendar'],
-                    ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list'],
-                    ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.index', 'icon' => 'play'],
-                    ['label' => __('Batches'), 'route' => 'batches.index', 'icon' => 'box'],
-                    ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard'],
-                    ['label' => __('Certificates'), 'route' => 'certificates.index', 'icon' => 'certificate'],
-                    ['label' => __('Warehouse'), 'route' => 'warehouse-storages.index', 'icon' => 'box'],
-                    ['label' => __('Transport'), 'route' => 'transport-trips.index', 'icon' => 'truck'],
-                    ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check'],
-                    ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield'],
-                ],
-            ],
-            [
-                'group' => __('CRM & HR'),
-                'icon' => 'user',
-                'children' => [
-                    ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard'],
-                    ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user'],
-                    ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building'],
-                    ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard'],
-                    ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user'],
-                    ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list'],
-                ],
-            ],
-            ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
-        ];
+        : $tenantNav;
 @endphp
 <aside
     id="sidebar"

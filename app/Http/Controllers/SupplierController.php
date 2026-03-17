@@ -11,7 +11,7 @@ class SupplierController extends Controller
 {
     public function index(Request $request): View
     {
-        $businessIds = $request->user()->businesses()->pluck('id');
+        $businessIds = $request->user()->accessibleBusinessIds();
 
         $suppliers = Supplier::with('business')
             ->whereIn('business_id', $businessIds)
@@ -31,14 +31,14 @@ class SupplierController extends Controller
 
     public function create(Request $request): View
     {
-        $businesses = $request->user()->businesses()->get();
+        $businesses = $request->user()->accessibleBusinesses()->get();
 
         return view('suppliers.create', compact('businesses'));
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $businessIds = $request->user()->businesses()->pluck('id')->all();
+        $businessIds = $request->user()->accessibleBusinessIds()->all();
 
         $validated = $request->validate([
             'business_id' => ['required', 'integer', 'in:'.implode(',', $businessIds)],
@@ -74,7 +74,7 @@ class SupplierController extends Controller
 
     public function show(Request $request, Supplier $supplier): View
     {
-        if (! $request->user()->businesses()->whereKey($supplier->business_id)->exists()) {
+        if (! $request->user()->accessibleBusinessIds()->contains($supplier->business_id)) {
             abort(404);
         }
 
@@ -85,22 +85,22 @@ class SupplierController extends Controller
 
     public function edit(Request $request, Supplier $supplier): View
     {
-        if (! $request->user()->businesses()->whereKey($supplier->business_id)->exists()) {
+        if (! $request->user()->accessibleBusinessIds()->contains($supplier->business_id)) {
             abort(404);
         }
 
-        $businesses = $request->user()->businesses()->get();
+        $businesses = $request->user()->accessibleBusinesses()->get();
 
         return view('suppliers.edit', compact('supplier', 'businesses'));
     }
 
     public function update(Request $request, Supplier $supplier): RedirectResponse
     {
-        if (! $request->user()->businesses()->whereKey($supplier->business_id)->exists()) {
+        if (! $request->user()->accessibleBusinessIds()->contains($supplier->business_id)) {
             abort(404);
         }
 
-        $businessIds = $request->user()->businesses()->pluck('id')->all();
+        $businessIds = $request->user()->accessibleBusinessIds()->all();
 
         $validated = $request->validate([
             'business_id' => ['required', 'integer', 'in:'.implode(',', $businessIds)],
@@ -136,7 +136,7 @@ class SupplierController extends Controller
 
     public function destroy(Request $request, Supplier $supplier): RedirectResponse
     {
-        if (! $request->user()->businesses()->whereKey($supplier->business_id)->exists()) {
+        if (! $request->user()->accessibleBusinessIds()->contains($supplier->business_id)) {
             abort(404);
         }
 

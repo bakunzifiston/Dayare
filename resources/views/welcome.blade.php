@@ -41,7 +41,7 @@
             <div class="login-left-bg flex-1 flex items-center px-8 py-12 sm:py-16 sm:px-12 order-2 sm:order-1">
                 <div class="relative z-10">
                     <h1 class="text-white text-3xl sm:text-4xl font-bold uppercase tracking-wide">Welcome</h1>
-                    <p class="text-white text-lg sm:text-xl font-normal uppercase tracking-wide mt-2 opacity-95">{{ config('app.name', 'DAYARE') }}</p>
+                    <p class="text-white text-lg sm:text-xl font-normal uppercase tracking-wide mt-2 opacity-95">{{ config('app.name', 'BUCHAPRO') }}</p>
                     <p class="text-white text-sm sm:text-base mt-6 max-w-md opacity-90 leading-relaxed">
                         {{ __('Meat traceability and compliance for abattoirs, inspectors, and facilities. Manage your business in one place.') }}
                     </p>

@@ -120,6 +120,6 @@
         </div>
     @endif
 
-    <p class="brand">DAYARE — {{ __('Meat traceability') }}</p>
+    <p class="brand">BuchaPro — {{ __('Meat traceability') }}</p>
 </body>
 </html>

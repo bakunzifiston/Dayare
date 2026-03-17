@@ -20,7 +20,7 @@ class DeliveryConfirmationController extends Controller
 {
     private function userFacilityIds(Request $request): \Illuminate\Support\Collection
     {
-        return Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))
+        return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
             ->pluck('id');
     }
 
@@ -121,7 +121,7 @@ class DeliveryConfirmationController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
-        $businessIds = $request->user()->businesses()->pluck('id');
+        $businessIds = $request->user()->accessibleBusinessIds();
         $clients = Client::whereIn('business_id', $businessIds)
             ->where('is_active', true)
             ->orderBy('name')
@@ -155,7 +155,7 @@ class DeliveryConfirmationController extends Controller
         $clientId = $request->validated('client_id');
         if ($clientId) {
             $client = Client::find($clientId);
-            if (! $client || ! $request->user()->businesses()->pluck('id')->contains($client->business_id)) {
+            if (! $client || ! $request->user()->accessibleBusinessIds()->contains($client->business_id)) {
                 abort(404);
             }
             if (! $client->is_active) {
@@ -205,7 +205,7 @@ class DeliveryConfirmationController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
-        $businessIds = $request->user()->businesses()->pluck('id');
+        $businessIds = $request->user()->accessibleBusinessIds();
         $clients = Client::whereIn('business_id', $businessIds)
             ->where('is_active', true)
             ->orderBy('name')
@@ -241,7 +241,7 @@ class DeliveryConfirmationController extends Controller
         $clientId = $request->validated('client_id');
         if ($clientId) {
             $client = Client::find($clientId);
-            if (! $client || ! $request->user()->businesses()->pluck('id')->contains($client->business_id)) {
+            if (! $client || ! $request->user()->accessibleBusinessIds()->contains($client->business_id)) {
                 abort(404);
             }
             if (! $client->is_active) {

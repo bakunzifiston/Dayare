@@ -13,7 +13,7 @@ class LoginLayout extends Component
         public string $leftDescription = ''
     ) {
         if ($leftSubtitle === '') {
-            $this->leftSubtitle = config('app.name', 'DAYARE');
+            $this->leftSubtitle = config('app.name', 'BuchaPro');
         }
         if ($leftDescription === '') {
             $this->leftDescription = __('Meat traceability and compliance for abattoirs, inspectors, and facilities. Sign in to manage your business.');

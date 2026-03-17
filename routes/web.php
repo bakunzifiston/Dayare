@@ -29,6 +29,7 @@ use App\Http\Controllers\RecipientController;
 use App\Http\Controllers\CrmDashboardController;
 use App\Http\Controllers\ClientActivityController;
 use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\TenantUserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -71,7 +72,7 @@ Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'tenant'])
     ->name('dashboard');
 
-Route::middleware(['auth', 'tenant'])->group(function () {
+Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
     Route::resource('businesses', BusinessController::class);
     // Explicit facilities routes (nested under business) – avoids 404 on some cPanel setups
     Route::get('businesses/{business}/facilities', [FacilityController::class, 'index'])->name('businesses.facilities.index');
@@ -116,6 +117,8 @@ Route::middleware(['auth', 'tenant'])->group(function () {
     Route::resource('demands', DemandController::class);
     Route::get('recipients', [RecipientController::class, 'index'])->name('recipients.index');
     Route::delete('client-activities/{client_activity}', [App\Http\Controllers\ClientActivityController::class, 'destroy'])->name('client-activities.destroy');
+
+    Route::resource('tenant-users', TenantUserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->names('tenant-users');
 
     Route::middleware('super_admin')->prefix('super-admin')->name('super-admin.')->group(function () {
         Route::get('/', [SuperAdminDashboardController::class, 'index'])->name('dashboard');

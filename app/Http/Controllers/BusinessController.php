@@ -22,7 +22,7 @@ class BusinessController extends Controller
 
         $kpis = [
             'total' => $request->user()->businesses()->count(),
-            'facilities' => \App\Models\Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))->count(),
+            'facilities' => \App\Models\Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())->count(),
         ];
 
         return view('businesses.index', compact('businesses', 'kpis'));

@@ -13,7 +13,7 @@ class EmployeeController extends Controller
 {
     public function index(Request $request): View
     {
-        $businessIds = $request->user()->businesses()->pluck('id');
+        $businessIds = $request->user()->accessibleBusinessIds();
 
         $employees = Employee::with(['business', 'facility'])
             ->whereIn('business_id', $businessIds)
@@ -31,14 +31,14 @@ class EmployeeController extends Controller
 
     public function create(Request $request): View
     {
-        $businesses = $request->user()->businesses()->with('facilities')->get();
+        $businesses = $request->user()->accessibleBusinesses()->with('facilities')->get();
 
         return view('employees.create', compact('businesses'));
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $businessIds = $request->user()->businesses()->pluck('id')->all();
+        $businessIds = $request->user()->accessibleBusinessIds()->all();
 
         $validated = $request->validate([
             'business_id' => ['required', 'integer', 'in:'.implode(',', $businessIds)],
@@ -73,7 +73,7 @@ class EmployeeController extends Controller
 
     public function show(Request $request, Employee $employee): View
     {
-        if (! $request->user()->businesses()->whereKey($employee->business_id)->exists()) {
+        if (! $request->user()->accessibleBusinessIds()->contains($employee->business_id)) {
             abort(404);
         }
 
@@ -84,22 +84,22 @@ class EmployeeController extends Controller
 
     public function edit(Request $request, Employee $employee): View
     {
-        if (! $request->user()->businesses()->whereKey($employee->business_id)->exists()) {
+        if (! $request->user()->accessibleBusinessIds()->contains($employee->business_id)) {
             abort(404);
         }
 
-        $businesses = $request->user()->businesses()->with('facilities')->get();
+        $businesses = $request->user()->accessibleBusinesses()->with('facilities')->get();
 
         return view('employees.edit', compact('employee', 'businesses'));
     }
 
     public function update(Request $request, Employee $employee): RedirectResponse
     {
-        if (! $request->user()->businesses()->whereKey($employee->business_id)->exists()) {
+        if (! $request->user()->accessibleBusinessIds()->contains($employee->business_id)) {
             abort(404);
         }
 
-        $businessIds = $request->user()->businesses()->pluck('id')->all();
+        $businessIds = $request->user()->accessibleBusinessIds()->all();
 
         $validated = $request->validate([
             'business_id' => ['required', 'integer', 'in:'.implode(',', $businessIds)],
@@ -134,7 +134,7 @@ class EmployeeController extends Controller
 
     public function destroy(Request $request, Employee $employee): RedirectResponse
     {
-        if (! $request->user()->businesses()->whereKey($employee->business_id)->exists()) {
+        if (! $request->user()->accessibleBusinessIds()->contains($employee->business_id)) {
             abort(404);
         }
 

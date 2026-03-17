@@ -15,7 +15,7 @@ class RecipientController extends Controller
      */
     public function index(Request $request): View
     {
-        $facilityIds = Facility::whereIn('business_id', $request->user()->businesses()->pluck('id'))
+        $facilityIds = Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
             ->pluck('id');
 
         $aggregates = DeliveryConfirmation::query()

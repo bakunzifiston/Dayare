@@ -28,7 +28,7 @@ class DashboardController extends Controller
         }
 
         $user = $request->user();
-        $businessIds = $user->businesses()->pluck('id');
+        $businessIds = $user->accessibleBusinessIds();
 
         if ($businessIds->isEmpty()) {
             $kpis = [
