@@ -11,7 +11,7 @@
                     @method('DELETE')
                     <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700">{{ __('Delete') }}</button>
                 </form>
-                <a href="{{ route('demands.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Back to list') }}</a>
+                <a href="{{ route('demands.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Back to list') }}</a>
             </div>
         </div>
     </x-slot>
@@ -33,17 +33,17 @@
                         @elseif($demand->status === 'cancelled') bg-slate-100 text-slate-600
                         @else bg-slate-100 text-slate-700 @endif">{{ \App\Models\Demand::STATUSES[$demand->status] ?? $demand->status }}</span></dd></div>
                     @if ($demand->fulfilledByDelivery)
-                    <div class="sm:col-span-2"><dt class="text-sm font-medium text-slate-500">{{ __('Fulfilled by delivery') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('delivery-confirmations.show', $demand->fulfilledByDelivery) }}" class="text-indigo-600 hover:underline">{{ __('Delivery') }} — {{ $demand->fulfilledByDelivery->received_date?->format('d M Y') }} ({{ $demand->fulfilledByDelivery->receiver_display }})</a></dd></div>
+                    <div class="sm:col-span-2"><dt class="text-sm font-medium text-slate-500">{{ __('Fulfilled by delivery') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('delivery-confirmations.show', $demand->fulfilledByDelivery) }}" class="text-bucha-primary hover:underline">{{ __('Delivery') }} — {{ $demand->fulfilledByDelivery->received_date?->format('d M Y') }} ({{ $demand->fulfilledByDelivery->receiver_display }})</a></dd></div>
                     @endif
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Destination') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $demand->destination_display }}</dd></div>
                     @if ($demand->client_id && $demand->client)
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Client') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('clients.show', $demand->client) }}" class="text-indigo-600 hover:underline">{{ $demand->client->display_name }}</a></dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Client') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('clients.show', $demand->client) }}" class="text-bucha-primary hover:underline">{{ $demand->client->display_name }}</a></dd></div>
                     @endif
                     @if ($demand->destination_facility_id && $demand->destinationFacility)
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Facility') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('businesses.facilities.show', [$demand->destinationFacility->business, $demand->destinationFacility]) }}" class="text-indigo-600 hover:underline">{{ $demand->destinationFacility->facility_name }}</a></dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Facility') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('businesses.facilities.show', [$demand->destinationFacility->business, $demand->destinationFacility]) }}" class="text-bucha-primary hover:underline">{{ $demand->destinationFacility->facility_name }}</a></dd></div>
                     @endif
                     @if ($demand->contract_id && $demand->contract)
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Contract') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('contracts.show', $demand->contract) }}" class="text-indigo-600 hover:underline">{{ $demand->contract->contract_number }}</a></dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Contract') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('contracts.show', $demand->contract) }}" class="text-bucha-primary hover:underline">{{ $demand->contract->contract_number }}</a></dd></div>
                     @endif
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Species') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $demand->species }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Quantity') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $demand->quantity }} {{ $demand->quantity_unit_label }}</dd></div>

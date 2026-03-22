@@ -15,7 +15,7 @@
                         {{ __('Delete') }}
                     </button>
                 </form>
-                <a href="{{ route('inspectors.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <a href="{{ route('inspectors.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Back to Inspectors') }}
                 </a>
             </div>
@@ -100,7 +100,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Assigned facility') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('businesses.facilities.show', [$inspector->facility->business, $inspector->facility]) }}" class="text-indigo-600 hover:underline">
+                            <a href="{{ route('businesses.facilities.show', [$inspector->facility->business, $inspector->facility]) }}" class="text-bucha-primary hover:underline">
                                 {{ $inspector->facility->facility_name }} ({{ $inspector->facility->facility_type }})
                             </a>
                         </dd>

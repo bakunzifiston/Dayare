@@ -23,14 +23,16 @@ function initDashboardCharts() {
   };
 
   const colorPalette = {
-    blue: 'rgb(59, 130, 246)',
-    blueBg: 'rgba(59, 130, 246, 0.15)',
-    green: 'rgb(16, 185, 129)',
-    greenBg: 'rgba(16, 185, 129, 0.15)',
-    slate: 'rgb(100, 116, 139)',
-    slateBg: 'rgba(100, 116, 139, 0.12)',
-    amber: 'rgb(245, 158, 11)',
-    amberBg: 'rgba(245, 158, 11, 0.15)',
+    primary: 'rgb(161, 29, 30)',
+    primaryBg: 'rgba(161, 29, 30, 0.12)',
+    burgundy: 'rgb(60, 60, 59)',
+    burgundyBg: 'rgba(60, 60, 59, 0.08)',
+    green: 'rgb(56, 161, 105)',
+    greenBg: 'rgba(56, 161, 105, 0.15)',
+    slate: 'rgb(113, 128, 150)',
+    slateBg: 'rgba(113, 128, 150, 0.12)',
+    amber: 'rgb(214, 158, 46)',
+    amberBg: 'rgba(214, 158, 46, 0.15)',
   };
 
   const chartIdToCanvasId = (id) => 'chart-' + id.replace(/_/g, '-');
@@ -41,8 +43,8 @@ function initDashboardCharts() {
     if (!el || !config[chartId]) return;
 
     const { labels, datasets: rawDatasets, type = 'bar' } = config[chartId];
-    const colors = [colorPalette.blue, colorPalette.green, colorPalette.slate, colorPalette.amber];
-    const bgColors = [colorPalette.blueBg, colorPalette.greenBg, colorPalette.slateBg, colorPalette.amberBg];
+    const colors = [colorPalette.primary, colorPalette.green, colorPalette.slate, colorPalette.burgundy];
+    const bgColors = [colorPalette.primaryBg, colorPalette.greenBg, colorPalette.slateBg, colorPalette.burgundyBg];
 
     const datasets = (rawDatasets || []).map((ds, i) => ({
       label: ds.label,

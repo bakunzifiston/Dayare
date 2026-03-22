@@ -14,7 +14,7 @@
 
                     <div>
                         <x-input-label for="slaughter_plan_id" :value="__('Slaughter session')" />
-                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($plans as $p)
                                 <option value="{{ $p['id'] }}" data-facility-id="{{ $p['facility_id'] }}" @selected(old('slaughter_plan_id', $inspection->slaughter_plan_id) == $p['id'])>{{ $p['label'] }}</option>
                             @endforeach
@@ -24,7 +24,7 @@
 
                     <div>
                         <x-input-label for="inspector_id" :value="__('Inspector')" />
-                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select inspector') }}</option>
                             @foreach ($inspectorsByFacility as $fid => $inspectors)
                                 @foreach ($inspectors as $insp)
@@ -43,7 +43,7 @@
 
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
-                        <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach (\App\Models\SlaughterPlan::SPECIES_OPTIONS as $s)
                                 <option value="{{ $s }}" @selected(old('species', $inspection->species) === $s)>{{ $s }}</option>
                             @endforeach
@@ -72,7 +72,7 @@
 
                     <div>
                         <x-input-label for="notes" :value="__('Notes')" />
-                        <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">{{ old('notes', $inspection->notes) }}</textarea>
+                        <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">{{ old('notes', $inspection->notes) }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('notes')" />
                     </div>
 

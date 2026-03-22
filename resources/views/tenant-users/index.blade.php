@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Users') }}
             </h2>
-            <a href="{{ route('tenant-users.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('tenant-users.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Add user') }}
             </a>
         </div>
@@ -47,9 +47,9 @@
                                         @if ($u->id === Auth::id())
                                             <span class="text-slate-400 text-xs">{{ __('You') }}</span>
                                             <span class="text-slate-300 mx-1">|</span>
-                                            <a href="{{ route('profile.edit') }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">{{ __('Profile') }}</a>
+                                            <a href="{{ route('profile.edit') }}" class="text-bucha-primary hover:text-bucha-burgundy text-xs font-medium">{{ __('Profile') }}</a>
                                         @else
-                                            <a href="{{ route('tenant-users.edit', $u) }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">{{ __('Edit') }}</a>
+                                            <a href="{{ route('tenant-users.edit', $u) }}" class="text-bucha-primary hover:text-bucha-burgundy text-xs font-medium">{{ __('Edit') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>
                                             <form method="POST" action="{{ route('tenant-users.destroy', $u) }}" class="inline" onsubmit="return confirm('{{ __('Remove this user from your team? They will lose access to your businesses.') }}');">
                                                 @csrf

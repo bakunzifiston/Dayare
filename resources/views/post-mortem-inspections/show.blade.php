@@ -11,7 +11,7 @@
                 <a href="{{ route('batches.show', $inspection->batch) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                     {{ __('View batch') }}
                 </a>
-                <a href="{{ route('post-mortem-inspections.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <a href="{{ route('post-mortem-inspections.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Back to list') }}
                 </a>
             </div>
@@ -25,7 +25,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Batch') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('batches.show', $inspection->batch) }}" class="text-indigo-600 hover:underline">
+                            <a href="{{ route('batches.show', $inspection->batch) }}" class="text-bucha-primary hover:underline">
                                 {{ $inspection->batch->batch_code }}
                             </a>
                             — {{ $inspection->batch->species }} ({{ $inspection->batch->quantity }})
@@ -38,7 +38,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Inspector') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('inspectors.show', $inspection->inspector) }}" class="text-indigo-600 hover:underline">
+                            <a href="{{ route('inspectors.show', $inspection->inspector) }}" class="text-bucha-primary hover:underline">
                                 {{ $inspection->inspector->full_name }}
                             </a>
                         </dd>

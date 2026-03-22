@@ -61,7 +61,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($expiredFacilityLicenses as $f)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('businesses.facilities.show', [$f->business_id, $f]) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $f->facility_name }}</a>
+                                    <a href="{{ route('businesses.facilities.show', [$f->business_id, $f]) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $f->facility_name }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ __('Expired') }} {{ $f->license_expiry_date->format('d M Y') }}</span>
                                 </li>
                             @endforeach
@@ -77,7 +77,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($expiredInspectorAuthorizations as $i)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('inspectors.show', $i) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $i->full_name }}</a>
+                                    <a href="{{ route('inspectors.show', $i) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $i->full_name }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ $i->authorization_expiry_date ? $i->authorization_expiry_date->format('d M Y') : __('Expired') }}</span>
                                 </li>
                             @endforeach
@@ -93,7 +93,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($overCapacityPlans as $p)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('slaughter-plans.show', $p) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $p->slaughter_date->format('d M Y') }} — {{ $p->facility->facility_name ?? '' }}</a>
+                                    <a href="{{ route('slaughter-plans.show', $p) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $p->slaughter_date->format('d M Y') }} — {{ $p->facility->facility_name ?? '' }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ __('Scheduled') }}: {{ $p->number_of_animals_scheduled }}, {{ __('Daily production capacity') }}: {{ $p->facility->daily_capacity ?? '—' }}</span>
                                 </li>
                             @endforeach
@@ -110,7 +110,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($missingAnteMortemPlans as $p)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('slaughter-plans.show', $p) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $p->slaughter_date->format('d M Y') }} — {{ $p->facility->facility_name ?? '' }}</a>
+                                    <a href="{{ route('slaughter-plans.show', $p) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $p->slaughter_date->format('d M Y') }} — {{ $p->facility->facility_name ?? '' }}</a>
                                 </li>
                             @endforeach
                         </ul>
@@ -126,7 +126,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($missingPostMortemBatches as $b)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('batches.show', $b) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $b->batch_code }}</a>
+                                    <a href="{{ route('batches.show', $b) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $b->batch_code }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ $b->slaughterExecution->slaughterPlan->facility->facility_name ?? '' }}</span>
                                 </li>
                             @endforeach
@@ -143,7 +143,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($missingCertificateBatches as $b)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('batches.show', $b) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $b->batch_code }}</a>
+                                    <a href="{{ route('batches.show', $b) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $b->batch_code }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ $b->slaughterExecution->slaughterPlan->facility->facility_name ?? '' }}</span>
                                 </li>
                             @endforeach
@@ -160,7 +160,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($missingTransportCertificates as $c)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('certificates.show', $c) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $c->certificate_number ?: '#' . $c->id }}</a>
+                                    <a href="{{ route('certificates.show', $c) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $c->certificate_number ?: '#' . $c->id }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ $c->batch ? $c->batch->batch_code : ($c->facility?->facility_name ?? '') }}</span>
                                 </li>
                             @endforeach
@@ -177,7 +177,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($temperatureAlerts as $log)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('warehouse-storages.show', $log->warehouseStorage) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $log->warehouseStorage->batch->batch_code ?? '#' . $log->warehouse_storage_id }}</a>
+                                    <a href="{{ route('warehouse-storages.show', $log->warehouseStorage) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $log->warehouseStorage->batch->batch_code ?? '#' . $log->warehouse_storage_id }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ $log->recorded_temperature }} °C · {{ $log->recorded_at->format('d M Y H:i') }} · {{ ucfirst($log->status) }}</span>
                                 </li>
                             @endforeach
@@ -194,7 +194,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($intakesWithExpiredHealthCert as $i)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('animal-intakes.show', $i) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $i->intake_date->format('d M Y') }} — {{ $i->facility->facility_name ?? '' }}</a>
+                                    <a href="{{ route('animal-intakes.show', $i) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $i->intake_date->format('d M Y') }} — {{ $i->facility->facility_name ?? '' }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ $i->supplier_firstname }} {{ $i->supplier_lastname }} · {{ __('Expired') }} {{ $i->health_certificate_expiry_date?->format('d M Y') }}</span>
                                 </li>
                             @endforeach
@@ -211,7 +211,7 @@
                         <ul class="divide-y divide-slate-50">
                             @foreach ($storageDurationExceeded as $ws)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('warehouse-storages.show', $ws) }}" class="font-medium text-indigo-600 hover:text-indigo-800">{{ $ws->batch->batch_code ?? '' }}</a>
+                                    <a href="{{ route('warehouse-storages.show', $ws) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $ws->batch->batch_code ?? '' }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ $ws->warehouseFacility->facility_name ?? '' }} · {{ __('Entry') }} {{ $ws->entry_date->format('d M Y') }} ({{ $ws->entry_date->diffInDays(now()) }} {{ __('days') }})</span>
                                 </li>
                             @endforeach

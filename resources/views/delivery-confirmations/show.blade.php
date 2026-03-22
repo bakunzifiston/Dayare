@@ -11,7 +11,7 @@
                 <a href="{{ route('transport-trips.show', $confirmation->transportTrip) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                     {{ __('View trip') }}
                 </a>
-                <a href="{{ route('delivery-confirmations.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <a href="{{ route('delivery-confirmations.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Back to list') }}
                 </a>
             </div>
@@ -25,7 +25,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Transport trip') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('transport-trips.show', $confirmation->transportTrip) }}" class="text-indigo-600 hover:underline">
+                            <a href="{{ route('transport-trips.show', $confirmation->transportTrip) }}" class="text-bucha-primary hover:underline">
                                 {{ $confirmation->transportTrip->vehicle_plate_number }} — {{ $confirmation->transportTrip->driver_name }}
                             </a>
                         </dd>
@@ -44,7 +44,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Client') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('clients.show', $confirmation->client) }}" class="text-indigo-600 hover:underline">{{ $confirmation->client->display_name }}</a>
+                            <a href="{{ route('clients.show', $confirmation->client) }}" class="text-bucha-primary hover:underline">{{ $confirmation->client->display_name }}</a>
                         </dd>
                     </div>
                     @endif
@@ -52,7 +52,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Customer contract') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('contracts.show', $confirmation->contract) }}" class="text-indigo-600 hover:underline">{{ $confirmation->contract->contract_number }} — {{ $confirmation->contract->title }}</a>
+                            <a href="{{ route('contracts.show', $confirmation->contract) }}" class="text-bucha-primary hover:underline">{{ $confirmation->contract->contract_number }} — {{ $confirmation->contract->title }}</a>
                         </dd>
                     </div>
                     @endif
@@ -60,7 +60,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Fulfills demand') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('demands.show', $confirmation->fulfillingDemand) }}" class="text-indigo-600 hover:underline">{{ $confirmation->fulfillingDemand->demand_number }} — {{ $confirmation->fulfillingDemand->title }}</a>
+                            <a href="{{ route('demands.show', $confirmation->fulfillingDemand) }}" class="text-bucha-primary hover:underline">{{ $confirmation->fulfillingDemand->demand_number }} — {{ $confirmation->fulfillingDemand->title }}</a>
                         </dd>
                     </div>
                     @endif

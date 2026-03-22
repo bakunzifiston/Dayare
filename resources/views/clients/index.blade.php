@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Clients') }}
             </h2>
-            <a href="{{ route('clients.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('clients.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Add client') }}
             </a>
         </div>
@@ -24,7 +24,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No clients yet.') }}</p>
                     <p class="text-sm mb-4">{{ __('Customers and recipients. Link clients to deliveries and demands.') }}</p>
-                    <a href="{{ route('clients.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Add first client') }}</a>
+                    <a href="{{ route('clients.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Add first client') }}</a>
                 </div>
             @else
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
@@ -44,7 +44,7 @@
                                 @foreach ($clients as $client)
                                     <tr class="hover:bg-slate-50/50 transition-colors">
                                         <td class="px-4 py-3">
-                                            <a href="{{ route('clients.show', $client) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $client->name }}</a>
+                                            <a href="{{ route('clients.show', $client) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ $client->name }}</a>
                                         </td>
                                         <td class="px-4 py-3 text-slate-600">{{ $client->contact_person ?? $client->phone ?? $client->email ?? '—' }}</td>
                                         <td class="px-4 py-3 text-slate-600">{{ $client->country ?? '—' }}</td>
@@ -55,7 +55,7 @@
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-right whitespace-nowrap">
-                                            <a href="{{ route('clients.show', $client) }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">{{ __('View') }}</a>
+                                            <a href="{{ route('clients.show', $client) }}" class="text-bucha-primary hover:text-bucha-burgundy text-xs font-medium">{{ __('View') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>
                                             <a href="{{ route('clients.edit', $client) }}" class="text-slate-600 hover:text-slate-800 text-xs font-medium">{{ __('Edit') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>

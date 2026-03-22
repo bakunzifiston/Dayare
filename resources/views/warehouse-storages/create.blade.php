@@ -14,7 +14,7 @@
 
                     <div>
                         <x-input-label for="warehouse_facility_id" :value="__('Warehouse (storage facility)')" />
-                        <select id="warehouse_facility_id" name="warehouse_facility_id" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="warehouse_facility_id" name="warehouse_facility_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select warehouse') }}</option>
                             @foreach ($warehouseFacilities as $f)
                                 <option value="{{ $f['id'] }}" @selected(old('warehouse_facility_id') == $f['id'])>{{ $f['label'] }}</option>
@@ -28,7 +28,7 @@
 
                     <div>
                         <x-input-label for="certificate_id" :value="__('Certificate (batch)')" />
-                        <select id="certificate_id" name="certificate_id" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="certificate_id" name="certificate_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select certificate') }}</option>
                             @foreach ($certificates as $c)
                                 <option value="{{ $c['id'] }}" @selected(old('certificate_id') == $c['id'])>{{ $c['label'] }}</option>
@@ -63,7 +63,7 @@
                     </div>
                     <div>
                         <x-input-label for="quantity_unit" :value="__('Unit')" />
-                        <select id="quantity_unit" name="quantity_unit" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="quantity_unit" name="quantity_unit" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @if (isset($units) && $units->isNotEmpty())
                                 @foreach ($units as $unit)
                                     <option value="{{ $unit->code }}" @selected(old('quantity_unit', $units->first()?->code ?? 'kg') === $unit->code)>{{ $unit->name }}</option>
@@ -78,7 +78,7 @@
                     </div>
 
                     <div class="flex gap-3">
-                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Save') }}</button>
+                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Save') }}</button>
                         <a href="{{ route('warehouse-storages.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">{{ __('Cancel') }}</a>
                     </div>
                 </form>

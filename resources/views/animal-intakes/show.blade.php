@@ -14,9 +14,9 @@
                     </button>
                 </form>
                 @if ($intake->status === \App\Models\AnimalIntake::STATUS_APPROVED && !$intake->isHealthCertificateExpired() && $intake->remainingAnimalsAvailable() > 0)
-                    <a href="{{ route('slaughter-plans.create') }}?animal_intake_id={{ $intake->id }}&facility_id={{ $intake->facility_id }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Schedule slaughter') }}</a>
+                    <a href="{{ route('slaughter-plans.create') }}?animal_intake_id={{ $intake->id }}&facility_id={{ $intake->facility_id }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Schedule slaughter') }}</a>
                 @endif
-                <a href="{{ route('animal-intakes.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Back to list') }}</a>
+                <a href="{{ route('animal-intakes.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Back to list') }}</a>
             </div>
         </div>
     </x-slot>
@@ -37,8 +37,8 @@
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Facility') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->facility->facility_name ?? '' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Intake date') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->intake_date->format('d M Y') }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_firstname }} {{ $intake->supplier_lastname }}@if ($intake->supplier)<a href="{{ route('suppliers.show', $intake->supplier) }}" class="ml-2 text-indigo-600 hover:underline">{{ __('View supplier') }}</a>@endif</dd></div>
-                    @if ($intake->contract)<div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier contract') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('contracts.show', $intake->contract) }}" class="text-indigo-600 hover:underline">{{ $intake->contract->contract_number }} — {{ $intake->contract->title }}</a></dd></div>@endif
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_firstname }} {{ $intake->supplier_lastname }}@if ($intake->supplier)<a href="{{ route('suppliers.show', $intake->supplier) }}" class="ml-2 text-bucha-primary hover:underline">{{ __('View supplier') }}</a>@endif</dd></div>
+                    @if ($intake->contract)<div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier contract') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('contracts.show', $intake->contract) }}" class="text-bucha-primary hover:underline">{{ $intake->contract->contract_number }} — {{ $intake->contract->title }}</a></dd></div>@endif
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier contact') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_contact ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm registration number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_registration_number ?? '—' }}</dd></div>
@@ -63,7 +63,7 @@
                     <ul class="divide-y divide-slate-100">
                         @foreach ($intake->slaughterPlans as $plan)
                             <li class="py-2">
-                                <a href="{{ route('slaughter-plans.show', $plan) }}" class="font-medium text-indigo-600 hover:underline">{{ $plan->slaughter_date->format('d M Y') }}</a>
+                                <a href="{{ route('slaughter-plans.show', $plan) }}" class="font-medium text-bucha-primary hover:underline">{{ $plan->slaughter_date->format('d M Y') }}</a>
                                 <span class="text-sm text-slate-500"> — {{ $plan->number_of_animals_scheduled }} {{ __('animals') }} · {{ ucfirst($plan->status) }}</span>
                             </li>
                         @endforeach

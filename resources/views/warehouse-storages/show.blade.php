@@ -7,7 +7,7 @@
             <div class="flex gap-2">
                 <a href="{{ route('warehouse-storages.edit', $warehouseStorage) }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">{{ __('Edit') }}</a>
                 <a href="{{ route('batches.show', $warehouseStorage->batch) }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">{{ __('View batch') }}</a>
-                <a href="{{ route('warehouse-storages.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Back to list') }}</a>
+                <a href="{{ route('warehouse-storages.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Back to list') }}</a>
             </div>
         </div>
     </x-slot>
@@ -27,13 +27,13 @@
                     <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Batch') }}</dt>
                         <dd class="mt-1 text-sm text-slate-900">
-                            <a href="{{ route('batches.show', $warehouseStorage->batch) }}" class="text-indigo-600 hover:underline">{{ $warehouseStorage->batch->batch_code ?? '' }}</a>
+                            <a href="{{ route('batches.show', $warehouseStorage->batch) }}" class="text-bucha-primary hover:underline">{{ $warehouseStorage->batch->batch_code ?? '' }}</a>
                         </dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Certificate') }}</dt>
                         <dd class="mt-1 text-sm text-slate-900">
-                            <a href="{{ route('certificates.show', $warehouseStorage->certificate) }}" class="text-indigo-600 hover:underline">{{ $warehouseStorage->certificate->certificate_number ?: '#' . $warehouseStorage->certificate_id }}</a>
+                            <a href="{{ route('certificates.show', $warehouseStorage->certificate) }}" class="text-bucha-primary hover:underline">{{ $warehouseStorage->certificate->certificate_number ?: '#' . $warehouseStorage->certificate_id }}</a>
                         </dd>
                     </div>
                     <div>
@@ -88,7 +88,7 @@
                         </div>
                         <div>
                             <x-input-label for="status" :value="__('Status')" />
-                            <select id="status" name="status" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                            <select id="status" name="status" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                                 @foreach (['normal' => __('Normal'), 'warning' => __('Warning'), 'critical' => __('Critical')] as $val => $label)
                                     <option value="{{ $val }}">{{ $label }}</option>
                                 @endforeach

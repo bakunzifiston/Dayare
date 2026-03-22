@@ -19,36 +19,36 @@
                     <div class="p-6 space-y-4">
                         <div>
                             <x-input-label for="business_name" :value="__('Business name')" />
-                            <x-text-input id="business_name" name="business_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('business_name')" required />
+                            <x-text-input id="business_name" name="business_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('business_name')" required />
                             <x-input-error class="mt-2" :messages="$errors->get('business_name')" />
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <x-input-label for="registration_number" :value="__('Registration number')" />
-                                <x-text-input id="registration_number" name="registration_number" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('registration_number')" required />
+                                <x-text-input id="registration_number" name="registration_number" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('registration_number')" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('registration_number')" />
                             </div>
                             <div>
                                 <x-input-label for="tax_id" :value="__('Tax ID')" />
-                                <x-text-input id="tax_id" name="tax_id" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('tax_id')" />
+                                <x-text-input id="tax_id" name="tax_id" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('tax_id')" />
                                 <x-input-error class="mt-2" :messages="$errors->get('tax_id')" />
                             </div>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <x-input-label for="contact_phone" :value="__('Contact phone')" />
-                                <x-text-input id="contact_phone" name="contact_phone" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('contact_phone')" required />
+                                <x-text-input id="contact_phone" name="contact_phone" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('contact_phone')" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('contact_phone')" />
                             </div>
                             <div>
                                 <x-input-label for="email" :value="__('Email')" />
-                                <x-text-input id="email" name="email" type="email" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('email')" required />
+                                <x-text-input id="email" name="email" type="email" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('email')" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('email')" />
                             </div>
                         </div>
                         <div>
                             <x-input-label for="status" :value="__('Status')" />
-                            <select id="status" name="status" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm">
+                            <select id="status" name="status" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
                                 @foreach (\App\Models\Business::STATUSES as $s)
                                     <option value="{{ $s }}" @selected(old('status', 'active') === $s)>{{ ucfirst($s) }}</option>
                                 @endforeach
@@ -68,35 +68,35 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <x-input-label for="owner_first_name" :value="__('First name')" />
-                                <x-text-input id="owner_first_name" name="owner_first_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('owner_first_name')" required />
+                                <x-text-input id="owner_first_name" name="owner_first_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_first_name')" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('owner_first_name')" />
                             </div>
                             <div>
                                 <x-input-label for="owner_last_name" :value="__('Last name')" />
-                                <x-text-input id="owner_last_name" name="owner_last_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('owner_last_name')" required />
+                                <x-text-input id="owner_last_name" name="owner_last_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_last_name')" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('owner_last_name')" />
                             </div>
                         </div>
                         <div>
                             <x-input-label for="owner_dob" :value="__('Date of birth')" />
-                            <x-text-input id="owner_dob" name="owner_dob" type="date" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('owner_dob')" max="{{ date('Y-m-d') }}" />
+                            <x-text-input id="owner_dob" name="owner_dob" type="date" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_dob')" max="{{ date('Y-m-d') }}" />
                             <x-input-error class="mt-2" :messages="$errors->get('owner_dob')" />
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <x-input-label for="owner_phone" :value="__('Owner phone')" />
-                                <x-text-input id="owner_phone" name="owner_phone" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('owner_phone')" />
+                                <x-text-input id="owner_phone" name="owner_phone" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_phone')" />
                                 <x-input-error class="mt-2" :messages="$errors->get('owner_phone')" />
                             </div>
                             <div>
                                 <x-input-label for="owner_email" :value="__('Owner email')" />
-                                <x-text-input id="owner_email" name="owner_email" type="email" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]" :value="old('owner_email')" />
+                                <x-text-input id="owner_email" name="owner_email" type="email" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_email')" />
                                 <x-input-error class="mt-2" :messages="$errors->get('owner_email')" />
                             </div>
                         </div>
                         <div>
                             <x-input-label for="ownership_type" :value="__('Ownership type')" />
-                            <select id="ownership_type" name="ownership_type" x-model="ownershipType" @change="if ((ownershipType === 'partnership' || ownershipType === 'cooperative' || ownershipType === 'company') && members.length === 0) addMember()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm">
+                            <select id="ownership_type" name="ownership_type" x-model="ownershipType" @change="if ((ownershipType === 'partnership' || ownershipType === 'cooperative' || ownershipType === 'company') && members.length === 0) addMember()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
                                 <option value="">{{ __('Select type') }}</option>
                                 @foreach (\App\Models\Business::OWNERSHIP_TYPES as $t)
                                     <option value="{{ $t }}" @selected(old('ownership_type') === $t)>{{ __(ucfirst(str_replace('_', ' ', $t))) }}</option>
@@ -117,16 +117,16 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('First name') }}</label>
-                                            <input type="text" :name="'members[' + index + '][first_name]'" x-model="member.first_name" class="block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm">
+                                            <input type="text" :name="'members[' + index + '][first_name]'" x-model="member.first_name" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Last name') }}</label>
-                                            <input type="text" :name="'members[' + index + '][last_name]'" x-model="member.last_name" class="block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm">
+                                            <input type="text" :name="'members[' + index + '][last_name]'" x-model="member.last_name" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
                                         </div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Date of birth') }}</label>
-                                        <input type="date" :name="'members[' + index + '][date_of_birth]'" x-model="member.date_of_birth" :max="maxDate" class="block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm">
+                                        <input type="date" :name="'members[' + index + '][date_of_birth]'" x-model="member.date_of_birth" :max="maxDate" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
                                     </div>
                                 </div>
                             </template>
@@ -173,7 +173,7 @@
                     <div class="p-6 space-y-4">
                         <div>
                             <x-input-label for="country_id" :value="__('Country')" />
-                            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" aria-required="true">
+                            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" aria-required="true">
                                 <option value="">{{ __('Select country') }}</option>
                                 <template x-for="d in countries" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -183,7 +183,7 @@
                         </div>
                         <div>
                             <x-input-label for="province_id" :value="__('Province')" />
-                            <select id="province_id" x-model="provinceId" @change="onProvinceChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!countryId">
+                            <select id="province_id" x-model="provinceId" @change="onProvinceChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" :disabled="!countryId">
                                 <option value="">{{ __('Select province') }}</option>
                                 <template x-for="d in provinces" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -193,7 +193,7 @@
                         </div>
                         <div>
                             <x-input-label for="district_id" :value="__('District')" />
-                            <select id="district_id" x-model="districtId" @change="onDistrictChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!provinceId">
+                            <select id="district_id" x-model="districtId" @change="onDistrictChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" :disabled="!provinceId">
                                 <option value="">{{ __('Select district') }}</option>
                                 <template x-for="d in districts" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -203,7 +203,7 @@
                         </div>
                         <div>
                             <x-input-label for="sector_id" :value="__('Sector')" />
-                            <select id="sector_id" x-model="sectorId" @change="onSectorChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!districtId">
+                            <select id="sector_id" x-model="sectorId" @change="onSectorChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" :disabled="!districtId">
                                 <option value="">{{ __('Select sector') }}</option>
                                 <template x-for="d in sectors" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -213,7 +213,7 @@
                         </div>
                         <div>
                             <x-input-label for="cell_id" :value="__('Cell')" />
-                            <select id="cell_id" x-model="cellId" @change="onCellChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!sectorId">
+                            <select id="cell_id" x-model="cellId" @change="onCellChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" :disabled="!sectorId">
                                 <option value="">{{ __('Select cell') }}</option>
                                 <template x-for="d in cells" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -223,7 +223,7 @@
                         </div>
                         <div>
                             <x-input-label for="village_id" :value="__('Village')" />
-                            <select id="village_id" x-model="villageId" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6] shadow-sm" :disabled="!cellId">
+                            <select id="village_id" x-model="villageId" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" :disabled="!cellId">
                                 <option value="">{{ __('Select village') }}</option>
                                 <template x-for="d in villages" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -307,7 +307,7 @@
                 </script>
 
                 <div class="flex gap-4">
-                    <button type="submit" id="register-business-btn" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb] focus:bg-[#2563eb] active:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 transition ease-in-out duration-150">
+                    <button type="submit" id="register-business-btn" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy focus:bg-[#2563eb] active:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-bucha-primary focus:ring-offset-2 transition ease-in-out duration-150">
                         {{ __('Register Business') }}
                     </button>
                     <a href="{{ route('businesses.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">

@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Businesses') }}
             </h2>
-            <a href="{{ route('businesses.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('businesses.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Register Business') }}
             </a>
         </div>
@@ -23,7 +23,7 @@
             @if ($businesses->isEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('You have not registered any business yet.') }}</p>
-                    <a href="{{ route('businesses.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                    <a href="{{ route('businesses.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                         {{ __('Register your first business') }}
                     </a>
                 </div>
@@ -33,7 +33,7 @@
                         @foreach ($businesses as $business)
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
-                                    <a href="{{ route('businesses.show', $business) }}" class="font-medium text-slate-900 hover:text-indigo-600">
+                                    <a href="{{ route('businesses.show', $business) }}" class="font-medium text-slate-900 hover:text-bucha-primary">
                                         {{ $business->business_name }}
                                     </a>
                                     <p class="text-sm text-slate-500">
@@ -44,7 +44,7 @@
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('businesses.show', $business) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('businesses.show', $business) }}" class="text-sm text-bucha-primary hover:text-indigo-900">{{ __('View') }}</a>
                                     <a href="{{ route('businesses.facilities.index', $business) }}" class="text-sm text-slate-600 hover:text-slate-900">
                                         {{ __('Facilities') }}
                                     </a>

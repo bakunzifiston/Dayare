@@ -38,7 +38,7 @@
                 <h2 class="text-sm font-semibold text-slate-700 border-b border-slate-200 pb-2">{{ __('Access') }}</h2>
                 <div>
                     <x-input-label :value="__('Role')" />
-                    <select name="role" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]">
+                    <select name="role" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary">
                         <option value="manager" @selected(old('role') === 'manager')>{{ __('Manager') }} ({{ __('Operations + CRM') }})</option>
                         <option value="staff" @selected(old('role', 'staff') === 'staff')>{{ __('Staff') }} ({{ __('Limited operations') }})</option>
                     </select>
@@ -51,7 +51,7 @@
                     <div class="space-y-2">
                         @foreach ($businesses as $b)
                             <label class="flex items-center gap-2">
-                                <input type="checkbox" name="business_ids[]" value="{{ $b->id }}" @checked(in_array($b->id, old('business_ids', []))) class="rounded border-gray-300 focus:ring-[#3B82F6]">
+                                <input type="checkbox" name="business_ids[]" value="{{ $b->id }}" @checked(in_array($b->id, old('business_ids', []))) class="rounded border-gray-300 focus:ring-bucha-primary">
                                 <span class="text-sm text-slate-700">{{ $b->business_name }}</span>
                             </label>
                         @endforeach
@@ -70,7 +70,7 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 @foreach ($permissions as $permName => $permLabel)
                                     <label class="flex items-center gap-2 text-sm">
-                                        <input type="checkbox" name="permissions[]" value="{{ $permName }}" @checked(in_array($permName, old('permissions', []))) class="rounded border-gray-300 focus:ring-[#3B82F6]">
+                                        <input type="checkbox" name="permissions[]" value="{{ $permName }}" @checked(in_array($permName, old('permissions', []))) class="rounded border-gray-300 focus:ring-bucha-primary">
                                         <span class="text-slate-700">{{ $permLabel }}</span>
                                     </label>
                                 @endforeach
@@ -82,7 +82,7 @@
             </div>
 
             <div class="flex gap-3">
-                <button type="submit" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Create user') }}
                 </button>
                 <a href="{{ route('tenant-users.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest hover:bg-slate-50">

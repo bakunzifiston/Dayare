@@ -47,17 +47,17 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                         <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Recent clients') }}</h2>
-                        <a href="{{ route('clients.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">{{ __('View all') }}</a>
+                        <a href="{{ route('clients.index') }}" class="text-xs font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('View all') }}</a>
                     </div>
                     <div class="p-6">
                         @if ($recentClients->isEmpty())
                             <p class="text-sm text-slate-500">{{ __('No clients yet.') }}</p>
-                            <a href="{{ route('clients.create') }}" class="inline-flex items-center mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">{{ __('Add first client') }}</a>
+                            <a href="{{ route('clients.create') }}" class="inline-flex items-center mt-2 text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('Add first client') }}</a>
                         @else
                             <ul class="divide-y divide-slate-100">
                                 @foreach ($recentClients as $client)
                                     <li class="py-2 first:pt-0 last:pb-0">
-                                        <a href="{{ route('clients.show', $client) }}" class="text-sm font-medium text-slate-900 hover:text-indigo-600">{{ $client->name }}</a>
+                                        <a href="{{ route('clients.show', $client) }}" class="text-sm font-medium text-slate-900 hover:text-bucha-primary">{{ $client->name }}</a>
                                         @if ($client->country)
                                             <span class="text-slate-500 text-sm"> — {{ $client->country }}</span>
                                         @endif
@@ -72,14 +72,14 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                         <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Suppliers with contract') }}</h2>
-                        <a href="{{ route('suppliers.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">{{ __('View all') }}</a>
+                        <a href="{{ route('suppliers.index') }}" class="text-xs font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('View all') }}</a>
                     </div>
                     <div class="p-6">
                         @if ($suppliersWithContract->isEmpty())
                             <p class="text-sm text-slate-500">{{ __('No suppliers with a contract yet.') }}</p>
-                            <a href="{{ route('suppliers.index') }}" class="inline-flex items-center mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">{{ __('Suppliers') }}</a>
+                            <a href="{{ route('suppliers.index') }}" class="inline-flex items-center mt-2 text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('Suppliers') }}</a>
                             <span class="text-slate-400 mx-1">·</span>
-                            <a href="{{ route('contracts.index') }}" class="inline-flex items-center mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">{{ __('Contracts') }}</a>
+                            <a href="{{ route('contracts.index') }}" class="inline-flex items-center mt-2 text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('Contracts') }}</a>
                         @else
                             <ul class="divide-y divide-slate-100">
                                 @foreach ($suppliersWithContract as $supplier)
@@ -87,7 +87,7 @@
                                         $contract = $supplier->contracts->first();
                                     @endphp
                                     <li class="py-2 first:pt-0 last:pb-0">
-                                        <a href="{{ route('suppliers.show', $supplier) }}" class="text-sm font-medium text-slate-900 hover:text-indigo-600">{{ trim(($supplier->first_name ?? '') . ' ' . ($supplier->last_name ?? '')) ?: '—' }}</a>
+                                        <a href="{{ route('suppliers.show', $supplier) }}" class="text-sm font-medium text-slate-900 hover:text-bucha-primary">{{ trim(($supplier->first_name ?? '') . ' ' . ($supplier->last_name ?? '')) ?: '—' }}</a>
                                         @if ($contract)
                                             <a href="{{ route('contracts.show', $contract) }}" class="text-slate-500 text-sm block mt-0.5">{{ $contract->contract_number }} · {{ $contract->status }}</a>
                                         @else
@@ -104,17 +104,17 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                         <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Open demands') }}</h2>
-                        <a href="{{ route('demands.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">{{ __('View all') }}</a>
+                        <a href="{{ route('demands.index') }}" class="text-xs font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('View all') }}</a>
                     </div>
                     <div class="p-6">
                         @if ($openDemands->isEmpty())
                             <p class="text-sm text-slate-500">{{ __('No open demands.') }}</p>
-                            <a href="{{ route('demands.create') }}" class="inline-flex items-center mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">{{ __('Create demand') }}</a>
+                            <a href="{{ route('demands.create') }}" class="inline-flex items-center mt-2 text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('Create demand') }}</a>
                         @else
                             <ul class="divide-y divide-slate-100">
                                 @foreach ($openDemands as $demand)
                                     <li class="py-2 first:pt-0 last:pb-0">
-                                        <a href="{{ route('demands.show', $demand) }}" class="text-sm font-medium text-slate-900 hover:text-indigo-600">{{ $demand->demand_number }}</a>
+                                        <a href="{{ route('demands.show', $demand) }}" class="text-sm font-medium text-slate-900 hover:text-bucha-primary">{{ $demand->demand_number }}</a>
                                         <span class="text-slate-500 text-sm"> — {{ $demand->title }}</span>
                                         <span class="text-slate-400 text-xs block mt-0.5">{{ $demand->destination_display }} · {{ $demand->requested_delivery_date?->format('d M Y') ?? '—' }}</span>
                                     </li>
@@ -128,7 +128,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
                     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                         <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Recipients') }}</h2>
-                        <a href="{{ route('recipients.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">{{ __('View all') }}</a>
+                        <a href="{{ route('recipients.index') }}" class="text-xs font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('View all') }}</a>
                     </div>
                     <div class="p-6">
                         @if ($recipients->isEmpty())
@@ -145,7 +145,7 @@
                                     @endphp
                                     <li class="py-2 first:pt-0 last:pb-0">
                                         @if ($facility && $facility->business)
-                                            <a href="{{ route('businesses.facilities.show', [$facility->business, $facility]) }}" class="text-sm font-medium text-slate-900 hover:text-indigo-600">{{ $facility->facility_name }}</a>
+                                            <a href="{{ route('businesses.facilities.show', [$facility->business, $facility]) }}" class="text-sm font-medium text-slate-900 hover:text-bucha-primary">{{ $facility->facility_name }}</a>
                                         @else
                                             <span class="text-sm font-medium text-slate-900">{{ $facility?->facility_name ?? '—' }}</span>
                                         @endif
@@ -159,7 +159,7 @@
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <a href="{{ route('clients.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-[#3B82F6] text-white text-sm font-medium hover:bg-[#2563eb]">{{ __('Clients') }}</a>
+                <a href="{{ route('clients.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-bucha-primary text-white text-sm font-medium hover:bg-bucha-burgundy">{{ __('Clients') }}</a>
                 <a href="{{ route('suppliers.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">{{ __('Suppliers') }}</a>
                 <a href="{{ route('contracts.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">{{ __('Contracts') }}</a>
                 <a href="{{ route('demands.index') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">{{ __('Demand') }}</a>

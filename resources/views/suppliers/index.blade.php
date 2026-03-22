@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Suppliers') }}
             </h2>
-            <a href="{{ route('suppliers.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('suppliers.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Add supplier') }}
             </a>
         </div>
@@ -25,7 +25,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No suppliers yet.') }}</p>
                     <p class="text-sm mb-4">{{ __('Suppliers linked to your businesses for livestock and supply contracts.') }}</p>
-                    <a href="{{ route('suppliers.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Add first supplier') }}</a>
+                    <a href="{{ route('suppliers.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Add first supplier') }}</a>
                 </div>
             @else
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
@@ -45,7 +45,7 @@
                                 @foreach ($suppliers as $supplier)
                                     <tr class="hover:bg-slate-50/50 transition-colors">
                                         <td class="px-4 py-3">
-                                            <a href="{{ route('suppliers.show', $supplier) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ trim(($supplier->first_name ?? '') . ' ' . ($supplier->last_name ?? '')) ?: ($supplier->name ?? '—') }}</a>
+                                            <a href="{{ route('suppliers.show', $supplier) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ trim(($supplier->first_name ?? '') . ' ' . ($supplier->last_name ?? '')) ?: ($supplier->name ?? '—') }}</a>
                                         </td>
                                         <td class="px-4 py-3 text-slate-600">{{ $supplier->type ? (\App\Models\Contract::SUPPLIER_TYPES[$supplier->type] ?? ucfirst(str_replace('_', ' ', $supplier->type))) : '—' }}</td>
                                         <td class="px-4 py-3 text-slate-600">{{ $supplier->business?->business_name ?? '—' }}</td>
@@ -57,7 +57,7 @@
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-right whitespace-nowrap">
-                                            <a href="{{ route('suppliers.show', $supplier) }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">{{ __('View') }}</a>
+                                            <a href="{{ route('suppliers.show', $supplier) }}" class="text-bucha-primary hover:text-bucha-burgundy text-xs font-medium">{{ __('View') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>
                                             <a href="{{ route('suppliers.edit', $supplier) }}" class="text-slate-600 hover:text-slate-800 text-xs font-medium">{{ __('Edit') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>

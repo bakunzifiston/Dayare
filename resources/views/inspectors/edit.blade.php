@@ -24,7 +24,7 @@
                         <h3 class="text-lg font-medium text-gray-900">{{ __('Assigned Facility') }}</h3>
                         <div>
                             <x-input-label for="facility_id" :value="__('Facility')" />
-                            <select id="facility_id" name="facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                            <select id="facility_id" name="facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                                 @foreach ($facilities as $f)
                                     <option value="{{ $f['id'] }}" @selected(old('facility_id', $inspector->facility_id) == $f['id'])>{{ $f['label'] }}</option>
                                 @endforeach
@@ -89,7 +89,7 @@
                         <input type="hidden" name="village_id" :value="villageId || ''">
                         <div>
                             <x-input-label for="country_id" :value="__('Country')" />
-                            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm">
+                            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
                                 <option value="">{{ __('Select country') }}</option>
                                 <template x-for="d in countries" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -99,7 +99,7 @@
                         </div>
                         <div>
                             <x-input-label for="province_id" :value="__('Province')" />
-                            <select id="province_id" x-model="provinceId" @change="onProvinceChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!countryId">
+                            <select id="province_id" x-model="provinceId" @change="onProvinceChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!countryId">
                                 <option value="">{{ __('Select province') }}</option>
                                 <template x-for="d in provinces" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -109,7 +109,7 @@
                         </div>
                         <div>
                             <x-input-label for="district_id" :value="__('District')" />
-                            <select id="district_id" x-model="districtId" @change="onDistrictChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!provinceId">
+                            <select id="district_id" x-model="districtId" @change="onDistrictChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!provinceId">
                                 <option value="">{{ __('Select district') }}</option>
                                 <template x-for="d in districts" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -119,7 +119,7 @@
                         </div>
                         <div>
                             <x-input-label for="sector_id" :value="__('Sector')" />
-                            <select id="sector_id" x-model="sectorId" @change="onSectorChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!districtId">
+                            <select id="sector_id" x-model="sectorId" @change="onSectorChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!districtId">
                                 <option value="">{{ __('Select sector') }}</option>
                                 <template x-for="d in sectors" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -129,7 +129,7 @@
                         </div>
                         <div>
                             <x-input-label for="cell_id" :value="__('Cell')" />
-                            <select id="cell_id" x-model="cellId" @change="onCellChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!sectorId">
+                            <select id="cell_id" x-model="cellId" @change="onCellChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!sectorId">
                                 <option value="">{{ __('Select cell') }}</option>
                                 <template x-for="d in cells" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -139,7 +139,7 @@
                         </div>
                         <div>
                             <x-input-label for="village_id" :value="__('Village')" />
-                            <select id="village_id" x-model="villageId" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!cellId">
+                            <select id="village_id" x-model="villageId" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!cellId">
                                 <option value="">{{ __('Select village') }}</option>
                                 <template x-for="d in villages" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -176,7 +176,7 @@
                             @if (($species ?? collect())->isEmpty())
                                 <p class="mt-1 text-sm text-amber-600">{{ __('No species configured yet. Add species in') }} <a href="{{ route('species.index') }}" class="underline">{{ __('Settings → Species') }}</a>. {{ __('Current value:') }} {{ $inspector->species_allowed ?: '—' }}</p>
                             @else
-                                <select id="species_allowed" name="species_allowed[]" multiple class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm" size="{{ max(3, min(8, $species->count() + 1)) }}">
+                                <select id="species_allowed" name="species_allowed[]" multiple class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" size="{{ max(3, min(8, $species->count() + 1)) }}">
                                     @foreach ($species as $s)
                                         <option value="{{ $s->name }}" @selected(in_array($s->name, $selectedSpecies))>{{ $s->name }}</option>
                                     @endforeach
@@ -199,7 +199,7 @@
                         </div>
                         <div>
                             <x-input-label for="status" :value="__('Status')" />
-                            <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                                 @foreach (\App\Models\Inspector::STATUSES as $s)
                                     <option value="{{ $s }}" @selected(old('status', $inspector->status) === $s)>{{ ucfirst($s) }}</option>
                                 @endforeach

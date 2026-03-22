@@ -4,7 +4,7 @@
     :leftDescription="__('Enter your new password below.')"
 >
     <div class="w-full max-w-sm mx-auto">
-        <h2 class="text-2xl font-bold text-[#3B82F6]">{{ __('New password') }}</h2>
+        <h2 class="text-2xl font-bold text-bucha-primary">{{ __('New password') }}</h2>
         <p class="text-sm text-gray-500 mt-1 mb-6">{{ __('Choose a new password for your account.') }}</p>
 
         <form method="POST" action="{{ route('password.store') }}" class="space-y-4">
@@ -17,7 +17,7 @@
                     id="email"
                     name="email"
                     type="email"
-                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]"
+                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary"
                     :value="old('email', $request->email)"
                     required
                     autofocus
@@ -32,7 +32,7 @@
                     id="password"
                     name="password"
                     type="password"
-                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]"
+                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary"
                     required
                     autocomplete="new-password"
                 />
@@ -45,7 +45,7 @@
                     id="password_confirmation"
                     name="password_confirmation"
                     type="password"
-                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]"
+                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary"
                     required
                     autocomplete="new-password"
                 />
@@ -55,7 +55,7 @@
             <div class="pt-2">
                 <button
                     type="submit"
-                    class="w-full flex justify-center items-center px-4 py-3 bg-[#3B82F6] hover:bg-[#2563eb] text-white font-semibold text-sm uppercase tracking-widest rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 transition ease-in-out duration-150"
+                    class="w-full flex justify-center items-center px-4 py-3 bg-bucha-primary hover:bg-bucha-burgundy text-white font-semibold text-sm uppercase tracking-widest rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-bucha-primary focus:ring-offset-2 transition ease-in-out duration-150"
                 >
                     {{ __('Reset Password') }}
                 </button>

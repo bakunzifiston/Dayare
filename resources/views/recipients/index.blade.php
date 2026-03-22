@@ -39,7 +39,7 @@
                                 <td class="py-2 pr-4 text-slate-700">{{ $recipient->delivery_count }}</td>
                                 <td class="py-2 pr-4 text-right whitespace-nowrap">
                                     @if ($facility && $facility->business)
-                                        <a href="{{ route('businesses.facilities.show', [$facility->business, $facility]) }}" class="text-indigo-600 hover:underline font-medium">{{ __('View facility') }}</a>
+                                        <a href="{{ route('businesses.facilities.show', [$facility->business, $facility]) }}" class="text-bucha-primary hover:underline font-medium">{{ __('View facility') }}</a>
                                         <span class="text-slate-300 mx-1">|</span>
                                         <a href="{{ route('delivery-confirmations.index', ['receiving_facility_id' => $facility->id]) }}" class="text-slate-600 hover:text-slate-900 font-medium">{{ __('Deliveries') }}</a>
                                     @endif

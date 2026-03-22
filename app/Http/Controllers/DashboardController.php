@@ -47,8 +47,9 @@ class DashboardController extends Controller
                 'delivery_confirmations' => 0,
             ];
             $charts = $this->buildChartDataEmpty();
+            $complianceSummary = $this->buildComplianceSummary($kpis);
 
-            return view('dashboard', ['user' => $user, 'kpis' => $kpis, 'charts' => $charts]);
+            return view('dashboard', ['user' => $user, 'kpis' => $kpis, 'charts' => $charts, 'complianceSummary' => $complianceSummary]);
         }
 
         $facilityIds = Facility::whereIn('business_id', $businessIds)->pluck('id');
@@ -81,12 +82,64 @@ class DashboardController extends Controller
         ];
 
         $charts = $this->buildChartData($facilityIds, $planIds, $executionIds, $batchIds, $certificateIds);
+        $complianceSummary = $this->buildComplianceSummary($kpis);
 
         return view('dashboard', [
             'user' => $user,
             'kpis' => $kpis,
             'charts' => $charts,
+            'complianceSummary' => $complianceSummary,
         ]);
+    }
+
+    /**
+     * BuchaPro-style compliance score for dashboard hero + side panel.
+     *
+     * @param  array<string, int>  $kpis
+     * @return array{grade: string, score: int, label: string, pending_plans: int, attention: int}
+     */
+    private function buildComplianceSummary(array $kpis): array
+    {
+        $total = (int) ($kpis['certificates'] ?? 0);
+        $active = (int) ($kpis['certificates_active'] ?? 0);
+        $plans = (int) ($kpis['slaughter_plans'] ?? 0);
+        $approved = (int) ($kpis['slaughter_plans_approved'] ?? 0);
+        $pending = (int) ($kpis['slaughter_plans_planned'] ?? 0);
+
+        if ($total === 0 && $plans === 0) {
+            return [
+                'grade' => '—',
+                'score' => 0,
+                'label' => __('No data yet'),
+                'pending_plans' => $pending,
+                'attention' => $pending,
+            ];
+        }
+
+        $ratio = $total > 0
+            ? $active / max(1, $total)
+            : ($plans > 0 ? $approved / max(1, $plans) : 0);
+        $score = (int) round(min(100, max(0, $ratio * 100)));
+
+        if ($score >= 90) {
+            $grade = 'A+';
+        } elseif ($score >= 75) {
+            $grade = 'A';
+        } elseif ($score >= 60) {
+            $grade = 'B';
+        } elseif ($score >= 40) {
+            $grade = 'C';
+        } else {
+            $grade = 'D';
+        }
+
+        return [
+            'grade' => $grade,
+            'score' => $score,
+            'label' => __('Based on active certificates & plans'),
+            'pending_plans' => $pending,
+            'attention' => $pending + max(0, $plans - $approved),
+        ];
     }
 
     /**

@@ -49,7 +49,7 @@
                         </div>
                         <div class="flex items-center gap-3">
                             <div class="flex items-center">
-                                <input id="is_active" name="is_active" type="checkbox" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" checked>
+                                <input id="is_active" name="is_active" type="checkbox" value="1" class="rounded border-gray-300 text-bucha-primary shadow-sm focus:ring-bucha-primary" checked>
                                 <label for="is_active" class="ml-2 text-sm text-gray-700">{{ __('Active') }}</label>
                             </div>
                             <x-primary-button class="ml-auto">
@@ -86,10 +86,10 @@
                                         </td>
                                         <td class="px-3 py-2">
                                                 <label class="inline-flex items-center text-xs text-gray-700">
-                                                    <input type="checkbox" name="is_active" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked($item->is_active)>
+                                                    <input type="checkbox" name="is_active" value="1" class="rounded border-gray-300 text-bucha-primary shadow-sm focus:ring-bucha-primary" @checked($item->is_active)>
                                                     <span class="ml-1">{{ __('Active') }}</span>
                                                 </label>
-                                                <button type="submit" class="ml-2 text-xs text-indigo-600 hover:text-indigo-800">{{ __('Save') }}</button>
+                                                <button type="submit" class="ml-2 text-xs text-bucha-primary hover:text-bucha-burgundy">{{ __('Save') }}</button>
                                             </form>
                                         </td>
                                         <td class="px-3 py-2 text-right">

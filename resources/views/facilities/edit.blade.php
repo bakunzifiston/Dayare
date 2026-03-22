@@ -20,7 +20,7 @@
 
                     <div>
                         <x-input-label for="facility_type" :value="__('Facility Type')" />
-                        <select id="facility_type" name="facility_type" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="facility_type" name="facility_type" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach (\App\Models\Facility::TYPES as $t)
                                 <option value="{{ $t }}" @selected(old('facility_type', $facility->facility_type) === $t)>{{ $t }}</option>
                             @endforeach
@@ -40,7 +40,7 @@
                         <p class="text-sm text-slate-500">{{ __('Select Province, District, Sector, Cell and Village.') }}</p>
                         <div>
                             <x-input-label for="country_id" :value="__('Country')" />
-                            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm">
+                            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm">
                                 <option value="">{{ __('Select country') }}</option>
                                 <template x-for="d in countries" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -49,7 +49,7 @@
                         </div>
                         <div>
                             <x-input-label for="province_id" :value="__('Province')" />
-                            <select id="province_id" x-model="provinceId" @change="onProvinceChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!countryId">
+                            <select id="province_id" x-model="provinceId" @change="onProvinceChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!countryId">
                                 <option value="">{{ __('Select province') }}</option>
                                 <template x-for="d in provinces" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -58,7 +58,7 @@
                         </div>
                         <div>
                             <x-input-label for="district_id" :value="__('District')" />
-                            <select id="district_id" x-model="districtId" @change="onDistrictChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!provinceId">
+                            <select id="district_id" x-model="districtId" @change="onDistrictChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!provinceId">
                                 <option value="">{{ __('Select district') }}</option>
                                 <template x-for="d in districts" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -67,7 +67,7 @@
                         </div>
                         <div>
                             <x-input-label for="sector_id" :value="__('Sector')" />
-                            <select id="sector_id" x-model="sectorId" @change="onSectorChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!districtId">
+                            <select id="sector_id" x-model="sectorId" @change="onSectorChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!districtId">
                                 <option value="">{{ __('Select sector') }}</option>
                                 <template x-for="d in sectors" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -76,7 +76,7 @@
                         </div>
                         <div>
                             <x-input-label for="cell_id" :value="__('Cell')" />
-                            <select id="cell_id" x-model="cellId" @change="onCellChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!sectorId">
+                            <select id="cell_id" x-model="cellId" @change="onCellChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!sectorId">
                                 <option value="">{{ __('Select cell') }}</option>
                                 <template x-for="d in cells" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -85,7 +85,7 @@
                         </div>
                         <div>
                             <x-input-label for="village_id" :value="__('Village')" />
-                            <select id="village_id" x-model="villageId" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm" :disabled="!cellId">
+                            <select id="village_id" x-model="villageId" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm" :disabled="!cellId">
                                 <option value="">{{ __('Select village') }}</option>
                                 <template x-for="d in villages" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>
@@ -127,7 +127,7 @@
 
                     <div>
                         <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             @foreach (\App\Models\Facility::STATUSES as $s)
                                 <option value="{{ $s }}" @selected(old('status', $facility->status) === $s)>{{ ucfirst($s) }}</option>
                             @endforeach

@@ -1,3 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    :root {
+        --bucha-primary: #a11d1e;
+        --bucha-charcoal: #3c3c3b;
+        --bucha-burgundy: #7a1516;
+        --bucha-sidebar: #2d2d2c;
+        --bucha-canvas: #f7fafc;
+        --bucha-success: #38a169;
+        --bucha-warning: #d69e2e;
+    }
+    body {
+        @apply antialiased text-slate-900;
+        background-color: var(--bucha-canvas);
+    }
+}

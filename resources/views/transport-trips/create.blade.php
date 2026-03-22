@@ -13,7 +13,7 @@
 
                     <div>
                         <x-input-label for="certificate_id" :value="__('Certificate')" />
-                        <select id="certificate_id" name="certificate_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="certificate_id" name="certificate_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select certificate') }}</option>
                             @foreach ($certificates as $c)
                                 <option value="{{ $c['id'] }}" @selected(old('certificate_id') == $c['id'])>{{ $c['label'] }}</option>
@@ -24,7 +24,7 @@
 
                     <div>
                         <x-input-label for="batch_id" :value="__('Batch (optional)')" />
-                        <select id="batch_id" name="batch_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="batch_id" name="batch_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('None') }}</option>
                             @foreach ($batches as $b)
                                 <option value="{{ $b['id'] }}" @selected(old('batch_id') == $b['id'])>{{ $b['label'] }}</option>
@@ -35,7 +35,7 @@
 
                     <div>
                         <x-input-label for="warehouse_storage_id" :value="__('Warehouse storage (released, optional)')" />
-                        <select id="warehouse_storage_id" name="warehouse_storage_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="warehouse_storage_id" name="warehouse_storage_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('None') }}</option>
                             @foreach ($releasedStorages ?? [] as $ws)
                                 <option value="{{ $ws['id'] }}" @selected(old('warehouse_storage_id') == $ws['id'])>{{ $ws['label'] }}</option>
@@ -47,7 +47,7 @@
 
                     <div>
                         <x-input-label for="origin_facility_id" :value="__('Origin facility')" />
-                        <select id="origin_facility_id" name="origin_facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="origin_facility_id" name="origin_facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select facility') }}</option>
                             @foreach ($facilities as $f)
                                 <option value="{{ $f['id'] }}" @selected(old('origin_facility_id') == $f['id'])>{{ $f['label'] }}</option>
@@ -58,7 +58,7 @@
 
                     <div>
                         <x-input-label for="destination_facility_id" :value="__('Destination facility')" />
-                        <select id="destination_facility_id" name="destination_facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="destination_facility_id" name="destination_facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select facility') }}</option>
                             @foreach ($facilities as $f)
                                 <option value="{{ $f['id'] }}" @selected(old('destination_facility_id') == $f['id'])>{{ $f['label'] }}</option>
@@ -101,7 +101,7 @@
 
                     <div>
                         <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             @foreach (\App\Models\TransportTrip::STATUSES as $s)
                                 <option value="{{ $s }}" @selected(old('status', 'pending') === $s)>{{ ucfirst(str_replace('_', ' ', $s)) }}</option>
                             @endforeach

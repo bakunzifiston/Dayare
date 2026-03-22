@@ -13,7 +13,7 @@
                         {{ __('View batch') }}
                     </a>
                 @endif
-                <a href="{{ route('certificates.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <a href="{{ route('certificates.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Back to list') }}
                 </a>
             </div>
@@ -28,7 +28,7 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500">{{ __('Batch') }}</dt>
                             <dd class="mt-1 text-sm text-gray-900">
-                                <a href="{{ route('batches.show', $certificate->batch) }}" class="text-indigo-600 hover:underline">
+                                <a href="{{ route('batches.show', $certificate->batch) }}" class="text-bucha-primary hover:underline">
                                     {{ $certificate->batch->batch_code }}
                                 </a>
                             </dd>
@@ -41,7 +41,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Inspector') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('inspectors.show', $certificate->inspector) }}" class="text-indigo-600 hover:underline">
+                            <a href="{{ route('inspectors.show', $certificate->inspector) }}" class="text-bucha-primary hover:underline">
                                 {{ $certificate->inspector->full_name }}
                             </a>
                         </dd>
@@ -74,7 +74,7 @@
                     <div class="flex flex-wrap items-center gap-6">
                         <img src="{{ route('certificates.qr', $certificate) }}" alt="QR Code" class="w-48 h-48" width="200" height="200">
                         <div>
-                            <a href="{{ $certificate->certificateQr->trace_url }}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline break-all">{{ $certificate->certificateQr->trace_url }}</a>
+                            <a href="{{ $certificate->certificateQr->trace_url }}" target="_blank" rel="noopener" class="text-bucha-primary hover:underline break-all">{{ $certificate->certificateQr->trace_url }}</a>
                         </div>
                     </div>
                 </div>
@@ -86,12 +86,12 @@
                     <ul class="divide-y divide-gray-200">
                         @foreach ($certificate->transportTrips as $tr)
                             <li class="py-2">
-                                <a href="{{ route('transport-trips.show', $tr) }}" class="font-medium text-indigo-600 hover:underline">{{ $tr->vehicle_plate_number }}</a>
+                                <a href="{{ route('transport-trips.show', $tr) }}" class="font-medium text-bucha-primary hover:underline">{{ $tr->vehicle_plate_number }}</a>
                                 <span class="text-sm text-gray-500"> {{ $tr->driver_name }} · {{ $tr->originFacility->facility_name ?? '' }} → {{ $tr->destinationFacility->facility_name ?? '' }} · {{ $tr->departure_date->format('d M Y') }}</span>
                             </li>
                         @endforeach
                     </ul>
-                    <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center mt-2 text-sm text-indigo-600 hover:text-indigo-900">{{ __('Record trip') }}</a>
+                    <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center mt-2 text-sm text-bucha-primary hover:text-indigo-900">{{ __('Record trip') }}</a>
                 </div>
             @endif
         </div>

@@ -15,7 +15,7 @@
                         {{ __('Delete') }}
                     </button>
                 </form>
-                <a href="{{ route('slaughter-plans.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <a href="{{ route('slaughter-plans.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Back to plans') }}
                 </a>
             </div>
@@ -37,7 +37,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Facility') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('businesses.facilities.show', [$plan->facility->business, $plan->facility]) }}" class="text-indigo-600 hover:underline">
+                            <a href="{{ route('businesses.facilities.show', [$plan->facility->business, $plan->facility]) }}" class="text-bucha-primary hover:underline">
                                 {{ $plan->facility->facility_name }} ({{ $plan->facility->facility_type }})
                             </a>
                         </dd>
@@ -46,7 +46,7 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500">{{ __('Animal intake') }}</dt>
                             <dd class="mt-1 text-sm text-gray-900">
-                                <a href="{{ route('animal-intakes.show', $plan->animalIntake) }}" class="text-indigo-600 hover:underline">
+                                <a href="{{ route('animal-intakes.show', $plan->animalIntake) }}" class="text-bucha-primary hover:underline">
                                     {{ $plan->animalIntake->intake_date->format('d M Y') }} — {{ $plan->animalIntake->supplier_firstname }} {{ $plan->animalIntake->supplier_lastname }}
                                 </a>
                             </dd>
@@ -55,7 +55,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Inspector') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('inspectors.show', $plan->inspector) }}" class="text-indigo-600 hover:underline">
+                            <a href="{{ route('inspectors.show', $plan->inspector) }}" class="text-bucha-primary hover:underline">
                                 {{ $plan->inspector->full_name }}
                             </a>
                         </dd>
@@ -77,7 +77,7 @@
                     <ul class="divide-y divide-gray-200">
                         @foreach ($plan->anteMortemInspections as $am)
                             <li class="py-2">
-                                <a href="{{ route('ante-mortem-inspections.show', $am) }}" class="font-medium text-indigo-600 hover:underline">{{ $am->inspection_date->format('d M Y') }} — {{ $am->species }}</a>
+                                <a href="{{ route('ante-mortem-inspections.show', $am) }}" class="font-medium text-bucha-primary hover:underline">{{ $am->inspection_date->format('d M Y') }} — {{ $am->species }}</a>
                                 <span class="text-sm text-gray-500"> {{ $am->number_examined }} examined, {{ $am->number_approved }} approved, {{ $am->number_rejected }} rejected</span>
                             </li>
                         @endforeach
@@ -91,7 +91,7 @@
                     <ul class="divide-y divide-gray-200">
                         @foreach ($plan->slaughterExecutions as $ex)
                             <li class="py-2">
-                                <a href="{{ route('slaughter-executions.show', $ex) }}" class="font-medium text-indigo-600 hover:underline">{{ $ex->slaughter_time->format('d M Y H:i') }}</a>
+                                <a href="{{ route('slaughter-executions.show', $ex) }}" class="font-medium text-bucha-primary hover:underline">{{ $ex->slaughter_time->format('d M Y H:i') }}</a>
                                 <span class="text-sm text-gray-500"> {{ $ex->actual_animals_slaughtered }} animals · {{ ucfirst(str_replace('_', ' ', $ex->status)) }}</span>
                             </li>
                         @endforeach

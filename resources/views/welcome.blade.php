@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ config('app.name', 'Laravel') }}</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|figtree:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         .login-left-bg {
-            background-color: #3B82F6;
+            background: linear-gradient(135deg, #3c3c3b 0%, #a11d1e 100%);
             position: relative;
             overflow: hidden;
         }
@@ -34,14 +34,18 @@
         }
     </style>
 </head>
-<body class="font-sans text-gray-900 antialiased">
-    <div class="min-h-screen flex flex-col sm:justify-center items-center p-4 sm:p-6 bg-gray-100">
+<body class="font-sans text-gray-900 antialiased bg-bucha-canvas">
+    <div class="min-h-screen flex flex-col sm:justify-center items-center p-4 sm:p-6">
         <div class="w-full max-w-4xl rounded-[28px] overflow-hidden shadow-xl flex flex-col sm:flex-row min-h-[520px]">
             <!-- Left panel -->
             <div class="login-left-bg flex-1 flex items-center px-8 py-12 sm:py-16 sm:px-12 order-2 sm:order-1">
-                <div class="relative z-10">
+                <div class="relative z-10 w-full">
+                    <x-sidebar-brand
+                        href="{{ route('home') }}"
+                        size="hero"
+                        class="mb-8 sm:mb-10"
+                    />
                     <h1 class="text-white text-3xl sm:text-4xl font-bold uppercase tracking-wide">Welcome</h1>
-                    <p class="text-white text-lg sm:text-xl font-normal uppercase tracking-wide mt-2 opacity-95">{{ config('app.name', 'BUCHAPRO') }}</p>
                     <p class="text-white text-sm sm:text-base mt-6 max-w-md opacity-90 leading-relaxed">
                         {{ __('Meat traceability and compliance for abattoirs, inspectors, and facilities. Manage your business in one place.') }}
                     </p>
@@ -50,7 +54,13 @@
             <!-- Right panel -->
             <div class="flex-1 flex flex-col justify-center bg-white px-8 py-10 sm:py-12 sm:px-12 order-1 sm:order-2 shadow-lg">
                 <div class="w-full max-w-sm mx-auto">
-                    <h2 class="text-2xl font-bold text-[#3B82F6]">{{ __('Get started') }}</h2>
+                    {{-- Same mark on light background when this column appears first (mobile) --}}
+                    <x-sidebar-brand
+                        href="{{ route('home') }}"
+                        theme="light"
+                        class="mb-8 sm:hidden"
+                    />
+                    <h2 class="text-2xl font-bold text-bucha-primary">{{ __('Get started') }}</h2>
                     <p class="text-sm text-gray-500 mt-1 mb-6">{{ __('Sign in to your account or create a new one.') }}</p>
 
                     <div class="space-y-3">
@@ -58,21 +68,21 @@
                             @auth
                                 <a
                                     href="{{ url('/dashboard') }}"
-                                    class="w-full flex justify-center items-center px-4 py-3 bg-[#3B82F6] hover:bg-[#2563eb] text-white font-semibold text-sm uppercase tracking-widest rounded-lg shadow-sm transition ease-in-out duration-150"
+                                    class="w-full flex justify-center items-center px-4 py-3 bg-bucha-primary hover:bg-bucha-burgundy text-white font-semibold text-sm uppercase tracking-widest rounded-bucha shadow-sm transition ease-in-out duration-150"
                                 >
                                     {{ __('Dashboard') }}
                                 </a>
                             @else
                                 <a
                                     href="{{ route('login') }}"
-                                    class="w-full flex justify-center items-center px-4 py-3 bg-[#3B82F6] hover:bg-[#2563eb] text-white font-semibold text-sm uppercase tracking-widest rounded-lg shadow-sm transition ease-in-out duration-150"
+                                    class="w-full flex justify-center items-center px-4 py-3 bg-bucha-primary hover:bg-bucha-burgundy text-white font-semibold text-sm uppercase tracking-widest rounded-bucha shadow-sm transition ease-in-out duration-150"
                                 >
                                     {{ __('Sign in') }}
                                 </a>
                                 @if (Route::has('register'))
                                     <a
                                         href="{{ route('register') }}"
-                                        class="w-full flex justify-center items-center px-4 py-3 bg-white border-2 border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10 hover:border-[#2563eb] hover:text-[#2563eb] font-semibold text-sm uppercase tracking-widest rounded-lg shadow-sm transition ease-in-out duration-150"
+                                        class="w-full flex justify-center items-center px-4 py-3 bg-white border-2 border-bucha-primary text-bucha-primary hover:bg-bucha-primary/10 hover:border-bucha-burgundy hover:text-bucha-burgundy font-semibold text-sm uppercase tracking-widest rounded-bucha shadow-sm transition ease-in-out duration-150"
                                     >
                                         {{ __('Sign up') }}
                                     </a>

@@ -14,7 +14,7 @@
 
                     <div>
                         <x-input-label for="slaughter_plan_id" :value="__('Slaughter session')" />
-                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($plans as $p)
                                 <option value="{{ $p['id'] }}" @selected(old('slaughter_plan_id', $execution->slaughter_plan_id) == $p['id'])>{{ $p['label'] }}</option>
                             @endforeach
@@ -36,7 +36,7 @@
 
                     <div>
                         <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             @foreach (\App\Models\SlaughterExecution::STATUSES as $s)
                                 <option value="{{ $s }}" @selected(old('status', $execution->status) === $s)>{{ ucfirst(str_replace('_', ' ', $s)) }}</option>
                             @endforeach

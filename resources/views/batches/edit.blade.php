@@ -14,7 +14,7 @@
 
                     <div>
                         <x-input-label for="slaughter_execution_id" :value="__('Slaughter execution')" />
-                        <select id="slaughter_execution_id" name="slaughter_execution_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="slaughter_execution_id" name="slaughter_execution_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($executions as $e)
                                 <option value="{{ $e['id'] }}" data-facility-id="{{ $e['facility_id'] }}" @selected(old('slaughter_execution_id', $batch->slaughter_execution_id) == $e['id'])>{{ $e['label'] }}</option>
                             @endforeach
@@ -24,7 +24,7 @@
 
                     <div>
                         <x-input-label for="inspector_id" :value="__('Inspector')" />
-                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select inspector') }}</option>
                             @foreach ($inspectorsByFacility as $fid => $inspectors)
                                 @foreach ($inspectors as $insp)
@@ -37,7 +37,7 @@
 
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
-                        <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach (\App\Models\Batch::SPECIES_OPTIONS as $s)
                                 <option value="{{ $s }}" @selected(old('species', $batch->species) === $s)>{{ $s }}</option>
                             @endforeach
@@ -53,7 +53,7 @@
 
                     <div>
                         <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             @foreach (\App\Models\Batch::STATUSES as $s)
                                 <option value="{{ $s }}" @selected(old('status', $batch->status) === $s)>{{ ucfirst($s) }}</option>
                             @endforeach

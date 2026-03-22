@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Contracts') }}
             </h2>
-            <a href="{{ route('contracts.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('contracts.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Add contract') }}
             </a>
         </div>
@@ -19,9 +19,9 @@
             </div>
 
             <div class="mb-4 flex flex-wrap gap-2">
-                <a href="{{ route('contracts.index', request()->except('category')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ !request('category') ? 'bg-[#3B82F6] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('All') }}</a>
-                <a href="{{ route('contracts.index', ['category' => 'employee'] + request()->only('page')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ request('category') === 'employee' ? 'bg-[#3B82F6] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('Employee') }}</a>
-                <a href="{{ route('contracts.index', ['category' => 'supplier'] + request()->only('page')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ request('category') === 'supplier' ? 'bg-[#3B82F6] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('Supplier') }}</a>
+                <a href="{{ route('contracts.index', request()->except('category')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ !request('category') ? 'bg-bucha-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('All') }}</a>
+                <a href="{{ route('contracts.index', ['category' => 'employee'] + request()->only('page')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ request('category') === 'employee' ? 'bg-bucha-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('Employee') }}</a>
+                <a href="{{ route('contracts.index', ['category' => 'supplier'] + request()->only('page')) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium {{ request('category') === 'supplier' ? 'bg-bucha-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">{{ __('Supplier') }}</a>
             </div>
 
             @if (session('status'))
@@ -32,7 +32,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No contracts yet.') }}</p>
                     <p class="text-sm mb-4">{{ __('Employee and supplier contracts. Select type when adding.') }}</p>
-                    <a href="{{ route('contracts.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Create first contract') }}</a>
+                    <a href="{{ route('contracts.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Create first contract') }}</a>
                 </div>
             @else
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
@@ -56,7 +56,7 @@
                                 @foreach ($contracts as $contract)
                                     <tr class="hover:bg-slate-50/50 transition-colors">
                                         <td class="px-4 py-3">
-                                            <a href="{{ route('contracts.show', $contract) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $contract->contract_number }}</a>
+                                            <a href="{{ route('contracts.show', $contract) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ $contract->contract_number }}</a>
                                         </td>
                                         <td class="px-4 py-3 text-slate-600">{{ Str::limit($contract->title, 35) }}</td>
                                         <td class="px-4 py-3">
@@ -79,7 +79,7 @@
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-right whitespace-nowrap">
-                                            <a href="{{ route('contracts.show', $contract) }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">{{ __('View') }}</a>
+                                            <a href="{{ route('contracts.show', $contract) }}" class="text-bucha-primary hover:text-bucha-burgundy text-xs font-medium">{{ __('View') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>
                                             <a href="{{ route('contracts.edit', $contract) }}" class="text-slate-600 hover:text-slate-800 text-xs font-medium">{{ __('Edit') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>

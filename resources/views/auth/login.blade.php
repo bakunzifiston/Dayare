@@ -1,6 +1,6 @@
 <x-login-layout>
     <div class="w-full max-w-sm mx-auto">
-        <h2 class="text-2xl font-bold text-[#3B82F6]">{{ __('Sign in') }}</h2>
+        <h2 class="text-2xl font-bold text-bucha-primary">{{ __('Sign in') }}</h2>
         <p class="text-sm text-gray-500 mt-1 mb-6">{{ __('Enter your credentials to access your account.') }}</p>
 
         <x-auth-session-status class="mb-4" :status="session('status')" />
@@ -21,7 +21,7 @@
                     id="email"
                     name="email"
                     type="email"
-                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-[#3B82F6] focus:ring-[#3B82F6]"
+                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary"
                     :value="old('email')"
                     required
                     autofocus
@@ -38,7 +38,7 @@
                         id="password"
                         name="password"
                         x-bind:type="show ? 'text' : 'password'"
-                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#3B82F6] focus:ring-[#3B82F6] pr-20"
+                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-bucha-primary focus:ring-bucha-primary pr-20"
                         required
                         autocomplete="current-password"
                         placeholder="••••••••"
@@ -46,7 +46,7 @@
                     <button
                         type="button"
                         @click="show = !show"
-                        class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 hover:text-[#2563eb] focus:outline-none"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 hover:text-bucha-burgundy focus:outline-none"
                         tabindex="-1"
                         x-text="show ? '{{ __('Hide') }}' : '{{ __('Show') }}'"
                     ></button>
@@ -59,7 +59,7 @@
                     <input
                         id="remember_me"
                         type="checkbox"
-                        class="rounded border-gray-300 text-[#3B82F6] shadow-sm focus:ring-[#3B82F6]"
+                        class="rounded border-gray-300 text-bucha-primary shadow-sm focus:ring-bucha-primary"
                         name="remember"
                     >
                     <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
@@ -67,7 +67,7 @@
                 @if (Route::has('password.request'))
                     <a
                         href="{{ route('password.request') }}"
-                        class="text-sm text-gray-600 hover:text-[#2563eb] rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3B82F6]"
+                        class="text-sm text-gray-600 hover:text-bucha-burgundy rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bucha-primary"
                     >
                         {{ __('Forgot your password?') }}
                     </a>
@@ -77,7 +77,7 @@
             <div class="pt-2">
                 <button
                     type="submit"
-                    class="w-full flex justify-center items-center px-4 py-3 bg-[#3B82F6] hover:bg-[#2563eb] text-white font-semibold text-sm uppercase tracking-widest rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 transition ease-in-out duration-150"
+                    class="w-full flex justify-center items-center px-4 py-3 bg-bucha-primary hover:bg-bucha-burgundy text-white font-semibold text-sm uppercase tracking-widest rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-bucha-primary focus:ring-offset-2 transition ease-in-out duration-150"
                 >
                     {{ __('Sign in') }}
                 </button>
@@ -87,7 +87,7 @@
         @if (Route::has('register'))
             <p class="mt-6 text-center text-sm text-gray-500">
                 {{ __('Don\'t have an account?') }}
-                <a href="{{ route('register') }}" class="font-medium text-[#3B82F6] hover:text-[#2563eb] focus:outline-none focus:underline">
+                <a href="{{ route('register') }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy focus:outline-none focus:underline">
                     {{ __('Sign up') }}
                 </a>
             </p>

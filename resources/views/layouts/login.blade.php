@@ -6,11 +6,11 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ __('Sign in') }} — {{ config('app.name', 'Laravel') }}</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|figtree:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         .login-left-bg {
-            background-color: #3B82F6;
+            background: linear-gradient(135deg, #3c3c3b 0%, #a11d1e 100%);
             position: relative;
             overflow: hidden;
         }
@@ -35,8 +35,8 @@
         }
     </style>
 </head>
-<body class="font-sans text-gray-900 antialiased">
-    <div class="min-h-screen flex flex-col sm:justify-center items-center p-4 sm:p-6 bg-gray-100">
+<body class="font-sans text-gray-900 antialiased bg-bucha-canvas">
+    <div class="min-h-screen flex flex-col sm:justify-center items-center p-4 sm:p-6">
         <div class="w-full max-w-4xl rounded-[28px] overflow-hidden shadow-xl flex flex-col sm:flex-row min-h-[520px]">
             <!-- Left panel -->
             <div class="login-left-bg flex-1 flex items-center px-8 py-12 sm:py-16 sm:px-12 order-2 sm:order-1">

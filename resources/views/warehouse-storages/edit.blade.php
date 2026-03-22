@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Edit warehouse storage') }}
             </h2>
-            <a href="{{ route('warehouse-storages.show', $warehouseStorage) }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('warehouse-storages.show', $warehouseStorage) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Back to storage') }}
             </a>
         </div>
@@ -19,7 +19,7 @@
 
                     <div>
                         <x-input-label for="warehouse_facility_id" :value="__('Warehouse (storage facility)')" />
-                        <select id="warehouse_facility_id" name="warehouse_facility_id" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="warehouse_facility_id" name="warehouse_facility_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($warehouseFacilities as $f)
                                 <option value="{{ $f['id'] }}" @selected(old('warehouse_facility_id', $warehouseStorage->warehouse_facility_id) == $f['id'])>{{ $f['label'] }}</option>
                             @endforeach
@@ -47,7 +47,7 @@
                     </div>
                     <div>
                         <x-input-label for="quantity_unit" :value="__('Unit')" />
-                        <select id="quantity_unit" name="quantity_unit" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="quantity_unit" name="quantity_unit" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @if (isset($units) && $units->isNotEmpty())
                                 @foreach ($units as $unit)
                                     <option value="{{ $unit->code }}" @selected(old('quantity_unit', $warehouseStorage->quantity_unit ?? 'kg') === $unit->code)>{{ $unit->name }}</option>
@@ -63,7 +63,7 @@
 
                     <div>
                         <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="status" name="status" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach (['in_storage' => __('In storage'), 'released' => __('Released'), 'disposed' => __('Disposed')] as $val => $label)
                                 <option value="{{ $val }}" @selected(old('status', $warehouseStorage->status) === $val)>{{ $label }}</option>
                             @endforeach
@@ -79,7 +79,7 @@
                     </div>
 
                     <div class="flex gap-3">
-                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                             {{ __('Update') }}
                         </button>
                         <a href="{{ route('warehouse-storages.show', $warehouseStorage) }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">

@@ -13,7 +13,7 @@
 
                     <div>
                         <x-input-label for="transport_trip_id" :value="__('Transport trip')" />
-                        <select id="transport_trip_id" name="transport_trip_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="transport_trip_id" name="transport_trip_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select trip') }}</option>
                             @foreach ($trips as $t)
                                 <option value="{{ $t['id'] }}" @selected(old('transport_trip_id') == $t['id'])>{{ $t['label'] }}</option>
@@ -24,7 +24,7 @@
 
                     <div>
                         <x-input-label for="receiving_facility_id" :value="__('Receiving facility')" />
-                        <select id="receiving_facility_id" name="receiving_facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="receiving_facility_id" name="receiving_facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('External / non-registered (e.g. client in another country)') }}</option>
                             @foreach ($facilities as $f)
                                 <option value="{{ $f['id'] }}" @selected(old('receiving_facility_id') == $f['id'])>{{ $f['label'] }}</option>
@@ -36,7 +36,7 @@
 
                     <div id="client-block" class="hidden">
                         <x-input-label for="client_id" :value="__('Link to client (optional)')" />
-                        <select id="client_id" name="client_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="client_id" name="client_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('No client') }}</option>
                             @foreach ($clients as $c)
                                 <option value="{{ $c['id'] }}" data-name="{{ e($c['name']) }}" data-country="{{ e($c['country']) }}" data-address="{{ e($c['address']) }}" @selected(old('client_id') == $c['id'])>{{ $c['label'] }}</option>
@@ -79,7 +79,7 @@
 
                     <div>
                         <x-input-label for="confirmation_status" :value="__('Confirmation status')" />
-                        <select id="confirmation_status" name="confirmation_status" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="confirmation_status" name="confirmation_status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             @foreach (\App\Models\DeliveryConfirmation::STATUSES as $s)
                                 <option value="{{ $s }}" @selected(old('confirmation_status', 'pending') === $s)>{{ ucfirst($s) }}</option>
                             @endforeach

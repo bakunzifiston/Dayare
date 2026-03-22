@@ -5,7 +5,7 @@
                 {{ $business->business_name }}
             </h2>
             <div class="flex gap-2">
-                <a href="{{ route('businesses.facilities.index', $business) }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <a href="{{ route('businesses.facilities.index', $business) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Facilities') }}
                 </a>
                 <a href="{{ route('businesses.edit', $business) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
@@ -191,7 +191,7 @@
                 <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Facilities') }}</h3>
                 @if ($business->facilities->isEmpty())
                     <p class="text-gray-600">{{ __('No facilities registered yet.') }}</p>
-                    <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center mt-2 text-indigo-600 hover:text-indigo-900">
+                    <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center mt-2 text-bucha-primary hover:text-indigo-900">
                         {{ __('Add facility') }}
                     </a>
                 @else
@@ -204,11 +204,11 @@
                                     </a>
                                     <p class="text-sm text-gray-500">{{ $facility->facility_type }} · {{ $facility->location_display }}</p>
                                 </div>
-                                <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('Edit') }}</a>
+                                <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="text-sm text-bucha-primary hover:text-indigo-900">{{ __('Edit') }}</a>
                             </li>
                         @endforeach
                     </ul>
-                    <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center mt-4 text-indigo-600 hover:text-indigo-900">
+                    <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center mt-4 text-bucha-primary hover:text-indigo-900">
                         {{ __('Add facility') }}
                     </a>
                 @endif

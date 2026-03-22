@@ -20,7 +20,7 @@
 
                     <div>
                         <x-input-label for="facility_id" :value="__('Facility')" />
-                        <select id="facility_id" name="facility_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="facility_id" name="facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($facilities as $f)
                                 <option value="{{ $f->id }}" @selected(old('facility_id', $plan->facility_id) == $f->id)>{{ $f->facility_name }} ({{ $f->facility_type }})</option>
                             @endforeach
@@ -30,7 +30,7 @@
 
                     <div>
                         <x-input-label for="animal_intake_id" :value="__('Animal intake')" />
-                        <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('Select facility first') }}</option>
                             @foreach ($eligibleIntakes ?? [] as $intake)
                                 <option value="{{ $intake['id'] }}" data-facility-id="{{ $intake['facility_id'] }}" @selected(old('animal_intake_id', $plan->animal_intake_id) == $intake['id'])>{{ $intake['label'] }}</option>
@@ -41,7 +41,7 @@
 
                     <div>
                         <x-input-label for="inspector_id" :value="__('Inspector')" />
-                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select inspector') }}</option>
                             @foreach ($inspectorsByFacility as $fid => $inspectors)
                                 @foreach ($inspectors as $insp)
@@ -54,7 +54,7 @@
 
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
-                        <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach (\App\Models\SlaughterPlan::SPECIES_OPTIONS as $s)
                                 <option value="{{ $s }}" @selected(old('species', $plan->species) === $s)>{{ $s }}</option>
                             @endforeach
@@ -70,7 +70,7 @@
 
                     <div>
                         <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             @foreach (\App\Models\SlaughterPlan::STATUSES as $s)
                                 <option value="{{ $s }}" @selected(old('status', $plan->status) === $s)>{{ ucfirst($s) }}</option>
                             @endforeach

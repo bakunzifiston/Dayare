@@ -5,7 +5,7 @@
                 {{ __('Facilities') }} — {{ $business->business_name }}
             </h2>
             <div class="flex gap-2">
-                <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Add Facility') }}
                 </a>
                 <a href="{{ route('businesses.show', $business) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-slate-50/80 transition-colors">
@@ -28,7 +28,7 @@
             @if ($facilities->isEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No facilities for this business yet.') }}</p>
-                    <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                    <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                         {{ __('Add first facility') }}
                     </a>
                 </div>
@@ -38,7 +38,7 @@
                         @foreach ($facilities as $facility)
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
-                                    <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}" class="font-medium text-slate-900 hover:text-indigo-600">
+                                    <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}" class="font-medium text-slate-900 hover:text-bucha-primary">
                                         {{ $facility->facility_name }}
                                     </a>
                                     <p class="text-sm text-slate-500">
@@ -52,7 +52,7 @@
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}" class="text-sm text-bucha-primary hover:text-indigo-900">{{ __('View') }}</a>
                                     <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
                                     <form method="post" action="{{ route('businesses.facilities.destroy', [$business, $facility]) }}" class="inline" onsubmit="return confirm('{{ __('Delete this facility?') }}');">
                                         @csrf

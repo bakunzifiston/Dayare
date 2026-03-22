@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Employees') }}
             </h2>
-            <a href="{{ route('employees.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('employees.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Add employee') }}
             </a>
         </div>
@@ -24,7 +24,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No employees yet.') }}</p>
                     <p class="text-sm mb-4">{{ __('List of employees for your businesses.') }}</p>
-                    <a href="{{ route('employees.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Add first employee') }}</a>
+                    <a href="{{ route('employees.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Add first employee') }}</a>
                 </div>
             @else
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
@@ -45,7 +45,7 @@
                                 @foreach ($employees as $employee)
                                     <tr class="hover:bg-slate-50/50 transition-colors">
                                         <td class="px-4 py-3">
-                                            <a href="{{ route('employees.show', $employee) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $employee->first_name }} {{ $employee->last_name }}</a>
+                                            <a href="{{ route('employees.show', $employee) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ $employee->first_name }} {{ $employee->last_name }}</a>
                                         </td>
                                         <td class="px-4 py-3 text-slate-600">{{ $employee->business?->business_name ?? '—' }}</td>
                                         <td class="px-4 py-3 text-slate-600">{{ $employee->facility?->facility_name ?? '—' }}</td>
@@ -57,7 +57,7 @@
                                         </td>
                                         <td class="px-4 py-3 text-slate-600">{{ optional($employee->hire_date)->format('d M Y') ?? '—' }}</td>
                                         <td class="px-4 py-3 text-right whitespace-nowrap">
-                                            <a href="{{ route('employees.show', $employee) }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">{{ __('View') }}</a>
+                                            <a href="{{ route('employees.show', $employee) }}" class="text-bucha-primary hover:text-bucha-burgundy text-xs font-medium">{{ __('View') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>
                                             <a href="{{ route('employees.edit', $employee) }}" class="text-slate-600 hover:text-slate-800 text-xs font-medium">{{ __('Edit') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>

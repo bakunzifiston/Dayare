@@ -175,6 +175,48 @@ class Facility extends Model
         return $this->facility_type === self::TYPE_STORAGE;
     }
 
+    /**
+     * Parse free-text GPS (e.g. "-1.9536, 30.0606") into lat/lng for maps.
+     * Accepts comma or semicolon separators; strips degree symbols.
+     *
+     * @return array{lat: float, lng: float}|null
+     */
+    public static function parseGpsToLatLng(?string $gps): ?array
+    {
+        if ($gps === null || trim($gps) === '') {
+            return null;
+        }
+
+        $clean = str_replace(['°', 'N', 'S', 'E', 'W'], '', $gps);
+        $clean = preg_replace('/\s+/', ' ', trim($clean));
+        if ($clean === '') {
+            return null;
+        }
+
+        $parts = preg_split('/\s*[,;]\s*/', $clean, 3);
+        if (count($parts) < 2) {
+            return null;
+        }
+
+        $a = filter_var($parts[0], FILTER_VALIDATE_FLOAT);
+        $b = filter_var($parts[1], FILTER_VALIDATE_FLOAT);
+        if ($a === false || $b === false) {
+            return null;
+        }
+
+        // Convention: latitude first (|lat| ≤ 90), longitude second (|lng| ≤ 180).
+        if (abs($a) <= 90 && abs($b) <= 180) {
+            return ['lat' => (float) $a, 'lng' => (float) $b];
+        }
+
+        // Swapped order if user entered lng, lat
+        if (abs($b) <= 90 && abs($a) <= 180) {
+            return ['lat' => (float) $b, 'lng' => (float) $a];
+        }
+
+        return null;
+    }
+
     /** Facility (slaughterhouse) → Many AnimalIntakes */
     public function animalIntakes(): HasMany
     {

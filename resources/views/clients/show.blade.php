@@ -11,7 +11,7 @@
                     @method('DELETE')
                     <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700">{{ __('Delete') }}</button>
                 </form>
-                <a href="{{ route('clients.index') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Back to list') }}</a>
+                <a href="{{ route('clients.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Back to list') }}</a>
             </div>
         </div>
     </x-slot>
@@ -33,7 +33,7 @@
                     <div class="sm:col-span-2"><dt class="text-sm font-medium text-slate-500">{{ __('Location') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->location_line }}</dd></div>
                     @endif
                     @if ($client->business_type)<div><dt class="text-sm font-medium text-slate-500">{{ __('Business type') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ \App\Models\Client::BUSINESS_TYPES[$client->business_type] ?? $client->business_type }}</dd></div>@endif
-                    @if ($client->preferredFacility)<div><dt class="text-sm font-medium text-slate-500">{{ __('Preferred facility') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('businesses.facilities.show', [$client->preferredFacility->business, $client->preferredFacility]) }}" class="text-indigo-600 hover:underline">{{ $client->preferredFacility->facility_name }}</a></dd></div>@endif
+                    @if ($client->preferredFacility)<div><dt class="text-sm font-medium text-slate-500">{{ __('Preferred facility') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('businesses.facilities.show', [$client->preferredFacility->business, $client->preferredFacility]) }}" class="text-bucha-primary hover:underline">{{ $client->preferredFacility->facility_name }}</a></dd></div>@endif
                     @if ($client->preferred_species)<div><dt class="text-sm font-medium text-slate-500">{{ __('Preferred species') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->preferred_species }}</dd></div>@endif
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Tax ID') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->tax_id ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Registration number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $client->registration_number ?? '—' }}</dd></div>
@@ -72,7 +72,7 @@
                                         <td class="py-2 pr-4">{{ $confirmation->transportTrip?->vehicle_plate_number ?? '—' }}</td>
                                         <td class="py-2 pr-4">{{ $confirmation->confirmation_status ? ucfirst($confirmation->confirmation_status) : '—' }}</td>
                                         <td class="py-2 pr-4 text-right">
-                                            <a href="{{ route('delivery-confirmations.show', $confirmation) }}" class="text-indigo-600 hover:underline font-medium">{{ __('View') }}</a>
+                                            <a href="{{ route('delivery-confirmations.show', $confirmation) }}" class="text-bucha-primary hover:underline font-medium">{{ __('View') }}</a>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -113,7 +113,7 @@
                         <textarea id="activity_notes" name="notes" rows="2" class="mt-1 block w-full rounded-lg border-gray-300 text-sm">{{ old('notes') }}</textarea>
                         @error('notes')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
-                    <button type="submit" class="inline-flex items-center px-3 py-2 rounded-lg bg-[#3B82F6] text-white text-xs font-semibold hover:bg-[#2563eb]">{{ __('Log activity') }}</button>
+                    <button type="submit" class="inline-flex items-center px-3 py-2 rounded-lg bg-bucha-primary text-white text-xs font-semibold hover:bg-bucha-burgundy">{{ __('Log activity') }}</button>
                 </form>
                 @if ($client->activities->isEmpty())
                     <p class="text-sm text-slate-500">{{ __('No activities logged yet.') }}</p>
@@ -162,12 +162,12 @@
                             <tbody class="divide-y divide-slate-100">
                                 @foreach ($client->demands as $demand)
                                     <tr>
-                                        <td class="py-2 pr-4"><a href="{{ route('demands.show', $demand) }}" class="text-indigo-600 hover:underline font-medium">{{ $demand->demand_number }}</a></td>
+                                        <td class="py-2 pr-4"><a href="{{ route('demands.show', $demand) }}" class="text-bucha-primary hover:underline font-medium">{{ $demand->demand_number }}</a></td>
                                         <td class="py-2 pr-4">{{ $demand->title }}</td>
                                         <td class="py-2 pr-4">{{ $demand->quantity }} {{ $demand->quantity_unit_label }}</td>
                                         <td class="py-2 pr-4">{{ $demand->requested_delivery_date?->format('d M Y') ?? '—' }}</td>
                                         <td class="py-2 pr-4">{{ \App\Models\Demand::STATUSES[$demand->status] ?? $demand->status }}</td>
-                                        <td class="py-2 pr-4 text-right"><a href="{{ route('demands.show', $demand) }}" class="text-indigo-600 hover:underline font-medium">{{ __('View') }}</a></td>
+                                        <td class="py-2 pr-4 text-right"><a href="{{ route('demands.show', $demand) }}" class="text-bucha-primary hover:underline font-medium">{{ __('View') }}</a></td>
                                     </tr>
                                 @endforeach
                             </tbody>

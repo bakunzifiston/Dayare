@@ -15,7 +15,7 @@
                         {{ __('Delete') }}
                     </button>
                 </form>
-                <a href="{{ route('businesses.facilities.index', $business) }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                <a href="{{ route('businesses.facilities.index', $business) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Back to Facilities') }}
                 </a>
             </div>
@@ -77,7 +77,7 @@
                         @foreach ($facility->employees as $emp)
                             <li class="py-2.5 flex justify-between items-center">
                                 <div>
-                                    <a href="{{ route('employees.show', $emp) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $emp->first_name }} {{ $emp->last_name }}</a>
+                                    <a href="{{ route('employees.show', $emp) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ $emp->first_name }} {{ $emp->last_name }}</a>
                                     <span class="text-sm text-slate-500 ml-1">— {{ $emp->job_title ? (\App\Models\Employee::JOB_TITLES[$emp->job_title] ?? $emp->job_title) : __('—') }}</span>
                                 </div>
                                 @if ($emp->status)
@@ -95,7 +95,7 @@
                     <ul class="divide-y divide-slate-100">
                         @foreach ($facility->inspectors as $insp)
                             <li class="py-2.5">
-                                <a href="{{ route('inspectors.show', $insp) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $insp->full_name }}</a>
+                                <a href="{{ route('inspectors.show', $insp) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ $insp->full_name }}</a>
                                 <span class="text-sm text-slate-500"> — {{ $insp->authorization_number }} · {{ ucfirst($insp->status) }}</span>
                             </li>
                         @endforeach

@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Demands') }}
             </h2>
-            <a href="{{ route('demands.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('demands.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Add demand') }}
             </a>
         </div>
@@ -28,7 +28,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No demands yet.') }}</p>
                     <p class="text-sm mb-4">{{ __('Customer requests for product. Plan slaughter and deliveries to meet demand.') }}</p>
-                    <a href="{{ route('demands.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Add first demand') }}</a>
+                    <a href="{{ route('demands.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Add first demand') }}</a>
                 </div>
             @else
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
@@ -51,7 +51,7 @@
                                 @foreach ($demands as $demand)
                                     <tr class="hover:bg-slate-50/50 transition-colors">
                                         <td class="px-4 py-3">
-                                            <a href="{{ route('demands.show', $demand) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $demand->demand_number }}</a>
+                                            <a href="{{ route('demands.show', $demand) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ $demand->demand_number }}</a>
                                         </td>
                                         <td class="px-4 py-3 text-slate-600">{{ Str::limit($demand->title, 40) }}</td>
                                         <td class="px-4 py-3 text-slate-600">{{ $demand->destination_display }}</td>
@@ -76,7 +76,7 @@
                                             @endif
                                         </td>
                                         <td class="px-4 py-3 text-right whitespace-nowrap">
-                                            <a href="{{ route('demands.show', $demand) }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">{{ __('View') }}</a>
+                                            <a href="{{ route('demands.show', $demand) }}" class="text-bucha-primary hover:text-bucha-burgundy text-xs font-medium">{{ __('View') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>
                                             <a href="{{ route('demands.edit', $demand) }}" class="text-slate-600 hover:text-slate-800 text-xs font-medium">{{ __('Edit') }}</a>
                                             <span class="text-slate-300 mx-1">|</span>

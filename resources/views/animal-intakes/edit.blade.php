@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">{{ __('Edit animal intake') }}</h2>
-            <a href="{{ route('animal-intakes.show', $intake) }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Back to intake') }}</a>
+            <a href="{{ route('animal-intakes.show', $intake) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Back to intake') }}</a>
         </div>
     </x-slot>
 
@@ -16,7 +16,7 @@
                     <h3 class="text-base font-semibold text-slate-800">{{ __('Facility & date') }}</h3>
                     <div>
                         <x-input-label for="facility_id" :value="__('Facility')" />
-                        <select id="facility_id" name="facility_id" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+                        <select id="facility_id" name="facility_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($facilities as $f)
                                 <option value="{{ $f->id }}" @selected(old('facility_id', $intake->facility_id) == $f->id)>{{ $f->facility_name }} ({{ $f->facility_type }})</option>
                             @endforeach
@@ -34,7 +34,7 @@
                     <h3 class="text-base font-semibold text-slate-800">{{ __('Supplier & farm') }}</h3>
                     <div>
                         <x-input-label for="supplier_id" :value="__('Use existing supplier')" />
-                        <select id="supplier_id" name="supplier_id" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="supplier_id" name="supplier_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('None — enter details below') }}</option>
                             @foreach ($suppliers as $s)
                                 <option value="{{ $s->id }}" @selected(old('supplier_id', $intake->supplier_id) == $s->id)>{{ trim(($s->first_name ?? '') . ' ' . ($s->last_name ?? '')) ?: ($s->name ?? '') }}{!! $s->phone ? ' · ' . e($s->phone) : '' !!}</option>
@@ -46,7 +46,7 @@
                     @if (isset($supplierContracts) && $supplierContracts->isNotEmpty())
                     <div>
                         <x-input-label for="contract_id" :value="__('Supplier contract (optional)')" />
-                        <select id="contract_id" name="contract_id" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <select id="contract_id" name="contract_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('None') }}</option>
                             @foreach ($supplierContracts as $c)
                                 <option value="{{ $c->id }}" @selected(old('contract_id', $intake->contract_id) == $c->id)>{{ $c->contract_number }} — {{ $c->title }} @if($c->supplier)({{ trim(($c->supplier->first_name ?? '') . ' ' . ($c->supplier->last_name ?? '')) ?: 'Supplier' }})@endif</option>
@@ -93,7 +93,7 @@
                     <h3 class="text-base font-semibold text-slate-800">{{ __('Origin location') }}</h3>
                     <div>
                         <x-input-label for="country_id" :value="__('Country')" />
-                        <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 shadow-sm">
+                        <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary shadow-sm">
                             <option value="">{{ __('Select country') }}</option>
                             <template x-for="d in countries" :key="d.id">
                                 <option :value="d.id" x-text="d.name"></option>
@@ -155,7 +155,7 @@
                             @php
                                 $speciesOptions = \App\Models\Species::active()->pluck('name');
                             @endphp
-                            <select id="species" name="species" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 rounded-md shadow-sm" required>
+                            <select id="species" name="species" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary rounded-md shadow-sm" required>
                                 @foreach ($speciesOptions as $s)
                                     <option value="{{ $s }}" @selected(old('species', $intake->species) === $s)>{{ $s }}</option>
                                 @endforeach
@@ -180,7 +180,7 @@
                     </div>
                     <div>
                         <x-input-label for="animal_identification_numbers" :value="__('Animal identification numbers')" />
-                        <textarea id="animal_identification_numbers" name="animal_identification_numbers" rows="2" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 rounded-md shadow-sm">{{ old('animal_identification_numbers', $intake->animal_identification_numbers) }}</textarea>
+                        <textarea id="animal_identification_numbers" name="animal_identification_numbers" rows="2" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary rounded-md shadow-sm">{{ old('animal_identification_numbers', $intake->animal_identification_numbers) }}</textarea>
                     </div>
                 </div>
 
@@ -219,7 +219,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
                     <div>
                         <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full border-slate-300 focus:border-indigo-500 rounded-md shadow-sm" required>
+                        <select id="status" name="status" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary rounded-md shadow-sm" required>
                             @foreach (['received' => __('Received'), 'approved' => __('Approved'), 'rejected' => __('Rejected')] as $val => $label)
                                 <option value="{{ $val }}" @selected(old('status', $intake->status) === $val)>{{ $label }}</option>
                             @endforeach
@@ -229,7 +229,7 @@
                 </div>
 
                 <div class="flex gap-4">
-                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">{{ __('Update') }}</button>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Update') }}</button>
                     <a href="{{ route('animal-intakes.show', $intake) }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">{{ __('Cancel') }}</a>
                 </div>
             </form>

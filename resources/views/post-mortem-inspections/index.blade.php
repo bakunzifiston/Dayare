@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Post-mortem inspections') }}
             </h2>
-            <a href="{{ route('post-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+            <a href="{{ route('post-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Record inspection') }}
             </a>
         </div>
@@ -22,7 +22,7 @@
             @if ($inspections->isEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No post-mortem inspections recorded yet.') }}</p>
-                    <a href="{{ route('post-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-[#3B82F6] border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-[#2563eb]">
+                    <a href="{{ route('post-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                         {{ __('Record first inspection') }}
                     </a>
                 </div>
@@ -33,7 +33,7 @@
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
                                     @php $d = $inspection->inspection_date; $f = $inspection->batch->slaughterExecution->slaughterPlan->facility ?? null; @endphp
-                                    <a href="{{ route('post-mortem-inspections.show', $inspection) }}" class="font-medium text-slate-900 hover:text-indigo-600">
+                                    <a href="{{ route('post-mortem-inspections.show', $inspection) }}" class="font-medium text-slate-900 hover:text-bucha-primary">
                                         {{ $d ? $d->format('d M Y') : __('No date') }} — {{ $inspection->batch->batch_code }}
                                     </a>
                                     <p class="text-sm text-slate-500">
@@ -44,7 +44,7 @@
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('post-mortem-inspections.show', $inspection) }}" class="text-sm text-indigo-600 hover:text-indigo-900">{{ __('View') }}</a>
+                                    <a href="{{ route('post-mortem-inspections.show', $inspection) }}" class="text-sm text-bucha-primary hover:text-indigo-900">{{ __('View') }}</a>
                                     <a href="{{ route('post-mortem-inspections.edit', $inspection) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
                                 </div>
                             </li>
