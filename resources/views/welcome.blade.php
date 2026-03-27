@@ -9,7 +9,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="font-sans antialiased bg-bucha-canvas text-slate-900">
-    <header class="sticky top-0 z-20 backdrop-blur bg-white/90 border-b border-slate-200/80">
+    <header class="sticky top-0 z-20 bg-white/95 border-b border-slate-200/80">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <x-sidebar-brand href="{{ route('home') }}" theme="light" />
             <div class="flex items-center gap-2 sm:gap-3">
@@ -51,8 +51,8 @@
                         </p>
 
                         <div class="mt-8 flex flex-wrap gap-3">
-                            <a href="#mobile-app" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
-                                {{ __('Get the App') }}
+                            <a href="#mobile-platform" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
+                                {{ __('Contact Us') }}
                             </a>
                             <a href="#ecosystem" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
                                 {{ __('Become a Partner') }}
@@ -140,7 +140,7 @@
                                     <p class="text-[10px] uppercase tracking-wider text-white/70">{{ __('Get it on') }}</p>
                                     <p class="text-sm font-semibold">{{ __('Google Play') }}</p>
                                 </div>
-                                <a href="#mobile-app" class="inline-flex items-center justify-center w-full sm:w-auto px-5 py-3 rounded-bucha bg-bucha-primary hover:bg-bucha-burgundy text-white text-sm font-semibold tracking-wide transition-colors">
+                                <a href="#final-cta" class="inline-flex items-center justify-center w-full sm:w-auto px-5 py-3 rounded-bucha bg-bucha-primary hover:bg-bucha-burgundy text-white text-sm font-semibold tracking-wide transition-colors">
                                     {{ __('Get the App') }}
                                 </a>
                             </div>
@@ -268,35 +268,12 @@
             </div>
         </section>
 
-        {{-- MOBILE APP --}}
-        <section id="mobile-app" class="py-14 sm:py-16 bg-bucha-canvas">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-                    <div>
-                        <p class="text-xs uppercase tracking-wider font-semibold text-bucha-muted">{{ __('Mobile App') }}</p>
-                        <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900">{{ __('Transparency in Your Pocket') }}</h2>
-                        <ul class="mt-5 space-y-2 text-sm text-slate-700">
-                            <li>{{ __('• Scan & Verify') }}</li>
-                            <li>{{ __('• Track orders') }}</li>
-                            <li>{{ __('• Direct ordering') }}</li>
-                        </ul>
-                    </div>
-                    <div class="rounded-[20px] border border-slate-200/80 bg-white p-5 shadow-bucha">
-                        <div class="rounded-bucha bg-slate-50 border border-slate-200 p-4">
-                            <p class="text-xs uppercase tracking-wider text-slate-500">{{ __('App Snapshot') }}</p>
-                            <p class="mt-2 text-sm text-slate-700">{{ __('Scan product QR and view origin, chain of custody, and compliance details instantly.') }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         {{-- FINAL CTA --}}
         <section id="final-cta" class="py-14 sm:py-16 bg-gradient-to-br from-bucha-charcoal to-bucha-primary">
             <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
                 <h2 class="text-2xl sm:text-4xl font-bold text-white">{{ __('Join the future of meat integrity') }}</h2>
                 <div class="mt-7 flex flex-wrap justify-center gap-3">
-                    <a href="#mobile-app" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
+                    <a href="#mobile-platform" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
                         {{ __('Get the App') }}
                     </a>
                     <a href="#ecosystem" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
