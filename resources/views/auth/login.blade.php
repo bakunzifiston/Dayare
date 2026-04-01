@@ -1,4 +1,4 @@
-<x-login-layout>
+<x-login-layout :show-footer="false">
     <div class="w-full max-w-sm mx-auto">
         <h2 class="text-2xl font-bold text-bucha-primary">{{ __('Sign in') }}</h2>
         <p class="text-sm text-gray-500 mt-1 mb-6">{{ __('Enter your credentials to access your account.') }}</p>

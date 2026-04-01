@@ -36,8 +36,8 @@
     </style>
 </head>
 <body class="font-sans text-gray-900 antialiased bg-bucha-canvas">
-    <div class="min-h-screen flex flex-col p-4 sm:p-6">
-        <div class="flex-1 flex flex-col sm:justify-center items-center">
+    <div class="min-h-screen flex flex-col p-4 sm:p-6 @if($showFooter) pb-8 sm:pb-10 gap-y-6 sm:gap-y-10 @endif">
+        <div class="flex-1 flex flex-col sm:justify-center items-center w-full min-h-0 py-6 sm:py-10">
         <div class="w-full max-w-4xl rounded-[28px] overflow-hidden shadow-xl flex flex-col sm:flex-row min-h-[520px]">
             <!-- Left panel -->
             <div class="login-left-bg flex-1 flex items-center px-8 py-12 sm:py-16 sm:px-12 order-2 sm:order-1">
@@ -61,7 +61,9 @@
             </div>
         </div>
         </div>
-        @include('layouts.footer')
+        @if($showFooter)
+            @include('layouts.footer')
+        @endif
     </div>
 </body>
 </html>

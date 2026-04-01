@@ -1,4 +1,5 @@
 <x-login-layout
+    :show-footer="false"
     leftTitle="{{ __('Create account') }}"
     :leftSubtitle="config('app.name')"
     :leftDescription="__('Join the platform to manage your facilities, inspections, and meat traceability.')"

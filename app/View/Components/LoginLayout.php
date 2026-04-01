@@ -10,7 +10,8 @@ class LoginLayout extends Component
     public function __construct(
         public string $leftTitle = 'Welcome',
         public string $leftSubtitle = '',
-        public string $leftDescription = ''
+        public string $leftDescription = '',
+        public bool $showFooter = true,
     ) {
         if ($leftSubtitle === '') {
             $this->leftSubtitle = config('app.name', 'BuchaPro');
