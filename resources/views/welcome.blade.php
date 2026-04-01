@@ -200,13 +200,14 @@
                 <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 text-center">{{ __('Solutions for Every Stakeholder') }}</h2>
                 <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     @foreach ([
-                        ['name' => __('Farmers'), 'slug' => 'farmers', 'desc' => __('Prove livestock origin and quality to access better markets.')],
-                        ['name' => __('Processors'), 'slug' => 'processors', 'desc' => __('Automate compliance and batch tracking in one workflow.')],
-                        ['name' => __('Logistics'), 'slug' => 'logistics', 'desc' => __('Run monitored cold-chain deliveries with clear records.')],
-                        ['name' => __('Retailers'), 'slug' => 'retailers', 'desc' => __('Sell verified products with confidence and trust.')],
-                        ['name' => __('Consumers'), 'slug' => 'consumers', 'desc' => __('Scan products and see traceable safety information.')],
+                        ['name' => __('Farmers'), 'slug' => 'farmers', 'desc' => __('Prove livestock origin and quality to access better markets.'), 'image' => 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?auto=format&fit=crop&w=1200&q=80'],
+                        ['name' => __('Processors'), 'slug' => 'processors', 'desc' => __('Automate compliance and batch tracking in one workflow.'), 'image' => 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=1200&q=80'],
+                        ['name' => __('Logistics'), 'slug' => 'logistics', 'desc' => __('Run monitored cold-chain deliveries with clear records.'), 'image' => 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80'],
+                        ['name' => __('Retailers'), 'slug' => 'retailers', 'desc' => __('Sell verified products with confidence and trust.'), 'image' => 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80'],
+                        ['name' => __('Consumers'), 'slug' => 'consumers', 'desc' => __('Scan products and see traceable safety information.'), 'image' => 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1200&q=80'],
                     ] as $stakeholder)
                         <article class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-bucha">
+                            <img src="{{ $stakeholder['image'] }}" alt="{{ $stakeholder['name'] }}" class="h-28 w-full object-cover rounded-bucha mb-3">
                             <h3 class="text-sm font-semibold text-slate-900">{{ $stakeholder['name'] }}</h3>
                             <p class="mt-2 text-xs text-slate-600 leading-relaxed">{{ $stakeholder['desc'] }}</p>
                             <a href="{{ route('ecosystem.show', $stakeholder['slug']) }}" class="mt-4 inline-flex items-center text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
@@ -225,13 +226,32 @@
                 <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 text-center">{{ __('Intelligence Behind the Infrastructure') }}</h2>
                 <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     @foreach ([
-                        ['title' => __('GPS tracking'), 'desc' => __('Live shipment location visibility across routes.')],
-                        ['title' => __('Temperature monitoring'), 'desc' => __('Cold-chain conditions tracked throughout transit.')],
-                        ['title' => __('Smart alerts'), 'desc' => __('Instant notifications for compliance deviations.')],
-                        ['title' => __('Inventory flow'), 'desc' => __('Seamless stock and batch movement records.')],
+                        ['title' => __('GPS tracking'), 'desc' => __('Live shipment location visibility across routes.'), 'icon' => 'gps'],
+                        ['title' => __('Temperature monitoring'), 'desc' => __('Cold-chain conditions tracked throughout transit.'), 'icon' => 'temperature'],
+                        ['title' => __('Smart alerts'), 'desc' => __('Instant notifications for compliance deviations.'), 'icon' => 'alerts'],
+                        ['title' => __('Inventory flow'), 'desc' => __('Seamless stock and batch movement records.'), 'icon' => 'inventory'],
                     ] as $feature)
                         <div class="rounded-bucha border border-slate-200/80 bg-slate-50 p-4">
-                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-bucha-primary/10 text-bucha-primary mb-3">•</span>
+                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-bucha-primary/10 text-bucha-primary mb-3">
+                                @if ($feature['icon'] === 'gps')
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z"/>
+                                        <circle cx="12" cy="10" r="2.5" stroke-width="2"/>
+                                    </svg>
+                                @elseif ($feature['icon'] === 'temperature')
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 14.8V5a2 2 0 10-4 0v9.8a4 4 0 104 0z"/>
+                                    </svg>
+                                @elseif ($feature['icon'] === 'alerts')
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4a2 2 0 01-.6-1.4V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0"/>
+                                    </svg>
+                                @else
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M6 7v11a2 2 0 002 2h8a2 2 0 002-2V7M9 11h6M9 15h4"/>
+                                    </svg>
+                                @endif
+                            </span>
                             <h3 class="text-sm font-semibold text-slate-900">{{ $feature['title'] }}</h3>
                             <p class="mt-1 text-xs text-slate-600">{{ $feature['desc'] }}</p>
                         </div>
