@@ -26,6 +26,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\DemandController;
 use App\Http\Controllers\RecipientController;
+use App\Http\Controllers\ShopController;
 use App\Http\Controllers\CrmDashboardController;
 use App\Http\Controllers\ClientActivityController;
 use App\Http\Controllers\SuperAdminDashboardController;
@@ -40,6 +41,71 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/trace/{slug}', [\App\Http\Controllers\TraceabilityController::class, 'show'])->name('traceability.show');
+Route::view('/contact-us', 'contact')->name('contact-us');
+Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
+Route::get('/shop/product/{productId}', [ShopController::class, 'show'])->name('shop.product');
+Route::post('/shop/cart/add', [ShopController::class, 'addToCart'])->name('shop.cart.add');
+Route::get('/shop/cart', [ShopController::class, 'cart'])->name('shop.cart');
+Route::post('/shop/cart/update', [ShopController::class, 'updateCart'])->name('shop.cart.update');
+Route::post('/shop/cart/remove', [ShopController::class, 'removeFromCart'])->name('shop.cart.remove');
+Route::get('/shop/checkout', [ShopController::class, 'checkout'])->name('shop.checkout');
+Route::post('/shop/checkout', [ShopController::class, 'placeOrder'])->name('shop.place-order');
+Route::get('/shop/success', [ShopController::class, 'success'])->name('shop.success');
+Route::get('/ecosystem/{audience}', function (string $audience) {
+    $pages = [
+        'farmers' => [
+            'title' => 'Farmers',
+            'subtitle' => 'Turn livestock quality into better market access',
+            'content' => [
+                'Register livestock and preserve source records from the first mile.',
+                'Share traceable quality data to build buyer confidence.',
+                'Reduce disputes with clear chain-of-custody evidence.',
+            ],
+        ],
+        'processors' => [
+            'title' => 'Processors',
+            'subtitle' => 'Run compliant operations with less paperwork',
+            'content' => [
+                'Track intake, slaughter, inspections, and certification in one flow.',
+                'Standardize compliance checks and operational reporting.',
+                'Improve audit readiness with structured digital records.',
+            ],
+        ],
+        'logistics' => [
+            'title' => 'Logistics',
+            'subtitle' => 'Deliver with monitored cold-chain confidence',
+            'content' => [
+                'Monitor trips and preserve transport records end-to-end.',
+                'Capture delivery confirmations linked to certified batches.',
+                'Strengthen trust with transparent movement history.',
+            ],
+        ],
+        'retailers' => [
+            'title' => 'Retailers',
+            'subtitle' => 'Sell verified products with confidence',
+            'content' => [
+                'Source from traceable batches and verified certificates.',
+                'Give customers clear provenance and quality visibility.',
+                'Build brand trust through transparent product history.',
+            ],
+        ],
+        'consumers' => [
+            'title' => 'Consumers',
+            'subtitle' => 'Know where your food comes from',
+            'content' => [
+                'Scan and verify product origin and handling records.',
+                'See traceability and certification details instantly.',
+                'Make informed purchase decisions backed by data.',
+            ],
+        ],
+    ];
+
+    abort_unless(array_key_exists($audience, $pages), 404);
+
+    return view('ecosystem.show', [
+        'page' => $pages[$audience],
+    ]);
+})->name('ecosystem.show');
 
 // Temporary: debug why /businesses/{id}/facilities 404 on cPanel. Remove after fixing.
 Route::get('/debug-facilities-route', function () {

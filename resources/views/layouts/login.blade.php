@@ -36,7 +36,8 @@
     </style>
 </head>
 <body class="font-sans text-gray-900 antialiased bg-bucha-canvas">
-    <div class="min-h-screen flex flex-col sm:justify-center items-center p-4 sm:p-6">
+    <div class="min-h-screen flex flex-col p-4 sm:p-6">
+        <div class="flex-1 flex flex-col sm:justify-center items-center">
         <div class="w-full max-w-4xl rounded-[28px] overflow-hidden shadow-xl flex flex-col sm:flex-row min-h-[520px]">
             <!-- Left panel -->
             <div class="login-left-bg flex-1 flex items-center px-8 py-12 sm:py-16 sm:px-12 order-2 sm:order-1">
@@ -59,6 +60,8 @@
                 {{ $slot }}
             </div>
         </div>
+        </div>
+        @include('layouts.footer')
     </div>
 </body>
 </html>

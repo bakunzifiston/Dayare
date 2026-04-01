@@ -12,6 +12,15 @@
     <header class="sticky top-0 z-20 bg-white/95 border-b border-slate-200/80">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <x-sidebar-brand href="{{ route('home') }}" theme="light" />
+            <nav class="hidden lg:flex items-center gap-5 text-sm font-semibold text-slate-700">
+                <a href="#mobile-platform" class="hover:text-bucha-primary transition-colors">{{ __('Mobile') }}</a>
+                <a href="#what-is-buchapro" class="hover:text-bucha-primary transition-colors">{{ __('About') }}</a>
+                <a href="#how-it-works" class="hover:text-bucha-primary transition-colors">{{ __('How it works') }}</a>
+                <a href="#ecosystem" class="hover:text-bucha-primary transition-colors">{{ __('Ecosystem') }}</a>
+                <a href="#platform-features" class="hover:text-bucha-primary transition-colors">{{ __('Features') }}</a>
+                <a href="#products" class="hover:text-bucha-primary transition-colors">{{ __('Products') }}</a>
+                <a href="{{ route('contact-us') }}" class="hover:text-bucha-primary transition-colors">{{ __('Contact') }}</a>
+            </nav>
             <div class="flex items-center gap-2 sm:gap-3">
                 @if (Route::has('login'))
                     @auth
@@ -51,11 +60,11 @@
                         </p>
 
                         <div class="mt-8 flex flex-wrap gap-3">
-                            <a href="#mobile-platform" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
+                            <a href="{{ route('contact-us') }}" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
                                 {{ __('Contact Us') }}
                             </a>
-                            <a href="#ecosystem" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
-                                {{ __('Become a Partner') }}
+                            <a href="{{ route('shop.index') }}" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
+                                {{ __('Shop Now') }}
                             </a>
                         </div>
                     </div>
@@ -151,7 +160,7 @@
         </section>
 
         {{-- WHAT IS BUCHAPRO --}}
-        <section class="py-14 sm:py-16 bg-bucha-canvas">
+        <section id="what-is-buchapro" class="py-14 sm:py-16 bg-bucha-canvas">
             <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
                 <p class="text-xs uppercase tracking-wider font-semibold text-bucha-muted">{{ __('What is BuchaPro') }}</p>
                 <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900">{{ __('Redefining the Meat Value Chain') }}</h2>
@@ -162,7 +171,7 @@
         </section>
 
         {{-- HOW IT WORKS --}}
-        <section class="py-14 sm:py-16 bg-white border-y border-slate-200/80">
+        <section id="how-it-works" class="py-14 sm:py-16 bg-white border-y border-slate-200/80">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <p class="text-xs uppercase tracking-wider font-semibold text-bucha-muted text-center">{{ __('How it works') }}</p>
                 <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 text-center">{{ __('From Source to Table: A Chain of Custody') }}</h2>
@@ -191,16 +200,16 @@
                 <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 text-center">{{ __('Solutions for Every Stakeholder') }}</h2>
                 <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     @foreach ([
-                        ['name' => __('Farmers'), 'desc' => __('Prove livestock origin and quality to access better markets.')],
-                        ['name' => __('Processors'), 'desc' => __('Automate compliance and batch tracking in one workflow.')],
-                        ['name' => __('Logistics'), 'desc' => __('Run monitored cold-chain deliveries with clear records.')],
-                        ['name' => __('Retailers'), 'desc' => __('Sell verified products with confidence and trust.')],
-                        ['name' => __('Consumers'), 'desc' => __('Scan products and see traceable safety information.')],
+                        ['name' => __('Farmers'), 'slug' => 'farmers', 'desc' => __('Prove livestock origin and quality to access better markets.')],
+                        ['name' => __('Processors'), 'slug' => 'processors', 'desc' => __('Automate compliance and batch tracking in one workflow.')],
+                        ['name' => __('Logistics'), 'slug' => 'logistics', 'desc' => __('Run monitored cold-chain deliveries with clear records.')],
+                        ['name' => __('Retailers'), 'slug' => 'retailers', 'desc' => __('Sell verified products with confidence and trust.')],
+                        ['name' => __('Consumers'), 'slug' => 'consumers', 'desc' => __('Scan products and see traceable safety information.')],
                     ] as $stakeholder)
                         <article class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-bucha">
                             <h3 class="text-sm font-semibold text-slate-900">{{ $stakeholder['name'] }}</h3>
                             <p class="mt-2 text-xs text-slate-600 leading-relaxed">{{ $stakeholder['desc'] }}</p>
-                            <a href="#final-cta" class="mt-4 inline-flex items-center text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
+                            <a href="{{ route('ecosystem.show', $stakeholder['slug']) }}" class="mt-4 inline-flex items-center text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
                                 {{ __('Learn More') }}
                             </a>
                         </article>
@@ -210,7 +219,7 @@
         </section>
 
         {{-- PLATFORM FEATURES --}}
-        <section class="py-14 sm:py-16 bg-white border-y border-slate-200/80">
+        <section id="platform-features" class="py-14 sm:py-16 bg-white border-y border-slate-200/80">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <p class="text-xs uppercase tracking-wider font-semibold text-bucha-muted text-center">{{ __('The Brain') }}</p>
                 <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 text-center">{{ __('Intelligence Behind the Infrastructure') }}</h2>
@@ -232,7 +241,7 @@
         </section>
 
         {{-- CERTIFICATION --}}
-        <section class="py-14 sm:py-16 bg-bucha-canvas">
+        <section id="certification" class="py-14 sm:py-16 bg-bucha-canvas">
             <div class="max-w-5xl mx-auto px-4 sm:px-6">
                 <p class="text-xs uppercase tracking-wider font-semibold text-bucha-muted text-center">{{ __('Certification System') }}</p>
                 <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 text-center">{{ __('A Tiered System of Excellence') }}</h2>
@@ -257,14 +266,40 @@
         </section>
 
         {{-- PRODUCTS --}}
-        <section class="py-14 sm:py-16 bg-white border-y border-slate-200/80">
-            <div class="max-w-5xl mx-auto px-4 sm:px-6 text-center">
+        <section id="products" class="py-14 sm:py-16 bg-white border-y border-slate-200/80">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
                 <p class="text-xs uppercase tracking-wider font-semibold text-bucha-muted">{{ __('BuchaPro Foods') }}</p>
                 <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900">{{ __('Premium Protein, Delivered Fresh') }}</h2>
                 <p class="mt-4 text-sm text-slate-600">{{ __('Beef • Poultry • Goat • Fish') }}</p>
-                <a href="#final-cta" class="mt-6 inline-flex items-center px-5 py-3 rounded-bucha bg-bucha-primary hover:bg-bucha-burgundy text-white text-sm font-semibold transition-colors">
-                    {{ __('Shop Now') }}
-                </a>
+                </div>
+
+                <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    @foreach ([
+                        ['name' => 'Prime Beef Cuts', 'category' => 'Beef', 'price' => '18,500', 'unit' => 'kg', 'badge' => 'Best Seller', 'image' => 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?auto=format&fit=crop&w=1200&q=80'],
+                        ['name' => 'Fresh Goat Meat', 'category' => 'Goat', 'price' => '13,000', 'unit' => 'kg', 'badge' => 'Popular', 'image' => 'https://images.unsplash.com/photo-1559561853-08451507cbe7?auto=format&fit=crop&w=1200&q=80'],
+                        ['name' => 'Whole Chicken', 'category' => 'Poultry', 'price' => '9,500', 'unit' => 'kg', 'badge' => 'Farm Fresh', 'image' => 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=1200&q=80'],
+                        ['name' => 'Tilapia Fillet', 'category' => 'Fish', 'price' => '11,000', 'unit' => 'kg', 'badge' => 'New', 'image' => 'https://images.unsplash.com/photo-1510130387422-82bed34b37e9?auto=format&fit=crop&w=1200&q=80'],
+                    ] as $product)
+                        <article class="rounded-[18px] border border-slate-200/80 bg-white shadow-bucha overflow-hidden">
+                            <img src="{{ $product['image'] }}" alt="{{ $product['name'] }}" class="h-36 w-full object-cover">
+                            <div class="p-4">
+                                <div class="flex items-center justify-between gap-2">
+                                    <h3 class="text-sm font-semibold text-slate-900">{{ $product['name'] }}</h3>
+                                    <span class="text-[10px] rounded-full bg-bucha-primary/10 text-bucha-primary px-2 py-1 font-semibold">{{ __($product['badge']) }}</span>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-500">{{ __($product['category']) }}</p>
+                                <p class="mt-3 text-lg font-bold text-bucha-primary">RWF {{ $product['price'] }} <span class="text-xs text-slate-500 font-medium">/ {{ $product['unit'] }}</span></p>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+
+                <div class="mt-8 text-center">
+                    <a href="{{ route('shop.index') }}" class="inline-flex items-center px-5 py-3 rounded-bucha bg-bucha-primary hover:bg-bucha-burgundy text-white text-sm font-semibold transition-colors">
+                        {{ __('Open Full Shop') }}
+                    </a>
+                </div>
             </div>
         </section>
 
@@ -283,5 +318,6 @@
             </div>
         </section>
     </main>
+    @include('layouts.footer')
 </body>
 </html>
