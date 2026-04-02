@@ -17,7 +17,7 @@
                 ['label' => __('Batches'), 'route' => 'batches.index', 'icon' => 'box', 'permission' => 'manage batches'],
                 ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard', 'permission' => 'manage post-mortem'],
                 ['label' => __('Certificates'), 'route' => 'certificates.index', 'icon' => 'certificate', 'permission' => 'manage certificates'],
-                ['label' => __('Warehouse'), 'route' => 'warehouse-storages.index', 'icon' => 'box', 'permission' => 'manage warehouse'],
+                ['label' => __('Cold Room'), 'route' => 'warehouse-storages.index', 'icon' => 'box', 'permission' => 'manage warehouse'],
                 ['label' => __('Transport'), 'route' => 'transport-trips.index', 'icon' => 'truck', 'permission' => 'manage transport'],
                 ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check', 'permission' => 'manage delivery confirmations'],
                 ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield', 'permission' => 'view compliance'],

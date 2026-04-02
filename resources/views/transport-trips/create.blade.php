@@ -34,7 +34,7 @@
                     </div>
 
                     <div>
-                        <x-input-label for="warehouse_storage_id" :value="__('Warehouse storage (released, optional)')" />
+                        <x-input-label for="warehouse_storage_id" :value="__('Cold Room storage (released, optional)')" />
                         <select id="warehouse_storage_id" name="warehouse_storage_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('None') }}</option>
                             @foreach ($releasedStorages ?? [] as $ws)

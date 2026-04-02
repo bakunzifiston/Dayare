@@ -122,7 +122,7 @@ class Demand extends Model
     }
 
     /**
-     * Get available quantity (same species) from warehouse storage for this demand's business.
+     * Get available quantity (same species) from cold room storage for this demand's business.
      * Only compliant stock counts (certificate active and not expired).
      * Returns array: available_quantity (compliant), total_warehouse_quantity, can_fulfill, short_by, compliance_ok, message, etc.
      */
@@ -148,15 +148,15 @@ class Demand extends Model
         $complianceOk = $totalInWarehouse <= 0 || $compliantAvailable >= $required;
 
         $message = $compliantAvailable > 0
-            ? __(':available :unit in warehouse (same species), compliant.', ['available' => number_format($compliantAvailable, 2), 'unit' => $unit])
-            : __('No compliant stock in warehouse for this species yet.');
+            ? __(':available :unit in cold room (same species), compliant.', ['available' => number_format($compliantAvailable, 2), 'unit' => $unit])
+            : __('No compliant stock in cold room for this species yet.');
 
         if ($totalInWarehouse > 0 && $compliantAvailable < $totalInWarehouse) {
-            $message .= ' ' . __(':non_compliant :unit in warehouse with expired/revoked certificate.', ['non_compliant' => number_format($totalInWarehouse - $compliantAvailable, 2), 'unit' => $unit]);
+            $message .= ' ' . __(':non_compliant :unit in cold room with expired/revoked certificate.', ['non_compliant' => number_format($totalInWarehouse - $compliantAvailable, 2), 'unit' => $unit]);
         } elseif ($totalInWarehouse > 0 && $compliantAvailable === 0) {
-            $message = __('No compliant stock (certificates expired/revoked). :total :unit in warehouse.', ['total' => number_format($totalInWarehouse, 2), 'unit' => $unit]);
+            $message = __('No compliant stock (certificates expired/revoked). :total :unit in cold room.', ['total' => number_format($totalInWarehouse, 2), 'unit' => $unit]);
         } elseif ($totalInWarehouse === 0) {
-            $message = __('No stock in warehouse for this species yet.');
+            $message = __('No stock in cold room for this species yet.');
         }
 
         if ($canFulfill && $required > 0) {
@@ -178,7 +178,7 @@ class Demand extends Model
         ];
     }
 
-    /** Whether current warehouse stock (same species, same business) can cover this demand. */
+    /** Whether current cold room stock (same species, same business) can cover this demand. */
     public function getCanFulfillFromWarehouseAttribute(): bool
     {
         return $this->getFulfillmentInfo()['can_fulfill'];

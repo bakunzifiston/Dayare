@@ -45,8 +45,13 @@
     <main>
         {{-- HERO SECTION --}}
         <section class="relative overflow-hidden bg-gradient-to-br from-bucha-charcoal via-bucha-sidebar to-bucha-primary">
-            <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 20% 20%, #ffffff 2px, transparent 2px); background-size: 24px 24px;"></div>
-            <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
+            <img
+                src="{{ asset('images/Abattoir-For-Livestock-Meat-3a9cfc1f-683f-49ec-bec4-5aceb28cd5f5.png') }}"
+                alt="{{ __('Meat integrity banner') }}"
+                class="absolute inset-0 w-full h-full object-cover opacity-40"
+            />
+            <div class="absolute inset-0 opacity-5" style="background-image: radial-gradient(circle at 20% 20%, #ffffff 2px, transparent 2px); background-size: 24px 24px;"></div>
+            <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                     <div>
                         <h1 class="text-white text-3xl sm:text-5xl font-extrabold tracking-tight">
@@ -70,28 +75,30 @@
                     </div>
 
                     <div class="rounded-[20px] bg-white/10 border border-white/20 p-5 sm:p-6 shadow-xl">
-                        <p class="text-white/80 text-xs uppercase tracking-wider mb-3">{{ __('Platform Preview') }}</p>
-                        <div class="rounded-bucha bg-white/95 p-4 sm:p-5 border border-slate-200/80">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p class="text-[11px] uppercase text-slate-500 tracking-wider">{{ __('Traceability') }}</p>
-                                    <p class="text-xl font-bold text-bucha-primary mt-1">100%</p>
-                                </div>
-                                <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p class="text-[11px] uppercase text-slate-500 tracking-wider">{{ __('Compliance') }}</p>
-                                    <p class="text-xl font-bold text-slate-900 mt-1">A+</p>
-                                </div>
-                                <div class="col-span-2 rounded-lg border border-slate-200 bg-white p-3">
-                                    <p class="text-[11px] uppercase text-slate-500 tracking-wider">{{ __('Live chain status') }}</p>
-                                    <div class="mt-2 flex items-center justify-between text-xs text-slate-700">
-                                        <span>{{ __('Source') }}</span>
-                                        <span>{{ __('Process') }}</span>
-                                        <span>{{ __('Transport') }}</span>
-                                        <span>{{ __('Verify') }}</span>
-                                        <span>{{ __('Deliver') }}</span>
+                        <div class="relative">
+                            <p class="text-white/80 text-xs uppercase tracking-wider mb-3">{{ __('Platform Preview') }}</p>
+                            <div class="rounded-bucha bg-white/95 p-4 sm:p-5 border border-slate-200/80">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p class="text-[11px] uppercase text-slate-500 tracking-wider">{{ __('Traceability') }}</p>
+                                        <p class="text-xl font-bold text-bucha-primary mt-1">100%</p>
                                     </div>
-                                    <div class="mt-2 h-2 rounded-full bg-slate-200 overflow-hidden">
-                                        <div class="h-full w-4/5 bg-bucha-primary"></div>
+                                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p class="text-[11px] uppercase text-slate-500 tracking-wider">{{ __('Compliance') }}</p>
+                                        <p class="text-xl font-bold text-slate-900 mt-1">A+</p>
+                                    </div>
+                                    <div class="col-span-2 rounded-lg border border-slate-200 bg-white p-3">
+                                        <p class="text-[11px] uppercase text-slate-500 tracking-wider">{{ __('Live chain status') }}</p>
+                                        <div class="mt-2 flex items-center justify-between text-xs text-slate-700">
+                                            <span>{{ __('Source') }}</span>
+                                            <span>{{ __('Process') }}</span>
+                                            <span>{{ __('Transport') }}</span>
+                                            <span>{{ __('Verify') }}</span>
+                                            <span>{{ __('Deliver') }}</span>
+                                        </div>
+                                        <div class="mt-2 h-2 rounded-full bg-slate-200 overflow-hidden">
+                                            <div class="h-full w-4/5 bg-bucha-primary"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

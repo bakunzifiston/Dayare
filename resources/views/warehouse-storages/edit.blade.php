@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Edit warehouse storage') }}
+                {{ __('Edit cold room storage') }}
             </h2>
             <a href="{{ route('warehouse-storages.show', $warehouseStorage) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Back to storage') }}
@@ -18,7 +18,7 @@
                     @method('patch')
 
                     <div>
-                        <x-input-label for="warehouse_facility_id" :value="__('Warehouse (storage facility)')" />
+                        <x-input-label for="warehouse_facility_id" :value="__('Cold Room (storage facility)')" />
                         <select id="warehouse_facility_id" name="warehouse_facility_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($warehouseFacilities as $f)
                                 <option value="{{ $f['id'] }}" @selected(old('warehouse_facility_id', $warehouseStorage->warehouse_facility_id) == $f['id'])>{{ $f['label'] }}</option>

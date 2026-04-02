@@ -18,7 +18,7 @@ class Employee extends Model
         'facility_manager' => 'Facility Manager',
         'slaughter_operator' => 'Slaughter Operator',
         'butcher' => 'Butcher',
-        'warehouse_manager' => 'Warehouse Manager',
+        'warehouse_manager' => 'Cold Room Manager',
         'transport_manager' => 'Transport Manager',
         'other' => 'Other',
     ];

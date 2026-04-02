@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Warehouse storage') }} — {{ $warehouseStorage->batch->batch_code ?? '' }}
+                {{ __('Cold Room storage') }} — {{ $warehouseStorage->batch->batch_code ?? '' }}
             </h2>
             <div class="flex gap-2">
                 <a href="{{ route('warehouse-storages.edit', $warehouseStorage) }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">{{ __('Edit') }}</a>
@@ -21,7 +21,7 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <dt class="text-sm font-medium text-slate-500">{{ __('Warehouse') }}</dt>
+                        <dt class="text-sm font-medium text-slate-500">{{ __('Cold Room') }}</dt>
                         <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->warehouseFacility->facility_name ?? '' }}</dd>
                     </div>
                     <div>

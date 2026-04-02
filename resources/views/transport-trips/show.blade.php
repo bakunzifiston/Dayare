@@ -40,7 +40,7 @@
                     @endif
                     @if ($trip->warehouseStorage)
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">{{ __('Warehouse storage') }}</dt>
+                            <dt class="text-sm font-medium text-gray-500">{{ __('Cold Room storage') }}</dt>
                             <dd class="mt-1 text-sm text-gray-900">
                                 <a href="{{ route('warehouse-storages.show', $trip->warehouseStorage) }}" class="text-bucha-primary hover:underline">{{ $trip->warehouseStorage->batch->batch_code ?? '#' . $trip->warehouse_storage_id }}</a> ({{ __('released') }})
                             </dd>

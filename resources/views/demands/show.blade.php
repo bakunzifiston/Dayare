@@ -72,7 +72,7 @@
                         <p>{{ $fulfill['message'] }}</p>
                         <p class="mt-1 text-slate-500">
                             {{ __('Required') }}: {{ number_format($fulfill['required_quantity'], 2) }} {{ $fulfill['unit'] }}
-                            · {{ __('Compliant in warehouse') }}: {{ number_format($fulfill['compliant_quantity'], 2) }} {{ $fulfill['unit'] }}
+                            · {{ __('Compliant in cold room') }}: {{ number_format($fulfill['compliant_quantity'], 2) }} {{ $fulfill['unit'] }}
                             @if ($fulfill['total_warehouse_quantity'] > $fulfill['compliant_quantity'])
                                 · <span class="text-amber-600">{{ __('Non-compliant (expired/revoked cert)') }}: {{ number_format($fulfill['total_warehouse_quantity'] - $fulfill['compliant_quantity'], 2) }} {{ $fulfill['unit'] }}</span>
                             @endif
@@ -85,11 +85,11 @@
                             @if ($fulfill['compliant_quantity'] >= $fulfill['required_quantity'] && $fulfill['required_quantity'] > 0)
                                 <span class="text-emerald-600">{{ __('Demand can be met with compliant stock only (active certificate, not expired).') }}</span>
                             @elseif ($fulfill['total_warehouse_quantity'] > 0 && $fulfill['compliant_quantity'] === 0)
-                                <span class="text-amber-600">{{ __('Stock in warehouse has no valid certificate (expired/revoked).') }}</span>
+                                <span class="text-amber-600">{{ __('Stock in cold room has no valid certificate (expired/revoked).') }}</span>
                             @elseif ($fulfill['total_warehouse_quantity'] > $fulfill['compliant_quantity'])
-                                <span class="text-amber-600">{{ __('Part of warehouse stock is non-compliant; only compliant quantity counts for fulfillment.') }}</span>
+                                <span class="text-amber-600">{{ __('Part of cold room stock is non-compliant; only compliant quantity counts for fulfillment.') }}</span>
                             @else
-                                <span class="text-slate-600">{{ __('No stock in warehouse for this species.') }}</span>
+                                <span class="text-slate-600">{{ __('No stock in cold room for this species.') }}</span>
                             @endif
                         </p>
                     </div>

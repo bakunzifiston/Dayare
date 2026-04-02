@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Warehouse (cold storage)') }}
+                {{ __('Cold Room (cold storage)') }}
             </h2>
             <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Record storage') }}
@@ -23,7 +23,7 @@
 
             @if ($storages->isEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
-                    <p class="mb-4">{{ __('No warehouse storage records yet.') }}</p>
+                    <p class="mb-4">{{ __('No cold room storage records yet.') }}</p>
                     <p class="text-sm mb-4">{{ __('Record storage of certified meat batches. Certificate must be active.') }}</p>
                     <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Record first storage') }}</a>
                 </div>

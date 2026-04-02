@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-            {{ __('Record warehouse storage') }}
+            {{ __('Record cold room storage') }}
         </h2>
     </x-slot>
 
@@ -13,9 +13,9 @@
                     @csrf
 
                     <div>
-                        <x-input-label for="warehouse_facility_id" :value="__('Warehouse (storage facility)')" />
+                        <x-input-label for="warehouse_facility_id" :value="__('Cold Room (storage facility)')" />
                         <select id="warehouse_facility_id" name="warehouse_facility_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            <option value="">{{ __('Select warehouse') }}</option>
+                            <option value="">{{ __('Select cold room') }}</option>
                             @foreach ($warehouseFacilities as $f)
                                 <option value="{{ $f['id'] }}" @selected(old('warehouse_facility_id') == $f['id'])>{{ $f['label'] }}</option>
                             @endforeach

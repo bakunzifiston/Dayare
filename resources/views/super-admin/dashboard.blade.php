@@ -175,7 +175,7 @@
                         @endif
                         @if ($compliance['temperature_violations'] > 0)
                             <div class="rounded-lg border border-red-200 bg-red-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-red-900">{{ __('Temperature violations in warehouse') }}</p>
+                                <p class="text-sm font-medium text-red-900">{{ __('Temperature violations in cold room') }}</p>
                                 <p class="mt-1 text-2xl font-bold text-red-700">{{ $compliance['temperature_violations'] }}</p>
                             </div>
                         @endif

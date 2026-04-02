@@ -121,7 +121,7 @@ class WarehouseStorageController extends Controller
 
         WarehouseStorage::create($valid);
 
-        return redirect()->route('warehouse-storages.index')->with('status', __('Warehouse storage recorded.'));
+        return redirect()->route('warehouse-storages.index')->with('status', __('Cold room storage recorded.'));
     }
 
     public function show(Request $request, WarehouseStorage $warehouseStorage): View
@@ -171,7 +171,7 @@ class WarehouseStorageController extends Controller
 
         $warehouseStorage->update($valid);
 
-        return redirect()->route('warehouse-storages.show', $warehouseStorage)->with('status', __('Warehouse storage updated.'));
+        return redirect()->route('warehouse-storages.show', $warehouseStorage)->with('status', __('Cold room storage updated.'));
     }
 
     public function storeTemperatureLog(Request $request, WarehouseStorage $warehouseStorage): RedirectResponse

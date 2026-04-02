@@ -171,7 +171,7 @@
                 @if ($temperatureAlerts->isNotEmpty())
                     <div class="rounded-xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
                         <div class="px-5 py-3 border-b border-slate-100 bg-amber-50/50">
-                            <h3 class="text-sm font-semibold text-amber-800">{{ __('Temperature alerts (warehouse)') }}</h3>
+                            <h3 class="text-sm font-semibold text-amber-800">{{ __('Temperature alerts (cold room)') }}</h3>
                             <p class="text-xs text-slate-500 mt-0.5">{{ __('Logs with warning or critical status.') }}</p>
                         </div>
                         <ul class="divide-y divide-slate-50">
