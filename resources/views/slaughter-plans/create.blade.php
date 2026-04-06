@@ -1,8 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Schedule slaughter') }}
-        </h2>
+        <div>
+            <a href="{{ route('slaughter-plans.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Slaughter planning') }}</a>
+            <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
+                {{ __('Schedule slaughter') }}
+            </h2>
+        </div>
     </x-slot>
 
     <div class="py-12">
@@ -84,7 +87,7 @@
 
                     <div class="flex gap-4">
                         <x-primary-button>{{ __('Create plan') }}</x-primary-button>
-                        <a href="{{ route('slaughter-plans.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
+                        <a href="{{ route('slaughter-plans.hub') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                             {{ __('Cancel') }}
                         </a>
                     </div>

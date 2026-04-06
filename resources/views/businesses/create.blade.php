@@ -1,8 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Register Business') }}
-        </h2>
+        <div>
+            <a href="{{ route('businesses.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Businesses') }}</a>
+            <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
+                {{ __('Register Business') }}
+            </h2>
+        </div>
     </x-slot>
 
     <div class="py-12">
@@ -310,7 +313,7 @@
                     <button type="submit" id="register-business-btn" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy focus:bg-[#2563eb] active:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-bucha-primary focus:ring-offset-2 transition ease-in-out duration-150">
                         {{ __('Register Business') }}
                     </button>
-                    <a href="{{ route('businesses.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
+                    <a href="{{ route('businesses.hub') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                         {{ __('Cancel') }}
                     </a>
                 </div>

@@ -21,10 +21,10 @@
                     </div>
                     <div class="p-6">
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            <x-kpi-card title="{{ __('Total businesses') }}" :value="$platformKpis['businesses']" :href="route('businesses.index')" color="blue" />
+                            <x-kpi-card title="{{ __('Total businesses') }}" :value="$platformKpis['businesses']" :href="route('businesses.hub')" color="blue" />
                             <x-kpi-card title="{{ __('Total facilities') }}" :value="$platformKpis['facilities']" color="slate" />
                             <x-kpi-card title="{{ __('Total users') }}" :value="$platformKpis['users']" color="blue" />
-                            <x-kpi-card title="{{ __('Total inspectors') }}" :value="$platformKpis['inspectors']" :href="route('inspectors.index')" color="slate" />
+                            <x-kpi-card title="{{ __('Total inspectors') }}" :value="$platformKpis['inspectors']" :href="route('inspectors.hub')" color="slate" />
                         </div>
                     </div>
                 </div>

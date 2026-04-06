@@ -1,42 +1,44 @@
 <?php
 
 use App\Http\Controllers\AdministrativeDivisionController;
+use App\Http\Controllers\AnimalIntakeController;
 use App\Http\Controllers\AnteMortemInspectionController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ColdRoomController;
+use App\Http\Controllers\ColdRoomStandardController;
+use App\Http\Controllers\ComplianceController;
+use App\Http\Controllers\ContractController;
+use App\Http\Controllers\CrmDashboardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeliveryConfirmationController;
+use App\Http\Controllers\DemandController;
+use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\PostMortemInspectionController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\SlaughterExecutionController;
-use App\Http\Controllers\AnimalIntakeController;
-use App\Http\Controllers\SlaughterPlanController;
-use App\Http\Controllers\ComplianceController;
-use App\Http\Controllers\DeliveryConfirmationController;
-use App\Http\Controllers\TransportTripController;
-use App\Http\Controllers\WarehouseStorageController;
-use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\SpeciesController;
-use App\Http\Controllers\UnitController;
-use App\Http\Controllers\EmployeeController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\ClientController;
-use App\Http\Controllers\ContractController;
-use App\Http\Controllers\DemandController;
 use App\Http\Controllers\RecipientController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ShopController;
-use App\Http\Controllers\CrmDashboardController;
-use App\Http\Controllers\ClientActivityController;
+use App\Http\Controllers\SlaughterExecutionController;
+use App\Http\Controllers\SlaughterPlanController;
+use App\Http\Controllers\SpeciesController;
 use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TenantUserController;
+use App\Http\Controllers\TransportTripController;
+use App\Http\Controllers\UnitController;
+use App\Http\Controllers\WarehouseStorageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     if (auth()->check()) {
         return redirect()->route(auth()->user()->isSuperAdmin() ? 'super-admin.dashboard' : 'dashboard');
     }
+
     return view('welcome');
 })->name('home');
 
@@ -208,7 +210,7 @@ Route::get('/ecosystem/{audience}', function (string $audience) {
             'cta_title' => __('Take Control of What You Eat'),
             'cta_subtitle' => __('Stop guessing. Start knowing.'),
             'cta_primary' => __('Download the App'),
-            'cta_primary_href' => route('home') . '#mobile-platform',
+            'cta_primary_href' => route('home').'#mobile-platform',
             'breadcrumb' => __('Consumers'),
             'why_heading' => __('🥩 Why Consumers Choose BuchaPro'),
             'how_heading' => __('🔄 How It Works'),
@@ -246,7 +248,7 @@ Route::get('/debug-facilities-route', function () {
         'suggestion' => ! $facilitiesRouteExists
             ? 'Run: php artisan route:clear && php artisan config:clear'
             : ($business && $user && $business->user_id !== $user->id
-                ? 'Business belongs to another user. Update businesses.user_id to ' . $user->id . ' for this business.'
+                ? 'Business belongs to another user. Update businesses.user_id to '.$user->id.' for this business.'
                 : 'Route and ownership OK. If still 404, check document root points to /public and .htaccess is in use.'),
     ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 })->middleware('auth');
@@ -256,6 +258,7 @@ Route::get('/dashboard', DashboardController::class)
     ->name('dashboard');
 
 Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
+    Route::get('businesses/overview', [BusinessController::class, 'hub'])->name('businesses.hub');
     Route::resource('businesses', BusinessController::class);
     // Explicit facilities routes (nested under business) – avoids 404 on some cPanel setups
     Route::get('businesses/{business}/facilities', [FacilityController::class, 'index'])->name('businesses.facilities.index');
@@ -266,17 +269,34 @@ Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
     Route::put('businesses/{business}/facilities/{facility}', [FacilityController::class, 'update'])->name('businesses.facilities.update');
     Route::delete('businesses/{business}/facilities/{facility}', [FacilityController::class, 'destroy'])->name('businesses.facilities.destroy');
 
+    Route::get('inspectors/overview', [InspectorController::class, 'hub'])->name('inspectors.hub');
     Route::resource('inspectors', InspectorController::class);
+    Route::get('animal-intakes/overview', [AnimalIntakeController::class, 'hub'])->name('animal-intakes.hub');
     Route::resource('animal-intakes', AnimalIntakeController::class);
+    Route::get('slaughter-plans/overview', [SlaughterPlanController::class, 'hub'])->name('slaughter-plans.hub');
     Route::resource('slaughter-plans', SlaughterPlanController::class);
+    Route::get('slaughter-executions/overview', [SlaughterExecutionController::class, 'hub'])->name('slaughter-executions.hub');
     Route::resource('slaughter-executions', SlaughterExecutionController::class);
+    Route::get('batches/overview', [BatchController::class, 'hub'])->name('batches.hub');
     Route::resource('batches', BatchController::class);
     Route::resource('post-mortem-inspections', PostMortemInspectionController::class);
+    Route::get('certificates/overview', [CertificateController::class, 'hub'])->name('certificates.hub');
     Route::resource('certificates', CertificateController::class);
     Route::get('certificates/{certificate}/qr', [CertificateController::class, 'qr'])->name('certificates.qr');
     Route::resource('warehouse-storages', WarehouseStorageController::class);
+    Route::resource('cold-room-standards', ColdRoomStandardController::class)->except(['show']);
+    Route::prefix('cold-rooms')->name('cold-rooms.')->group(function () {
+        Route::get('/', [ColdRoomController::class, 'hub'])->name('hub');
+        Route::get('manage', [ColdRoomController::class, 'index'])->name('manage.index');
+        Route::get('manage/create', [ColdRoomController::class, 'create'])->name('manage.create');
+        Route::post('manage', [ColdRoomController::class, 'store'])->name('manage.store');
+        Route::get('manage/{cold_room}/edit', [ColdRoomController::class, 'edit'])->name('manage.edit');
+        Route::put('manage/{cold_room}', [ColdRoomController::class, 'update'])->name('manage.update');
+        Route::delete('manage/{cold_room}', [ColdRoomController::class, 'destroy'])->name('manage.destroy');
+    });
     Route::post('warehouse-storages/{warehouse_storage}/temperature-logs', [WarehouseStorageController::class, 'storeTemperatureLog'])->name('warehouse-storages.temperature-logs.store');
     Route::delete('warehouse-storages/{warehouse_storage}/temperature-logs/{temperature_log}', [WarehouseStorageController::class, 'destroyTemperatureLog'])->name('warehouse-storages.temperature-logs.destroy');
+    Route::get('transport-trips/overview', [TransportTripController::class, 'hub'])->name('transport-trips.hub');
     Route::resource('transport-trips', TransportTripController::class);
     Route::resource('delivery-confirmations', DeliveryConfirmationController::class);
     Route::get('compliance', [ComplianceController::class, 'index'])->name('compliance.index');

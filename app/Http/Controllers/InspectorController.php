@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateInspectorRequest;
 use App\Models\AdministrativeDivision;
 use App\Models\Facility;
 use App\Models\Inspector;
+use App\Models\PostMortemInspection;
 use App\Models\Species;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,6 +39,35 @@ class InspectorController extends Controller
         }
     }
 
+    public function hub(Request $request): View
+    {
+        $facilityIds = $this->userFacilityIds($request);
+        $base = Inspector::query()->whereIn('facility_id', $facilityIds);
+
+        $totalInspectors = (clone $base)->count();
+        $activeCount = (clone $base)->where('status', Inspector::STATUS_ACTIVE)->count();
+        $expiredCount = (clone $base)->where('status', Inspector::STATUS_EXPIRED)->count();
+        $inspectorsWithPlansCount = (clone $base)->has('slaughterPlans')->count();
+        $facilitiesWithInspectorsCount = Facility::whereIn('id', $facilityIds)
+            ->whereHas('inspectors')
+            ->count();
+
+        $postMortemInspectionsCount = PostMortemInspection::query()
+            ->whereHas('batch.slaughterExecution.slaughterPlan', function ($q) use ($facilityIds) {
+                $q->whereIn('facility_id', $facilityIds);
+            })
+            ->count();
+
+        return view('inspectors.hub', compact(
+            'totalInspectors',
+            'activeCount',
+            'expiredCount',
+            'inspectorsWithPlansCount',
+            'facilitiesWithInspectorsCount',
+            'postMortemInspectionsCount',
+        ));
+    }
+
     public function index(Request $request): View
     {
         $facilityIds = $this->userFacilityIds($request);
@@ -62,7 +92,7 @@ class InspectorController extends Controller
             ->get(['id', 'facility_name', 'facility_type', 'business_id'])
             ->map(fn (Facility $f) => [
                 'id' => $f->id,
-                'label' => $f->facility_name . ' (' . $f->facility_type . ')',
+                'label' => $f->facility_name.' ('.$f->facility_type.')',
             ]);
 
         $species = Species::active()->get();
@@ -80,7 +110,7 @@ class InspectorController extends Controller
         }
         Inspector::create($data);
 
-        return redirect()->route('inspectors.index')
+        return redirect()->route('inspectors.hub')
             ->with('status', __('Inspector registered successfully.'));
     }
 
@@ -109,7 +139,7 @@ class InspectorController extends Controller
             ->get(['id', 'facility_name', 'facility_type'])
             ->map(fn (Facility $f) => [
                 'id' => $f->id,
-                'label' => $f->facility_name . ' (' . $f->facility_type . ')',
+                'label' => $f->facility_name.' ('.$f->facility_type.')',
             ]);
 
         $species = Species::active()->get();
@@ -130,7 +160,7 @@ class InspectorController extends Controller
         }
         $inspector->update($data);
 
-        return redirect()->route('inspectors.index')
+        return redirect()->route('inspectors.hub')
             ->with('status', __('Inspector updated successfully.'));
     }
 
@@ -139,7 +169,7 @@ class InspectorController extends Controller
         $this->authorizeInspector($request, $inspector);
         $inspector->delete();
 
-        return redirect()->route('inspectors.index')
+        return redirect()->route('inspectors.hub')
             ->with('status', __('Inspector removed.'));
     }
 
@@ -158,6 +188,7 @@ class InspectorController extends Controller
             $data['cell'] = $data['cell'] ?? $inspector->cell;
             $data['village'] = $data['village'] ?? $inspector->village;
         }
+
         return $data;
     }
 
@@ -166,6 +197,7 @@ class InspectorController extends Controller
         if (is_array($value)) {
             return implode(', ', array_filter($value));
         }
+
         return is_string($value) ? $value : '';
     }
 }

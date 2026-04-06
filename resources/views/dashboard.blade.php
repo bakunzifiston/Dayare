@@ -31,7 +31,7 @@
                             <p class="mt-0.5 text-xs text-bucha-muted">{{ __('Counts across your workspace') }}</p>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-2.5">
-                            <x-kpi-card stat title="{{ __('Businesses') }}" :value="$kpis['businesses']" :href="route('businesses.index')">
+                            <x-kpi-card stat title="{{ __('Businesses') }}" :value="$kpis['businesses']" :href="route('businesses.hub')">
                                 <x-slot name="icon">
                                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                                 </x-slot>
@@ -41,7 +41,7 @@
                                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                 </x-slot>
                             </x-kpi-card>
-                            <x-kpi-card stat title="{{ __('Inspectors') }}" :value="$kpis['inspectors']" :href="route('inspectors.index')">
+                            <x-kpi-card stat title="{{ __('Inspectors') }}" :value="$kpis['inspectors']" :href="route('inspectors.hub')">
                                 <x-slot name="icon">
                                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 </x-slot>
@@ -51,7 +51,7 @@
                                 title="{{ __('Slaughter plans') }}"
                                 :value="$kpis['slaughter_plans']"
                                 :subtitle="$kpis['slaughter_plans_approved'] . ' ' . __('approved')"
-                                :href="route('slaughter-plans.index')"
+                                :href="route('slaughter-plans.hub')"
                             >
                                 <x-slot name="icon">
                                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -73,7 +73,7 @@
                                 title="{{ __('Executions') }}"
                                 :value="$kpis['slaughter_executions']"
                                 :subtitle="$kpis['executions_completed'] . ' ' . __('completed')"
-                                :href="route('slaughter-executions.index')"
+                                :href="route('slaughter-executions.hub')"
                             >
                                 <x-slot name="icon">
                                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -84,7 +84,7 @@
 
                     {{-- Hero metric cards (BuchaPro style) --}}
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                        <a href="{{ route('transport-trips.index') }}" class="group rounded-bucha bg-bucha-card border border-slate-200/80 p-4 sm:p-5 shadow-bucha hover:shadow-bucha-md transition-shadow">
+                        <a href="{{ route('transport-trips.hub') }}" class="group rounded-bucha bg-bucha-card border border-slate-200/80 p-4 sm:p-5 shadow-bucha hover:shadow-bucha-md transition-shadow">
                             <p class="text-xs font-semibold uppercase tracking-wider text-bucha-muted">{{ __('Logistics flow') }}</p>
                             <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">{{ number_format($logisticsTotal) }}</p>
                             <p class="mt-1 text-xs text-bucha-muted">{{ __('Trips + deliveries') }}</p>
@@ -99,7 +99,7 @@
                             <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-bucha-primary">{{ $complianceSummary['grade'] }}</p>
                             <p class="mt-1 text-xs text-bucha-muted">{{ $complianceSummary['label'] }}</p>
                         </div>
-                        <a href="{{ route('slaughter-plans.index') }}" class="group rounded-bucha bg-bucha-card border border-slate-200/80 p-4 sm:p-5 shadow-bucha hover:shadow-bucha-md transition-shadow">
+                        <a href="{{ route('slaughter-plans.hub') }}" class="group rounded-bucha bg-bucha-card border border-slate-200/80 p-4 sm:p-5 shadow-bucha hover:shadow-bucha-md transition-shadow">
                             <p class="text-xs font-semibold uppercase tracking-wider text-bucha-muted">{{ __('Needs attention') }}</p>
                             <p class="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-bucha-primary">{{ number_format($incidents) }}</p>
                             <p class="mt-1 text-xs text-bucha-muted">{{ __('Plans & follow-ups') }}</p>
@@ -190,7 +190,7 @@
                             <p class="font-semibold text-slate-900">{{ __('Configure your workspace') }}</p>
                             <p class="text-sm text-bucha-muted mt-0.5">{{ __('Manage businesses, facilities, and traceability.') }}</p>
                         </div>
-                        <a href="{{ route('businesses.index') }}" class="inline-flex items-center justify-center px-5 py-2.5 rounded-bucha bg-bucha-primary hover:bg-bucha-burgundy text-white text-sm font-semibold shadow-bucha transition-colors shrink-0">
+                        <a href="{{ route('businesses.hub') }}" class="inline-flex items-center justify-center px-5 py-2.5 rounded-bucha bg-bucha-primary hover:bg-bucha-burgundy text-white text-sm font-semibold shadow-bucha transition-colors shrink-0">
                             {{ __('Manage businesses') }}
                         </a>
                     </div>

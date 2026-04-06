@@ -40,8 +40,11 @@ class Facility extends Model
     }
 
     public const TYPE_SLAUGHTERHOUSE = 'Slaughterhouse';
+
     public const TYPE_BUTCHERY = 'Butchery';
+
     public const TYPE_STORAGE = 'storage';
+
     public const TYPE_OTHER = 'Other';
 
     public const TYPES = [
@@ -52,6 +55,7 @@ class Facility extends Model
     ];
 
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_SUSPENDED = 'suspended';
 
     public const STATUSES = [
@@ -110,8 +114,9 @@ class Facility extends Model
         $legacyDistrict = $this->getRawOriginal('district');
         $legacySector = $this->getRawOriginal('sector');
         if ($legacyDistrict || $legacySector) {
-            return trim(($legacyDistrict ?? '') . ', ' . ($legacySector ?? ''), ', ');
+            return trim(($legacyDistrict ?? '').', '.($legacySector ?? ''), ', ');
         }
+
         return '—';
     }
 
@@ -168,6 +173,11 @@ class Facility extends Model
     public function warehouseStorages(): HasMany
     {
         return $this->hasMany(WarehouseStorage::class, 'warehouse_facility_id');
+    }
+
+    public function coldRooms(): HasMany
+    {
+        return $this->hasMany(ColdRoom::class, 'facility_id');
     }
 
     public function isStorage(): bool

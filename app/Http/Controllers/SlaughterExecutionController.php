@@ -39,6 +39,30 @@ class SlaughterExecutionController extends Controller
         }
     }
 
+    public function hub(Request $request): View
+    {
+        $planIds = $this->userSlaughterPlanIds($request);
+        $base = SlaughterExecution::query()->whereIn('slaughter_plan_id', $planIds);
+
+        $totalExecutions = (clone $base)->count();
+        $completedCount = (clone $base)->where('status', SlaughterExecution::STATUS_COMPLETED)->count();
+        $inProgressCount = (clone $base)->where('status', SlaughterExecution::STATUS_IN_PROGRESS)->count();
+        $scheduledCount = (clone $base)->where('status', SlaughterExecution::STATUS_SCHEDULED)->count();
+        $cancelledCount = (clone $base)->where('status', SlaughterExecution::STATUS_CANCELLED)->count();
+        $totalAnimalsSlaughtered = (int) (clone $base)->sum('actual_animals_slaughtered');
+        $executionsWithBatchCount = (clone $base)->has('batches')->count();
+
+        return view('slaughter-executions.hub', compact(
+            'totalExecutions',
+            'completedCount',
+            'inProgressCount',
+            'scheduledCount',
+            'cancelledCount',
+            'totalAnimalsSlaughtered',
+            'executionsWithBatchCount',
+        ));
+    }
+
     public function index(Request $request): View
     {
         $planIds = $this->userSlaughterPlanIds($request);
@@ -66,7 +90,7 @@ class SlaughterExecutionController extends Controller
             ->get()
             ->map(fn (SlaughterPlan $p) => [
                 'id' => $p->id,
-                'label' => $p->slaughter_date->format('d M Y') . ' — ' . $p->facility->facility_name . ' (' . $p->species . ', ' . $p->number_of_animals_scheduled . ' scheduled)',
+                'label' => $p->slaughter_date->format('d M Y').' — '.$p->facility->facility_name.' ('.$p->species.', '.$p->number_of_animals_scheduled.' scheduled)',
             ]);
 
         return view('slaughter-executions.create', compact('plans'));
@@ -78,7 +102,7 @@ class SlaughterExecutionController extends Controller
 
         SlaughterExecution::create($request->validated());
 
-        return redirect()->route('slaughter-executions.index')
+        return redirect()->route('slaughter-executions.hub')
             ->with('status', __('Slaughter execution recorded successfully.'));
     }
 
@@ -102,7 +126,7 @@ class SlaughterExecutionController extends Controller
             ->get()
             ->map(fn (SlaughterPlan $p) => [
                 'id' => $p->id,
-                'label' => $p->slaughter_date->format('d M Y') . ' — ' . $p->facility->facility_name . ' (' . $p->species . ')',
+                'label' => $p->slaughter_date->format('d M Y').' — '.$p->facility->facility_name.' ('.$p->species.')',
             ]);
 
         return view('slaughter-executions.edit', [
@@ -118,7 +142,7 @@ class SlaughterExecutionController extends Controller
 
         $slaughterExecution->update($request->validated());
 
-        return redirect()->route('slaughter-executions.index')
+        return redirect()->route('slaughter-executions.hub')
             ->with('status', __('Slaughter execution updated successfully.'));
     }
 
@@ -127,7 +151,7 @@ class SlaughterExecutionController extends Controller
         $this->authorizeExecution($request, $slaughterExecution);
         $slaughterExecution->delete();
 
-        return redirect()->route('slaughter-executions.index')
+        return redirect()->route('slaughter-executions.hub')
             ->with('status', __('Slaughter execution removed.'));
     }
 }

@@ -15,16 +15,16 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('businesses.index')" :active="request()->routeIs('businesses.*')">
+                    <x-nav-link :href="route('businesses.hub')" :active="request()->routeIs('businesses.*')">
                         {{ __('Businesses') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('inspectors.index')" :active="request()->routeIs('inspectors.*')">
+                    <x-nav-link :href="route('inspectors.hub')" :active="request()->routeIs('inspectors.*')">
                         {{ __('Inspectors') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('slaughter-plans.index')" :active="request()->routeIs('slaughter-plans.*')">
+                    <x-nav-link :href="route('slaughter-plans.hub')" :active="request()->routeIs('slaughter-plans.*')">
                         {{ __('Slaughter planning') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('slaughter-executions.index')" :active="request()->routeIs('slaughter-executions.*')">
+                    <x-nav-link :href="route('slaughter-executions.hub')" :active="request()->routeIs('slaughter-executions.*')">
                         {{ __('Slaughter execution') }}
                     </x-nav-link>
                     <x-nav-link :href="route('batches.index')" :active="request()->routeIs('batches.*')">
@@ -36,7 +36,7 @@
                     <x-nav-link :href="route('certificates.index')" :active="request()->routeIs('certificates.*')">
                         {{ __('Certificates') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('transport-trips.index')" :active="request()->routeIs('transport-trips.*')">
+                    <x-nav-link :href="route('transport-trips.hub')" :active="request()->routeIs('transport-trips.*')">
                         {{ __('Transport') }}
                     </x-nav-link>
                     <x-nav-link :href="route('delivery-confirmations.index')" :active="request()->routeIs('delivery-confirmations.*')">
@@ -106,16 +106,16 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('businesses.index')" :active="request()->routeIs('businesses.*')">
+            <x-responsive-nav-link :href="route('businesses.hub')" :active="request()->routeIs('businesses.*')">
                 {{ __('Businesses') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('inspectors.index')" :active="request()->routeIs('inspectors.*')">
+            <x-responsive-nav-link :href="route('inspectors.hub')" :active="request()->routeIs('inspectors.*')">
                 {{ __('Inspectors') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('slaughter-plans.index')" :active="request()->routeIs('slaughter-plans.*')">
+            <x-responsive-nav-link :href="route('slaughter-plans.hub')" :active="request()->routeIs('slaughter-plans.*')">
                 {{ __('Slaughter planning') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('slaughter-executions.index')" :active="request()->routeIs('slaughter-executions.*')">
+            <x-responsive-nav-link :href="route('slaughter-executions.hub')" :active="request()->routeIs('slaughter-executions.*')">
                 {{ __('Slaughter execution') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('batches.index')" :active="request()->routeIs('batches.*')">
@@ -127,7 +127,7 @@
             <x-responsive-nav-link :href="route('certificates.index')" :active="request()->routeIs('certificates.*')">
                 {{ __('Certificates') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('transport-trips.index')" :active="request()->routeIs('transport-trips.*')">
+            <x-responsive-nav-link :href="route('transport-trips.hub')" :active="request()->routeIs('transport-trips.*')">
                 {{ __('Transport') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('delivery-confirmations.index')" :active="request()->routeIs('delivery-confirmations.*')">

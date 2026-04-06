@@ -1,14 +1,21 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-            {{ __('Record cold room storage') }}
-        </h2>
+        <div>
+            <a href="{{ route('cold-rooms.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Cold Room') }}</a>
+            <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">
+                {{ __('Record cold room storage') }}
+            </h2>
+        </div>
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
                 <p class="text-sm text-slate-500 mb-4">{{ __('Only batches with an active certificate and not already in storage are listed. Cannot store without valid certificate.') }}</p>
+                <p class="text-sm text-slate-600 mb-4">
+                    {{ __('For automated monitoring, configure rooms and standards from the Cold Room module, then pick a physical room below.') }}
+                    <a href="{{ route('cold-rooms.hub') }}" class="text-bucha-primary font-medium hover:underline">{{ __('Open Cold Room') }}</a>
+                </p>
                 <form method="post" action="{{ route('warehouse-storages.store') }}" class="space-y-6">
                     @csrf
 
@@ -24,6 +31,18 @@
                             <p class="mt-1 text-sm text-amber-600">{{ __('No facility with type "storage" found. Add a storage facility first.') }}</p>
                         @endif
                         <x-input-error class="mt-2" :messages="$errors->get('warehouse_facility_id')" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="cold_room_id" :value="__('Physical cold room (optional)')" />
+                        <select id="cold_room_id" name="cold_room_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
+                            <option value="">{{ __('— Not linked —') }}</option>
+                            @foreach ($coldRooms ?? [] as $cr)
+                                <option value="{{ $cr['id'] }}" @selected(old('cold_room_id') == $cr['id'])>{{ $cr['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-slate-500">{{ __('Must belong to the storage facility selected above. Used for automated cold-chain risk when sensor data is recorded.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('cold_room_id')" />
                     </div>
 
                     <div>

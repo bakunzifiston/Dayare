@@ -47,6 +47,29 @@ class BatchController extends Controller
         }
     }
 
+    /** Batches module home: workflow summary and primary “create batch” action. */
+    public function hub(Request $request): View
+    {
+        $executionIds = $this->userExecutionIds($request);
+        $base = Batch::query()->whereIn('slaughter_execution_id', $executionIds);
+
+        $totalBatches = (clone $base)->count();
+        $approvedCount = (clone $base)->where('status', Batch::STATUS_APPROVED)->count();
+        $pendingCount = (clone $base)->where('status', Batch::STATUS_PENDING)->count();
+        $rejectedCount = (clone $base)->where('status', Batch::STATUS_REJECTED)->count();
+        $withPostMortemCount = (clone $base)->whereHas('postMortemInspection')->count();
+        $withCertificateCount = (clone $base)->whereHas('certificate')->count();
+
+        return view('batches.hub', compact(
+            'totalBatches',
+            'approvedCount',
+            'pendingCount',
+            'rejectedCount',
+            'withPostMortemCount',
+            'withCertificateCount'
+        ));
+    }
+
     public function index(Request $request): View
     {
         $executionIds = $this->userExecutionIds($request);
@@ -76,7 +99,7 @@ class BatchController extends Controller
             ->get()
             ->map(fn (SlaughterExecution $e) => [
                 'id' => $e->id,
-                'label' => $e->slaughter_time->format('d M Y H:i') . ' — ' . $e->slaughterPlan->facility->facility_name . ' (' . $e->actual_animals_slaughtered . ' animals)',
+                'label' => $e->slaughter_time->format('d M Y H:i').' — '.$e->slaughterPlan->facility->facility_name.' ('.$e->actual_animals_slaughtered.' animals)',
                 'facility_id' => $e->slaughterPlan->facility_id,
             ]);
 
@@ -124,7 +147,7 @@ class BatchController extends Controller
             ->get()
             ->map(fn (SlaughterExecution $e) => [
                 'id' => $e->id,
-                'label' => $e->slaughter_time->format('d M Y H:i') . ' — ' . $e->slaughterPlan->facility->facility_name,
+                'label' => $e->slaughter_time->format('d M Y H:i').' — '.$e->slaughterPlan->facility->facility_name,
                 'facility_id' => $e->slaughterPlan->facility_id,
             ]);
 

@@ -24,6 +24,8 @@ class EnsureTenantPermission
         'post-mortem-inspections' => 'manage post-mortem',
         'certificates' => 'manage certificates',
         'warehouse-storages' => 'manage warehouse',
+        'cold-rooms' => 'manage warehouse',
+        'cold-room-standards' => 'manage warehouse',
         'transport-trips' => 'manage transport',
         'delivery-confirmations' => 'manage delivery confirmations',
         'compliance' => 'view compliance',
@@ -78,10 +80,11 @@ class EnsureTenantPermission
     private function permissionForRoute(string $routeName): ?string
     {
         foreach (self::ROUTE_PERMISSION_MAP as $prefix => $permission) {
-            if ($routeName === $prefix || str_starts_with($routeName, $prefix . '.')) {
+            if ($routeName === $prefix || str_starts_with($routeName, $prefix.'.')) {
                 return $permission;
             }
         }
+
         return null;
     }
 }

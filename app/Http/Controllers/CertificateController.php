@@ -53,6 +53,43 @@ class CertificateController extends Controller
         }
     }
 
+    /** Certification module home: prerequisites summary and primary “issue certificate” action. */
+    public function hub(Request $request): View
+    {
+        $batchIds = $this->userBatchIds($request);
+        $facilityIds = $this->userFacilityIds($request);
+
+        $eligibleForCertificateCount = Batch::query()
+            ->whereIn('id', $batchIds)
+            ->whereHas('postMortemInspection', fn ($q) => $q->where('approved_quantity', '>', 0))
+            ->whereDoesntHave('certificate')
+            ->count();
+
+        $waitingOnPostMortemCount = Batch::query()
+            ->whereIn('id', $batchIds)
+            ->whereDoesntHave('certificate')
+            ->where(function ($q) {
+                $q->whereDoesntHave('postMortemInspection')
+                    ->orWhereHas('postMortemInspection', fn ($q2) => $q2->where('approved_quantity', '<=', 0));
+            })
+            ->count();
+
+        $baseCertificates = Certificate::where(function ($q) use ($batchIds, $facilityIds) {
+            $q->whereIn('batch_id', $batchIds)
+                ->orWhere(fn ($q2) => $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds));
+        });
+
+        $certificatesTotal = (clone $baseCertificates)->count();
+        $certificatesActive = (clone $baseCertificates)->where('status', Certificate::STATUS_ACTIVE)->count();
+
+        return view('certificates.hub', compact(
+            'eligibleForCertificateCount',
+            'waitingOnPostMortemCount',
+            'certificatesTotal',
+            'certificatesActive'
+        ));
+    }
+
     public function index(Request $request): View
     {
         $batchIds = $this->userBatchIds($request);
@@ -94,7 +131,7 @@ class CertificateController extends Controller
             ->get()
             ->map(fn (Batch $b) => [
                 'id' => $b->id,
-                'label' => $b->batch_code . ' — ' . $b->slaughterExecution->slaughterPlan->facility->facility_name . ' (approved: ' . $b->postMortemInspection->approved_quantity . ')',
+                'label' => $b->batch_code.' — '.$b->slaughterExecution->slaughterPlan->facility->facility_name.' (approved: '.$b->postMortemInspection->approved_quantity.')',
                 'facility_id' => $b->slaughterExecution->slaughterPlan->facility_id,
             ]);
 
@@ -167,7 +204,7 @@ class CertificateController extends Controller
             ->get()
             ->map(fn (Batch $b) => [
                 'id' => $b->id,
-                'label' => $b->batch_code . ' — ' . $b->slaughterExecution->slaughterPlan->facility->facility_name,
+                'label' => $b->batch_code.' — '.$b->slaughterExecution->slaughterPlan->facility->facility_name,
                 'facility_id' => $b->slaughterExecution->slaughterPlan->facility_id,
             ]);
 

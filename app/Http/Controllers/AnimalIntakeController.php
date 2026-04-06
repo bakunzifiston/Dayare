@@ -36,6 +36,7 @@ class AnimalIntakeController extends Controller
             $first = $parts[0] ?? '';
             $last = $parts[1] ?? '';
         }
+
         return ['first' => $first ?? '', 'last' => $last ?? ''];
     }
 
@@ -61,7 +62,30 @@ class AnimalIntakeController extends Controller
                 'registration_number' => $s->registration_number ?? '',
             ];
         }
+
         return $out;
+    }
+
+    public function hub(Request $request): View
+    {
+        $facilityIds = $this->userFacilityIds($request);
+        $base = AnimalIntake::query()->whereIn('facility_id', $facilityIds);
+
+        $totalIntakes = (clone $base)->count();
+        $receivedCount = (clone $base)->where('status', AnimalIntake::STATUS_RECEIVED)->count();
+        $approvedCount = (clone $base)->where('status', AnimalIntake::STATUS_APPROVED)->count();
+        $rejectedCount = (clone $base)->where('status', AnimalIntake::STATUS_REJECTED)->count();
+        $totalAnimals = (int) (clone $base)->sum('number_of_animals');
+        $intakesWithPlansCount = (clone $base)->has('slaughterPlans')->count();
+
+        return view('animal-intakes.hub', compact(
+            'totalIntakes',
+            'receivedCount',
+            'approvedCount',
+            'rejectedCount',
+            'totalAnimals',
+            'intakesWithPlansCount',
+        ));
     }
 
     public function index(Request $request): View
@@ -142,7 +166,7 @@ class AnimalIntakeController extends Controller
 
         AnimalIntake::create($data);
 
-        return redirect()->route('animal-intakes.index')
+        return redirect()->route('animal-intakes.hub')
             ->with('status', __('Animal intake recorded.'));
     }
 

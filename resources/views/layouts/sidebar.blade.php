@@ -8,17 +8,17 @@
             'group' => __('Operations'),
             'icon' => 'box',
             'children' => [
-                ['label' => __('Businesses'), 'route' => 'businesses.index', 'icon' => 'building', 'permission' => 'manage businesses'],
-                ['label' => __('Inspectors'), 'route' => 'inspectors.index', 'icon' => 'user', 'permission' => 'manage inspectors'],
-                ['label' => __('Animal intake'), 'route' => 'animal-intakes.index', 'icon' => 'intake', 'permission' => 'manage animal intakes'],
-                ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.index', 'icon' => 'calendar', 'permission' => 'manage slaughter plans'],
+                ['label' => __('Businesses'), 'route' => 'businesses.hub', 'icon' => 'building', 'permission' => 'manage businesses', 'routeIs' => ['businesses.hub', 'businesses.index', 'businesses.create', 'businesses.edit', 'businesses.show', 'businesses.facilities.*']],
+                ['label' => __('Inspectors'), 'route' => 'inspectors.hub', 'icon' => 'user', 'permission' => 'manage inspectors', 'routeIs' => ['inspectors.hub', 'inspectors.index', 'inspectors.create', 'inspectors.edit', 'inspectors.show']],
+                ['label' => __('Animal intake'), 'route' => 'animal-intakes.hub', 'icon' => 'intake', 'permission' => 'manage animal intakes', 'routeIs' => ['animal-intakes.hub', 'animal-intakes.index', 'animal-intakes.create', 'animal-intakes.edit', 'animal-intakes.show']],
+                ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.hub', 'icon' => 'calendar', 'permission' => 'manage slaughter plans', 'routeIs' => ['slaughter-plans.hub', 'slaughter-plans.index', 'slaughter-plans.create', 'slaughter-plans.edit', 'slaughter-plans.show']],
                 ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list', 'permission' => 'manage ante-mortem'],
-                ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.index', 'icon' => 'play', 'permission' => 'manage slaughter executions'],
-                ['label' => __('Batches'), 'route' => 'batches.index', 'icon' => 'box', 'permission' => 'manage batches'],
+                ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.hub', 'icon' => 'play', 'permission' => 'manage slaughter executions', 'routeIs' => ['slaughter-executions.hub', 'slaughter-executions.index', 'slaughter-executions.create', 'slaughter-executions.edit', 'slaughter-executions.show']],
+                ['label' => __('Batches'), 'route' => 'batches.hub', 'icon' => 'box', 'permission' => 'manage batches', 'routeIs' => ['batches.hub', 'batches.index', 'batches.create', 'batches.edit', 'batches.show']],
                 ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard', 'permission' => 'manage post-mortem'],
-                ['label' => __('Certificates'), 'route' => 'certificates.index', 'icon' => 'certificate', 'permission' => 'manage certificates'],
-                ['label' => __('Cold Room'), 'route' => 'warehouse-storages.index', 'icon' => 'box', 'permission' => 'manage warehouse'],
-                ['label' => __('Transport'), 'route' => 'transport-trips.index', 'icon' => 'truck', 'permission' => 'manage transport'],
+                ['label' => __('Certificates'), 'route' => 'certificates.hub', 'icon' => 'certificate', 'permission' => 'manage certificates', 'routeIs' => ['certificates.hub', 'certificates.index', 'certificates.create', 'certificates.edit', 'certificates.show', 'certificates.qr']],
+                ['label' => __('Cold Room'), 'route' => 'cold-rooms.hub', 'icon' => 'box', 'permission' => 'manage warehouse', 'routeIs' => ['cold-rooms.hub', 'cold-rooms.manage.*', 'warehouse-storages.*', 'cold-room-standards.*']],
+                ['label' => __('Transport'), 'route' => 'transport-trips.hub', 'icon' => 'truck', 'permission' => 'manage transport', 'routeIs' => ['transport-trips.hub', 'transport-trips.index', 'transport-trips.create', 'transport-trips.edit', 'transport-trips.show']],
                 ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check', 'permission' => 'manage delivery confirmations'],
                 ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield', 'permission' => 'view compliance'],
             ],
@@ -84,11 +84,23 @@
         @foreach ($navGroups as $item)
             @if (isset($item['group']))
                 @php
-                    $childRoutes = array_column($item['children'], 'route');
                     $groupActive = false;
-                    foreach ($childRoutes as $r) {
-                        $pattern = str_replace('.index', '.*', $r);
-                        if (request()->routeIs($r) || request()->routeIs($pattern)) { $groupActive = true; break; }
+                    foreach ($item['children'] as $c) {
+                        if (! empty($c['routeIs'] ?? null)) {
+                            foreach ((array) $c['routeIs'] as $pat) {
+                                if (request()->routeIs($pat)) {
+                                    $groupActive = true;
+                                    break 2;
+                                }
+                            }
+                        } else {
+                            $r = $c['route'];
+                            $pattern = str_replace('.index', '.*', $r);
+                            if (request()->routeIs($r) || request()->routeIs($pattern)) {
+                                $groupActive = true;
+                                break;
+                            }
+                        }
                     }
                 @endphp
                 <div class="mb-1" x-data="{ open: {{ $groupActive ? 'true' : 'false' }} }">
@@ -99,7 +111,20 @@
                     </button>
                     <div x-show="open" x-transition class="ml-2 mt-0.5 space-y-0.5 border-l border-white/20 pl-2">
                         @foreach ($item['children'] as $child)
-                            @php $routePattern = str_replace('.index', '.*', $child['route']); $active = request()->routeIs($child['route']) || request()->routeIs($routePattern); @endphp
+                            @php
+                                if (! empty($child['routeIs'] ?? null)) {
+                                    $active = false;
+                                    foreach ((array) $child['routeIs'] as $pat) {
+                                        if (request()->routeIs($pat)) {
+                                            $active = true;
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    $routePattern = str_replace('.index', '.*', $child['route']);
+                                    $active = request()->routeIs($child['route']) || request()->routeIs($routePattern);
+                                }
+                            @endphp
                             <a href="{{ route($child['route']) }}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-bucha text-sm font-medium transition-colors {{ $active ? 'bg-bucha-primary/35 text-white shadow-inner ring-1 ring-white/10' : 'text-white/85 hover:bg-white/10 hover:text-white' }}">
                                 @include('layouts.partials.sidebar-icon', ['icon' => $child['icon'] ?? ''])
                                 <span>{{ $child['label'] }}</span>

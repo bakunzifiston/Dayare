@@ -61,6 +61,28 @@ class TransportTripController extends Controller
         }
     }
 
+    public function hub(Request $request): View
+    {
+        $certificateIds = $this->userCertificateIds($request);
+        $base = TransportTrip::query()->whereIn('certificate_id', $certificateIds);
+
+        $totalTrips = (clone $base)->count();
+        $pendingCount = (clone $base)->where('status', TransportTrip::STATUS_PENDING)->count();
+        $inTransitCount = (clone $base)->where('status', TransportTrip::STATUS_IN_TRANSIT)->count();
+        $arrivedCount = (clone $base)->where('status', TransportTrip::STATUS_ARRIVED)->count();
+        $completedCount = (clone $base)->where('status', TransportTrip::STATUS_COMPLETED)->count();
+        $tripsWithDeliveryConfirmationCount = (clone $base)->has('deliveryConfirmation')->count();
+
+        return view('transport-trips.hub', compact(
+            'totalTrips',
+            'pendingCount',
+            'inTransitCount',
+            'arrivedCount',
+            'completedCount',
+            'tripsWithDeliveryConfirmationCount',
+        ));
+    }
+
     public function index(Request $request): View
     {
         $certificateIds = $this->userCertificateIds($request);
@@ -95,7 +117,7 @@ class TransportTripController extends Controller
             ->get()
             ->map(fn (Certificate $c) => [
                 'id' => $c->id,
-                'label' => ($c->certificate_number ?: '#' . $c->id) . ($c->batch ? ' — ' . $c->batch->batch_code : ''),
+                'label' => ($c->certificate_number ?: '#'.$c->id).($c->batch ? ' — '.$c->batch->batch_code : ''),
             ]);
 
         $facilities = Facility::whereIn('id', $facilityIds)
@@ -115,7 +137,7 @@ class TransportTripController extends Controller
             ->get()
             ->map(fn (WarehouseStorage $ws) => [
                 'id' => $ws->id,
-                'label' => $ws->batch->batch_code . ' — ' . ($ws->warehouseFacility->facility_name ?? '') . ' (' . __('released') . ')',
+                'label' => $ws->batch->batch_code.' — '.($ws->warehouseFacility->facility_name ?? '').' ('.__('released').')',
             ]);
 
         return view('transport-trips.create', [
@@ -149,7 +171,7 @@ class TransportTripController extends Controller
 
         TransportTrip::create($request->validated());
 
-        return redirect()->route('transport-trips.index')
+        return redirect()->route('transport-trips.hub')
             ->with('status', __('Transport trip recorded successfully.'));
     }
 
@@ -182,7 +204,7 @@ class TransportTripController extends Controller
             ->get()
             ->map(fn (Certificate $c) => [
                 'id' => $c->id,
-                'label' => ($c->certificate_number ?: '#' . $c->id) . ($c->batch ? ' — ' . $c->batch->batch_code : ''),
+                'label' => ($c->certificate_number ?: '#'.$c->id).($c->batch ? ' — '.$c->batch->batch_code : ''),
             ]);
 
         $facilities = Facility::whereIn('id', $facilityIds)
@@ -202,7 +224,7 @@ class TransportTripController extends Controller
             ->get()
             ->map(fn (WarehouseStorage $ws) => [
                 'id' => $ws->id,
-                'label' => $ws->batch->batch_code . ' — ' . ($ws->warehouseFacility->facility_name ?? '') . ' (' . __('released') . ')',
+                'label' => $ws->batch->batch_code.' — '.($ws->warehouseFacility->facility_name ?? '').' ('.__('released').')',
             ]);
 
         return view('transport-trips.edit', [
@@ -238,7 +260,7 @@ class TransportTripController extends Controller
 
         $transportTrip->update($request->validated());
 
-        return redirect()->route('transport-trips.index')
+        return redirect()->route('transport-trips.hub')
             ->with('status', __('Transport trip updated successfully.'));
     }
 
@@ -247,7 +269,7 @@ class TransportTripController extends Controller
         $this->authorizeTrip($request, $transportTrip);
         $transportTrip->delete();
 
-        return redirect()->route('transport-trips.index')
+        return redirect()->route('transport-trips.hub')
             ->with('status', __('Transport trip removed.'));
     }
 }

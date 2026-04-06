@@ -1,8 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Edit batch') }} — {{ $batch->batch_code }}
-        </h2>
+        <div>
+            <a href="{{ route('batches.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Batches') }}</a>
+            <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
+                {{ __('Edit batch') }} — {{ $batch->batch_code }}
+            </h2>
+        </div>
     </x-slot>
 
     <div class="py-12">

@@ -1,10 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Animal intake') }} — {{ $intake->intake_date->format('d M Y') }} · {{ $intake->facility->facility_name ?? '' }}
-            </h2>
-            <div class="flex gap-2">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <a href="{{ route('animal-intakes.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Animal intake') }}</a>
+                <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">
+                    {{ __('Animal intake') }} — {{ $intake->intake_date->format('d M Y') }} · {{ $intake->facility->facility_name ?? '' }}
+                </h2>
+            </div>
+            <div class="flex flex-wrap gap-2">
                 <a href="{{ route('animal-intakes.edit', $intake) }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">{{ __('Edit') }}</a>
                 <form method="POST" action="{{ route('animal-intakes.destroy', $intake) }}" onsubmit="return confirm('{{ __('Are you sure you want to delete this animal intake? This cannot be undone.') }}');">
                     @csrf
@@ -16,7 +19,7 @@
                 @if ($intake->status === \App\Models\AnimalIntake::STATUS_APPROVED && !$intake->isHealthCertificateExpired() && $intake->remainingAnimalsAvailable() > 0)
                     <a href="{{ route('slaughter-plans.create') }}?animal_intake_id={{ $intake->id }}&facility_id={{ $intake->facility_id }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Schedule slaughter') }}</a>
                 @endif
-                <a href="{{ route('animal-intakes.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Back to list') }}</a>
+                <a href="{{ route('animal-intakes.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('All intakes') }}</a>
             </div>
         </div>
     </x-slot>

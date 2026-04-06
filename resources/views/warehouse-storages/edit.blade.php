@@ -1,9 +1,12 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Edit cold room storage') }}
-            </h2>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <a href="{{ route('cold-rooms.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Cold Room') }}</a>
+                <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">
+                    {{ __('Edit cold room storage') }}
+                </h2>
+            </div>
             <a href="{{ route('warehouse-storages.show', $warehouseStorage) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                 {{ __('Back to storage') }}
             </a>
@@ -25,6 +28,18 @@
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('warehouse_facility_id')" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="cold_room_id" :value="__('Physical cold room (optional)')" />
+                        <select id="cold_room_id" name="cold_room_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
+                            <option value="">{{ __('— Not linked —') }}</option>
+                            @foreach ($coldRooms ?? [] as $cr)
+                                <option value="{{ $cr['id'] }}" @selected(old('cold_room_id', $warehouseStorage->cold_room_id) == $cr['id'])>{{ $cr['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-slate-500">{{ __('Must match the storage facility above.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('cold_room_id')" />
                     </div>
 
                     <div>

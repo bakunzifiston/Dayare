@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * Warehouse (cold storage) – track certified meat batches before transport.
@@ -20,6 +22,7 @@ class WarehouseStorage extends Model
 
     protected $fillable = [
         'warehouse_facility_id',
+        'cold_room_id',
         'batch_id',
         'certificate_id',
         'entry_date',
@@ -40,7 +43,9 @@ class WarehouseStorage extends Model
     }
 
     public const STATUS_IN_STORAGE = 'in_storage';
+
     public const STATUS_RELEASED = 'released';
+
     public const STATUS_DISPOSED = 'disposed';
 
     public const STATUSES = [
@@ -56,12 +61,18 @@ class WarehouseStorage extends Model
         if ($unit) {
             return $unit->name;
         }
+
         return Demand::QUANTITY_UNITS[$this->quantity_unit] ?? $this->quantity_unit;
     }
 
     public function warehouseFacility(): BelongsTo
     {
         return $this->belongsTo(Facility::class, 'warehouse_facility_id');
+    }
+
+    public function coldRoom(): BelongsTo
+    {
+        return $this->belongsTo(ColdRoom::class);
     }
 
     public function batch(): BelongsTo
@@ -92,5 +103,24 @@ class WarehouseStorage extends Model
     public function isInStorage(): bool
     {
         return $this->status === self::STATUS_IN_STORAGE;
+    }
+
+    /**
+     * Certificate IDs the signed-in user may use for cold room (warehouse) storage.
+     */
+    public static function accessibleCertificateIds(Request $request): Collection
+    {
+        $facilityIds = Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
+            ->pluck('id');
+        $batchIds = Batch::whereIn('slaughter_execution_id',
+            SlaughterExecution::whereIn('slaughter_plan_id',
+                SlaughterPlan::whereIn('facility_id', $facilityIds)->pluck('id')
+            )->pluck('id')
+        )->pluck('id');
+
+        return Certificate::where(function ($q) use ($batchIds, $facilityIds) {
+            $q->whereIn('batch_id', $batchIds)
+                ->orWhere(fn ($q2) => $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds));
+        })->pluck('id');
     }
 }

@@ -5,13 +5,31 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreBusinessRequest;
 use App\Http\Requests\UpdateBusinessRequest;
 use App\Models\Business;
-use App\Models\BusinessOwnershipMember;
+use App\Models\Facility;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class BusinessController extends Controller
 {
+    public function hub(Request $request): View
+    {
+        $user = $request->user();
+        $totalBusinesses = $user->businesses()->count();
+        $activeCount = $user->businesses()->where('status', Business::STATUS_ACTIVE)->count();
+        $suspendedCount = $user->businesses()->where('status', Business::STATUS_SUSPENDED)->count();
+        $totalFacilities = Facility::whereIn('business_id', $user->accessibleBusinessIds())->count();
+        $businessesWithFacilitiesCount = $user->businesses()->has('facilities')->count();
+
+        return view('businesses.hub', compact(
+            'totalBusinesses',
+            'activeCount',
+            'suspendedCount',
+            'totalFacilities',
+            'businessesWithFacilitiesCount',
+        ));
+    }
+
     public function index(Request $request): View
     {
         $businesses = $request->user()
@@ -54,7 +72,7 @@ class BusinessController extends Controller
             }
         }
 
-        return redirect()->route('businesses.index')
+        return redirect()->route('businesses.hub')
             ->with('status', __('Business registered successfully.'));
     }
 
@@ -63,7 +81,7 @@ class BusinessController extends Controller
         $userId = (int) $request->user()->id;
         $businessUserId = (int) $business->user_id;
         if ($businessUserId !== $userId) {
-            abort(404, 'This business does not belong to your account. Business user_id=' . ($business->user_id ?? 'null') . ', your user_id=' . $userId . '. Fix in DB: UPDATE businesses SET user_id=' . $userId . ' WHERE id=' . $business->id . ';');
+            abort(404, 'This business does not belong to your account. Business user_id='.($business->user_id ?? 'null').', your user_id='.$userId.'. Fix in DB: UPDATE businesses SET user_id='.$userId.' WHERE id='.$business->id.';');
         }
 
         $business->load(['facilities', 'ownershipMembers', 'countryDivision', 'provinceDivision', 'districtDivision', 'sectorDivision', 'cellDivision', 'villageDivision']);
@@ -108,7 +126,7 @@ class BusinessController extends Controller
             }
         }
 
-        return redirect()->route('businesses.index')
+        return redirect()->route('businesses.hub')
             ->with('status', __('Business updated successfully.'));
     }
 
@@ -120,7 +138,7 @@ class BusinessController extends Controller
 
         $business->delete();
 
-        return redirect()->route('businesses.index')
+        return redirect()->route('businesses.hub')
             ->with('status', __('Business removed.'));
     }
 }

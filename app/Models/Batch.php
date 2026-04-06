@@ -24,10 +24,26 @@ class Batch extends Model
         'quantity',
         'batch_code',
         'status',
+        'cold_chain_status',
+    ];
+
+    /** Cold room / temperature compliance (separate from inspection status). */
+    public const COLD_CHAIN_OK = 'ok';
+
+    public const COLD_CHAIN_AT_RISK = 'at_risk';
+
+    public const COLD_CHAIN_COMPROMISED = 'compromised';
+
+    public const COLD_CHAIN_STATUSES = [
+        self::COLD_CHAIN_OK,
+        self::COLD_CHAIN_AT_RISK,
+        self::COLD_CHAIN_COMPROMISED,
     ];
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
 
     public const STATUSES = [
@@ -37,9 +53,13 @@ class Batch extends Model
     ];
 
     public const SPECIES_CATTLE = 'Cattle';
+
     public const SPECIES_GOAT = 'Goat';
+
     public const SPECIES_SHEEP = 'Sheep';
+
     public const SPECIES_PIG = 'Pig';
+
     public const SPECIES_OTHER = 'Other';
 
     public const SPECIES_OPTIONS = [
@@ -54,7 +74,7 @@ class Batch extends Model
     {
         static::creating(function (Batch $batch) {
             if (empty($batch->batch_code)) {
-                $batch->batch_code = 'BAT-' . now()->format('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
+                $batch->batch_code = 'BAT-'.now()->format('Ymd').'-'.strtoupper(substr(uniqid(), -6));
             }
         });
     }

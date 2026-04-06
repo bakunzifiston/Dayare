@@ -1,10 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Transport trip') }} — {{ $trip->vehicle_plate_number }}
-            </h2>
-            <div class="flex gap-2">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <a href="{{ route('transport-trips.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Transport') }}</a>
+                <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
+                    {{ __('Transport trip') }} — {{ $trip->vehicle_plate_number }}
+                </h2>
+            </div>
+            <div class="flex flex-wrap gap-2">
                 <a href="{{ route('transport-trips.edit', $trip) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                     {{ __('Edit') }}
                 </a>
@@ -12,7 +15,7 @@
                     {{ __('View certificate') }}
                 </a>
                 <a href="{{ route('transport-trips.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                    {{ __('Back to list') }}
+                    {{ __('All trips') }}
                 </a>
             </div>
         </div>
