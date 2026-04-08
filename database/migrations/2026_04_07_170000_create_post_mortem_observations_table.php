@@ -17,8 +17,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->index(['post_mortem_inspection_id', 'category']);
-            $table->index(['post_mortem_inspection_id', 'item']);
+            $table->index(['post_mortem_inspection_id', 'category'], 'pmo_pmi_cat_idx');
+            $table->index(['post_mortem_inspection_id', 'item'], 'pmo_pmi_item_idx');
         });
     }
 
