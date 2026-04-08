@@ -8,6 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('post_mortem_observations')) {
+            Schema::table('post_mortem_observations', function (Blueprint $table) {
+                $table->index(['post_mortem_inspection_id', 'category'], 'pmo_pmi_cat_idx');
+                $table->index(['post_mortem_inspection_id', 'item'], 'pmo_pmi_item_idx');
+            });
+
+            return;
+        }
+
         Schema::create('post_mortem_observations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('post_mortem_inspection_id')->constrained('post_mortem_inspections')->cascadeOnDelete();
