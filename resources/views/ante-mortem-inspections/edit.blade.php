@@ -43,12 +43,33 @@
 
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
+                        @php
+                            $speciesOptions = \App\Models\Species::active()->pluck('name');
+                        @endphp
                         <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach (\App\Models\SlaughterPlan::SPECIES_OPTIONS as $s)
+                            @foreach ($speciesOptions as $s)
                                 <option value="{{ $s }}" @selected(old('species', $inspection->species) === $s)>{{ $s }}</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('species')" />
+                    </div>
+
+                    <div>
+                        <x-input-label :value="__('Species checklist')" />
+                        <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Result') }}</th>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes (optional)') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                            </table>
+                        </div>
+                        <p id="checklist-empty" class="mt-2 text-xs text-slate-500 hidden">{{ __('No checklist configured for this species.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('observations')" />
                     </div>
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -91,22 +112,81 @@
         (function() {
             const planSelect = document.getElementById('slaughter_plan_id');
             const inspectorSelect = document.getElementById('inspector_id');
+            const speciesSelect = document.getElementById('species');
+            const checklistBody = document.getElementById('checklist-body');
+            const checklistEmpty = document.getElementById('checklist-empty');
+            const checklists = @json($checklists);
+            const aliases = @json(config('ante_mortem_checklist.species_aliases'));
+            const valueOptions = @json(config('ante_mortem_checklist.value_options'));
+
+            const storedObservations = @json($inspection->observations->mapWithKeys(fn($o) => [$o->item => ['value' => $o->value, 'notes' => $o->notes]])->toArray());
+            const oldObservations = @json(old('observations', []));
+            const observationState = Object.keys(oldObservations).length ? oldObservations : storedObservations;
+
+            function speciesKey(speciesName) {
+                if (!speciesName) return null;
+                return aliases[String(speciesName).toLowerCase().trim()] || null;
+            }
+
             function filterInspectors() {
                 const selectedPlan = planSelect && planSelect.options[planSelect.selectedIndex];
                 const facilityId = selectedPlan && selectedPlan.dataset.facilityId;
                 if (!inspectorSelect) return;
+
                 Array.from(inspectorSelect.options).forEach(opt => {
                     if (opt.value === '') { opt.hidden = false; return; }
                     opt.hidden = opt.dataset.facilityId !== facilityId;
                 });
+
                 const currentOpt = inspectorSelect.options[inspectorSelect.selectedIndex];
                 if (currentOpt && currentOpt.hidden) {
                     const visible = Array.from(inspectorSelect.options).find(o => o.value && !o.hidden);
                     inspectorSelect.value = visible ? visible.value : '';
                 }
             }
+
+            function renderChecklist() {
+                if (!checklistBody || !speciesSelect) return;
+                const key = speciesKey(speciesSelect.value);
+                const items = key ? (checklists[key] || {}) : {};
+                const entries = Object.entries(items);
+                checklistBody.innerHTML = '';
+
+                if (entries.length === 0) {
+                    checklistEmpty.classList.remove('hidden');
+                    return;
+                }
+
+                checklistEmpty.classList.add('hidden');
+
+                entries.forEach(([itemKey, meta]) => {
+                    const row = document.createElement('tr');
+                    const options = valueOptions[meta.type] || [];
+                    const selectedValue = observationState[itemKey]?.value || '';
+                    const selectedNotes = observationState[itemKey]?.notes || '';
+
+                    row.innerHTML = `
+                        <td class="px-3 py-2 text-slate-700">${meta.label}</td>
+                        <td class="px-3 py-2">
+                            <select name="observations[${itemKey}][value]" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                                <option value="">{{ __('Select') }}</option>
+                                ${options.map(v => `<option value="${v}" ${selectedValue === v ? 'selected' : ''}>${v.charAt(0).toUpperCase() + v.slice(1)}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="px-3 py-2">
+                            <input type="text" name="observations[${itemKey}][notes]" value="${String(selectedNotes).replace(/"/g, '&quot;')}" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" maxlength="5000" />
+                        </td>
+                    `;
+                    checklistBody.appendChild(row);
+                });
+            }
+
             if (planSelect) planSelect.addEventListener('change', filterInspectors);
-            document.addEventListener('DOMContentLoaded', filterInspectors);
+            if (speciesSelect) speciesSelect.addEventListener('change', renderChecklist);
+            document.addEventListener('DOMContentLoaded', function() {
+                filterInspectors();
+                renderChecklist();
+            });
         })();
     </script>
 </x-app-layout>

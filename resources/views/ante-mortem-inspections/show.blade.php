@@ -16,7 +16,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -62,6 +62,34 @@
                         </div>
                     @endif
                 </dl>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Species checklist observations') }}</h3>
+                @if ($inspection->observations->isEmpty())
+                    <p class="text-sm text-gray-500">{{ __('No checklist observations recorded.') }}</p>
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Item') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Result') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Notes') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 bg-white">
+                                @foreach ($inspection->observations as $observation)
+                                    <tr>
+                                        <td class="px-3 py-2">{{ str($observation->item)->replace('_', ' ')->title() }}</td>
+                                        <td class="px-3 py-2">{{ str($observation->value)->replace('_', ' ')->title() }}</td>
+                                        <td class="px-3 py-2">{{ $observation->notes ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
             </div>
         </div>
     </div>

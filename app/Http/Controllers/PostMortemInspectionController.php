@@ -10,8 +10,10 @@ use App\Models\Inspector;
 use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
+use App\Support\PostMortemChecklist;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class PostMortemInspectionController extends Controller
@@ -54,6 +56,49 @@ class PostMortemInspectionController extends Controller
         }
     }
 
+    private function checklistConfig(): array
+    {
+        return PostMortemChecklist::all();
+    }
+
+    private function mapObservationPayload(array $observations, string $species): array
+    {
+        $items = PostMortemChecklist::itemsForSpecies($species);
+
+        return collect($observations)
+            ->filter(fn ($row, $item) => array_key_exists($item, $items))
+            ->map(function ($row, $item) use ($items) {
+                return [
+                    'category' => (string) ($items[$item]['category'] ?? 'carcass'),
+                    'item' => (string) $item,
+                    'value' => (string) ($row['value'] ?? ''),
+                    'notes' => $row['notes'] ?? null,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function computeResult(string $species, array $observations): string
+    {
+        $hasMinor = false;
+
+        foreach ($observations as $item => $row) {
+            $value = (string) ($row['value'] ?? '');
+            if (! PostMortemChecklist::isAbnormalValue($value)) {
+                continue;
+            }
+
+            if (PostMortemChecklist::isCriticalItem($species, (string) $item)) {
+                return PostMortemInspection::RESULT_REJECTED;
+            }
+
+            $hasMinor = true;
+        }
+
+        return $hasMinor ? PostMortemInspection::RESULT_PARTIAL : PostMortemInspection::RESULT_APPROVED;
+    }
+
     public function index(Request $request): View
     {
         $batchIds = $this->userBatchIds($request);
@@ -75,7 +120,6 @@ class PostMortemInspectionController extends Controller
         $batchIds = $this->userBatchIds($request);
         $facilityIds = $this->userFacilityIds($request);
 
-        // Batches that don't have a post-mortem yet
         $batches = Batch::with('slaughterExecution.slaughterPlan.facility')
             ->whereIn('id', $batchIds)
             ->whereDoesntHave('postMortemInspection')
@@ -83,8 +127,9 @@ class PostMortemInspectionController extends Controller
             ->get()
             ->map(fn (Batch $b) => [
                 'id' => $b->id,
-                'label' => $b->batch_code . ' — ' . $b->slaughterExecution->slaughterPlan->facility->facility_name . ' (' . $b->species . ')',
+                'label' => $b->batch_code.' — '.$b->slaughterExecution->slaughterPlan->facility->facility_name.' ('.$b->species.')',
                 'facility_id' => $b->slaughterExecution->slaughterPlan->facility_id,
+                'species' => $b->species,
             ]);
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
@@ -97,6 +142,7 @@ class PostMortemInspectionController extends Controller
         return view('post-mortem-inspections.create', [
             'batches' => $batches,
             'inspectorsByFacility' => $inspectorsByFacility,
+            'checklists' => $this->checklistConfig(),
         ]);
     }
 
@@ -104,7 +150,17 @@ class PostMortemInspectionController extends Controller
     {
         $this->authorizeBatchId($request, (int) $request->validated('batch_id'));
 
-        PostMortemInspection::create($request->validated());
+        $validated = $request->validated();
+        $observations = $validated['observations'] ?? [];
+        $species = (string) ($validated['species'] ?? '');
+        unset($validated['observations']);
+
+        $validated['result'] = $this->computeResult($species, $observations);
+
+        DB::transaction(function () use ($validated, $observations, $species) {
+            $inspection = PostMortemInspection::create($validated);
+            $inspection->observations()->createMany($this->mapObservationPayload($observations, $species));
+        });
 
         return redirect()->route('post-mortem-inspections.index')
             ->with('status', __('Post-mortem inspection recorded successfully.'));
@@ -113,7 +169,7 @@ class PostMortemInspectionController extends Controller
     public function show(Request $request, PostMortemInspection $postMortemInspection): View|RedirectResponse
     {
         $this->authorizeInspection($request, $postMortemInspection);
-        $postMortemInspection->load(['batch.slaughterExecution.slaughterPlan.facility', 'inspector']);
+        $postMortemInspection->load(['batch.slaughterExecution.slaughterPlan.facility', 'inspector', 'observations']);
 
         return view('post-mortem-inspections.show', ['inspection' => $postMortemInspection]);
     }
@@ -130,8 +186,9 @@ class PostMortemInspectionController extends Controller
             ->get()
             ->map(fn (Batch $b) => [
                 'id' => $b->id,
-                'label' => $b->batch_code . ' — ' . $b->slaughterExecution->slaughterPlan->facility->facility_name,
+                'label' => $b->batch_code.' — '.$b->slaughterExecution->slaughterPlan->facility->facility_name,
                 'facility_id' => $b->slaughterExecution->slaughterPlan->facility_id,
+                'species' => $b->species,
             ]);
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
@@ -141,10 +198,13 @@ class PostMortemInspectionController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
+        $postMortemInspection->load('observations');
+
         return view('post-mortem-inspections.edit', [
             'inspection' => $postMortemInspection,
             'batches' => $batches,
             'inspectorsByFacility' => $inspectorsByFacility,
+            'checklists' => $this->checklistConfig(),
         ]);
     }
 
@@ -153,7 +213,18 @@ class PostMortemInspectionController extends Controller
         $this->authorizeInspection($request, $postMortemInspection);
         $this->authorizeBatchId($request, (int) $request->validated('batch_id'));
 
-        $postMortemInspection->update($request->validated());
+        $validated = $request->validated();
+        $observations = $validated['observations'] ?? [];
+        $species = (string) ($validated['species'] ?? '');
+        unset($validated['observations']);
+
+        $validated['result'] = $this->computeResult($species, $observations);
+
+        DB::transaction(function () use ($postMortemInspection, $validated, $observations, $species) {
+            $postMortemInspection->update($validated);
+            $postMortemInspection->observations()->delete();
+            $postMortemInspection->observations()->createMany($this->mapObservationPayload($observations, $species));
+        });
 
         return redirect()->route('post-mortem-inspections.index')
             ->with('status', __('Post-mortem inspection updated successfully.'));

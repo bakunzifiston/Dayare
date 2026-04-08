@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AnteMortemInspection extends Model
 {
@@ -39,6 +40,11 @@ class AnteMortemInspection extends Model
     public function inspector(): BelongsTo
     {
         return $this->belongsTo(Inspector::class);
+    }
+
+    public function observations(): HasMany
+    {
+        return $this->hasMany(AnteMortemObservation::class);
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Post-Mortem Inspection – one per batch.
@@ -16,14 +17,22 @@ class PostMortemInspection extends Model
 
     protected $table = 'post_mortem_inspections';
 
+    public const RESULT_APPROVED = 'approved';
+
+    public const RESULT_PARTIAL = 'partial';
+
+    public const RESULT_REJECTED = 'rejected';
+
     protected $fillable = [
         'batch_id',
         'inspector_id',
+        'species',
         'total_examined',
         'approved_quantity',
         'condemned_quantity',
         'notes',
         'inspection_date',
+        'result',
     ];
 
     protected function casts(): array
@@ -41,5 +50,10 @@ class PostMortemInspection extends Model
     public function inspector(): BelongsTo
     {
         return $this->belongsTo(Inspector::class);
+    }
+
+    public function observations(): HasMany
+    {
+        return $this->hasMany(PostMortemObservation::class);
     }
 }
