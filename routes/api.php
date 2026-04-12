@@ -2,9 +2,18 @@
 
 use App\Http\Controllers\Api\MobileAuthController;
 use App\Http\Controllers\Api\MobileCollectionController;
+use App\Http\Responses\ApiJson;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::get('/', function () {
+        return ApiJson::success([
+            'name' => 'Butchapro API',
+            'version' => '1',
+            'documentation' => url('/api/documentation'),
+        ], __('Butchapro mobile API.'));
+    });
+
     Route::post('auth/login', [MobileAuthController::class, 'login']);
 
     Route::middleware('mobile.auth')->group(function () {

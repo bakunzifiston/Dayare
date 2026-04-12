@@ -1,0 +1,1768 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Butchapro API",
+        "description": "Traceability and compliance API for the meat processing system. JSON API base path: /api/v1. Auth: Bearer token from mobile_api_tokens. All JSON responses use `{ \"success\": true|false, \"message\": string, \"data\": object }` on success and `{ \"success\": false, \"message\": string, \"errors\": object }` on validation or domain errors (empty object when no field errors). Paginated lists expose Laravel's paginator array inside `data`.",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "Must be the site root only (e.g. http://127.0.0.1:8000 or \"/\"). Do NOT set the server to \"/api\" or \"/api/v1\" — every path below already starts with \"/api/v1/...\", and a wrong server will produce duplicate segments (404)."
+        }
+    ],
+    "paths": {
+        "/api/v1": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "API v1 index",
+                "description": "Public metadata and link to Swagger UI (`documentation` URL). No authentication.",
+                "operationId": "apiV1Index",
+                "responses": {
+                    "200": {
+                        "description": "Standard envelope; `data` includes name, version, documentation.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/auth/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Issue mobile API token",
+                "description": "Validates user email/password, creates a row in `mobile_api_tokens` (hashed token), returns plain token once.",
+                "operationId": "mobileAuthLogin",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token issued inside standard envelope (see LoginResponse).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid credentials or validation failure",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Revoke current mobile token",
+                "operationId": "mobileAuthLogout",
+                "responses": {
+                    "200": {
+                        "description": "Success; `data` is an empty object.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid Bearer token"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/me": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Current user for this token",
+                "operationId": "mobileAuthMe",
+                "responses": {
+                    "200": {
+                        "description": "User profile and accessible businesses inside standard envelope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthMeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            }
+        },
+        "/api/v1/lookups": {
+            "get": {
+                "tags": [
+                    "Facilities",
+                    "Inspectors",
+                    "Businesses"
+                ],
+                "summary": "Facilities, inspectors, species, status enums for mobile forms",
+                "operationId": "mobileLookups",
+                "responses": {
+                    "200": {
+                        "description": "Nested lookup payload in `data` (facilities, inspectors, species, statuses).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            }
+        },
+        "/api/v1/animal-intakes": {
+            "get": {
+                "tags": [
+                    "Animal Intakes",
+                    "Businesses",
+                    "Livestock",
+                    "AnimalHealthRecord"
+                ],
+                "summary": "Paginated animal intakes for accessible facilities",
+                "operationId": "mobileAnimalIntakesIndex",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Laravel length-aware paginator fields inside `data` (including `data` array of rows).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Animal Intakes",
+                    "Businesses",
+                    "Livestock",
+                    "AnimalHealthRecord"
+                ],
+                "summary": "Create animal intake",
+                "description": "Facility must belong to the user's accessible businesses. See also StoreAnimalIntakeRequest for extended web validation (species enum, optional supplier/division/health cert fields).",
+                "operationId": "mobileAnimalIntakesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AnimalIntakeCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created model in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Facility not in scope"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/v1/slaughter-plans": {
+            "get": {
+                "tags": [
+                    "Slaughter Plans"
+                ],
+                "summary": "Paginated slaughter plans",
+                "operationId": "mobileSlaughterPlansIndex",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginator inside `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Slaughter Plans"
+                ],
+                "summary": "Create slaughter plan",
+                "description": "Uses StoreSlaughterPlanRequest rules: slaughter_date >= today; animal_intake must belong to facility; species must match intake and exist in `species`; inspector must belong to facility; intake health certificate not expired; number_of_animals_scheduled ≤ remaining animals on intake.",
+                "operationId": "mobileSlaughterPlansStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SlaughterPlanCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created plan in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Facility not in scope"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/v1/slaughter-executions": {
+            "get": {
+                "tags": [
+                    "Slaughter Executions"
+                ],
+                "summary": "Paginated slaughter executions",
+                "operationId": "mobileSlaughterExecutionsIndex",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginator inside `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Slaughter Executions"
+                ],
+                "summary": "Create slaughter execution",
+                "operationId": "mobileSlaughterExecutionsStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SlaughterExecutionCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created execution in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Plan not in scope"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/v1/ante-mortem-inspections": {
+            "post": {
+                "tags": [
+                    "Ante Mortem Inspections",
+                    "Slaughter Plans"
+                ],
+                "summary": "Create ante-mortem inspection with checklist observations",
+                "operationId": "mobileAnteMortemStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AnteMortemCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created inspection in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Plan not in scope"
+                    },
+                    "422": {
+                        "description": "Totals or checklist validation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/post-mortem-inspections": {
+            "post": {
+                "tags": [
+                    "Post Mortem Inspections",
+                    "Batches"
+                ],
+                "summary": "Create post-mortem inspection",
+                "operationId": "mobilePostMortemStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PostMortemCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created inspection in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Batch not in scope"
+                    },
+                    "422": {
+                        "description": "Totals or checklist validation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/trace/{slug}": {
+            "get": {
+                "tags": [
+                    "Traceability (public)",
+                    "Certificates",
+                    "Batches",
+                    "Animal Intakes",
+                    "Facilities",
+                    "Inspectors",
+                    "Slaughter Plans",
+                    "Slaughter Executions",
+                    "Ante Mortem Inspections",
+                    "Post Mortem Inspections"
+                ],
+                "summary": "Public QR traceability page",
+                "description": "Resolves `certificate_qrs.slug` → certificate with batch, slaughter execution, plan, animal intake origin chain, facility, inspector. **Response is HTML** (Blade), not JSON. No authentication. Tags list the domain areas surfaced on this page.",
+                "operationId": "publicTraceabilityBySlug",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "description": "Public slug from certificate QR record",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "a1b2c3d4e5"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "HTML page with certificate, batch, origin, facility context.",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown slug"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/compliance": {
+            "get": {
+                "tags": [
+                    "Compliance",
+                    "Certificates",
+                    "Warehouse Storage",
+                    "Transport Trips",
+                    "Delivery Confirmations",
+                    "Facilities",
+                    "Inspectors"
+                ],
+                "summary": "Compliance monitoring dashboard (HTML)",
+                "description": "Aggregates system issues for the signed-in processor user: expired facility licenses, inspector authorizations, over capacity, missing inspections, transport gaps, temperature issues, etc. **Requires Laravel web session** (not Bearer). Route lives outside `/api/v1`.",
+                "operationId": "complianceDashboard",
+                "responses": {
+                    "200": {
+                        "description": "HTML dashboard",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "html"
+                                }
+                            }
+                        }
+                    },
+                    "302": {
+                        "description": "Redirect to login when unauthenticated"
+                    }
+                },
+                "security": []
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AnimalHealthRecord": {
+                "description": "Farmer-side health observation log. FK: farm_id, livestock_id.",
+                "required": [
+                    "id",
+                    "farm_id",
+                    "livestock_id",
+                    "record_date",
+                    "condition"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 900
+                    },
+                    "farm_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "livestock_id": {
+                        "type": "integer",
+                        "example": 50
+                    },
+                    "record_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "condition": {
+                        "type": "string",
+                        "enum": [
+                            "healthy",
+                            "sick"
+                        ]
+                    },
+                    "notes": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "AnimalIntake": {
+                "description": "Animal origin / intake before slaughter. FK: facility_id. Optional supply_request_id, farm_id, contract_id.",
+                "required": [
+                    "id",
+                    "facility_id",
+                    "intake_date",
+                    "species",
+                    "number_of_animals",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 100
+                    },
+                    "facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "supply_request_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "farm_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "intake_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "supplier_firstname": {
+                        "type": "string",
+                        "example": "Paul"
+                    },
+                    "supplier_lastname": {
+                        "type": "string",
+                        "example": "Farmer"
+                    },
+                    "species": {
+                        "type": "string",
+                        "example": "Cattle"
+                    },
+                    "number_of_animals": {
+                        "type": "integer",
+                        "example": 20
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "received",
+                            "approved",
+                            "rejected"
+                        ]
+                    },
+                    "health_certificate_expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "animal_health_certificate_number": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "AnimalIntakeCreateRequest": {
+                "description": "Mobile create body. Web UI supports additional optional fields (divisions, supplier_id, health cert dates) via StoreAnimalIntakeRequest.",
+                "required": [
+                    "facility_id",
+                    "intake_date",
+                    "species",
+                    "number_of_animals",
+                    "status",
+                    "supplier_firstname",
+                    "supplier_lastname"
+                ],
+                "properties": {
+                    "facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "intake_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "species": {
+                        "type": "string",
+                        "maxLength": 50
+                    },
+                    "number_of_animals": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "received",
+                            "approved",
+                            "rejected"
+                        ]
+                    },
+                    "supplier_firstname": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "supplier_lastname": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "supplier_contact": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "farm_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "animal_identification_numbers": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "notes": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "AnteMortemCreateRequest": {
+                "description": "observations must include every checklist item for the species; approved+rejected ≤ number_examined.",
+                "required": [
+                    "slaughter_plan_id",
+                    "inspector_id",
+                    "inspection_date",
+                    "species",
+                    "number_examined",
+                    "number_approved",
+                    "number_rejected",
+                    "observations"
+                ],
+                "properties": {
+                    "slaughter_plan_id": {
+                        "type": "integer"
+                    },
+                    "inspector_id": {
+                        "type": "integer"
+                    },
+                    "inspection_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "species": {
+                        "type": "string",
+                        "maxLength": 50
+                    },
+                    "number_examined": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "number_approved": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "number_rejected": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "notes": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "observations": {
+                        "description": "Keyed by checklist item id; each value: { \"value\": string (allowed per AnteMortemChecklist), \"notes\": string|null }",
+                        "type": "object",
+                        "example": {
+                            "general_appearance": {
+                                "value": "normal",
+                                "notes": null
+                            }
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "ApiError": {
+                "description": "Standard error envelope (validation or business rule failure).",
+                "required": [
+                    "success",
+                    "message"
+                ],
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Error description"
+                    },
+                    "errors": {
+                        "description": "Laravel-style field bag or arbitrary JSON object",
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiSuccess": {
+                "description": "Standard success envelope (target contract for new and updated endpoints).",
+                "required": [
+                    "success",
+                    "message",
+                    "data"
+                ],
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "OK"
+                    },
+                    "data": {
+                        "description": "Payload (model, array, or paginator).",
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "AuthMeData": {
+                "description": "Payload inside success.data for GET /auth/me.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "is_super_admin": {
+                        "type": "boolean"
+                    },
+                    "accessible_business_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "example": [
+                            1,
+                            2
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "AuthMeResponse": {
+                "description": "Standard envelope for GET /auth/me.",
+                "required": [
+                    "success",
+                    "message",
+                    "data"
+                ],
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "OK"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/AuthMeData"
+                    }
+                },
+                "type": "object"
+            },
+            "Batch": {
+                "description": "Batch of product from a slaughter execution. FK: slaughter_execution_id, inspector_id (required).",
+                "required": [
+                    "id",
+                    "slaughter_execution_id",
+                    "inspector_id",
+                    "species",
+                    "batch_code"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 200
+                    },
+                    "slaughter_execution_id": {
+                        "type": "integer",
+                        "example": 70
+                    },
+                    "inspector_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "species": {
+                        "type": "string",
+                        "example": "Cattle"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "batch_code": {
+                        "type": "string",
+                        "example": "BAT-20260411-A1B2C3"
+                    },
+                    "status": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "cold_chain_status": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "ok",
+                            "at_risk",
+                            "compromised"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "Business": {
+                "description": "Tenant business (farmer, processor, or logistics). FK: user_id (owner linkage).",
+                "required": [
+                    "id",
+                    "type",
+                    "business_name",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "user_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "processor",
+                        "enum": [
+                            "farmer",
+                            "processor",
+                            "logistics"
+                        ]
+                    },
+                    "business_name": {
+                        "type": "string",
+                        "example": "Dayare Meat Ltd"
+                    },
+                    "registration_number": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "tax_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_phone": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active"
+                    },
+                    "address_line_1": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "city": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "country_id": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Certificate": {
+                "description": "Inspection certificate. batch_id may be nullable in edge data; normally links to batch. FK: inspector_id, facility_id.",
+                "required": [
+                    "id",
+                    "inspector_id",
+                    "facility_id",
+                    "certificate_number",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 300
+                    },
+                    "batch_id": {
+                        "description": "Nullable in DB; usually set when issued from a batch.",
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "inspector_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "certificate_number": {
+                        "type": "string",
+                        "example": "CERT-2026-0001"
+                    },
+                    "issued_at": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "expired",
+                            "revoked"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "DeliveryConfirmation": {
+                "description": "Confirms receipt for a transport trip. FK: transport_trip_id.",
+                "required": [
+                    "id",
+                    "transport_trip_id"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 600
+                    },
+                    "transport_trip_id": {
+                        "type": "integer",
+                        "example": 500
+                    },
+                    "receiving_facility_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "received_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true
+                    },
+                    "received_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "confirmation_status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "confirmed",
+                            "disputed"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "Facility": {
+                "description": "Facility under a business (slaughterhouse, butchery, storage, …). FK: business_id.",
+                "required": [
+                    "id",
+                    "business_id",
+                    "facility_name",
+                    "facility_type"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "business_id": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "facility_name": {
+                        "type": "string",
+                        "example": "Main Plant"
+                    },
+                    "facility_type": {
+                        "type": "string",
+                        "example": "Slaughterhouse",
+                        "enum": [
+                            "Slaughterhouse",
+                            "Butchery",
+                            "storage",
+                            "Other"
+                        ]
+                    },
+                    "license_number": {
+                        "type": "string",
+                        "example": "LIC-2024-001",
+                        "nullable": true
+                    },
+                    "license_expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "daily_capacity": {
+                        "type": "integer",
+                        "example": 120,
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Inspector": {
+                "description": "Inspector attached to a single facility. FK: facility_id.",
+                "required": [
+                    "id",
+                    "facility_id",
+                    "first_name",
+                    "last_name",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "first_name": {
+                        "type": "string",
+                        "example": "Jean"
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "example": "Inspector"
+                    },
+                    "authorization_number": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "authorization_expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active",
+                        "enum": [
+                            "active",
+                            "expired"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "Livestock": {
+                "description": "Farmer herd animal record. FK: farm_id.",
+                "required": [
+                    "id",
+                    "farm_id"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 50
+                    },
+                    "farm_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "tag_number": {
+                        "type": "string",
+                        "example": "RFID-001",
+                        "nullable": true
+                    },
+                    "species": {
+                        "type": "string",
+                        "example": "Cattle",
+                        "nullable": true
+                    },
+                    "quantity_healthy": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "quantity_sick": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "LoginRequest": {
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "processor@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "secret"
+                    },
+                    "device_name": {
+                        "type": "string",
+                        "example": "iPhone-15",
+                        "nullable": true,
+                        "maxLength": 120
+                    }
+                },
+                "type": "object"
+            },
+            "LoginResponse": {
+                "description": "Standard envelope for successful login.",
+                "required": [
+                    "success",
+                    "message",
+                    "data"
+                ],
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Logged in successfully."
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/LoginSession"
+                    }
+                },
+                "type": "object"
+            },
+            "LoginSession": {
+                "description": "Payload inside success.data for POST /auth/login.",
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "example": "64-char-hex"
+                    },
+                    "token_type": {
+                        "type": "string",
+                        "example": "Bearer"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/UserPublic"
+                    }
+                },
+                "type": "object"
+            },
+            "PostMortemCreateRequest": {
+                "description": "approved+condemned ≤ total_examined; observations must cover PostMortemChecklist for species; abnormal critical items can force result rejected.",
+                "required": [
+                    "batch_id",
+                    "inspector_id",
+                    "species",
+                    "inspection_date",
+                    "total_examined",
+                    "approved_quantity",
+                    "condemned_quantity",
+                    "observations"
+                ],
+                "properties": {
+                    "batch_id": {
+                        "type": "integer"
+                    },
+                    "inspector_id": {
+                        "type": "integer"
+                    },
+                    "species": {
+                        "type": "string",
+                        "maxLength": 50
+                    },
+                    "inspection_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "total_examined": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "approved_quantity": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "condemned_quantity": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "notes": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "observations": {
+                        "description": "Keyed by checklist item id; each value: { \"value\", \"notes\" } per PostMortemChecklist.",
+                        "type": "object",
+                        "example": {
+                            "carcass_condition": {
+                                "value": "normal",
+                                "notes": null
+                            }
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "SlaughterExecution": {
+                "description": "Recorded slaughter event for a plan. FK: slaughter_plan_id.",
+                "required": [
+                    "id",
+                    "slaughter_plan_id",
+                    "actual_animals_slaughtered",
+                    "slaughter_time",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 70
+                    },
+                    "slaughter_plan_id": {
+                        "type": "integer",
+                        "example": 50
+                    },
+                    "actual_animals_slaughtered": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "slaughter_time": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "scheduled",
+                            "in_progress",
+                            "completed",
+                            "cancelled"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "SlaughterExecutionCreateRequest": {
+                "required": [
+                    "slaughter_plan_id",
+                    "actual_animals_slaughtered",
+                    "slaughter_time",
+                    "status"
+                ],
+                "properties": {
+                    "slaughter_plan_id": {
+                        "type": "integer"
+                    },
+                    "actual_animals_slaughtered": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "slaughter_time": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "scheduled",
+                            "in_progress",
+                            "completed",
+                            "cancelled"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "SlaughterPlan": {
+                "description": "Slaughter session plan. FK: facility_id, animal_intake_id, inspector_id.",
+                "required": [
+                    "id",
+                    "slaughter_date",
+                    "facility_id",
+                    "animal_intake_id",
+                    "inspector_id",
+                    "species",
+                    "number_of_animals_scheduled",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 50
+                    },
+                    "slaughter_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "animal_intake_id": {
+                        "type": "integer",
+                        "example": 100
+                    },
+                    "inspector_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "species": {
+                        "type": "string",
+                        "example": "Cattle"
+                    },
+                    "number_of_animals_scheduled": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "planned",
+                            "approved"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "SlaughterPlanCreateRequest": {
+                "description": "Aligned with StoreSlaughterPlanRequest: slaughter_date after_or_equal today; inspector must exist and belong to facility_id; species must match active species name; animal_intake must match facility, species, non-expired health cert, and scheduled count ≤ remaining animals on intake.",
+                "required": [
+                    "slaughter_date",
+                    "facility_id",
+                    "animal_intake_id",
+                    "inspector_id",
+                    "species",
+                    "number_of_animals_scheduled",
+                    "status"
+                ],
+                "properties": {
+                    "slaughter_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "facility_id": {
+                        "type": "integer"
+                    },
+                    "animal_intake_id": {
+                        "type": "integer"
+                    },
+                    "inspector_id": {
+                        "type": "integer"
+                    },
+                    "species": {
+                        "type": "string"
+                    },
+                    "number_of_animals_scheduled": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "planned",
+                            "approved"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "TransportTrip": {
+                "description": "Transport movement. FK: certificate_id, origin_facility_id, destination_facility_id required; batch_id nullable.",
+                "required": [
+                    "id",
+                    "certificate_id",
+                    "origin_facility_id",
+                    "destination_facility_id"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 500
+                    },
+                    "certificate_id": {
+                        "type": "integer",
+                        "example": 300
+                    },
+                    "warehouse_storage_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "batch_id": {
+                        "description": "Optional link to batch when applicable.",
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "origin_facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "destination_facility_id": {
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "vehicle_plate_number": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "departure_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "in_transit",
+                            "arrived",
+                            "completed"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "User": {
+                "description": "Application user (tenant membership via business_users / roles).",
+                "required": [
+                    "id",
+                    "name",
+                    "email"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Jane Doe"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "user@example.com"
+                    },
+                    "email_verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "is_super_admin": {
+                        "type": "boolean",
+                        "example": false
+                    }
+                },
+                "type": "object"
+            },
+            "UserPublic": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Jane Processor"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "is_super_admin": {
+                        "type": "boolean",
+                        "example": false
+                    }
+                },
+                "type": "object"
+            },
+            "WarehouseStorage": {
+                "description": "Storage of certified product. FK: batch_id, certificate_id (domain rule); warehouse_facility_id, cold_room_id optional per flow.",
+                "required": [
+                    "id",
+                    "batch_id",
+                    "certificate_id"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 400
+                    },
+                    "warehouse_facility_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "cold_room_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "batch_id": {
+                        "type": "integer",
+                        "example": 200
+                    },
+                    "certificate_id": {
+                        "type": "integer",
+                        "example": 300
+                    },
+                    "entry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "quantity_stored": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true
+                    },
+                    "quantity_unit": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "in_storage",
+                            "released",
+                            "disposed"
+                        ]
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Opaque mobile API token issued by `POST /api/v1/auth/login` and validated against `mobile_api_tokens.token_hash` (SHA-256). Header: `Authorization: Bearer <token>`.",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Mobile API login and token lifecycle (`mobile_api_tokens`)."
+        },
+        {
+            "name": "Users",
+            "description": "Authenticated user profile for the mobile token (`/auth/me`)."
+        },
+        {
+            "name": "Businesses",
+            "description": "Tenant businesses (processor/farmer/logistics). Managed in the web workspace; see **Business** schema for persisted fields and ownership."
+        },
+        {
+            "name": "Facilities",
+            "description": "Plants, slaughterhouses, storage sites. FK: `business_id`. License and capacity drive compliance checks."
+        },
+        {
+            "name": "Inspectors",
+            "description": "Inspectors are scoped to a **facility** (`facility_id` required). Referenced by slaughter plans, batches, certificates."
+        },
+        {
+            "name": "Animal Intakes",
+            "description": "Animal origin records before slaughter. Mobile: `GET/POST /api/v1/animal-intakes`. Full web create rules: `StoreAnimalIntakeRequest`."
+        },
+        {
+            "name": "Slaughter Plans",
+            "description": "Plans link **facility**, **animal_intake**, **inspector**, species, and counts. Web validation (`StoreSlaughterPlanRequest`): intake must match facility; species must match intake; scheduled headcount ≤ remaining animals on intake; health certificate must not be expired; inspector must belong to facility; species must exist in `species` table."
+        },
+        {
+            "name": "Slaughter Executions",
+            "description": "Actual slaughter events for a plan. FK: `slaughter_plan_id`."
+        },
+        {
+            "name": "Batches",
+            "description": "Carcass/batch grouping after slaughter. FK: `slaughter_execution_id`, `inspector_id` (both required in domain model)."
+        },
+        {
+            "name": "Ante Mortem Inspections",
+            "description": "Pre-slaughter inspection with species-specific checklist (`AnteMortemChecklist`). Mobile: `POST /api/v1/ante-mortem-inspections`."
+        },
+        {
+            "name": "Post Mortem Inspections",
+            "description": "Post-slaughter inspection and disposition. Mobile: `POST /api/v1/post-mortem-inspections`. FK: `batch_id`, `inspector_id`."
+        },
+        {
+            "name": "Certificates",
+            "description": "Legal certificates. FK: `batch_id` nullable in storage edge cases; usually set. `inspector_id`, `facility_id` required for issuance."
+        },
+        {
+            "name": "Warehouse Storage",
+            "description": "Cold storage rows. FK: `batch_id`, `certificate_id` required for traceability chain."
+        },
+        {
+            "name": "Transport Trips",
+            "description": "Movement of product. FK: `certificate_id`, `origin_facility_id`, `destination_facility_id` required; `batch_id` nullable."
+        },
+        {
+            "name": "Delivery Confirmations",
+            "description": "Receiving confirmation for a transport trip. FK: `transport_trip_id`, etc."
+        },
+        {
+            "name": "Compliance",
+            "description": "Compliance dashboard aggregates facility/inspector/certificate/transport issues (expired licenses, missing inspections, capacity, etc.). **Implemented as HTML** at `GET /compliance` (session auth), not Bearer."
+        },
+        {
+            "name": "Traceability (public)",
+            "description": "Public QR trace page: `GET /trace/{slug}` — no authentication."
+        },
+        {
+            "name": "Livestock",
+            "description": "Farmer herd animals (`livestock` table, FK `farm_id`). Referenced alongside intakes and supply workflows."
+        },
+        {
+            "name": "AnimalHealthRecord",
+            "description": "Farmer observation logs (`animal_health_records`); distinct from processor animal intakes."
+        }
+    ]
+}

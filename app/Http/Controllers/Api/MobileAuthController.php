@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Responses\ApiJson;
 use App\Models\MobileApiToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class MobileAuthController extends Controller
         $user = \App\Models\User::where('email', $data['email'])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
-            return response()->json(['message' => __('Invalid credentials.')], 422);
+            return ApiJson::failure(__('Invalid credentials.'), [], 422);
         }
 
         $plainToken = bin2hex(random_bytes(32));
@@ -33,7 +34,7 @@ class MobileAuthController extends Controller
             'last_used_at' => now(),
         ]);
 
-        return response()->json([
+        return ApiJson::success([
             'token' => $plainToken,
             'token_type' => 'Bearer',
             'expires_at' => optional($token->expires_at)->toIso8601String(),
@@ -43,14 +44,14 @@ class MobileAuthController extends Controller
                 'email' => $user->email,
                 'is_super_admin' => (bool) $user->is_super_admin,
             ],
-        ]);
+        ], __('Logged in successfully.'));
     }
 
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        return response()->json([
+        return ApiJson::success([
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
@@ -66,6 +67,6 @@ class MobileAuthController extends Controller
             MobileApiToken::whereKey($tokenId)->delete();
         }
 
-        return response()->json(['message' => __('Logged out successfully.')]);
+        return ApiJson::success(null, __('Logged out successfully.'));
     }
 }

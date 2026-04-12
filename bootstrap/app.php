@@ -1,8 +1,19 @@
 <?php
 
+use App\Http\Responses\ApiJson;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+
+/**
+ * True for /api/v1 and any /api/v1/... path (Laravel's is('api/v1/*') does NOT match /api/v1 alone).
+ */
+$requestIsApiV1 = static fn (\Illuminate\Http\Request $request): bool => $request->is('api/v1') || $request->is('api/v1/*');
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,7 +31,48 @@ return Application::configure(basePath: dirname(__DIR__))
             'mobile.auth' => \App\Http\Middleware\AuthenticateMobileToken::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+    ->withExceptions(function (Exceptions $exceptions) use ($requestIsApiV1): void {
+        $exceptions->render(function (\Throwable $e, $request) use ($requestIsApiV1) {
+            if (! $requestIsApiV1($request)) {
+                return null;
+            }
+
+            if ($e instanceof ValidationException) {
+                return ApiJson::fromValidationException($e);
+            }
+
+            if ($e instanceof AuthenticationException) {
+                return ApiJson::failure($e->getMessage() ?: __('Unauthenticated.'), [], 401);
+            }
+
+            if ($e instanceof AuthorizationException) {
+                return ApiJson::failure($e->getMessage() ?: __('Forbidden.'), [], 403);
+            }
+
+            if ($e instanceof ModelNotFoundException) {
+                return ApiJson::failure(__('Not found.'), [], 404);
+            }
+
+            if ($e instanceof HttpExceptionInterface) {
+                $status = $e->getStatusCode();
+                $message = $e->getMessage();
+                // Always use short copy for 404s (Symfony/Laravel often send long "The route … could not be found" text).
+                if ($status === 404) {
+                    $message = __('Not found.');
+                } elseif ($message === '' || $message === 'Not Found') {
+                    $message = match ($status) {
+                        403 => __('Forbidden.'),
+                        401 => __('Unauthorized.'),
+                        default => __('An error occurred.'),
+                    };
+                }
+
+                return ApiJson::failure($message, [], $status);
+            }
+
+            return null;
+        });
+
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, $request) {
             if ($e->getStatusCode() === 403 && $request->expectsJson() === false) {
                 return response()->view('errors.403', [
@@ -29,8 +81,11 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
         if (config('app.debug')) {
-            $exceptions->render(function (\Throwable $e, $request) {
-                if ($e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+            $exceptions->render(function (\Throwable $e, $request) use ($requestIsApiV1) {
+                if ($requestIsApiV1($request)) {
+                    return null;
+                }
+                if ($e instanceof ModelNotFoundException) {
                     return response()->view('errors.debug-404', [
                         'title' => 'Model not found (404)',
                         'message' => $e->getMessage(),

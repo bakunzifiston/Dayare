@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreSlaughterPlanRequest;
+use App\Http\Responses\ApiJson;
 use App\Models\AnimalIntake;
 use App\Models\AnteMortemInspection;
 use App\Models\Batch;
@@ -43,7 +45,7 @@ class MobileCollectionController extends Controller
     {
         $facilityIds = $this->facilityIds($request);
 
-        return response()->json([
+        return ApiJson::success([
             'facilities' => Facility::whereIn('id', $facilityIds)->get(['id', 'facility_name', 'facility_type']),
             'inspectors' => Inspector::whereIn('facility_id', $facilityIds)->where('status', 'active')->get(['id', 'facility_id', 'first_name', 'last_name', 'status']),
             'species' => \App\Models\Species::active()->get(['id', 'name', 'code']),
@@ -61,7 +63,7 @@ class MobileCollectionController extends Controller
             ->latest('intake_date')
             ->paginate((int) $request->integer('per_page', 20));
 
-        return response()->json($items);
+        return ApiJson::paginated($items);
     }
 
     public function animalIntakesStore(Request $request): JsonResponse
@@ -79,7 +81,7 @@ class MobileCollectionController extends Controller
         ]);
 
         if (! $this->facilityIds($request)->contains((int) $data['facility_id'])) {
-            abort(404);
+            return ApiJson::failure(__('Not found.'), [], 404);
         }
 
         $item = AnimalIntake::create($data + [
@@ -87,7 +89,7 @@ class MobileCollectionController extends Controller
             'animal_identification_numbers' => $request->input('animal_identification_numbers'),
         ]);
 
-        return response()->json($item, 201);
+        return ApiJson::success($item, __('Created.'), 201);
     }
 
     public function slaughterPlansIndex(Request $request): JsonResponse
@@ -97,28 +99,20 @@ class MobileCollectionController extends Controller
             ->latest('slaughter_date')
             ->paginate((int) $request->integer('per_page', 20));
 
-        return response()->json($items);
+        return ApiJson::paginated($items);
     }
 
-    public function slaughterPlansStore(Request $request): JsonResponse
+    public function slaughterPlansStore(StoreSlaughterPlanRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'slaughter_date' => ['required', 'date'],
-            'facility_id' => ['required', 'exists:facilities,id'],
-            'animal_intake_id' => ['required', 'exists:animal_intakes,id'],
-            'inspector_id' => ['required', 'exists:inspectors,id'],
-            'species' => ['required', 'string', 'max:50'],
-            'number_of_animals_scheduled' => ['required', 'integer', 'min:1'],
-            'status' => ['required', 'in:planned,approved'],
-        ]);
+        $data = $request->validated();
 
         if (! $this->facilityIds($request)->contains((int) $data['facility_id'])) {
-            abort(404);
+            return ApiJson::failure(__('Not found.'), [], 404);
         }
 
         $item = SlaughterPlan::create($data);
 
-        return response()->json($item, 201);
+        return ApiJson::success($item, __('Created.'), 201);
     }
 
     public function slaughterExecutionsIndex(Request $request): JsonResponse
@@ -128,7 +122,7 @@ class MobileCollectionController extends Controller
             ->latest('slaughter_time')
             ->paginate((int) $request->integer('per_page', 20));
 
-        return response()->json($items);
+        return ApiJson::paginated($items);
     }
 
     public function slaughterExecutionsStore(Request $request): JsonResponse
@@ -141,12 +135,12 @@ class MobileCollectionController extends Controller
         ]);
 
         if (! $this->planIds($request)->contains((int) $data['slaughter_plan_id'])) {
-            abort(404);
+            return ApiJson::failure(__('Not found.'), [], 404);
         }
 
         $item = SlaughterExecution::create($data);
 
-        return response()->json($item, 201);
+        return ApiJson::success($item, __('Created.'), 201);
     }
 
     public function anteMortemStore(Request $request): JsonResponse
@@ -164,11 +158,11 @@ class MobileCollectionController extends Controller
         ]);
 
         if (($data['number_approved'] + $data['number_rejected']) > $data['number_examined']) {
-            return response()->json(['message' => 'Approved + Rejected cannot exceed Number Examined.'], 422);
+            return ApiJson::failure(__('Approved + Rejected cannot exceed Number Examined.'), [], 422);
         }
 
         if (! $this->planIds($request)->contains((int) $data['slaughter_plan_id'])) {
-            abort(404);
+            return ApiJson::failure(__('Not found.'), [], 404);
         }
 
         $items = AnteMortemChecklist::itemsForSpecies($data['species']);
@@ -176,7 +170,7 @@ class MobileCollectionController extends Controller
             $value = $data['observations'][$itemKey]['value'] ?? null;
             $allowed = AnteMortemChecklist::allowedValuesForItem($data['species'], (string) $itemKey);
             if (! is_string($value) || ! in_array($value, $allowed, true)) {
-                return response()->json(['message' => 'Invalid or missing checklist data.'], 422);
+                return ApiJson::failure(__('Invalid or missing checklist data.'), [], 422);
             }
         }
 
@@ -195,7 +189,7 @@ class MobileCollectionController extends Controller
             );
         });
 
-        return response()->json($inspection->load('observations'), 201);
+        return ApiJson::success($inspection->load('observations'), __('Created.'), 201);
     }
 
     public function postMortemStore(Request $request): JsonResponse
@@ -213,11 +207,11 @@ class MobileCollectionController extends Controller
         ]);
 
         if (($data['approved_quantity'] + $data['condemned_quantity']) > $data['total_examined']) {
-            return response()->json(['message' => 'Approved + Condemned cannot exceed Total Examined.'], 422);
+            return ApiJson::failure(__('Approved + Condemned cannot exceed Total Examined.'), [], 422);
         }
 
         if (! $this->batchIds($request)->contains((int) $data['batch_id'])) {
-            abort(404);
+            return ApiJson::failure(__('Not found.'), [], 404);
         }
 
         $items = PostMortemChecklist::itemsForSpecies($data['species']);
@@ -225,7 +219,7 @@ class MobileCollectionController extends Controller
             $value = $data['observations'][$itemKey]['value'] ?? null;
             $allowed = PostMortemChecklist::allowedValuesForItem($data['species'], (string) $itemKey);
             if (! is_string($value) || ! in_array($value, $allowed, true)) {
-                return response()->json(['message' => 'Invalid or missing checklist data.'], 422);
+                return ApiJson::failure(__('Invalid or missing checklist data.'), [], 422);
             }
         }
 
@@ -260,6 +254,6 @@ class MobileCollectionController extends Controller
             );
         });
 
-        return response()->json($inspection->load('observations'), 201);
+        return ApiJson::success($inspection->load('observations'), __('Created.'), 201);
     }
 }

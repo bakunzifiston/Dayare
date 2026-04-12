@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Responses\ApiJson;
 use App\Models\MobileApiToken;
 use Closure;
 use Illuminate\Http\Request;
@@ -13,12 +14,12 @@ class AuthenticateMobileToken
     {
         $header = $request->header('Authorization', '');
         if (! preg_match('/^Bearer\s+(.+)$/i', $header, $matches)) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return ApiJson::failure(__('Unauthorized.'), [], 401);
         }
 
         $plainToken = trim($matches[1]);
         if ($plainToken === '') {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return ApiJson::failure(__('Unauthorized.'), [], 401);
         }
 
         $token = MobileApiToken::with('user')
@@ -26,7 +27,7 @@ class AuthenticateMobileToken
             ->first();
 
         if (! $token || $token->isExpired() || ! $token->user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return ApiJson::failure(__('Unauthorized.'), [], 401);
         }
 
         $token->forceFill(['last_used_at' => now()])->save();
