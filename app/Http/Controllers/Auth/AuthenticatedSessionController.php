@@ -30,11 +30,7 @@ class AuthenticatedSessionController extends Controller
 
             $request->session()->regenerate();
 
-            $defaultRoute = $request->user()->isSuperAdmin()
-                ? route('super-admin.dashboard', absolute: false)
-                : route('dashboard', absolute: false);
-
-            return redirect()->intended($defaultRoute);
+            return redirect()->intended($request->user()->tenantDashboardPath());
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {

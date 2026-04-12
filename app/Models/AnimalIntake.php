@@ -17,6 +17,8 @@ class AnimalIntake extends Model
 
     protected $fillable = [
         'facility_id',
+        'supply_request_id',
+        'farm_id',
         'supplier_id',
         'contract_id',
         'intake_date',
@@ -54,7 +56,9 @@ class AnimalIntake extends Model
     }
 
     public const STATUS_RECEIVED = 'received';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
 
     public const STATUSES = [
@@ -64,9 +68,13 @@ class AnimalIntake extends Model
     ];
 
     public const SPECIES_CATTLE = 'Cattle';
+
     public const SPECIES_GOAT = 'Goat';
+
     public const SPECIES_SHEEP = 'Sheep';
+
     public const SPECIES_PIG = 'Pig';
+
     public const SPECIES_OTHER = 'Other';
 
     public const SPECIES_OPTIONS = [
@@ -80,6 +88,16 @@ class AnimalIntake extends Model
     public function facility(): BelongsTo
     {
         return $this->belongsTo(Facility::class);
+    }
+
+    public function supplyRequest(): BelongsTo
+    {
+        return $this->belongsTo(SupplyRequest::class);
+    }
+
+    public function farm(): BelongsTo
+    {
+        return $this->belongsTo(Farm::class);
     }
 
     public function supplier(): BelongsTo
@@ -133,6 +151,7 @@ class AnimalIntake extends Model
         if (! $this->health_certificate_expiry_date) {
             return false;
         }
+
         return $this->health_certificate_expiry_date->isPast();
     }
 

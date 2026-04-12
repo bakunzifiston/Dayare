@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'tenant' => \App\Http\Middleware\EnsureUserIsTenant::class,
+            'workspace' => \App\Http\Middleware\EnsureUserWorkspace::class,
             'super_admin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
             'tenant.permission' => \App\Http\Middleware\EnsureTenantPermission::class,
             'mobile.auth' => \App\Http\Middleware\AuthenticateMobileToken::class,

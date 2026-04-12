@@ -17,8 +17,18 @@ use App\Http\Controllers\DeliveryConfirmationController;
 use App\Http\Controllers\DemandController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FacilityController;
+use App\Http\Controllers\Farmer\AnimalHealthRecordController;
+use App\Http\Controllers\Farmer\FarmController;
+use App\Http\Controllers\Farmer\FarmerHealthHubController;
+use App\Http\Controllers\Farmer\FarmerLivestockHubController;
+use App\Http\Controllers\Farmer\FarmerSupplyHistoryController;
+use App\Http\Controllers\Farmer\FarmerSupplyRequestController;
+use App\Http\Controllers\Farmer\LivestockController;
+use App\Http\Controllers\FarmerDashboardController;
 use App\Http\Controllers\InspectorController;
+use App\Http\Controllers\LogisticsDashboardController;
 use App\Http\Controllers\PostMortemInspectionController;
+use App\Http\Controllers\Processor\ProcessorSupplyRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipientController;
 use App\Http\Controllers\SettingsController;
@@ -36,7 +46,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route(auth()->user()->isSuperAdmin() ? 'super-admin.dashboard' : 'dashboard');
+        return redirect()->route(auth()->user()->defaultDashboardRouteName());
     }
 
     return view('welcome');
@@ -254,10 +264,38 @@ Route::get('/debug-facilities-route', function () {
 })->middleware('auth');
 
 Route::get('/dashboard', DashboardController::class)
-    ->middleware(['auth', 'verified', 'tenant'])
+    ->middleware(['auth', 'verified', 'tenant', 'workspace:processor'])
     ->name('dashboard');
 
-Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
+Route::middleware(['auth', 'verified', 'tenant', 'workspace:farmer', 'tenant.permission'])->prefix('farmer')->name('farmer.')->group(function () {
+    Route::get('dashboard', FarmerDashboardController::class)->name('dashboard');
+    Route::get('livestock', [FarmerLivestockHubController::class, 'index'])->name('livestock.index');
+    Route::get('health', [FarmerHealthHubController::class, 'index'])->name('health.hub');
+    Route::resource('farms', FarmController::class);
+    Route::resource('farms.livestock', LivestockController::class)->except(['show']);
+    Route::get('farms/{farm}/livestock/{livestock}', [LivestockController::class, 'show'])->name('farms.livestock.show');
+    Route::patch('farms/{farm}/livestock/{livestock}/details', [LivestockController::class, 'updateDetails'])->name('farms.livestock.details.update');
+    Route::patch('farms/{farm}/livestock-health-splits', [LivestockController::class, 'updateHealthSplits'])->name('farms.livestock-health-splits.update');
+    Route::get('farms/{farm}/health-records', [AnimalHealthRecordController::class, 'index'])->name('farms.health-records.index');
+    Route::post('farms/{farm}/health-records', [AnimalHealthRecordController::class, 'store'])->name('farms.health-records.store');
+    Route::delete('farms/{farm}/health-records/{health_record}', [AnimalHealthRecordController::class, 'destroy'])->name('farms.health-records.destroy');
+    Route::get('supply-requests', [FarmerSupplyRequestController::class, 'index'])->name('supply-requests.index');
+    Route::get('supply-requests/{supply_request}', [FarmerSupplyRequestController::class, 'show'])->name('supply-requests.show');
+    Route::post('supply-requests/{supply_request}/accept', [FarmerSupplyRequestController::class, 'accept'])->name('supply-requests.accept');
+    Route::post('supply-requests/{supply_request}/reject', [FarmerSupplyRequestController::class, 'reject'])->name('supply-requests.reject');
+    Route::get('supply-history', FarmerSupplyHistoryController::class)->name('supply-history');
+});
+
+Route::middleware(['auth', 'verified', 'tenant', 'workspace:logistics'])->group(function () {
+    Route::get('/logistics/dashboard', LogisticsDashboardController::class)->name('logistics.dashboard');
+});
+
+// Administrative divisions (cascade dropdowns) — shared by farmer, processor, logistics, etc.
+Route::middleware(['auth', 'tenant'])->group(function () {
+    Route::get('divisions', [AdministrativeDivisionController::class, 'index'])->name('divisions.index');
+});
+
+Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission'])->group(function () {
     Route::get('businesses/overview', [BusinessController::class, 'hub'])->name('businesses.hub');
     Route::resource('businesses', BusinessController::class);
     // Explicit facilities routes (nested under business) – avoids 404 on some cPanel setups
@@ -300,7 +338,6 @@ Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
     Route::resource('transport-trips', TransportTripController::class);
     Route::resource('delivery-confirmations', DeliveryConfirmationController::class);
     Route::get('compliance', [ComplianceController::class, 'index'])->name('compliance.index');
-    Route::get('divisions', [AdministrativeDivisionController::class, 'index'])->name('divisions.index');
     Route::resource('ante-mortem-inspections', AnteMortemInspectionController::class);
 
     Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
@@ -323,10 +360,18 @@ Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
 
     Route::resource('tenant-users', TenantUserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->names('tenant-users');
 
+    Route::prefix('processor')->name('processor.')->group(function () {
+        Route::get('supply-requests', [ProcessorSupplyRequestController::class, 'index'])->name('supply-requests.index');
+        Route::get('supply-requests/create', [ProcessorSupplyRequestController::class, 'create'])->name('supply-requests.create');
+        Route::post('supply-requests', [ProcessorSupplyRequestController::class, 'store'])->name('supply-requests.store');
+    });
+
     Route::middleware('super_admin')->prefix('super-admin')->name('super-admin.')->group(function () {
         Route::get('/', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
     });
+});
 
+Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

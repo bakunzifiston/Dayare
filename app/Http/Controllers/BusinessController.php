@@ -57,6 +57,8 @@ class BusinessController extends Controller
         $members = $validated['members'] ?? [];
         unset($validated['members']);
 
+        $validated['type'] = $validated['type'] ?? Business::TYPE_PROCESSOR;
+
         $business = $request->user()->businesses()->create($validated);
 
         foreach (array_values($members) as $i => $m) {

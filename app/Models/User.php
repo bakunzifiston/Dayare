@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Support\Collection;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
@@ -76,6 +76,7 @@ class User extends Authenticatable
     {
         $owned = $this->businesses()->pluck('id');
         $member = $this->memberBusinesses()->pluck('businesses.id');
+
         return $owned->merge($member)->unique()->values();
     }
 
@@ -83,6 +84,26 @@ class User extends Authenticatable
     public function accessibleBusinesses()
     {
         return Business::whereIn('id', $this->accessibleBusinessIds());
+    }
+
+    /** Business IDs the user may act as for farmer workspace (owned or member, type farmer). */
+    public function accessibleFarmerBusinessIds(): Collection
+    {
+        return Business::query()
+            ->where('type', Business::TYPE_FARMER)
+            ->whereIn('id', $this->accessibleBusinessIds())
+            ->pluck('id')
+            ->values();
+    }
+
+    /** Business IDs for processor workspace modules. */
+    public function accessibleProcessorBusinessIds(): Collection
+    {
+        return Business::query()
+            ->where('type', Business::TYPE_PROCESSOR)
+            ->whereIn('id', $this->accessibleBusinessIds())
+            ->pluck('id')
+            ->values();
     }
 
     /** Whether this user is a tenant owner / can manage tenant users. */
@@ -94,5 +115,46 @@ class User extends Authenticatable
         }
 
         return $this->businesses()->exists();
+    }
+
+    /**
+     * Primary workspace type for routing and access control: first owned business, else first member business, else processor.
+     */
+    public function tenantWorkspaceType(): string
+    {
+        if ($this->isSuperAdmin()) {
+            return Business::TYPE_PROCESSOR;
+        }
+
+        $owned = $this->businesses()->orderBy('id')->first();
+        if ($owned !== null) {
+            return $owned->type ?? Business::TYPE_PROCESSOR;
+        }
+
+        $member = $this->memberBusinesses()->orderBy('businesses.id')->first();
+        if ($member !== null) {
+            return $member->type ?? Business::TYPE_PROCESSOR;
+        }
+
+        return Business::TYPE_PROCESSOR;
+    }
+
+    public function defaultDashboardRouteName(): string
+    {
+        if ($this->isSuperAdmin()) {
+            return 'super-admin.dashboard';
+        }
+
+        return match ($this->tenantWorkspaceType()) {
+            Business::TYPE_FARMER => 'farmer.dashboard',
+            Business::TYPE_LOGISTICS => 'logistics.dashboard',
+            default => 'dashboard',
+        };
+    }
+
+    /** Relative URL path for post-login / intended redirects. */
+    public function tenantDashboardPath(): string
+    {
+        return route($this->defaultDashboardRouteName(), absolute: false);
     }
 }

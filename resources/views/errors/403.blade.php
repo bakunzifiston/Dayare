@@ -11,7 +11,7 @@
                 <p class="text-slate-600 mb-6">
                     {{ $message ?? __('You do not have permission to access this section.') }}
                 </p>
-                <a href="{{ route('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-bucha font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                <a href="{{ Auth::check() ? route(Auth::user()->defaultDashboardRouteName()) : route('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-bucha font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('Go to Dashboard') }}
                 </a>
             </div>

@@ -14,6 +14,7 @@ class Business extends Model
 
     protected $fillable = [
         'user_id',
+        'type',
         'business_name',
         'registration_number',
         'tax_id',
@@ -43,6 +44,19 @@ class Business extends Model
         'country',
     ];
 
+    public const TYPE_FARMER = 'farmer';
+
+    public const TYPE_PROCESSOR = 'processor';
+
+    public const TYPE_LOGISTICS = 'logistics';
+
+    /** @var list<string> */
+    public const TYPES = [
+        self::TYPE_FARMER,
+        self::TYPE_PROCESSOR,
+        self::TYPE_LOGISTICS,
+    ];
+
     public const OWNERSHIP_TYPES = ['sole_proprietor', 'partnership', 'company', 'cooperative', 'other'];
 
     public const OWNERSHIP_TYPES_WITH_MEMBERS = ['partnership', 'cooperative', 'company'];
@@ -52,6 +66,7 @@ class Business extends Model
     ];
 
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_SUSPENDED = 'suspended';
 
     public const STATUSES = [
@@ -112,6 +127,23 @@ class Business extends Model
             ->withPivot('role')
             ->withTimestamps()
             ->using(BusinessUser::class);
+    }
+
+    public function farms(): HasMany
+    {
+        return $this->hasMany(Farm::class);
+    }
+
+    /** Supply requests where this business is the processor. */
+    public function supplyRequestsAsProcessor(): HasMany
+    {
+        return $this->hasMany(SupplyRequest::class, 'processor_id');
+    }
+
+    /** Supply requests where this business is the farmer. */
+    public function supplyRequestsAsFarmer(): HasMany
+    {
+        return $this->hasMany(SupplyRequest::class, 'farmer_id');
     }
 
     public function hasOwnershipMembers(): bool

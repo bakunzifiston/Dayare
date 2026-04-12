@@ -11,7 +11,11 @@ class EnsureTenantPermission
     /** Route name (or prefix) => permission required. More specific prefixes must appear first. */
     private const ROUTE_PERMISSION_MAP = [
         'dashboard' => null,
+        'farmer' => null,
+        'logistics' => null,
         'profile' => null,
+
+        'processor.supply-requests' => 'manage animal intakes',
 
         'businesses.facilities' => 'manage facilities',
         'businesses' => 'manage businesses',

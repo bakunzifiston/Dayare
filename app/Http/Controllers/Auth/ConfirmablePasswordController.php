@@ -35,10 +35,6 @@ class ConfirmablePasswordController extends Controller
 
         $request->session()->put('auth.password_confirmed_at', time());
 
-        $defaultRoute = $request->user()->isSuperAdmin()
-            ? route('super-admin.dashboard', absolute: false)
-            : route('dashboard', absolute: false);
-
-        return redirect()->intended($defaultRoute);
+        return redirect()->intended($request->user()->tenantDashboardPath());
     }
 }

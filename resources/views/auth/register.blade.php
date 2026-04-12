@@ -66,6 +66,23 @@
                 <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
             </div>
 
+            <div>
+                <x-input-label for="business_type" :value="__('Business type')" class="text-gray-700 font-medium" />
+                <select
+                    id="business_type"
+                    name="business_type"
+                    required
+                    class="block mt-1 w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary text-sm"
+                >
+                    @php $bt = old('business_type', 'processor'); @endphp
+                    <option value="farmer" @selected($bt === 'farmer')>{{ __('Farmer') }}</option>
+                    <option value="processor" @selected($bt === 'processor')>{{ __('Processor') }}</option>
+                    <option value="logistics" @selected($bt === 'logistics')>{{ __('Logistics') }}</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-500">{{ __('This sets your workspace. You can complete business details after signing up.') }}</p>
+                <x-input-error :messages="$errors->get('business_type')" class="mt-2" />
+            </div>
+
             <div class="pt-2">
                 <button
                     type="submit"

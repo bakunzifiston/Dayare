@@ -11,6 +11,7 @@
                 ['label' => __('Businesses'), 'route' => 'businesses.hub', 'icon' => 'building', 'permission' => 'manage businesses', 'routeIs' => ['businesses.hub', 'businesses.index', 'businesses.create', 'businesses.edit', 'businesses.show', 'businesses.facilities.*']],
                 ['label' => __('Inspectors'), 'route' => 'inspectors.hub', 'icon' => 'user', 'permission' => 'manage inspectors', 'routeIs' => ['inspectors.hub', 'inspectors.index', 'inspectors.create', 'inspectors.edit', 'inspectors.show']],
                 ['label' => __('Animal intake'), 'route' => 'animal-intakes.hub', 'icon' => 'intake', 'permission' => 'manage animal intakes', 'routeIs' => ['animal-intakes.hub', 'animal-intakes.index', 'animal-intakes.create', 'animal-intakes.edit', 'animal-intakes.show']],
+                ['label' => __('Farmer supply'), 'route' => 'processor.supply-requests.index', 'icon' => 'clipboard-list', 'permission' => 'manage animal intakes', 'routeIs' => ['processor.supply-requests.*']],
                 ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.hub', 'icon' => 'calendar', 'permission' => 'manage slaughter plans', 'routeIs' => ['slaughter-plans.hub', 'slaughter-plans.index', 'slaughter-plans.create', 'slaughter-plans.edit', 'slaughter-plans.show']],
                 ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list', 'permission' => 'manage ante-mortem'],
                 ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.hub', 'icon' => 'play', 'permission' => 'manage slaughter executions', 'routeIs' => ['slaughter-executions.hub', 'slaughter-executions.index', 'slaughter-executions.create', 'slaughter-executions.edit', 'slaughter-executions.show']],
@@ -57,6 +58,24 @@
         $tenantNav = $filtered;
     }
 
+    $workspaceKind = $user?->tenantWorkspaceType() ?? 'processor';
+    if (! $isSuperAdmin && $user && in_array($workspaceKind, ['farmer', 'logistics'], true)) {
+        if ($workspaceKind === 'farmer') {
+            $tenantNav = [
+                ['label' => __('Dashboard'), 'route' => 'farmer.dashboard', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['farmer.dashboard']],
+                ['label' => __('Farms'), 'route' => 'farmer.farms.index', 'icon' => 'building', 'permission' => null, 'routeIs' => ['farmer.farms.index', 'farmer.farms.create', 'farmer.farms.show', 'farmer.farms.edit']],
+                ['label' => __('Livestock'), 'route' => 'farmer.livestock.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['farmer.livestock.index', 'farmer.farms.livestock.*']],
+                ['label' => __('Health'), 'route' => 'farmer.health.hub', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['farmer.health.hub', 'farmer.farms.health-records.*']],
+                ['label' => __('Supply requests'), 'route' => 'farmer.supply-requests.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.supply-requests.*']],
+                ['label' => __('Supply history'), 'route' => 'farmer.supply-history', 'icon' => 'calendar', 'permission' => null, 'routeIs' => ['farmer.supply-history']],
+            ];
+        } else {
+            $tenantNav = [
+                ['label' => __('Dashboard'), 'route' => 'logistics.dashboard', 'icon' => 'dashboard', 'permission' => null],
+            ];
+        }
+    }
+
     $navGroups = $isSuperAdmin
         ? [
             ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield'],
@@ -73,7 +92,7 @@
 >
     <div class="flex items-center justify-between px-5 mb-6 gap-2">
         <x-sidebar-brand
-            :href="$isSuperAdmin ? route('super-admin.dashboard') : route('dashboard')"
+            :href="$isSuperAdmin ? route('super-admin.dashboard') : route(Auth::user()->defaultDashboardRouteName())"
             :show-admin-badge="$isSuperAdmin"
         />
         <button @click="sidebarOpen = false" type="button" class="lg:hidden p-2 rounded-bucha text-white/80 hover:text-white hover:bg-white/10">
@@ -133,7 +152,20 @@
                     </div>
                 </div>
             @else
-                @php $routePattern = str_replace('.index', '.*', $item['route']); $active = request()->routeIs($item['route']) || request()->routeIs($routePattern); @endphp
+                @php
+                    if (! empty($item['routeIs'] ?? null)) {
+                        $active = false;
+                        foreach ((array) $item['routeIs'] as $pat) {
+                            if (request()->routeIs($pat)) {
+                                $active = true;
+                                break;
+                            }
+                        }
+                    } else {
+                        $routePattern = str_replace('.index', '.*', $item['route']);
+                        $active = request()->routeIs($item['route']) || request()->routeIs($routePattern);
+                    }
+                @endphp
                 <a href="{{ route($item['route']) }}" class="flex items-center gap-3 px-3 py-2.5 rounded-bucha text-sm font-medium transition-colors {{ $active ? 'bg-bucha-primary/35 text-white border-l-2 border-red-200/90 shadow-inner' : 'text-white/90 hover:bg-white/10 hover:text-white' }}">
                     @include('layouts.partials.sidebar-icon', ['icon' => $item['icon'] ?? ''])
                     <span>{{ $item['label'] }}</span>
