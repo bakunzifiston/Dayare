@@ -50,6 +50,7 @@ use OpenApi\Attributes as OA;
     operationId: 'mobileAuthLogout',
     summary: 'Revoke current mobile token',
     tags: ['Auth'],
+    security: [['bearerAuth' => []]],
     responses: [
         new OA\Response(
             response: 200,
@@ -63,7 +64,9 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/auth/me',
     operationId: 'mobileAuthMe',
     summary: 'Current user for this token',
+    description: 'Requires `Authorization: Bearer <token>`. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).',
     tags: ['Users'],
+    security: [['bearerAuth' => []]],
     responses: [
         new OA\Response(
             response: 200,

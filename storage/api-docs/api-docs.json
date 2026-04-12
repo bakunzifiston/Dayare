@@ -99,7 +99,12 @@
                     "401": {
                         "description": "Missing or invalid Bearer token"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/auth/me": {
@@ -108,6 +113,7 @@
                     "Users"
                 ],
                 "summary": "Current user for this token",
+                "description": "Requires `Authorization: Bearer <token>`. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).",
                 "operationId": "mobileAuthMe",
                 "responses": {
                     "200": {
@@ -123,7 +129,12 @@
                     "401": {
                         "description": "Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/lookups": {
