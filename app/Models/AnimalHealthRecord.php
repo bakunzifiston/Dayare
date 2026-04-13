@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Optional visit / observation log. Does not update {@see Livestock} healthy or sick quantities.
@@ -61,5 +62,10 @@ class AnimalHealthRecord extends Model
     public function livestock(): BelongsTo
     {
         return $this->belongsTo(Livestock::class);
+    }
+
+    public function generatedCertificates(): HasMany
+    {
+        return $this->hasMany(FarmerHealthCertificate::class, 'source_health_record_id');
     }
 }

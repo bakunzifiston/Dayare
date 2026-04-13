@@ -66,6 +66,8 @@
                 ['label' => __('Farms'), 'route' => 'farmer.farms.index', 'icon' => 'building', 'permission' => null, 'routeIs' => ['farmer.farms.index', 'farmer.farms.create', 'farmer.farms.show', 'farmer.farms.edit']],
                 ['label' => __('Livestock'), 'route' => 'farmer.livestock.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['farmer.livestock.index', 'farmer.farms.livestock.*']],
                 ['label' => __('Health'), 'route' => 'farmer.health.hub', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['farmer.health.hub', 'farmer.farms.health-records.*']],
+                ['label' => __('Health certificates'), 'route' => 'farmer.health-certificates.index', 'icon' => 'certificate', 'permission' => null, 'routeIs' => ['farmer.health-certificates.*']],
+                ['label' => __('Movement permits'), 'route' => 'farmer.movement-permits.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.movement-permits.*']],
                 ['label' => __('Supply requests'), 'route' => 'farmer.supply-requests.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.supply-requests.*']],
                 ['label' => __('Supply history'), 'route' => 'farmer.supply-history', 'icon' => 'calendar', 'permission' => null, 'routeIs' => ['farmer.supply-history']],
             ];

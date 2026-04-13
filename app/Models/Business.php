@@ -159,6 +159,16 @@ class Business extends Model
         return $this->hasMany(SupplyRequest::class, 'farmer_id');
     }
 
+    public function movementPermits(): HasMany
+    {
+        return $this->hasMany(MovementPermit::class, 'farmer_id');
+    }
+
+    public function healthCertificates(): HasMany
+    {
+        return $this->hasMany(FarmerHealthCertificate::class, 'farmer_id');
+    }
+
     public function hasOwnershipMembers(): bool
     {
         return in_array($this->ownership_type, self::OWNERSHIP_TYPES_WITH_MEMBERS, true);

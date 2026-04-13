@@ -31,6 +31,7 @@
             <div class="bg-white rounded-bucha border border-slate-200/60 p-6 space-y-4">
                 <h3 class="font-semibold text-slate-800">{{ __('Respond') }}</h3>
                 <x-input-error :messages="$errors->get('farm_id')" class="mt-0" />
+                <x-input-error :messages="$errors->get('movement_permit_id')" class="mt-0" />
                 <x-input-error :messages="$errors->get('quantity')" class="mt-0" />
                 <x-input-error :messages="$errors->get('animal_type')" class="mt-0" />
                 <x-input-error :messages="$errors->get('supply_request')" class="mt-0" />
@@ -45,7 +46,18 @@
                             @endforeach
                         </select>
                     </div>
-                    <button type="submit" @if($farmOptions->isEmpty()) disabled @endif class="inline-flex items-center px-4 py-2 bg-bucha-primary text-white text-sm font-semibold rounded-bucha disabled:opacity-50">{{ __('Accept & fulfil') }}</button>
+                    <div>
+                        <x-input-label for="movement_permit_id" :value="__('Movement permit (RAB)')" />
+                        <select name="movement_permit_id" id="movement_permit_id" @if($permits->isEmpty()) disabled @else required @endif class="mt-1 block w-full rounded-lg border-gray-300">
+                            @foreach ($permits as $permit)
+                                <option value="{{ $permit->id }}">{{ $permit->permit_number }} — {{ __('Valid until') }} {{ $permit->expiry_date?->toDateString() }}</option>
+                            @endforeach
+                        </select>
+                        @if ($permits->isEmpty())
+                            <p class="mt-1 text-xs text-amber-700">{{ __('No valid movement permit found. Upload one before fulfilment.') }}</p>
+                        @endif
+                    </div>
+                    <button type="submit" @if($farmOptions->isEmpty() || $permits->isEmpty()) disabled @endif class="inline-flex items-center px-4 py-2 bg-bucha-primary text-white text-sm font-semibold rounded-bucha disabled:opacity-50">{{ __('Accept & fulfil') }}</button>
                 </form>
 
                 <form method="post" action="{{ route('farmer.supply-requests.reject', $supplyRequest) }}" onsubmit="return confirm('{{ __('Reject this request?') }}');">

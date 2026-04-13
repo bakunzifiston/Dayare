@@ -83,6 +83,21 @@ class Farm extends Model
         return $this->hasMany(AnimalHealthRecord::class);
     }
 
+    public function movementPermits(): HasMany
+    {
+        return $this->hasMany(MovementPermit::class, 'source_farm_id');
+    }
+
+    public function livestockEvents(): HasMany
+    {
+        return $this->hasMany(LivestockEvent::class);
+    }
+
+    public function healthCertificates(): HasMany
+    {
+        return $this->hasMany(FarmerHealthCertificate::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;

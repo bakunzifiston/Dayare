@@ -120,6 +120,21 @@ class Livestock extends Model
         return $this->hasMany(AnimalHealthRecord::class);
     }
 
+    public function movementPermitLinks(): HasMany
+    {
+        return $this->hasMany(MovementPermitAnimal::class);
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(LivestockEvent::class);
+    }
+
+    public function healthCertificates(): HasMany
+    {
+        return $this->hasMany(FarmerHealthCertificate::class);
+    }
+
     /**
      * Most recent health log row (does not drive counts).
      */

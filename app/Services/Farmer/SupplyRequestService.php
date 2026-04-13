@@ -7,14 +7,21 @@ use App\Models\Business;
 use App\Models\Facility;
 use App\Models\Farm;
 use App\Models\Livestock;
+use App\Models\LivestockEvent;
+use App\Models\MovementPermit;
 use App\Models\SupplyRequest;
 use App\Models\User;
 use App\Support\FarmerAnimalType;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SupplyRequestService
 {
+    public function __construct(
+        private MovementPermitValidationService $permitValidationService
+    ) {}
+
     public function reject(SupplyRequest $supplyRequest, User $user): void
     {
         $this->assertFarmerOwnsRequest($supplyRequest, $user);
@@ -28,7 +35,7 @@ class SupplyRequestService
         $supplyRequest->update(['status' => SupplyRequest::STATUS_REJECTED]);
     }
 
-    public function accept(SupplyRequest $supplyRequest, User $user, int $sourceFarmId): AnimalIntake
+    public function accept(SupplyRequest $supplyRequest, User $user, int $sourceFarmId, int $movementPermitId): AnimalIntake
     {
         $this->assertFarmerOwnsRequest($supplyRequest, $user);
 
@@ -50,7 +57,7 @@ class SupplyRequestService
             ]);
         }
 
-        return DB::transaction(function () use ($supplyRequest, $farm) {
+        return DB::transaction(function () use ($supplyRequest, $farm, $movementPermitId) {
             /** @var Livestock|null $livestock */
             $livestock = Livestock::query()
                 ->where('farm_id', $farm->id)
@@ -65,6 +72,16 @@ class SupplyRequestService
             }
 
             $qty = $supplyRequest->quantity_requested;
+
+            /** @var MovementPermit $permit */
+            $permit = MovementPermit::query()->whereKey($movementPermitId)->lockForUpdate()->firstOrFail();
+            $this->permitValidationService->assertValidForMovement(
+                $permit,
+                (int) $supplyRequest->farmer_id,
+                (int) $farm->id,
+                (int) $qty,
+                $livestock
+            );
 
             if ($livestock->available_quantity < $qty) {
                 throw ValidationException::withMessages([
@@ -112,6 +129,24 @@ class SupplyRequestService
             $supplyRequest->update([
                 'status' => SupplyRequest::STATUS_FULFILLED,
                 'source_farm_id' => $farm->id,
+                'movement_permit_id' => $permit->id,
+            ]);
+
+            LivestockEvent::query()->create([
+                'farm_id' => $farm->id,
+                'livestock_id' => $livestock->id,
+                'movement_permit_id' => $permit->id,
+                'event_type' => LivestockEvent::TYPE_SUPPLY_FULFILLMENT,
+                'quantity' => (int) $qty,
+                'event_date' => Carbon::today()->toDateString(),
+                'notes' => __('Supply request #:id fulfilled using movement permit :permit.', [
+                    'id' => $supplyRequest->id,
+                    'permit' => $permit->permit_number,
+                ]),
+                'metadata' => [
+                    'supply_request_id' => $supplyRequest->id,
+                    'destination_facility_id' => $facility->id,
+                ],
             ]);
 
             return $intake;

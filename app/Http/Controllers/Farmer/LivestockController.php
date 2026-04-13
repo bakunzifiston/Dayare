@@ -9,6 +9,8 @@ use App\Http\Requests\Farmer\UpdateLivestockDetailsRequest;
 use App\Http\Requests\Farmer\UpdateLivestockRequest;
 use App\Models\Farm;
 use App\Models\Livestock;
+use App\Models\MovementPermit;
+use Carbon\Carbon;
 use App\Support\FarmerAnimalType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -27,8 +29,21 @@ class LivestockController extends Controller
             ->get();
 
         $healthHeadcounts = Livestock::aggregateHealthQuantities($livestock);
+        $destinationFarms = Farm::query()
+            ->whereIn('business_id', $request->user()->accessibleFarmerBusinessIds())
+            ->whereKeyNot($farm->id)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        return view('farmer.livestock.index', compact('farm', 'livestock', 'healthHeadcounts'));
+        $validPermits = MovementPermit::query()
+            ->where('farmer_id', $farm->business_id)
+            ->where('source_farm_id', $farm->id)
+            ->whereDate('issue_date', '<=', Carbon::today())
+            ->whereDate('expiry_date', '>=', Carbon::today())
+            ->orderBy('expiry_date')
+            ->get(['id', 'permit_number', 'expiry_date']);
+
+        return view('farmer.livestock.index', compact('farm', 'livestock', 'healthHeadcounts', 'destinationFarms', 'validPermits'));
     }
 
     public function create(Request $request, Farm $farm): View

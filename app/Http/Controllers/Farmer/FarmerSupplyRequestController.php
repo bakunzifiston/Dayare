@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Farmer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Farmer\AcceptSupplyRequestRequest;
 use App\Models\Farm;
+use App\Models\MovementPermit;
 use App\Models\SupplyRequest;
 use App\Services\Farmer\SupplyRequestService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -40,7 +42,14 @@ class FarmerSupplyRequestController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('farmer.supply-requests.show', compact('supplyRequest', 'farmOptions'));
+        $permits = MovementPermit::query()
+            ->where('farmer_id', $supplyRequest->farmer_id)
+            ->whereDate('issue_date', '<=', Carbon::today())
+            ->whereDate('expiry_date', '>=', Carbon::today())
+            ->orderBy('expiry_date')
+            ->get();
+
+        return view('farmer.supply-requests.show', compact('supplyRequest', 'farmOptions', 'permits'));
     }
 
     public function accept(AcceptSupplyRequestRequest $request, SupplyRequest $supplyRequest): RedirectResponse
@@ -48,7 +57,12 @@ class FarmerSupplyRequestController extends Controller
         $this->authorizeRequest($request, $supplyRequest);
 
         try {
-            $this->supplyRequestService->accept($supplyRequest, $request->user(), (int) $request->validated('farm_id'));
+            $this->supplyRequestService->accept(
+                $supplyRequest,
+                $request->user(),
+                (int) $request->validated('farm_id'),
+                (int) $request->validated('movement_permit_id')
+            );
         } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->back()->withErrors($e->errors());
         }

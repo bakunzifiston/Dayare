@@ -127,6 +127,68 @@
             </div>
         @endif
 
+        <section class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
+            <h3 class="text-sm font-semibold text-slate-900">{{ __('Move livestock between farms') }}</h3>
+            <p class="mt-1 text-xs text-slate-500">{{ __('A valid RAB movement permit is required.') }}</p>
+            <x-input-error :messages="$errors->get('destination_farm_id')" class="mt-2" />
+            <x-input-error :messages="$errors->get('livestock_id')" class="mt-2" />
+            <x-input-error :messages="$errors->get('movement_permit_id')" class="mt-2" />
+            <x-input-error :messages="$errors->get('quantity')" class="mt-2" />
+            <form method="post" action="{{ route('farmer.farms.livestock.move', $farm) }}" class="mt-3 grid sm:grid-cols-3 gap-3">
+                @csrf
+                <input type="hidden" name="source_farm_id" value="{{ $farm->id }}">
+                <div>
+                    <x-input-label for="destination_farm_id" :value="__('Destination farm')" />
+                    <select id="destination_farm_id" name="destination_farm_id" class="mt-1 block w-full rounded-lg border-gray-300" required>
+                        <option value="">{{ __('Select destination') }}</option>
+                        @foreach ($destinationFarms as $destinationFarm)
+                            <option value="{{ $destinationFarm->id }}">{{ $destinationFarm->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <x-input-label for="livestock_id" :value="__('Livestock row')" />
+                    <select id="livestock_id" name="livestock_id" class="mt-1 block w-full rounded-lg border-gray-300" required>
+                        <option value="">{{ __('Select livestock') }}</option>
+                        @foreach ($livestock as $row)
+                            <option value="{{ $row->id }}">{{ ucfirst($row->type) }} #{{ $row->id }} ({{ __('Available') }}: {{ $row->available_quantity }})</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <x-input-label for="quantity" :value="__('Quantity')" />
+                    <x-text-input id="quantity" name="quantity" type="number" min="1" class="mt-1 block w-full" :value="old('quantity', 1)" required />
+                </div>
+                <div>
+                    <x-input-label for="reason" :value="__('Reason')" />
+                    <select id="reason" name="reason" class="mt-1 block w-full rounded-lg border-gray-300" required>
+                        <option value="transfer">{{ __('Transfer') }}</option>
+                        <option value="sale">{{ __('Sale') }}</option>
+                        <option value="loss">{{ __('Loss') }}</option>
+                    </select>
+                </div>
+                <div>
+                    <x-input-label for="movement_date" :value="__('Movement date')" />
+                    <x-text-input id="movement_date" name="movement_date" type="date" class="mt-1 block w-full" :value="old('movement_date', now()->toDateString())" required />
+                </div>
+                <div>
+                    <x-input-label for="movement_permit_id" :value="__('Movement permit')" />
+                    <select id="movement_permit_id" name="movement_permit_id" class="mt-1 block w-full rounded-lg border-gray-300" required>
+                        <option value="">{{ __('Select permit') }}</option>
+                        @foreach ($validPermits as $permit)
+                            <option value="{{ $permit->id }}">{{ $permit->permit_number }} ({{ __('Valid until') }} {{ $permit->expiry_date?->toDateString() }})</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="sm:col-span-3">
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-bucha-primary text-white text-sm font-semibold rounded-bucha">{{ __('Record movement') }}</button>
+                    @if ($validPermits->isEmpty())
+                        <p class="mt-2 text-xs text-amber-700">{{ __('No valid movement permit available for this farm. Upload one first.') }}</p>
+                    @endif
+                </div>
+            </form>
+        </section>
+
         <div
             x-show="modalOpen"
             x-transition.opacity

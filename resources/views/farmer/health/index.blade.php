@@ -1,9 +1,14 @@
 <x-app-layout>
     <x-slot name="header">
-        <div>
+        <div class="flex items-start justify-between gap-4">
+            <div>
             <a href="{{ route('farmer.farms.show', $farm) }}" class="text-sm text-bucha-primary hover:underline">{{ __('← :farm', ['farm' => $farm->name]) }}</a>
             <h2 class="mt-1 font-semibold text-xl text-slate-800">{{ __('Farm health') }}</h2>
             <p class="mt-1 text-sm text-slate-500">{{ __('Counts are for supply decisions. Visit logs are history only.') }}</p>
+            </div>
+            <a href="{{ route('farmer.health-certificates.create', ['farm_id' => $farm->id]) }}" class="inline-flex items-center px-3 py-2 text-sm font-semibold rounded-bucha bg-bucha-primary text-white">
+                {{ __('Create certificate') }}
+            </a>
         </div>
     </x-slot>
 
@@ -218,7 +223,13 @@
                                 <td class="px-4 py-2 text-slate-600">{{ \Illuminate\Support\Str::limit($r->treatment_given ?? '', 60) }}</td>
                                 <td class="px-4 py-2 whitespace-nowrap text-slate-600">{{ $r->next_due_date?->toDateString() ?? '—' }}</td>
                                 <td class="px-4 py-2 text-slate-600">{{ \Illuminate\Support\Str::limit($r->notes ?? '', 80) }}</td>
-                                <td class="px-4 py-2 text-right whitespace-nowrap">
+                                <td class="px-4 py-2 text-right whitespace-nowrap space-x-3">
+                                    <a
+                                        href="{{ route('farmer.health-certificates.create', ['farm_id' => $farm->id, 'livestock_id' => $r->livestock_id, 'health_record_id' => $r->id]) }}"
+                                        class="text-bucha-primary hover:underline"
+                                    >
+                                        {{ __('Create certificate') }}
+                                    </a>
                                     <form action="{{ route('farmer.farms.health-records.destroy', [$farm, $r]) }}" method="post" class="inline" onsubmit="return confirm('{{ __('Delete?') }}');">
                                         @csrf
                                         @method('delete')

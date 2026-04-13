@@ -15,6 +15,7 @@ class AcceptSupplyRequestRequest extends FormRequest
     {
         return [
             'farm_id' => ['required', 'integer', 'exists:farms,id'],
+            'movement_permit_id' => ['required', 'integer', 'exists:movement_permits,id'],
         ];
     }
 }

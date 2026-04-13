@@ -30,15 +30,24 @@ class SupplyRequest extends Model
         'destination_facility_id',
         'animal_type',
         'quantity_requested',
+        'required_breed',
+        'required_weight',
+        'healthy_stock_required',
+        'certification_required',
+        'required_certification_type',
         'preferred_date',
         'status',
         'source_farm_id',
+        'requested_livestock_id',
+        'movement_permit_id',
     ];
 
     protected function casts(): array
     {
         return [
             'preferred_date' => 'date',
+            'healthy_stock_required' => 'boolean',
+            'certification_required' => 'boolean',
         ];
     }
 
@@ -62,9 +71,19 @@ class SupplyRequest extends Model
         return $this->belongsTo(Farm::class, 'source_farm_id');
     }
 
+    public function requestedLivestock(): BelongsTo
+    {
+        return $this->belongsTo(Livestock::class, 'requested_livestock_id');
+    }
+
     public function animalIntake(): HasOne
     {
         return $this->hasOne(AnimalIntake::class);
+    }
+
+    public function movementPermit(): BelongsTo
+    {
+        return $this->belongsTo(MovementPermit::class);
     }
 
     public function isPending(): bool
