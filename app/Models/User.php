@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
@@ -24,6 +25,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'email_normalized',
         'password',
         'is_super_admin',
     ];
@@ -50,6 +52,16 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_super_admin' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $user): void {
+            if ($user->email !== null) {
+                $user->email = Str::lower(trim((string) $user->email));
+                $user->email_normalized = $user->email;
+            }
+        });
     }
 
     public function isSuperAdmin(): bool

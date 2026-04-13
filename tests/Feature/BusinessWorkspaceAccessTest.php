@@ -16,6 +16,7 @@ class BusinessWorkspaceAccessTest extends TestCase
         $response = $this->post('/register', [
             'name' => 'Farmer User',
             'email' => 'farmer@example.com',
+            'business_name' => 'Farmer Workspace',
             'password' => 'password',
             'password_confirmation' => 'password',
             'business_type' => 'farmer',
@@ -30,6 +31,7 @@ class BusinessWorkspaceAccessTest extends TestCase
         $this->post('/register', [
             'name' => 'Farmer User',
             'email' => 'farmer@example.com',
+            'business_name' => 'Farmer Workspace',
             'password' => 'password',
             'password_confirmation' => 'password',
             'business_type' => 'farmer',
@@ -43,6 +45,7 @@ class BusinessWorkspaceAccessTest extends TestCase
         $this->post('/register', [
             'name' => 'Farmer User',
             'email' => 'farmer@example.com',
+            'business_name' => 'Farmer Workspace',
             'password' => 'password',
             'password_confirmation' => 'password',
             'business_type' => 'farmer',
@@ -58,6 +61,7 @@ class BusinessWorkspaceAccessTest extends TestCase
             'user_id' => $user->id,
             'type' => Business::TYPE_PROCESSOR,
             'business_name' => 'Test Co',
+            'business_name_normalized' => 'test co',
             'registration_number' => 'REG-TEST-001',
             'contact_phone' => '1234567890',
             'email' => 'biz@example.com',
@@ -74,6 +78,7 @@ class BusinessWorkspaceAccessTest extends TestCase
             'user_id' => $user->id,
             'type' => Business::TYPE_PROCESSOR,
             'business_name' => 'Test Co',
+            'business_name_normalized' => 'test co',
             'registration_number' => 'REG-TEST-002',
             'contact_phone' => '1234567890',
             'email' => 'biz@example.com',

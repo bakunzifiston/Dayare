@@ -37,6 +37,9 @@
 </head>
 <body class="font-sans text-gray-900 antialiased bg-bucha-canvas">
     <div class="min-h-screen flex flex-col p-4 sm:p-6 @if($showFooter) pb-8 sm:pb-10 gap-y-6 sm:gap-y-10 @endif">
+        <div class="w-full max-w-5xl mx-auto flex justify-end">
+            <x-language-switcher id="login" />
+        </div>
         <div class="flex-1 flex flex-col sm:justify-center items-center w-full min-h-0 py-6 sm:py-10">
         <div class="w-full max-w-4xl rounded-[28px] overflow-hidden shadow-xl flex flex-col sm:flex-row min-h-[520px]">
             <!-- Left panel -->

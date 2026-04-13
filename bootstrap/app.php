@@ -23,6 +23,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(prepend: [
+            \App\Http\Middleware\SetLocale::class,
+        ]);
+
+        $middleware->api(prepend: [
+            \App\Http\Middleware\SetLocale::class,
+        ]);
+
         $middleware->alias([
             'tenant' => \App\Http\Middleware\EnsureUserIsTenant::class,
             'workspace' => \App\Http\Middleware\EnsureUserWorkspace::class,

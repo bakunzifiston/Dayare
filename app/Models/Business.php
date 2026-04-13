@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Business extends Model
 {
@@ -16,6 +17,7 @@ class Business extends Model
         'user_id',
         'type',
         'business_name',
+        'business_name_normalized',
         'registration_number',
         'tax_id',
         'contact_phone',
@@ -73,6 +75,17 @@ class Business extends Model
         self::STATUS_ACTIVE,
         self::STATUS_SUSPENDED,
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $business): void {
+            if ($business->business_name !== null) {
+                $collapsedWhitespaceName = preg_replace('/\s+/', ' ', trim((string) $business->business_name)) ?? '';
+                $business->business_name = $collapsedWhitespaceName;
+                $business->business_name_normalized = Str::lower($collapsedWhitespaceName);
+            }
+        });
+    }
 
     public function user(): BelongsTo
     {

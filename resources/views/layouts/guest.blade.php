@@ -16,7 +16,10 @@
     </head>
     <body class="font-sans text-gray-900 antialiased">
         <div class="min-h-screen flex flex-col bg-gray-100 pb-8 sm:pb-10 gap-y-6 sm:gap-y-10">
-            <div class="flex-1 flex flex-col sm:justify-center items-center w-full min-h-0 pt-6 sm:pt-8 pb-6 sm:pb-10 px-4">
+            <div class="w-full max-w-5xl mx-auto flex justify-end pt-2 sm:pt-4 px-4">
+                <x-language-switcher id="guest" />
+            </div>
+            <div class="flex-1 flex flex-col sm:justify-center items-center w-full min-h-0 pt-4 sm:pt-6 pb-6 sm:pb-10 px-4">
                 <div>
                     <a href="/">
                         <x-application-logo class="h-14 w-auto max-w-[220px] mx-auto" />

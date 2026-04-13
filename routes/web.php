@@ -27,6 +27,7 @@ use App\Http\Controllers\Farmer\LivestockController;
 use App\Http\Controllers\FarmerDashboardController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\LogisticsDashboardController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PostMortemInspectionController;
 use App\Http\Controllers\Processor\ProcessorSupplyRequestController;
 use App\Http\Controllers\ProfileController;
@@ -51,6 +52,8 @@ Route::get('/', function () {
 
     return view('welcome');
 })->name('home');
+
+Route::post('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
 Route::get('/trace/{slug}', [\App\Http\Controllers\TraceabilityController::class, 'show'])->name('traceability.show');
 Route::view('/contact-us', 'contact')->name('contact-us');

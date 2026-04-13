@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class SettingsController extends Controller
@@ -25,7 +26,7 @@ class SettingsController extends Controller
 
         $data = $request->validate([
             'system_name' => ['nullable', 'string', 'max:255'],
-            'default_language' => ['nullable', 'string', 'max:10'],
+            'default_language' => ['nullable', 'string', Rule::in(config('app.supported_locales', ['en', 'rw']))],
             'default_country' => ['nullable', 'string', 'max:100'],
             'default_daily_capacity' => ['nullable', 'integer', 'min:0'],
             'temperature_warning' => ['nullable', 'integer', 'min:-50', 'max:100'],

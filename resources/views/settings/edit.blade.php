@@ -79,8 +79,8 @@
                                         @php
                                             $lang = $settings['default_language'] ?? app()->getLocale();
                                         @endphp
-                                        <option value="en" @selected($lang === 'en')>English</option>
-                                        <option value="rw" @selected($lang === 'rw')>Kinyarwanda</option>
+                                        <option value="en" @selected($lang === 'en')>{{ __('English') }}</option>
+                                        <option value="rw" @selected($lang === 'rw')>{{ __('Kinyarwanda') }}</option>
                                     </select>
                                     <x-input-error :messages="$errors->get('default_language')" class="mt-2" />
                                 </div>
