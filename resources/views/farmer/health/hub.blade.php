@@ -47,7 +47,7 @@
                                 <td class="px-4 py-2 capitalize">{{ $r->condition }}</td>
                                 <td class="px-4 py-2 text-slate-600">
                                     @if ($r->livestock_id)
-                                        <span class="capitalize">{{ $r->livestock?->type ?? '—' }}</span>
+                                        <span>{{ $r->livestock ? \App\Support\FarmerAnimalType::label($r->livestock->type) : '—' }}</span>
                                         <span class="text-slate-400">#{{ $r->livestock_id }}</span>
                                     @else
                                         <span>{{ $r->batch_reference ?: '—' }}</span>

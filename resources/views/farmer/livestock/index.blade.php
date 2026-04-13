@@ -68,7 +68,7 @@
                     <div class="rounded-bucha border border-slate-200/60 bg-white p-4 shadow-sm flex flex-col gap-3">
                         <div class="flex items-start justify-between gap-2">
                             <div>
-                                <p class="font-semibold text-slate-900 capitalize">{{ $row->type }}</p>
+                                <p class="font-semibold text-slate-900">{{ \App\Support\FarmerAnimalType::label($row->type) }}</p>
                                 @if ($row->breed !== '')
                                     <p class="text-sm text-slate-600">{{ $row->breed }}</p>
                                 @endif
@@ -151,7 +151,7 @@
                     <select id="livestock_id" name="livestock_id" class="mt-1 block w-full rounded-lg border-gray-300" required>
                         <option value="">{{ __('Select livestock') }}</option>
                         @foreach ($livestock as $row)
-                            <option value="{{ $row->id }}">{{ ucfirst($row->type) }} #{{ $row->id }} ({{ __('Available') }}: {{ $row->available_quantity }})</option>
+                            <option value="{{ $row->id }}">{{ \App\Support\FarmerAnimalType::label($row->type) }} #{{ $row->id }} ({{ __('Available') }}: {{ $row->available_quantity }})</option>
                         @endforeach
                     </select>
                 </div>
@@ -221,7 +221,7 @@
                             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">{{ __('Core') }}</p>
                             <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                                 <dt class="text-slate-500">{{ __('Type') }}</dt>
-                                <dd class="text-slate-900 capitalize" x-text="payload.core.type"></dd>
+                                <dd class="text-slate-900" x-text="payload.core.type_label || payload.core.type"></dd>
                                 <dt class="text-slate-500">{{ __('Breed') }}</dt>
                                 <dd class="text-slate-900" x-text="payload.core.breed || '—'"></dd>
                                 <dt class="text-slate-500">{{ __('Feeding') }}</dt>

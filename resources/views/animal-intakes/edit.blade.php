@@ -160,7 +160,7 @@
                             @endphp
                             <select id="species" name="species" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary rounded-md shadow-sm" required>
                                 @foreach ($speciesOptions as $s)
-                                    <option value="{{ $s }}" @selected(old('species', $intake->species) === $s)>{{ $s }}</option>
+                                    <option value="{{ $s }}" @selected(old('species', $intake->species) === $s)>{{ __($s) }}</option>
                                 @endforeach
                             </select>
                             <x-input-error class="mt-2" :messages="$errors->get('species')" />

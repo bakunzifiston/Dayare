@@ -46,7 +46,7 @@
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm registration number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_registration_number ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Origin (location)') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->village?->name ?? $intake->sector?->name ?? $intake->district?->name ?? $intake->province?->name ?? $intake->country?->name ?? '—' }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Species') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->species }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Species') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ __($intake->species) }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Number of animals') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->number_of_animals }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Remaining (for slaughter)') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->remainingAnimalsAvailable() }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Unit price') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->unit_price !== null ? number_format($intake->unit_price, 2) : '—' }}</dd></div>

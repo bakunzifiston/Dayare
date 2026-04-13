@@ -45,7 +45,7 @@
                                 <td class="px-4 py-2">
                                     <a href="{{ route('farmer.farms.show', $row->farm) }}" class="text-bucha-primary hover:underline">{{ $row->farm?->name }}</a>
                                 </td>
-                                <td class="px-4 py-2 capitalize">{{ $row->type }}</td>
+                                <td class="px-4 py-2">{{ \App\Support\FarmerAnimalType::label($row->type) }}</td>
                                 <td class="px-4 py-2 text-slate-700">{{ $row->breed !== '' ? $row->breed : '—' }}</td>
                                 <td class="px-4 py-2 tabular-nums">
                                     <span class="text-emerald-800 font-medium">{{ (int) $row->healthy_quantity }}</span>

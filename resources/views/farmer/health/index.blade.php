@@ -30,7 +30,7 @@
                             @foreach ($upcomingVaccinations->take(3) as $v)
                                 <li>
                                     {{ $v->next_due_date?->toDateString() }} —
-                                    {{ $v->livestock ? ucfirst($v->livestock->type).' (#'.$v->livestock->id.')' : ($v->batch_reference ?: __('Batch record')) }}
+                                    {{ $v->livestock ? \App\Support\FarmerAnimalType::label($v->livestock->type).' (#'.$v->livestock->id.')' : ($v->batch_reference ?: __('Batch record')) }}
                                 </li>
                             @endforeach
                         </ul>
@@ -42,7 +42,7 @@
                     @if ($sickRows->isNotEmpty())
                         <ul class="mt-2 space-y-1 text-xs text-red-900">
                             @foreach ($sickRows->take(3) as $row)
-                                <li>{{ ucfirst($row->type) }} (#{{ $row->id }}) — {{ __('Sick') }}: {{ $row->sick_quantity }}</li>
+                                <li>{{ \App\Support\FarmerAnimalType::label($row->type) }} (#{{ $row->id }}) — {{ __('Sick') }}: {{ $row->sick_quantity }}</li>
                             @endforeach
                         </ul>
                     @endif
@@ -89,7 +89,7 @@
                             <tbody class="divide-y divide-slate-100">
                                 @foreach ($farm->livestock as $l)
                                     <tr>
-                                        <td class="px-4 py-2 capitalize">{{ $l->type }}@if ($l->breed !== '') <span class="text-slate-500">— {{ $l->breed }}</span>@endif</td>
+                                        <td class="px-4 py-2">{{ \App\Support\FarmerAnimalType::label($l->type) }}@if ($l->breed !== '') <span class="text-slate-500">— {{ $l->breed }}</span>@endif</td>
                                         <td class="px-4 py-2 tabular-nums">{{ $l->total_quantity }}</td>
                                         <td class="px-4 py-2">
                                             <input type="number" name="splits[{{ $l->id }}][healthy]" min="0" required
@@ -161,7 +161,7 @@
                         <select name="livestock_id" id="livestock_id" class="mt-1 block w-full rounded-lg border-gray-300">
                             <option value="">{{ __('—') }}</option>
                             @foreach ($farm->livestock as $l)
-                                <option value="{{ $l->id }}" @selected(old('livestock_id') == $l->id)>{{ ucfirst($l->type) }} (#{{ $l->id }})</option>
+                                <option value="{{ $l->id }}" @selected(old('livestock_id') == $l->id)>{{ \App\Support\FarmerAnimalType::label($l->type) }} (#{{ $l->id }})</option>
                             @endforeach
                         </select>
                         <x-input-error :messages="$errors->get('livestock_id')" class="mt-2" />
@@ -212,7 +212,7 @@
                                 <td class="px-4 py-2 capitalize">{{ $r->condition }}</td>
                                 <td class="px-4 py-2 text-slate-600">
                                     @if ($r->livestock_id)
-                                        <span class="capitalize">{{ $r->livestock?->type ?? '—' }}</span>
+                                        <span>{{ $r->livestock ? \App\Support\FarmerAnimalType::label($r->livestock->type) : '—' }}</span>
                                         <span class="text-slate-400">#{{ $r->livestock_id }}</span>
                                     @elseif ($r->batch_reference)
                                         <span>{{ $r->batch_reference }}</span>

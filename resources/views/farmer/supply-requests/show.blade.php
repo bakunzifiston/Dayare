@@ -12,7 +12,7 @@
         <div class="bg-white rounded-bucha border border-slate-200/60 p-6 space-y-2 text-sm">
             <p><span class="text-slate-500">{{ __('Processor') }}:</span> {{ $supplyRequest->processor?->business_name }}</p>
             <p><span class="text-slate-500">{{ __('Destination facility') }}:</span> {{ $supplyRequest->destinationFacility?->facility_name }}</p>
-            <p><span class="text-slate-500">{{ __('Animal type') }}:</span> {{ ucfirst($supplyRequest->animal_type) }}</p>
+            <p><span class="text-slate-500">{{ __('Animal type') }}:</span> {{ \App\Support\FarmerAnimalType::label($supplyRequest->animal_type) }}</p>
             <p><span class="text-slate-500">{{ __('Quantity') }}:</span> {{ $supplyRequest->quantity_requested }}</p>
             <p><span class="text-slate-500">{{ __('Preferred date') }}:</span> {{ $supplyRequest->preferred_date?->toDateString() ?? '—' }}</p>
             <p><span class="text-slate-500">{{ __('Status') }}:</span> {{ ucfirst($supplyRequest->status) }}</p>

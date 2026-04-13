@@ -121,7 +121,7 @@
                                     @foreach ($farms as $farm)
                                         @foreach ($farm->livestock as $row)
                                             <option value="{{ $row->id }}" @selected((string) old('animals.'.$i.'.livestock_id') === (string) $row->id)>
-                                                {{ $farm->name }} — {{ ucfirst($row->type) }} #{{ $row->id }}
+                                                {{ $farm->name }} — {{ \App\Support\FarmerAnimalType::label($row->type) }} #{{ $row->id }}
                                             </option>
                                         @endforeach
                                     @endforeach

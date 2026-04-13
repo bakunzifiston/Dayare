@@ -30,7 +30,7 @@
             </div>
             <div>
                 <p class="text-slate-500">{{ __('Livestock') }}</p>
-                <p class="font-medium text-slate-900">{{ $healthCertificate->livestock ? ucfirst($healthCertificate->livestock->type).' #'.$healthCertificate->livestock->id : '—' }}</p>
+                <p class="font-medium text-slate-900">{{ $healthCertificate->livestock ? \App\Support\FarmerAnimalType::label($healthCertificate->livestock->type).' #'.$healthCertificate->livestock->id : '—' }}</p>
             </div>
             <div>
                 <p class="text-slate-500">{{ __('Batch reference') }}</p>

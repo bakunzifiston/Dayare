@@ -16,7 +16,7 @@
                 <x-input-label for="type" :value="__('Animal type')" />
                 <select name="type" id="type" required class="mt-1 block w-full rounded-lg border-gray-300">
                     @foreach ($types as $t)
-                        <option value="{{ $t }}" @selected(old('type', $livestock->type) === $t)>{{ ucfirst($t) }}</option>
+                        <option value="{{ $t }}" @selected(old('type', $livestock->type) === $t)>{{ \App\Support\FarmerAnimalType::label($t) }}</option>
                     @endforeach
                 </select>
                 <x-input-error :messages="$errors->get('type')" class="mt-2" />

@@ -20,7 +20,7 @@
                         @foreach (\App\Support\FarmerAnimalType::ALL as $t)
                             <label class="inline-flex items-center gap-2 text-sm">
                                 <input type="checkbox" name="animal_types[]" value="{{ $t }}" @checked(collect(old('animal_types', $farm->animal_types ?? []))->contains($t)) />
-                                {{ ucfirst($t) }}
+                                {{ \App\Support\FarmerAnimalType::label($t) }}
                             </label>
                         @endforeach
                     </div>

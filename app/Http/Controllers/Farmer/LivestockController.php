@@ -88,6 +88,7 @@ class LivestockController extends Controller
             'id' => $livestock->id,
             'core' => [
                 'type' => $livestock->type,
+                'type_label' => FarmerAnimalType::label($livestock->type),
                 'breed' => $livestock->breed,
                 'feeding_type' => $livestock->feeding_type,
                 'total_quantity' => $livestock->total_quantity,

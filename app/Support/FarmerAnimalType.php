@@ -35,4 +35,20 @@ class FarmerAnimalType
             default => AnimalIntake::SPECIES_OTHER,
         };
     }
+
+    /**
+     * Localized label for canonical farmer livestock / supply animal types.
+     */
+    public static function label(string $type): string
+    {
+        $t = strtolower(trim($type));
+
+        return match ($t) {
+            self::CATTLE => __('Cattle'),
+            self::GOAT => __('Goat'),
+            self::PIG => __('Pig'),
+            self::POULTRY => __('Poultry'),
+            default => __(ucfirst(str_replace('_', ' ', $t))),
+        };
+    }
 }

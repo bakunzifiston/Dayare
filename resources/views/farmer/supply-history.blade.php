@@ -20,7 +20,7 @@
                         <tr>
                             <td class="px-4 py-2">{{ $row['date'] }}</td>
                             <td class="px-4 py-2">{{ $row['facility'] }}</td>
-                            <td class="px-4 py-2">{{ $row['animal_type'] }}</td>
+                            <td class="px-4 py-2">{{ \App\Support\FarmerAnimalType::label((string) $row['animal_type']) }}</td>
                             <td class="px-4 py-2">{{ $row['quantity'] }}</td>
                             <td class="px-4 py-2">{{ $row['status'] }}</td>
                         </tr>

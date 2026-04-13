@@ -49,7 +49,7 @@
                         <tr>
                             <td class="px-4 py-2">
                                 @if ($row->livestock)
-                                    {{ ucfirst($row->livestock->type) }} #{{ $row->livestock->id }}
+                                    {{ \App\Support\FarmerAnimalType::label($row->livestock->type) }} #{{ $row->livestock->id }}
                                 @else
                                     —
                                 @endif

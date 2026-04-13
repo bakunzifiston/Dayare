@@ -13,7 +13,7 @@
             <p><span class="text-slate-500">{{ __('Business') }}:</span> {{ $farm->business?->business_name }}</p>
             <p><span class="text-slate-500">{{ __('Status') }}:</span> {{ ucfirst($farm->status) }}</p>
             @if ($farm->animal_types)
-                <p><span class="text-slate-500">{{ __('Animal types') }}:</span> {{ collect($farm->animal_types)->map(fn ($t) => ucfirst($t))->join(', ') }}</p>
+                <p><span class="text-slate-500">{{ __('Animal types') }}:</span> {{ collect($farm->animal_types)->map(fn ($t) => \App\Support\FarmerAnimalType::label($t))->join(', ') }}</p>
             @endif
         </div>
 

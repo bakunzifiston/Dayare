@@ -36,7 +36,7 @@
                 <article class="rounded-bucha border border-slate-200/70 bg-white p-4 space-y-3">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <h3 class="font-semibold text-slate-900 capitalize">{{ $row->type }}</h3>
+                            <h3 class="font-semibold text-slate-900">{{ \App\Support\FarmerAnimalType::label($row->type) }}</h3>
                             <p class="text-sm text-slate-600">{{ $row->breed ?: __('No breed set') }}</p>
                             <p class="text-xs text-slate-500">{{ $row->farm?->business?->business_name }} · {{ $row->farm?->name }}</p>
                         </div>
@@ -88,7 +88,7 @@
                 <div class="grid md:grid-cols-2 gap-4 text-sm">
                     <div class="rounded border border-slate-200 p-3">
                         <p class="font-medium text-slate-800">{{ __('Livestock details') }}</p>
-                        <p class="mt-2"><span class="text-slate-500">{{ __('Type') }}:</span> <span class="capitalize">{{ $selectedRow->type }}</span></p>
+                        <p class="mt-2"><span class="text-slate-500">{{ __('Type') }}:</span> {{ \App\Support\FarmerAnimalType::label($selectedRow->type) }}</p>
                         <p><span class="text-slate-500">{{ __('Breed') }}:</span> {{ $selectedRow->breed ?: '—' }}</p>
                         <p><span class="text-slate-500">{{ __('Available') }}:</span> {{ $selectedDiscovery['available_quantity'] }}</p>
                         <p><span class="text-slate-500">{{ __('Average weight') }}:</span> {{ $selectedDiscovery['average_weight'] !== null ? number_format((float) $selectedDiscovery['average_weight'], 2).' kg' : '—' }}</p>

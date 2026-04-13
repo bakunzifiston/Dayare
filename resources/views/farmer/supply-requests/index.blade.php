@@ -21,7 +21,7 @@
                         <tr>
                             <td class="px-4 py-2">{{ $r->processor?->business_name }}</td>
                             <td class="px-4 py-2">{{ $r->destinationFacility?->facility_name }}</td>
-                            <td class="px-4 py-2 capitalize">{{ $r->animal_type }}</td>
+                            <td class="px-4 py-2">{{ \App\Support\FarmerAnimalType::label($r->animal_type) }}</td>
                             <td class="px-4 py-2">{{ $r->quantity_requested }}</td>
                             <td class="px-4 py-2 capitalize">{{ $r->status }}</td>
                             <td class="px-4 py-2 text-right">

@@ -64,7 +64,7 @@
                         <div class="px-4 py-3 text-sm flex justify-between gap-4">
                             <div>
                                 <p class="font-medium text-slate-900">{{ $req->processor?->business_name }}</p>
-                                <p class="text-xs text-slate-500">{{ ucfirst($req->animal_type) }} × {{ $req->quantity_requested }}</p>
+                                <p class="text-xs text-slate-500">{{ \App\Support\FarmerAnimalType::label($req->animal_type) }} × {{ $req->quantity_requested }}</p>
                             </div>
                             <a href="{{ route('farmer.supply-requests.show', $req) }}" class="shrink-0 text-bucha-primary hover:underline">{{ __('Review') }}</a>
                         </div>
