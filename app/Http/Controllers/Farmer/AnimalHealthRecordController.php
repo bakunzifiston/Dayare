@@ -7,6 +7,7 @@ use App\Http\Requests\Farmer\StoreAnimalHealthRecordRequest;
 use App\Models\AnimalHealthRecord;
 use App\Models\Farm;
 use App\Models\Livestock;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,8 +24,23 @@ class AnimalHealthRecordController extends Controller
             ->paginate(20);
 
         $healthHeadcounts = Livestock::aggregateHealthQuantities($farm->livestock);
+        $today = Carbon::today();
+        $upcomingVaccinations = $farm->healthRecords()
+            ->where('event_type', AnimalHealthRecord::EVENT_VACCINATION)
+            ->whereDate('next_due_date', '>=', $today)
+            ->whereDate('next_due_date', '<=', $today->copy()->addDays(14))
+            ->orderBy('next_due_date')
+            ->limit(10)
+            ->get();
 
-        return view('farmer.health.index', compact('farm', 'records', 'healthHeadcounts'));
+        $sickRows = $farm->livestock()
+            ->where('sick_quantity', '>', 0)
+            ->orderByDesc('sick_quantity')
+            ->orderBy('type')
+            ->limit(10)
+            ->get();
+
+        return view('farmer.health.index', compact('farm', 'records', 'healthHeadcounts', 'upcomingVaccinations', 'sickRows'));
     }
 
     public function store(StoreAnimalHealthRecordRequest $request, Farm $farm): RedirectResponse

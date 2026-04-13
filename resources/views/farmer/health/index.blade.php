@@ -12,6 +12,39 @@
             <div class="rounded-bucha border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
         @endif
 
+        <section aria-labelledby="health-alerts-heading">
+            <h3 id="health-alerts-heading" class="text-sm font-semibold text-slate-900 mb-2">{{ __('Health alerts') }}</h3>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div class="rounded-bucha border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p class="text-sm font-semibold text-amber-900">{{ __('Upcoming vaccinations') }}</p>
+                    <p class="mt-1 text-xs text-amber-800">
+                        {{ __(':count due in next 14 days', ['count' => $upcomingVaccinations->count()]) }}
+                    </p>
+                    @if ($upcomingVaccinations->isNotEmpty())
+                        <ul class="mt-2 space-y-1 text-xs text-amber-900">
+                            @foreach ($upcomingVaccinations->take(3) as $v)
+                                <li>
+                                    {{ $v->next_due_date?->toDateString() }} —
+                                    {{ $v->livestock ? ucfirst($v->livestock->type).' (#'.$v->livestock->id.')' : ($v->batch_reference ?: __('Batch record')) }}
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+                <div class="rounded-bucha border border-red-200 bg-red-50 px-4 py-3">
+                    <p class="text-sm font-semibold text-red-900">{{ __('Sick animals') }}</p>
+                    <p class="mt-1 text-xs text-red-800">{{ __(':count livestock rows currently include sick quantity', ['count' => $sickRows->count()]) }}</p>
+                    @if ($sickRows->isNotEmpty())
+                        <ul class="mt-2 space-y-1 text-xs text-red-900">
+                            @foreach ($sickRows->take(3) as $row)
+                                <li>{{ ucfirst($row->type) }} (#{{ $row->id }}) — {{ __('Sick') }}: {{ $row->sick_quantity }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </div>
+        </section>
+
         {{-- 1. PRIMARY: health counts (authoritative) --}}
         <section aria-labelledby="health-counts-heading">
             <h3 id="health-counts-heading" class="text-sm font-semibold text-slate-900 mb-2">{{ __('Health counts') }}</h3>
@@ -90,7 +123,7 @@
         {{-- 2. SECONDARY: visit logs (history only) --}}
         <section aria-labelledby="health-logs-heading" class="border-t border-slate-200 pt-8">
             <h3 id="health-logs-heading" class="text-sm font-semibold text-slate-900 mb-1">{{ __('Health visit log') }}</h3>
-            <p class="text-sm text-slate-500 mb-4">{{ __('Optional history. These entries do not change healthy or sick quantities.') }}</p>
+            <p class="text-sm text-slate-500 mb-4">{{ __('Record vaccination, treatment, and diagnosis events. Entries do not change healthy or sick quantities.') }}</p>
 
             <form method="post" action="{{ route('farmer.farms.health-records.store', $farm) }}" class="bg-white rounded-bucha border border-slate-200/60 p-6 space-y-4 mb-8">
                 @csrf
@@ -102,6 +135,15 @@
                         <x-input-error :messages="$errors->get('record_date')" class="mt-2" />
                     </div>
                     <div>
+                        <x-input-label for="event_type" :value="__('Health event')" />
+                        <select name="event_type" id="event_type" class="mt-1 block w-full rounded-lg border-gray-300" required>
+                            @foreach (\App\Models\AnimalHealthRecord::EVENT_TYPES as $eventType)
+                                <option value="{{ $eventType }}" @selected(old('event_type', \App\Models\AnimalHealthRecord::EVENT_DISEASE_DIAGNOSIS) === $eventType)>{{ ucfirst(str_replace('_', ' ', $eventType)) }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error :messages="$errors->get('event_type')" class="mt-2" />
+                    </div>
+                    <div>
                         <x-input-label for="condition" :value="__('Condition')" />
                         <select name="condition" id="condition" class="mt-1 block w-full rounded-lg border-gray-300" required>
                             @foreach (\App\Models\AnimalHealthRecord::CONDITIONS as $c)
@@ -110,7 +152,7 @@
                         </select>
                     </div>
                     <div class="sm:col-span-2">
-                        <x-input-label for="livestock_id" :value="__('Livestock row (optional)')" />
+                        <x-input-label for="livestock_id" :value="__('Animal (optional if batch is set)')" />
                         <select name="livestock_id" id="livestock_id" class="mt-1 block w-full rounded-lg border-gray-300">
                             <option value="">{{ __('—') }}</option>
                             @foreach ($farm->livestock as $l)
@@ -118,6 +160,21 @@
                             @endforeach
                         </select>
                         <x-input-error :messages="$errors->get('livestock_id')" class="mt-2" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-input-label for="batch_reference" :value="__('Batch reference (optional if animal is set)')" />
+                        <x-text-input id="batch_reference" name="batch_reference" type="text" class="mt-1 block w-full" :value="old('batch_reference')" />
+                        <x-input-error :messages="$errors->get('batch_reference')" class="mt-2" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-input-label for="treatment_given" :value="__('Treatment given')" />
+                        <textarea name="treatment_given" id="treatment_given" rows="2" class="mt-1 block w-full rounded-lg border-gray-300">{{ old('treatment_given') }}</textarea>
+                        <x-input-error :messages="$errors->get('treatment_given')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label for="next_due_date" :value="__('Next due date (for vaccination alerts)')" />
+                        <x-text-input id="next_due_date" name="next_due_date" type="date" class="mt-1 block w-full" :value="old('next_due_date')" />
+                        <x-input-error :messages="$errors->get('next_due_date')" class="mt-2" />
                     </div>
                     <div class="sm:col-span-2">
                         <x-input-label for="notes" :value="__('Notes')" />
@@ -133,8 +190,11 @@
                     <thead class="bg-slate-50 text-left text-slate-600">
                         <tr>
                             <th class="px-4 py-2">{{ __('Date') }}</th>
+                            <th class="px-4 py-2">{{ __('Event') }}</th>
                             <th class="px-4 py-2">{{ __('Condition') }}</th>
-                            <th class="px-4 py-2">{{ __('Livestock') }}</th>
+                            <th class="px-4 py-2">{{ __('Animal / batch') }}</th>
+                            <th class="px-4 py-2">{{ __('Treatment given') }}</th>
+                            <th class="px-4 py-2">{{ __('Next due date') }}</th>
                             <th class="px-4 py-2">{{ __('Notes') }}</th>
                             <th class="px-4 py-2"></th>
                         </tr>
@@ -143,15 +203,20 @@
                         @forelse ($records as $r)
                             <tr>
                                 <td class="px-4 py-2 whitespace-nowrap">{{ $r->record_date?->toDateString() }}</td>
+                                <td class="px-4 py-2 capitalize">{{ str_replace('_', ' ', $r->event_type) }}</td>
                                 <td class="px-4 py-2 capitalize">{{ $r->condition }}</td>
                                 <td class="px-4 py-2 text-slate-600">
                                     @if ($r->livestock_id)
                                         <span class="capitalize">{{ $r->livestock?->type ?? '—' }}</span>
                                         <span class="text-slate-400">#{{ $r->livestock_id }}</span>
+                                    @elseif ($r->batch_reference)
+                                        <span>{{ $r->batch_reference }}</span>
                                     @else
                                         <span class="text-slate-400">—</span>
                                     @endif
                                 </td>
+                                <td class="px-4 py-2 text-slate-600">{{ \Illuminate\Support\Str::limit($r->treatment_given ?? '', 60) }}</td>
+                                <td class="px-4 py-2 whitespace-nowrap text-slate-600">{{ $r->next_due_date?->toDateString() ?? '—' }}</td>
                                 <td class="px-4 py-2 text-slate-600">{{ \Illuminate\Support\Str::limit($r->notes ?? '', 80) }}</td>
                                 <td class="px-4 py-2 text-right whitespace-nowrap">
                                     <form action="{{ route('farmer.farms.health-records.destroy', [$farm, $r]) }}" method="post" class="inline" onsubmit="return confirm('{{ __('Delete?') }}');">
@@ -162,7 +227,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-4 py-6 text-center text-slate-500">{{ __('No log entries yet.') }}</td></tr>
+                            <tr><td colspan="8" class="px-4 py-6 text-center text-slate-500">{{ __('No log entries yet.') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -4,35 +4,24 @@ namespace App\Http\Controllers\Farmer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Farm;
-use App\Models\Livestock;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
 class FarmerLivestockHubController extends Controller
 {
-    /**
-     * All livestock rows across the farmer's farms (sidebar module).
-     */
-    public function index(Request $request): View
+    public function index(Request $request): RedirectResponse
     {
-        $farmIds = Farm::query()
+        $farm = Farm::query()
             ->whereIn('business_id', $request->user()->accessibleFarmerBusinessIds())
-            ->pluck('id');
+            ->orderBy('id')
+            ->first();
 
-        $healthHeadcounts = Livestock::aggregateHealthQuantities(
-            Livestock::query()
-                ->whereIn('farm_id', $farmIds)
-                ->get()
-        );
+        if ($farm === null) {
+            return redirect()
+                ->route('farmer.farms.index')
+                ->with('status', __('Please create a farm first to manage livestock.'));
+        }
 
-        $rows = Livestock::query()
-            ->whereIn('farm_id', $farmIds)
-            ->with(['farm', 'detail'])
-            ->orderBy('farm_id')
-            ->orderBy('type')
-            ->orderBy('breed')
-            ->paginate(25);
-
-        return view('farmer.livestock.hub', compact('rows', 'healthHeadcounts'));
+        return redirect()->route('farmer.farms.livestock.index', $farm);
     }
 }
