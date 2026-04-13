@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Extract __('...') / __("...") string keys from PHP and Blade sources,
 write resources/lang/en.json (keys = English values),
 and resources/lang/rw.json (same keys, Kinyarwanda via Google translate endpoint).
+
+Requires Python 3.6+ (tested for hosts still on 3.6).
 
 Run from repo root:
   python3 scripts/sync_i18n_json.py
 
 Requires outbound HTTPS (translate.googleapis.com).
 """
-
-from __future__ import annotations
 
 import json
 import re
@@ -22,6 +23,7 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Dict, List, Set, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 LANG_DIR = ROOT / "resources" / "lang"
@@ -44,8 +46,9 @@ RE = re.compile(
 )
 
 
-def unescape_php_single(raw: str) -> str:
-    out: list[str] = []
+def unescape_php_single(raw):
+    # type: (str) -> str
+    out = []  # type: List[str]
     i = 0
     while i < len(raw):
         if raw[i] == "\\" and i + 1 < len(raw) and raw[i + 1] in "'\\":
@@ -61,7 +64,8 @@ def unescape_php_single(raw: str) -> str:
     return "".join(out)
 
 
-def unescape_php_double(raw: str) -> str:
+def unescape_php_double(raw):
+    # type: (str) -> str
     try:
         return bytes(raw, "utf-8").decode("unicode_escape")
     except UnicodeDecodeError:
@@ -74,8 +78,9 @@ def unescape_php_double(raw: str) -> str:
         )
 
 
-def iter_source_files() -> list[Path]:
-    out: list[Path] = []
+def iter_source_files():
+    # type: () -> List[Path]
+    out = []  # type: List[Path]
     for base in SCAN_DIRS:
         if not base.is_dir():
             continue
@@ -85,8 +90,9 @@ def iter_source_files() -> list[Path]:
     return sorted(out)
 
 
-def extract_keys_from_text(text: str) -> set[str]:
-    found: set[str] = set()
+def extract_keys_from_text(text):
+    # type: (str) -> Set[str]
+    found = set()  # type: Set[str]
     for m in RE.finditer(text):
         raw = m.group(2)
         quote = m.group(1)
@@ -97,15 +103,15 @@ def extract_keys_from_text(text: str) -> set[str]:
         key = key.strip("\n\r")
         if not key or len(key) > 5000:
             continue
-        # Skip dynamic / concatenated keys (heuristic)
         if "$" in key or "{" in key or "{{" in key:
             continue
         found.add(key)
     return found
 
 
-def collect_all_keys() -> list[str]:
-    all_keys: set[str] = set()
+def collect_all_keys():
+    # type: () -> List[str]
+    all_keys = set()  # type: Set[str]
     for path in iter_source_files():
         try:
             content = path.read_text(encoding="utf-8", errors="replace")
@@ -115,7 +121,8 @@ def collect_all_keys() -> list[str]:
     return sorted(all_keys)
 
 
-def translate_chunk(text: str, ctx: ssl.SSLContext) -> str:
+def translate_chunk(text, ctx):
+    # type: (str, ssl.SSLContext) -> str
     if not text.strip():
         return text
     params = urllib.parse.urlencode(
@@ -127,23 +134,23 @@ def translate_chunk(text: str, ctx: ssl.SSLContext) -> str:
             "q": text,
         }
     )
-    url = f"https://translate.googleapis.com/translate_a/single?{params}"
+    url = "https://translate.googleapis.com/translate_a/single?" + params
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, context=ctx, timeout=45) as resp:
         data = json.loads(resp.read().decode("utf-8"))
-    # [[["translated",...]], ...]
-    parts: list[str] = []
+    parts = []  # type: List[str]
     for block in data[0]:
         if block and isinstance(block[0], str):
             parts.append(block[0])
     return "".join(parts) if parts else text
 
 
-def translate_text(text: str, ctx: ssl.SSLContext) -> str:
+def translate_text(text, ctx):
+    # type: (str, ssl.SSLContext) -> str
     max_chunk = 4500
     if len(text) <= max_chunk:
         return translate_chunk(text, ctx)
-    out: list[str] = []
+    out = []  # type: List[str]
     start = 0
     while start < len(text):
         end = min(start + max_chunk, len(text))
@@ -158,10 +165,11 @@ def translate_text(text: str, ctx: ssl.SSLContext) -> str:
     return "".join(out)
 
 
-def main() -> int:
+def main():
+    # type: () -> int
     keys = collect_all_keys()
     if not keys:
-        print("No translation keys found.", file=sys.stderr)
+        sys.stderr.write("No translation keys found.\n")
         return 1
 
     en_obj = {k: k for k in keys}
@@ -170,27 +178,29 @@ def main() -> int:
         json.dumps(en_obj, ensure_ascii=False, indent=4, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    print(f"Wrote {len(keys)} keys to {EN_PATH.relative_to(ROOT)}")
+    print("Wrote {} keys to {}".format(len(keys), str(EN_PATH.relative_to(ROOT))))
 
-    existing_rw: dict[str, str] = {}
+    existing_rw = {}  # type: Dict[str, str]
     if RW_PATH.is_file():
         try:
             existing_rw = json.loads(RW_PATH.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+        except ValueError:
             pass
 
     ctx = ssl._create_unverified_context()
 
-    def worker(k: str) -> tuple[str, str]:
+    def worker(k):
+        # type: (str) -> Tuple[str, str]
         try:
             tw = translate_text(k, ctx)
             time.sleep(0.06)
             return k, tw
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, IndexError, KeyError) as e:
-            print(f"WARN translate failed for {k[:60]!r}: {e}", file=sys.stderr)
+        except (urllib.error.URLError, TimeoutError, ValueError, IndexError, KeyError) as e:
+            snippet = repr(k[:60])
+            sys.stderr.write("WARN translate failed for {}: {}\n".format(snippet, e))
             return k, existing_rw.get(k, k)
 
-    rw_obj: dict[str, str] = {}
+    rw_obj = {}  # type: Dict[str, str]
     for k in keys:
         prev = existing_rw.get(k)
         if prev is not None and prev != k:
@@ -206,7 +216,7 @@ def main() -> int:
             rw_obj[k] = tw
             done += 1
             if done % 25 == 0 or done == len(missing):
-                print(f"  translated {done}/{len(missing)} …")
+                print("  translated {}/{} …".format(done, len(missing)))
 
     for k in keys:
         if k not in rw_obj:
@@ -216,10 +226,10 @@ def main() -> int:
         json.dumps(rw_obj, ensure_ascii=False, indent=4, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    print(f"Wrote {len(rw_obj)} keys to {RW_PATH.relative_to(ROOT)}")
+    print("Wrote {} keys to {}".format(len(rw_obj), str(RW_PATH.relative_to(ROOT))))
 
     if set(en_obj.keys()) != set(rw_obj.keys()):
-        print("ERROR: en and rw key sets differ", file=sys.stderr)
+        sys.stderr.write("ERROR: en and rw key sets differ\n")
         return 1
     print("OK: en.json and rw.json have identical keys.")
     return 0
