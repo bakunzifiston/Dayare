@@ -151,6 +151,35 @@ class User extends Authenticatable
         return Business::TYPE_PROCESSOR;
     }
 
+    /**
+     * Mobile/API-facing role label used by clients for feature gating.
+     */
+    public function mobileUserRole(): string
+    {
+        if ($this->isSuperAdmin()) {
+            return 'super_admin';
+        }
+
+        if ($this->businesses()->exists() || $this->hasRole('owner')) {
+            return 'business_owner';
+        }
+
+        $memberRole = $this->memberBusinesses()
+            ->orderBy('businesses.id')
+            ->value('business_user.role');
+
+        if (is_string($memberRole) && $memberRole !== '') {
+            return 'business_'.$memberRole;
+        }
+
+        $appRole = $this->getRoleNames()->first();
+        if (is_string($appRole) && $appRole !== '') {
+            return $appRole;
+        }
+
+        return 'user';
+    }
+
     public function defaultDashboardRouteName(): string
     {
         if ($this->isSuperAdmin()) {

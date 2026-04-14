@@ -856,6 +856,14 @@
                     "is_super_admin": {
                         "type": "boolean"
                     },
+                    "userRole": {
+                        "type": "string",
+                        "example": "business_manager"
+                    },
+                    "business_type": {
+                        "type": "string",
+                        "example": "processor"
+                    },
                     "accessible_business_ids": {
                         "type": "array",
                         "items": {
@@ -1626,6 +1634,14 @@
                     "is_super_admin": {
                         "type": "boolean",
                         "example": false
+                    },
+                    "userRole": {
+                        "type": "string",
+                        "example": "business_manager"
+                    },
+                    "business_type": {
+                        "type": "string",
+                        "example": "processor"
                     }
                 },
                 "type": "object"

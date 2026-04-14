@@ -38,7 +38,9 @@ Response `200`:
     "id": 12,
     "name": "Field User",
     "email": "user@company.com",
-    "is_super_admin": false
+    "is_super_admin": false,
+    "userRole": "business_manager",
+    "business_type": "processor"
   }
 }
 ```
@@ -59,6 +61,8 @@ Response `200`:
   "name": "Field User",
   "email": "user@company.com",
   "is_super_admin": false,
+  "userRole": "business_manager",
+  "business_type": "processor",
   "accessible_business_ids": [3, 5]
 }
 ```

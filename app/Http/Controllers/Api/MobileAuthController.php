@@ -43,6 +43,8 @@ class MobileAuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'is_super_admin' => (bool) $user->is_super_admin,
+                'userRole' => $user->mobileUserRole(),
+                'business_type' => $user->tenantWorkspaceType(),
             ],
         ], __('Logged in successfully.'));
     }
@@ -56,6 +58,8 @@ class MobileAuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'is_super_admin' => (bool) $user->is_super_admin,
+            'userRole' => $user->mobileUserRole(),
+            'business_type' => $user->tenantWorkspaceType(),
             'accessible_business_ids' => $user->accessibleBusinessIds()->all(),
         ]);
     }
