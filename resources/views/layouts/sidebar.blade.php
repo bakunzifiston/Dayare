@@ -70,6 +70,7 @@
                 ['label' => __('Movement permits'), 'route' => 'farmer.movement-permits.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.movement-permits.*']],
                 ['label' => __('Supply requests'), 'route' => 'farmer.supply-requests.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.supply-requests.*']],
                 ['label' => __('Supply history'), 'route' => 'farmer.supply-history', 'icon' => 'calendar', 'permission' => null, 'routeIs' => ['farmer.supply-history']],
+                ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => null, 'routeIs' => ['settings.edit']],
             ];
         } else {
             $tenantNav = [
@@ -81,7 +82,7 @@
     $navGroups = $isSuperAdmin
         ? [
             ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield'],
-            ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
+            ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
         ]
         : $tenantNav;
 @endphp

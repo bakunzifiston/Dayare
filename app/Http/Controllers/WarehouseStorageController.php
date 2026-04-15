@@ -7,7 +7,6 @@ use App\Models\ColdRoom;
 use App\Models\Demand;
 use App\Models\Facility;
 use App\Models\TemperatureLog;
-use App\Models\Unit;
 use App\Models\WarehouseStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -97,7 +96,7 @@ class WarehouseStorageController extends Controller
                 'batch_id' => $c->batch_id,
             ]);
 
-        $units = Unit::active()->get();
+        $units = $request->user()->configuredUnitsForBusinessIds($request->user()->accessibleBusinessIds());
         $coldRooms = $this->coldRoomOptionsForUser($request);
 
         return view('warehouse-storages.create', compact('warehouseFacilities', 'certificates', 'units', 'coldRooms'));
@@ -108,7 +107,7 @@ class WarehouseStorageController extends Controller
         $facilityIds = $this->userFacilityIds($request);
         $certificateIds = $this->userCertificateIds($request);
 
-        $allowedUnits = Unit::active()->pluck('code')->all();
+        $allowedUnits = $request->user()->configuredUnitsForBusinessIds($request->user()->accessibleBusinessIds())->pluck('code')->all();
         $allowedUnits = empty($allowedUnits) ? array_keys(Demand::QUANTITY_UNITS) : array_values(array_unique(array_merge($allowedUnits, array_keys(Demand::QUANTITY_UNITS))));
 
         $valid = $request->validate([
@@ -161,7 +160,7 @@ class WarehouseStorageController extends Controller
             ->orderBy('facility_name')
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
-        $units = Unit::active()->get();
+        $units = $request->user()->configuredUnitsForBusinessIds($request->user()->accessibleBusinessIds());
         $coldRooms = $this->coldRoomOptionsForUser($request);
 
         return view('warehouse-storages.edit', compact('warehouseStorage', 'warehouseFacilities', 'units', 'coldRooms'));
@@ -172,7 +171,7 @@ class WarehouseStorageController extends Controller
         $this->authorizeStorage($request, $warehouseStorage);
         $facilityIds = $this->userFacilityIds($request);
 
-        $allowedUnits = Unit::active()->pluck('code')->all();
+        $allowedUnits = $request->user()->configuredUnitsForBusinessIds($request->user()->accessibleBusinessIds())->pluck('code')->all();
         $allowedUnits = empty($allowedUnits) ? array_keys(Demand::QUANTITY_UNITS) : array_values(array_unique(array_merge($allowedUnits, array_keys(Demand::QUANTITY_UNITS))));
 
         $valid = $request->validate([

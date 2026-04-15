@@ -19,6 +19,10 @@ class StoreSlaughterPlanRequest extends FormRequest
      */
     public function rules(): array
     {
+        $facilityId = (int) $this->input('facility_id');
+        $businessId = (int) \App\Models\Facility::query()->whereKey($facilityId)->value('business_id');
+        $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+
         return [
             'slaughter_date' => ['required', 'date', 'after_or_equal:today'],
             'facility_id' => ['required', 'exists:facilities,id'],
@@ -28,7 +32,7 @@ class StoreSlaughterPlanRequest extends FormRequest
                 'exists:inspectors,id',
                 Rule::exists('inspectors', 'id')->where('facility_id', $this->input('facility_id')),
             ],
-            'species' => ['required', 'string', 'max:50', Rule::exists('species', 'name')->where('is_active', true)],
+            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
             'number_of_animals_scheduled' => ['required', 'integer', 'min:1'],
             'status' => ['required', 'string', Rule::in(SlaughterPlan::STATUSES)],
         ];

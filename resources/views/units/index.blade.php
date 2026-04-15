@@ -15,7 +15,7 @@
                             {{ __('Configure which units (e.g. kg, heads) can be selected across modules.') }}
                         </p>
                     </div>
-                    <a href="{{ route('settings.edit') }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Back to Settings') }}</a>
+                    <a href="{{ route('settings.edit') }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Back to System Settings') }}</a>
                 </div>
 
                 <div class="px-6 py-5 space-y-6">
@@ -35,7 +35,7 @@
                             </ul>
                         </div>
                     @endif
-                    <form method="POST" action="{{ route('units.store') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <form method="POST" action="{{ route('super-admin.units.store') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         @csrf
                         <div class="md:col-span-2">
                             <x-input-label for="name" :value="__('Name')" />
@@ -74,7 +74,7 @@
                                 @forelse ($units as $item)
                                     <tr>
                                         <td class="px-3 py-2">
-                                            <form method="POST" action="{{ route('units.update', $item) }}" class="space-y-1 md:flex md:items-center md:space-y-0 md:space-x-2">
+                                            <form method="POST" action="{{ route('super-admin.units.update', $item) }}" class="space-y-1 md:flex md:items-center md:space-y-0 md:space-x-2">
                                                 @csrf
                                                 @method('PUT')
                                                 <x-text-input name="name" type="text" class="w-full md:w-40" :value="old('name_'.$item->id, $item->name)" />
@@ -94,11 +94,11 @@
                                             </form>
                                         </td>
                                         <td class="px-3 py-2 text-right">
-                                            <form method="POST" action="{{ route('units.destroy', $item) }}" class="inline">
+                                            <form method="POST" action="{{ route('super-admin.units.destroy', $item) }}" class="inline">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="text-xs text-red-600 hover:text-red-800" onclick="return confirm('{{ __('Delete this unit?') }}')">
-                                                    {{ __('Delete') }}
+                                                <button type="submit" class="text-xs text-red-600 hover:text-red-800" onclick="return confirm('{{ __('Deactivate this unit?') }}')">
+                                                    {{ __('Deactivate') }}
                                                 </button>
                                             </form>
                                         </td>

@@ -118,6 +118,65 @@ class User extends Authenticatable
             ->values();
     }
 
+    /**
+     * Active species configured for the supplied businesses (or all accessible businesses by default).
+     */
+    public function configuredSpeciesForBusinessIds(null|array|Collection $businessIds = null): Collection
+    {
+        if ($this->isSuperAdmin()) {
+            return Species::active()->get();
+        }
+
+        $ids = $businessIds instanceof Collection
+            ? $businessIds->values()
+            : collect($businessIds ?? $this->accessibleBusinessIds())->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return Species::query()
+            ->where('species.is_active', true)
+            ->whereHas('businesses', fn ($q) => $q->whereIn('businesses.id', $ids))
+            ->orderBy('species.sort_order')
+            ->orderBy('species.name')
+            ->get()
+            ->unique('id')
+            ->values();
+    }
+
+    /**
+     * Active units configured for the supplied businesses (or all accessible businesses by default).
+     */
+    public function configuredUnitsForBusinessIds(null|array|Collection $businessIds = null): Collection
+    {
+        if ($this->isSuperAdmin()) {
+            return Unit::active()->get();
+        }
+
+        $ids = $businessIds instanceof Collection
+            ? $businessIds->values()
+            : collect($businessIds ?? $this->accessibleBusinessIds())->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return Unit::query()
+            ->where('units.is_active', true)
+            ->whereHas('businesses', fn ($q) => $q->whereIn('businesses.id', $ids))
+            ->orderBy('units.sort_order')
+            ->orderBy('units.name')
+            ->get()
+            ->unique('id')
+            ->values();
+    }
+
+    public function configuredSpeciesNames(null|array|Collection $businessIds = null): Collection
+    {
+        return $this->configuredSpeciesForBusinessIds($businessIds)->pluck('name')->values();
+    }
+
     /** Whether this user is a tenant owner / can manage tenant users. */
     public function canManageTenantUsers(): bool
     {

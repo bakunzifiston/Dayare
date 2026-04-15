@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Batch;
 use App\Support\PostMortemChecklist;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePostMortemInspectionRequest extends FormRequest
 {
@@ -18,10 +19,19 @@ class StorePostMortemInspectionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $batchId = (int) $this->input('batch_id');
+        $businessId = (int) \App\Models\Batch::query()
+            ->join('slaughter_executions', 'slaughter_executions.id', '=', 'batches.slaughter_execution_id')
+            ->join('slaughter_plans', 'slaughter_plans.id', '=', 'slaughter_executions.slaughter_plan_id')
+            ->join('facilities', 'facilities.id', '=', 'slaughter_plans.facility_id')
+            ->where('batches.id', $batchId)
+            ->value('facilities.business_id');
+        $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+
         return [
             'batch_id' => ['required', 'exists:batches,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
-            'species' => ['required', 'string', 'max:50'],
+            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
             'total_examined' => ['required', 'integer', 'min:0'],
             'approved_quantity' => ['required', 'integer', 'min:0'],
             'condemned_quantity' => ['required', 'integer', 'min:0'],

@@ -25,10 +25,10 @@
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
                         <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @php $speciesOptions = \App\Models\Species::active()->pluck('name'); @endphp
+                            @php($speciesOptions = auth()->user()?->configuredSpeciesNames() ?? collect())
                             <option value="">{{ __('Select species') }}</option>
                             @foreach ($speciesOptions as $s)
-                                <option value="{{ $s }}" @selected(old('species', $inspection->species ?? $inspection->batch->species) === $s)>{{ $s }}</option>
+                                <option value="{{ $s }}" @selected(old('species', $inspection->species ?? $inspection->batch->species) === $s)>{{ __($s) }}</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('species')" />

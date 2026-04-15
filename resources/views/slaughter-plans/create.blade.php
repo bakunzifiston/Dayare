@@ -59,11 +59,11 @@
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
                         @php
-                            $speciesOptions = \App\Models\Species::active()->pluck('name');
+                            $speciesOptions = auth()->user()?->configuredSpeciesNames() ?? collect();
                         @endphp
                         <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($speciesOptions as $s)
-                                <option value="{{ $s }}" @selected(old('species') === $s)>{{ $s }}</option>
+                                <option value="{{ $s }}" @selected(old('species') === $s)>{{ __($s) }}</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('species')" />

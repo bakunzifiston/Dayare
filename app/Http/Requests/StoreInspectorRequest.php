@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Models\Inspector;
-use App\Models\Species;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,6 +18,10 @@ class StoreInspectorRequest extends FormRequest
      */
     public function rules(): array
     {
+        $facilityId = (int) $this->input('facility_id');
+        $businessId = (int) \App\Models\Facility::query()->whereKey($facilityId)->value('business_id');
+        $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+
         return [
             'facility_id' => ['required', 'exists:facilities,id'],
             'first_name' => ['required', 'string', 'max:100'],
@@ -43,7 +46,7 @@ class StoreInspectorRequest extends FormRequest
             'authorization_issue_date' => ['required', 'date'],
             'authorization_expiry_date' => ['required', 'date', 'after_or_equal:authorization_issue_date'],
             'species_allowed' => ['required', 'array', 'min:1'],
-            'species_allowed.*' => ['required', 'string', 'max:100', Rule::in(Species::active()->pluck('name')->all())],
+            'species_allowed.*' => ['required', 'string', 'max:100', Rule::in($allowedSpecies)],
             'daily_capacity' => ['nullable', 'integer', 'min:0'],
             'stamp_serial_number' => ['nullable', 'string', 'max:100'],
             'status' => ['required', 'string', Rule::in(Inspector::STATUSES)],

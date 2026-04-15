@@ -180,7 +180,7 @@
                                 $selectedSpecies = old('species_allowed', $inspector->species_allowed ? array_map('trim', explode(',', $inspector->species_allowed)) : []);
                             @endphp
                             @if (($species ?? collect())->isEmpty())
-                                <p class="mt-1 text-sm text-amber-600">{{ __('No species configured yet. Add species in') }} <a href="{{ route('species.index') }}" class="underline">{{ __('Settings → Species') }}</a>. {{ __('Current value:') }} {{ $inspector->species_allowed ?: '—' }}</p>
+                                <p class="mt-1 text-sm text-amber-600">{{ __('No species configured yet. Ask Super Admin to update') }} <a href="{{ route('super-admin.species.index') }}" class="underline">{{ __('Configuration → Species') }}</a>. {{ __('Current value:') }} {{ $inspector->species_allowed ?: '—' }}</p>
                             @else
                                 <select id="species_allowed" name="species_allowed[]" multiple class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" size="{{ max(3, min(8, $species->count() + 1)) }}">
                                     @foreach ($species as $s)

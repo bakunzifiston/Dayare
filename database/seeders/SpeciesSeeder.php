@@ -11,10 +11,11 @@ class SpeciesSeeder extends Seeder
     {
         $defaults = [
             ['name' => 'Cattle', 'code' => 'cattle', 'sort_order' => 1],
-            ['name' => 'Goat', 'code' => 'goat', 'sort_order' => 2],
+            ['name' => 'Goats', 'code' => 'goat', 'sort_order' => 2],
             ['name' => 'Sheep', 'code' => 'sheep', 'sort_order' => 3],
-            ['name' => 'Pig', 'code' => 'pig', 'sort_order' => 4],
-            ['name' => 'Other', 'code' => 'other', 'sort_order' => 99],
+            ['name' => 'Pigs', 'code' => 'pig', 'sort_order' => 4],
+            ['name' => 'Poultry', 'code' => 'poultry', 'sort_order' => 5],
+            ['name' => 'Rabbits', 'code' => 'rabbit', 'sort_order' => 6],
         ];
 
         foreach ($defaults as $row) {

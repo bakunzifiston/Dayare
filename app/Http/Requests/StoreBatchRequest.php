@@ -19,10 +19,18 @@ class StoreBatchRequest extends FormRequest
      */
     public function rules(): array
     {
+        $executionId = (int) $this->input('slaughter_execution_id');
+        $businessId = (int) \App\Models\SlaughterExecution::query()
+            ->join('slaughter_plans', 'slaughter_plans.id', '=', 'slaughter_executions.slaughter_plan_id')
+            ->join('facilities', 'facilities.id', '=', 'slaughter_plans.facility_id')
+            ->where('slaughter_executions.id', $executionId)
+            ->value('facilities.business_id');
+        $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+
         return [
             'slaughter_execution_id' => ['required', 'exists:slaughter_executions,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
-            'species' => ['required', 'string', 'max:50', Rule::exists('species', 'name')->where('is_active', true)],
+            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
             'quantity' => ['required', 'integer', 'min:1'],
             'status' => ['required', 'string', Rule::in(Batch::STATUSES)],
         ];

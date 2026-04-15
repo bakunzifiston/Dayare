@@ -19,6 +19,10 @@ class UpdateAnimalIntakeRequest extends FormRequest
      */
     public function rules(): array
     {
+        $facilityId = (int) $this->input('facility_id');
+        $businessId = (int) \App\Models\Facility::query()->whereKey($facilityId)->value('business_id');
+        $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+
         return [
             'facility_id' => ['required', 'exists:facilities,id'],
             'supplier_id' => ['nullable', Rule::exists('suppliers', 'id')->where('supplier_status', Supplier::STATUS_APPROVED)],
@@ -35,7 +39,7 @@ class UpdateAnimalIntakeRequest extends FormRequest
             'sector_id' => ['nullable', 'exists:administrative_divisions,id'],
             'cell_id' => ['nullable', 'exists:administrative_divisions,id'],
             'village_id' => ['nullable', 'exists:administrative_divisions,id'],
-            'species' => ['required', 'string', 'max:50', 'in:'.implode(',', AnimalIntake::SPECIES_OPTIONS)],
+            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
             'number_of_animals' => ['required', 'integer', 'min:1'],
             'unit_price' => ['nullable', 'numeric', 'min:0'],
             'total_price' => ['nullable', 'numeric', 'min:0'],

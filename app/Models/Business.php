@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class Business extends Model
@@ -85,6 +86,18 @@ class Business extends Model
                 $business->business_name_normalized = Str::lower($collapsedWhitespaceName);
             }
         });
+
+        static::created(function (self $business): void {
+            $speciesIds = Species::query()->where('is_active', true)->pluck('id');
+            if ($speciesIds->isNotEmpty()) {
+                $business->configuredSpecies()->syncWithoutDetaching($speciesIds->all());
+            }
+
+            $unitIds = Unit::query()->where('is_active', true)->pluck('id');
+            if ($unitIds->isNotEmpty()) {
+                $business->configuredUnits()->syncWithoutDetaching($unitIds->all());
+            }
+        });
     }
 
     public function user(): BelongsTo
@@ -145,6 +158,34 @@ class Business extends Model
     public function farms(): HasMany
     {
         return $this->hasMany(Farm::class);
+    }
+
+    public function configuredSpecies(): BelongsToMany
+    {
+        return $this->belongsToMany(Species::class, 'business_species')->withTimestamps();
+    }
+
+    public function configuredUnits(): BelongsToMany
+    {
+        return $this->belongsToMany(Unit::class, 'business_units')->withTimestamps();
+    }
+
+    public function activeConfiguredSpecies(): Collection
+    {
+        return $this->configuredSpecies()
+            ->where('species.is_active', true)
+            ->orderBy('species.sort_order')
+            ->orderBy('species.name')
+            ->get();
+    }
+
+    public function activeConfiguredUnits(): Collection
+    {
+        return $this->configuredUnits()
+            ->where('units.is_active', true)
+            ->orderBy('units.sort_order')
+            ->orderBy('units.name')
+            ->get();
     }
 
     /** Supply requests where this business is the processor. */

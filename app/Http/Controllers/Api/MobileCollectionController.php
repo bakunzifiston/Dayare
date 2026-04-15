@@ -48,7 +48,13 @@ class MobileCollectionController extends Controller
         return ApiJson::success([
             'facilities' => Facility::whereIn('id', $facilityIds)->get(['id', 'facility_name', 'facility_type']),
             'inspectors' => Inspector::whereIn('facility_id', $facilityIds)->where('status', 'active')->get(['id', 'facility_id', 'first_name', 'last_name', 'status']),
-            'species' => \App\Models\Species::active()->get(['id', 'name', 'code']),
+            'species' => $request->user()->configuredSpeciesForBusinessIds($request->user()->accessibleBusinessIds())->map(function ($species) {
+                return [
+                    'id' => $species->id,
+                    'name' => $species->name,
+                    'code' => $species->code,
+                ];
+            })->values(),
             'statuses' => [
                 'animal_intake' => AnimalIntake::STATUSES,
                 'slaughter_plan' => SlaughterPlan::STATUSES,

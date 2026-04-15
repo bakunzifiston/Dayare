@@ -157,7 +157,7 @@
                         <div>
                             <x-input-label for="species" :value="__('Species')" />
                             @php
-                                $speciesOptions = \App\Models\Species::active()->pluck('name');
+                                $speciesOptions = auth()->user()?->configuredSpeciesNames() ?? collect();
                             @endphp
                             <select id="species" name="species" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                                 @foreach ($speciesOptions as $s)

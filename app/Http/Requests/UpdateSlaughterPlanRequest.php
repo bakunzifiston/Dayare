@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Models\AnimalIntake;
-use App\Models\SlaughterPlan;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,6 +18,10 @@ class UpdateSlaughterPlanRequest extends FormRequest
      */
     public function rules(): array
     {
+        $facilityId = (int) $this->input('facility_id');
+        $businessId = (int) \App\Models\Facility::query()->whereKey($facilityId)->value('business_id');
+        $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+
         return [
             'slaughter_date' => ['required', 'date'],
             'facility_id' => ['required', 'exists:facilities,id'],
@@ -28,9 +31,9 @@ class UpdateSlaughterPlanRequest extends FormRequest
                 'exists:inspectors,id',
                 Rule::exists('inspectors', 'id')->where('facility_id', $this->input('facility_id')),
             ],
-            'species' => ['required', 'string', 'max:50', Rule::in(SlaughterPlan::SPECIES_OPTIONS)],
+            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
             'number_of_animals_scheduled' => ['required', 'integer', 'min:1'],
-            'status' => ['required', 'string', Rule::in(SlaughterPlan::STATUSES)],
+            'status' => ['required', 'string', Rule::in(\App\Models\SlaughterPlan::STATUSES)],
         ];
     }
 

@@ -10,9 +10,7 @@ use App\Models\Contract;
 use App\Models\Demand;
 use App\Models\Facility;
 use App\Models\DeliveryConfirmation;
-use App\Models\Species;
 use App\Models\TransportTrip;
-use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -75,11 +73,8 @@ class DemandController extends Controller
         $facilities = Facility::whereIn('business_id', $businessIds)->orderBy('facility_name')->get();
         $clients = Client::whereIn('business_id', $businessIds)->where('is_active', true)->orderBy('name')->get();
         $contracts = Contract::whereIn('business_id', $businessIds)->orderBy('contract_number')->get();
-        $speciesOptions = Species::active()->pluck('name')->toArray();
-        if (empty($speciesOptions)) {
-            $speciesOptions = \App\Models\AnimalIntake::SPECIES_OPTIONS;
-        }
-        $units = Unit::active()->get();
+        $speciesOptions = $request->user()->configuredSpeciesNames($businessIds)->all();
+        $units = $request->user()->configuredUnitsForBusinessIds($businessIds);
 
         return view('demands.create', compact('businesses', 'facilities', 'clients', 'contracts', 'speciesOptions', 'units'));
     }
@@ -127,11 +122,8 @@ class DemandController extends Controller
         $facilities = Facility::whereIn('business_id', $businessIds)->orderBy('facility_name')->get();
         $clients = Client::whereIn('business_id', $businessIds)->where('is_active', true)->orderBy('name')->get();
         $contracts = Contract::whereIn('business_id', $businessIds)->orderBy('contract_number')->get();
-        $speciesOptions = Species::active()->pluck('name')->toArray();
-        if (empty($speciesOptions)) {
-            $speciesOptions = \App\Models\AnimalIntake::SPECIES_OPTIONS;
-        }
-        $units = Unit::active()->get();
+        $speciesOptions = $request->user()->configuredSpeciesNames($businessIds)->all();
+        $units = $request->user()->configuredUnitsForBusinessIds($businessIds);
 
         $tripIds = $this->userTransportTripIds($request);
         $candidateDeliveries = collect();

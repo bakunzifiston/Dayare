@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Models\Demand;
-use App\Models\Unit;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,13 +15,9 @@ class StoreDemandRequest extends FormRequest
 
     public function rules(): array
     {
-        $allowedUnits = Unit::active()->pluck('code')->all();
-        $legacyUnits = array_keys(Demand::QUANTITY_UNITS);
-        if (empty($allowedUnits)) {
-            $allowedUnits = $legacyUnits;
-        } else {
-            $allowedUnits = array_values(array_unique(array_merge($allowedUnits, $legacyUnits)));
-        }
+        $businessId = (int) $this->input('business_id');
+        $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+        $allowedUnits = $this->user()?->configuredUnitsForBusinessIds([$businessId])->pluck('code')->all() ?? [];
 
         return [
             'business_id' => ['required', 'exists:businesses,id'],
@@ -36,7 +31,7 @@ class StoreDemandRequest extends FormRequest
             'client_country' => ['nullable', 'string', 'max:100'],
             'client_contact' => ['nullable', 'string', 'max:255'],
             'client_address' => ['nullable', 'string'],
-            'species' => ['required', 'string', 'max:50'],
+            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
             'product_description' => ['nullable', 'string'],
             'quantity' => ['required', 'numeric', 'min:0'],
             'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],

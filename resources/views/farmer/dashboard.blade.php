@@ -11,23 +11,106 @@
             <p class="mt-1 text-sm text-bucha-muted">{{ __('Livestock, health, and processor supply requests.') }}</p>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
-                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Total livestock') }}</p>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Total Livestock (current stock)') }}</p>
                 <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($totalLivestock) }}</p>
             </div>
             <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
-                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Available stock') }}</p>
-                <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($availableLivestock) }}</p>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Healthy vs Sick (%)') }}</p>
+                <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($healthyPercent, 2) }}% / {{ number_format($sickPercent, 2) }}%</p>
+                <p class="mt-1 text-xs text-slate-500">{{ __('Healthy') }}: {{ number_format($healthyLivestock) }} · {{ __('Sick') }}: {{ number_format($sickLivestock) }}</p>
+            </div>
+            <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Mortality Rate') }}</p>
+                <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($mortalityRatePercent, 2) }}%</p>
+                <p class="mt-1 text-xs text-slate-500">{{ __('No mortality event data is currently captured.') }}</p>
+            </div>
+            <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Active Supply Requests') }}</p>
+                <p class="mt-1 text-2xl font-bold text-amber-700">{{ number_format($activeSupplyRequests) }}</p>
+                <p class="mt-1 text-xs text-slate-500">{{ __('Pending only') }}: {{ number_format($pendingRequests) }}</p>
+            </div>
+            <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Fulfilled Supply Rate (%)') }}</p>
+                <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($fulfilledSupplyRatePercent, 2) }}%</p>
+            </div>
+            <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Revenue (from supply history)') }}</p>
+                <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($supplyRevenue, 2) }}</p>
+            </div>
+            <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Compliance Status (% animals with valid certificates)') }}</p>
+                <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($complianceStatusPercent, 2) }}%</p>
+                <p class="mt-1 text-xs text-slate-500">{{ number_format($certifiedLivestockCount) }} / {{ number_format($totalLivestock) }} {{ __('animals covered') }}</p>
             </div>
             <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
                 <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Supplied (intakes)') }}</p>
                 <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($suppliedAnimals) }}</p>
             </div>
             <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
-                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Pending requests') }}</p>
-                <p class="mt-1 text-2xl font-bold text-amber-700">{{ number_format($pendingRequests) }}</p>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Growth rate (new vs sold vs dead)') }}</p>
+                <p class="mt-1 text-2xl font-bold {{ $netGrowthAnimals >= 0 ? 'text-emerald-700' : 'text-rose-700' }}">
+                    {{ number_format($growthRatePercent, 2) }}%
+                </p>
+                <p class="mt-1 text-xs text-slate-500">
+                    {{ __('30 days') }}: +{{ number_format($newAnimals) }} / -{{ number_format($soldAnimals) }} / -{{ number_format($deadAnimals) }}
+                </p>
             </div>
+            <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Breeding rate (if applicable)') }}</p>
+                <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($breedingRatePercent, 2) }}%</p>
+                <p class="mt-1 text-xs text-slate-500">{{ number_format($breedCertifiedAnimals) }} {{ __('animals with valid breed certificates') }}</p>
+            </div>
+            <div class="rounded-bucha border border-slate-200/80 bg-white p-4 shadow-sm">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">{{ __('Average age / weight (if tracked)') }}</p>
+                <p class="mt-1 text-sm font-semibold text-slate-900">
+                    {{ __('Age') }}:
+                    {{ $weightedAge !== null ? number_format($weightedAge, 2).' '.__('years') : __('Not tracked') }}
+                </p>
+                <p class="mt-1 text-sm font-semibold text-slate-900">
+                    {{ __('Weight') }}:
+                    {{ $weightedWeight !== null ? number_format($weightedWeight, 2).' '.__('kg') : __('Not tracked') }}
+                </p>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-8">
+            <section class="space-y-3">
+                <h2 class="text-sm font-semibold text-slate-900">{{ __('Total animals per species') }}</h2>
+                <div class="rounded-bucha border border-slate-200/60 bg-white divide-y divide-slate-100 text-sm">
+                    @forelse ($animalsPerSpecies as $speciesRow)
+                        <div class="px-4 py-3 flex justify-between gap-4">
+                            <span class="font-medium text-slate-900">{{ \App\Support\FarmerAnimalType::label((string) $speciesRow['type']) }}</span>
+                            <span class="tabular-nums text-slate-700">
+                                {{ number_format($speciesRow['total']) }}
+                                <span class="text-xs text-slate-500">({{ number_format((float) $speciesRow['share_percent'], 2) }}%)</span>
+                            </span>
+                        </div>
+                    @empty
+                        <p class="px-4 py-6 text-slate-500">{{ __('No livestock recorded by species yet.') }}</p>
+                    @endforelse
+                </div>
+            </section>
+
+            <section class="space-y-3">
+                <h2 class="text-sm font-semibold text-slate-900">{{ __('Stock distribution by farm') }}</h2>
+                <div class="rounded-bucha border border-slate-200/60 bg-white divide-y divide-slate-100 text-sm">
+                    @forelse ($stockDistributionByFarm as $farmRow)
+                        <div class="px-4 py-3 flex justify-between gap-4">
+                            <div>
+                                <a href="{{ route('farmer.farms.show', $farmRow['farm']) }}" class="font-medium text-bucha-primary hover:underline">{{ $farmRow['farm']->name }}</a>
+                                <p class="text-xs text-slate-500">{{ __('Share of total stock') }}: {{ number_format((float) $farmRow['share_percent'], 2) }}%</p>
+                            </div>
+                            <div class="text-right tabular-nums">
+                                {{ number_format($farmRow['total']) }} / {{ number_format($farmRow['available']) }}
+                            </div>
+                        </div>
+                    @empty
+                        <p class="px-4 py-6 text-slate-500">{{ __('No farm stock distribution available yet.') }}</p>
+                    @endforelse
+                </div>
+            </section>
         </div>
 
         <div class="grid lg:grid-cols-2 gap-8">

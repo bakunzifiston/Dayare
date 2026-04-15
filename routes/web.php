@@ -41,6 +41,7 @@ use App\Http\Controllers\SlaughterExecutionController;
 use App\Http\Controllers\SlaughterPlanController;
 use App\Http\Controllers\SpeciesController;
 use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\SuperAdminConfigurationController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TenantUserController;
 use App\Http\Controllers\TransportTripController;
@@ -357,12 +358,6 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::get('compliance', [ComplianceController::class, 'index'])->name('compliance.index');
     Route::resource('ante-mortem-inspections', AnteMortemInspectionController::class);
 
-    Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
-    Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
-
-    Route::resource('species', SpeciesController::class)->except('show');
-    Route::resource('units', UnitController::class)->except('show');
-
     // CRM / HR modules (full CRUD)
     Route::resource('employees', EmployeeController::class);
     Route::resource('suppliers', SupplierController::class);
@@ -385,10 +380,16 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
 
     Route::middleware('super_admin')->prefix('super-admin')->name('super-admin.')->group(function () {
         Route::get('/', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('configuration', [SuperAdminConfigurationController::class, 'index'])->name('configurations.index');
+        Route::resource('species', SpeciesController::class)->except(['show', 'create', 'edit']);
+        Route::resource('units', UnitController::class)->except(['show', 'create', 'edit']);
     });
 });
 
 Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
+    Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
+    Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

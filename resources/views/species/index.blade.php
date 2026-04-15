@@ -34,7 +34,7 @@
                             </ul>
                         </div>
                     @endif
-                    <form method="POST" action="{{ route('species.store') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <form method="POST" action="{{ route('super-admin.species.store') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         @csrf
                         <div class="md:col-span-2">
                             <x-input-label for="name" :value="__('Name')" />
@@ -73,7 +73,7 @@
                                 @forelse ($species as $item)
                                     <tr>
                                         <td class="px-3 py-2">
-                                            <form method="POST" action="{{ route('species.update', $item) }}" class="space-y-1 md:flex md:items-center md:space-y-0 md:space-x-2">
+                                            <form method="POST" action="{{ route('super-admin.species.update', $item) }}" class="space-y-1 md:flex md:items-center md:space-y-0 md:space-x-2">
                                                 @csrf
                                                 @method('PUT')
                                                 <x-text-input name="name" type="text" class="w-full md:w-40" :value="old('name_'.$item->id, $item->name)" />
@@ -93,11 +93,11 @@
                                             </form>
                                         </td>
                                         <td class="px-3 py-2 text-right">
-                                            <form method="POST" action="{{ route('species.destroy', $item) }}" class="inline">
+                                            <form method="POST" action="{{ route('super-admin.species.destroy', $item) }}" class="inline">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="text-xs text-red-600 hover:text-red-800" onclick="return confirm('{{ __('Delete this species?') }}')">
-                                                    {{ __('Delete') }}
+                                                <button type="submit" class="text-xs text-red-600 hover:text-red-800" onclick="return confirm('{{ __('Deactivate this species?') }}')">
+                                                    {{ __('Deactivate') }}
                                                 </button>
                                             </form>
                                         </td>

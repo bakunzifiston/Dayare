@@ -12,6 +12,7 @@ use App\Models\SupplyRequest;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ProcessorSupplyRequestController extends Controller
@@ -110,6 +111,7 @@ class ProcessorSupplyRequestController extends Controller
                     'certifications' => $validCerts->values(),
                 ];
             })
+            ->filter(fn (array $item) => $this->isLivestockAllowedForFarmerTenant($item['livestock']))
             ->filter(fn (array $item) => $item['available_quantity'] > 0)
             ->values();
 
@@ -160,5 +162,45 @@ class ProcessorSupplyRequestController extends Controller
         }
 
         return round(array_sum($values) / count($values), 2);
+    }
+
+    private function isLivestockAllowedForFarmerTenant(Livestock $livestock): bool
+    {
+        $farmerBusiness = $livestock->farm?->business;
+        if (! $farmerBusiness) {
+            return false;
+        }
+
+        $configured = $farmerBusiness->activeConfiguredSpecies()
+            ->pluck('name')
+            ->map(fn (string $value) => $this->normalizeSpeciesToken($value))
+            ->filter()
+            ->values();
+
+        if ($configured->isEmpty()) {
+            return true;
+        }
+
+        return $configured->contains($this->normalizeSpeciesToken((string) $livestock->type));
+    }
+
+    private function normalizeSpeciesToken(string $value): string
+    {
+        $token = Str::lower(trim($value));
+        $aliases = [
+            'cow' => 'cattle',
+            'cows' => 'cattle',
+            'cattle' => 'cattle',
+            'goat' => 'goat',
+            'goats' => 'goat',
+            'sheep' => 'sheep',
+            'pig' => 'pig',
+            'pigs' => 'pig',
+            'poultry' => 'poultry',
+            'rabbit' => 'rabbit',
+            'rabbits' => 'rabbit',
+        ];
+
+        return $aliases[$token] ?? Str::singular($token);
     }
 }

@@ -60,9 +60,10 @@
 
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
+                        @php($speciesOptions = auth()->user()?->configuredSpeciesNames() ?? collect())
                         <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach (\App\Models\SlaughterPlan::SPECIES_OPTIONS as $s)
-                                <option value="{{ $s }}" @selected(old('species', $plan->species) === $s)>{{ $s }}</option>
+                            @foreach ($speciesOptions as $s)
+                                <option value="{{ $s }}" @selected(old('species', $plan->species) === $s)>{{ __($s) }}</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('species')" />

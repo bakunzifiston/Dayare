@@ -8,7 +8,6 @@ use App\Models\AdministrativeDivision;
 use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\PostMortemInspection;
-use App\Models\Species;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -95,7 +94,7 @@ class InspectorController extends Controller
                 'label' => $f->facility_name.' ('.$f->facility_type.')',
             ]);
 
-        $species = Species::active()->get();
+        $species = $request->user()->configuredSpeciesForBusinessIds($request->user()->accessibleBusinessIds());
 
         return view('inspectors.create', compact('facilities', 'species'));
     }
@@ -142,7 +141,7 @@ class InspectorController extends Controller
                 'label' => $f->facility_name.' ('.$f->facility_type.')',
             ]);
 
-        $species = Species::active()->get();
+        $species = $request->user()->configuredSpeciesForBusinessIds($request->user()->accessibleBusinessIds());
 
         return view('inspectors.edit', compact('inspector', 'facilities', 'species'));
     }

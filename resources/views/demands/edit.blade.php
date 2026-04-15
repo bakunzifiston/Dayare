@@ -108,7 +108,7 @@
                         <x-input-label for="species" :value="__('Species')" />
                         <select id="species" name="species" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" required>
                             @foreach ($speciesOptions as $s)
-                                <option value="{{ $s }}" @selected(old('species', $demand->species) === $s)>{{ $s }}</option>
+                                <option value="{{ $s }}" @selected(old('species', $demand->species) === $s)>{{ __($s) }}</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('species')" />

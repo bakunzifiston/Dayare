@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\SlaughterPlan;
 use App\Support\AnteMortemChecklist;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreAnteMortemInspectionRequest extends FormRequest
 {
@@ -18,10 +19,17 @@ class StoreAnteMortemInspectionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $planId = (int) $this->input('slaughter_plan_id');
+        $businessId = (int) \App\Models\SlaughterPlan::query()
+            ->join('facilities', 'facilities.id', '=', 'slaughter_plans.facility_id')
+            ->where('slaughter_plans.id', $planId)
+            ->value('facilities.business_id');
+        $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+
         return [
             'slaughter_plan_id' => ['required', 'exists:slaughter_plans,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
-            'species' => ['required', 'string', 'max:50'],
+            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
             'number_examined' => ['required', 'integer', 'min:0'],
             'number_approved' => ['required', 'integer', 'min:0'],
             'number_rejected' => ['required', 'integer', 'min:0'],
