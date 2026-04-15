@@ -247,7 +247,7 @@ class User extends Authenticatable
 
         return match ($this->tenantWorkspaceType()) {
             Business::TYPE_FARMER => 'farmer.dashboard',
-            Business::TYPE_LOGISTICS => 'logistics.dashboard',
+            Business::TYPE_LOGISTICS => 'logistics.dashboard.index',
             default => 'dashboard',
         };
     }

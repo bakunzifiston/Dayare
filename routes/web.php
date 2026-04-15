@@ -30,6 +30,7 @@ use App\Http\Controllers\Farmer\LivestockController;
 use App\Http\Controllers\FarmerDashboardController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\LogisticsDashboardController;
+use App\Http\Controllers\LogisticsModuleController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PostMortemInspectionController;
 use App\Http\Controllers\Processor\ProcessorSupplyRequestController;
@@ -305,7 +306,32 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:farmer', 'tenant.per
 });
 
 Route::middleware(['auth', 'verified', 'tenant', 'workspace:logistics'])->group(function () {
-    Route::get('/logistics/dashboard', LogisticsDashboardController::class)->name('logistics.dashboard');
+    Route::prefix('logistics')->name('logistics.')->group(function () {
+        Route::get('dashboard', LogisticsDashboardController::class)->name('dashboard.index');
+        Route::get('company', [LogisticsModuleController::class, 'company'])->name('company.index');
+        Route::post('company', [LogisticsModuleController::class, 'storeCompany'])->name('company.store');
+        Route::get('assets', [LogisticsModuleController::class, 'assets'])->name('assets.index');
+        Route::get('orders', [LogisticsModuleController::class, 'orders'])->name('orders.index');
+        Route::post('orders', [LogisticsModuleController::class, 'storeOrder'])->name('orders.store');
+        Route::post('orders/{order}/approve', [LogisticsModuleController::class, 'approveOrder'])->name('orders.approve');
+        Route::get('planning', [LogisticsModuleController::class, 'planning'])->name('planning.index');
+        Route::post('planning/trips', [LogisticsModuleController::class, 'planTrip'])->name('planning.store');
+        Route::get('trips', [LogisticsModuleController::class, 'trips'])->name('trips.index');
+        Route::post('trips/{trip}/start', [LogisticsModuleController::class, 'startTrip'])->name('trips.start');
+        Route::post('trips/{trip}/complete', [LogisticsModuleController::class, 'completeTrip'])->name('trips.complete');
+        Route::get('tracking', [LogisticsModuleController::class, 'tracking'])->name('tracking.index');
+        Route::post('tracking/{trip}', [LogisticsModuleController::class, 'storeTracking'])->name('tracking.store');
+        Route::get('compliance', [LogisticsModuleController::class, 'compliance'])->name('compliance.index');
+        Route::post('compliance/{trip}', [LogisticsModuleController::class, 'storeCompliance'])->name('compliance.store');
+        Route::get('billing', [LogisticsModuleController::class, 'billing'])->name('billing.index');
+        Route::get('vehicles', [LogisticsModuleController::class, 'vehicles'])->name('vehicles.index');
+        Route::post('vehicles', [LogisticsModuleController::class, 'storeVehicle'])->name('vehicles.store');
+        Route::get('drivers', [LogisticsModuleController::class, 'drivers'])->name('drivers.index');
+        Route::post('drivers', [LogisticsModuleController::class, 'storeDriver'])->name('drivers.store');
+        Route::get('invoices', [LogisticsModuleController::class, 'invoices'])->name('invoices.index');
+        Route::post('billing/{trip}/invoice', [LogisticsModuleController::class, 'storeInvoice'])->name('billing.store');
+        Route::get('reporting', [LogisticsModuleController::class, 'reporting'])->name('reporting');
+    });
 });
 
 // Administrative divisions (cascade dropdowns) — shared by farmer, processor, logistics, etc.

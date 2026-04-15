@@ -74,7 +74,15 @@
             ];
         } else {
             $tenantNav = [
-                ['label' => __('Dashboard'), 'route' => 'logistics.dashboard', 'icon' => 'dashboard', 'permission' => null],
+                ['label' => __('Dashboard'), 'route' => 'logistics.dashboard.index', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['logistics.dashboard.*']],
+                ['label' => __('Company'), 'route' => 'logistics.company.index', 'icon' => 'building', 'permission' => null, 'routeIs' => ['logistics.company.*']],
+                ['label' => __('Assets'), 'route' => 'logistics.assets.index', 'icon' => 'truck', 'permission' => null, 'routeIs' => ['logistics.assets.*']],
+                ['label' => __('Orders'), 'route' => 'logistics.orders.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['logistics.orders.*']],
+                ['label' => __('Trip Planning'), 'route' => 'logistics.planning.index', 'icon' => 'calendar', 'permission' => null, 'routeIs' => ['logistics.planning.*']],
+                ['label' => __('Active Trips'), 'route' => 'logistics.trips.index', 'icon' => 'play', 'permission' => null, 'routeIs' => ['logistics.trips.*']],
+                ['label' => __('Tracking'), 'route' => 'logistics.tracking.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['logistics.tracking.*']],
+                ['label' => __('Compliance'), 'route' => 'logistics.compliance.index', 'icon' => 'shield', 'permission' => null, 'routeIs' => ['logistics.compliance.*']],
+                ['label' => __('Billing'), 'route' => 'logistics.billing.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['logistics.billing.*']],
             ];
         }
     }

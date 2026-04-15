@@ -2,9 +2,22 @@
 
 namespace App\Providers;
 
+use App\Events\Logistics\TripCompleted;
+use App\Events\Logistics\TripPlanned;
+use App\Events\Logistics\TripStarted;
+use App\Listeners\Logistics\LogTripCompleted;
+use App\Listeners\Logistics\LogTripPlanned;
+use App\Listeners\Logistics\LogTripStarted;
 use App\Models\ColdRoomTemperatureLog;
+use App\Models\LogisticsCompany;
+use App\Models\LogisticsOrder;
+use App\Models\LogisticsTrip;
 use App\Observers\ColdRoomTemperatureLogObserver;
+use App\Policies\LogisticsCompanyPolicy;
+use App\Policies\LogisticsOrderPolicy;
+use App\Policies\LogisticsTripPolicy;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +38,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         ColdRoomTemperatureLog::observe(ColdRoomTemperatureLogObserver::class);
+        Gate::policy(LogisticsCompany::class, LogisticsCompanyPolicy::class);
+        Gate::policy(LogisticsOrder::class, LogisticsOrderPolicy::class);
+        Gate::policy(LogisticsTrip::class, LogisticsTripPolicy::class);
+
+        Event::listen(TripPlanned::class, LogTripPlanned::class);
+        Event::listen(TripStarted::class, LogTripStarted::class);
+        Event::listen(TripCompleted::class, LogTripCompleted::class);
 
         // Super Admin bypasses all permission checks (roles/permissions still apply to tenants).
         Gate::before(function ($user, $ability) {
