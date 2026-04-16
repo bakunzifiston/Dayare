@@ -563,6 +563,573 @@
                 },
                 "security": []
             }
+        },
+        "/businesses": {
+            "post": {
+                "tags": [
+                    "Businesses"
+                ],
+                "summary": "Register a business",
+                "description": "Creates a tenant business through the web workspace. This is a Laravel web route and requires an authenticated browser session, not Bearer token auth. On success the controller redirects to `businesses.hub`.",
+                "operationId": "webBusinessesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "required": [
+                                    "business_name",
+                                    "registration_number",
+                                    "contact_phone",
+                                    "email",
+                                    "status",
+                                    "owner_first_name",
+                                    "owner_last_name"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "description": "Optional. Defaults to `processor` when omitted.",
+                                        "type": "string",
+                                        "example": "processor",
+                                        "nullable": true,
+                                        "enum": [
+                                            "farmer",
+                                            "processor",
+                                            "logistics"
+                                        ]
+                                    },
+                                    "business_name": {
+                                        "type": "string",
+                                        "example": "Dayare Meat Ltd"
+                                    },
+                                    "registration_number": {
+                                        "type": "string",
+                                        "example": "REG-2026-001"
+                                    },
+                                    "tax_id": {
+                                        "type": "string",
+                                        "example": "TIN-20493",
+                                        "nullable": true
+                                    },
+                                    "contact_phone": {
+                                        "type": "string",
+                                        "example": "+250788000000"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "info@dayaremeat.com"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active",
+                                        "enum": [
+                                            "active",
+                                            "suspended"
+                                        ]
+                                    },
+                                    "owner_first_name": {
+                                        "type": "string",
+                                        "example": "Jean"
+                                    },
+                                    "owner_last_name": {
+                                        "type": "string",
+                                        "example": "Claude"
+                                    },
+                                    "owner_dob": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "1988-04-15",
+                                        "nullable": true
+                                    },
+                                    "owner_phone": {
+                                        "type": "string",
+                                        "example": "+250788111111",
+                                        "nullable": true
+                                    },
+                                    "owner_email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "owner@dayaremeat.com",
+                                        "nullable": true
+                                    },
+                                    "ownership_type": {
+                                        "type": "string",
+                                        "example": "company",
+                                        "nullable": true,
+                                        "enum": [
+                                            "sole_proprietor",
+                                            "partnership",
+                                            "company",
+                                            "cooperative",
+                                            "other"
+                                        ]
+                                    },
+                                    "country_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "province_id": {
+                                        "type": "integer",
+                                        "example": 2,
+                                        "nullable": true
+                                    },
+                                    "district_id": {
+                                        "type": "integer",
+                                        "example": 3,
+                                        "nullable": true
+                                    },
+                                    "sector_id": {
+                                        "type": "integer",
+                                        "example": 4,
+                                        "nullable": true
+                                    },
+                                    "cell_id": {
+                                        "type": "integer",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
+                                    "village_id": {
+                                        "type": "integer",
+                                        "example": 6,
+                                        "nullable": true
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Kigali",
+                                        "nullable": true
+                                    },
+                                    "state_region": {
+                                        "type": "string",
+                                        "example": "Kigali City",
+                                        "nullable": true
+                                    },
+                                    "postal_code": {
+                                        "type": "string",
+                                        "example": "00000",
+                                        "nullable": true
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "Rwanda",
+                                        "nullable": true
+                                    },
+                                    "members": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "first_name": {
+                                                    "type": "string",
+                                                    "example": "Alice",
+                                                    "nullable": true
+                                                },
+                                                "last_name": {
+                                                    "type": "string",
+                                                    "example": "Mukamana",
+                                                    "nullable": true
+                                                },
+                                                "date_of_birth": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "1990-01-10",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "302": {
+                        "description": "Redirect response. On success it goes to the business hub; unauthenticated users are redirected to login."
+                    },
+                    "422": {
+                        "description": "Validation failed."
+                    }
+                },
+                "security": []
+            }
+        },
+        "/businesses/{business}/facilities": {
+            "get": {
+                "tags": [
+                    "Facilities",
+                    "Businesses"
+                ],
+                "summary": "Retrieve facilities by business ID",
+                "description": "Returns the facilities index page for a business. This is an HTML web route, not a JSON API endpoint. Requires an authenticated browser session and the business must belong to the signed-in user.",
+                "operationId": "webFacilitiesIndexByBusiness",
+                "parameters": [
+                    {
+                        "name": "business",
+                        "in": "path",
+                        "description": "Business ID whose facilities should be listed",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Paginator page number",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "HTML facilities index page for the specified business.",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Business not found or not owned by the signed-in user."
+                    },
+                    "302": {
+                        "description": "Redirect to login when unauthenticated."
+                    }
+                },
+                "security": []
+            },
+            "post": {
+                "tags": [
+                    "Facilities",
+                    "Businesses"
+                ],
+                "summary": "Create a facility",
+                "description": "Creates a facility under the specified business through the web workspace. Requires an authenticated browser session and the business must belong to the signed-in user. On success the controller redirects to the business facilities index.",
+                "operationId": "webFacilitiesStore",
+                "parameters": [
+                    {
+                        "name": "business",
+                        "in": "path",
+                        "description": "Business ID that owns the facility",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "required": [
+                                    "facility_name",
+                                    "facility_type",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "facility_name": {
+                                        "type": "string",
+                                        "example": "Main Slaughterhouse"
+                                    },
+                                    "facility_type": {
+                                        "type": "string",
+                                        "example": "Slaughterhouse",
+                                        "enum": [
+                                            "Slaughterhouse",
+                                            "Butchery",
+                                            "storage",
+                                            "Other"
+                                        ]
+                                    },
+                                    "country_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "province_id": {
+                                        "type": "integer",
+                                        "example": 2,
+                                        "nullable": true
+                                    },
+                                    "district_id": {
+                                        "type": "integer",
+                                        "example": 3,
+                                        "nullable": true
+                                    },
+                                    "sector_id": {
+                                        "type": "integer",
+                                        "example": 4,
+                                        "nullable": true
+                                    },
+                                    "cell_id": {
+                                        "type": "integer",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
+                                    "village_id": {
+                                        "type": "integer",
+                                        "example": 6,
+                                        "nullable": true
+                                    },
+                                    "district": {
+                                        "type": "string",
+                                        "example": "Gasabo",
+                                        "nullable": true
+                                    },
+                                    "sector": {
+                                        "type": "string",
+                                        "example": "Remera",
+                                        "nullable": true
+                                    },
+                                    "gps": {
+                                        "type": "string",
+                                        "example": "-1.9441,30.0619",
+                                        "nullable": true
+                                    },
+                                    "license_number": {
+                                        "type": "string",
+                                        "example": "FAC-LIC-001",
+                                        "nullable": true
+                                    },
+                                    "license_issue_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-01-01",
+                                        "nullable": true
+                                    },
+                                    "license_expiry_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2027-01-01",
+                                        "nullable": true
+                                    },
+                                    "daily_capacity": {
+                                        "type": "integer",
+                                        "example": 250,
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active",
+                                        "enum": [
+                                            "active",
+                                            "suspended"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "302": {
+                        "description": "Facility created; redirects to the business facilities list."
+                    },
+                    "404": {
+                        "description": "Business not found or not owned by the signed-in user."
+                    },
+                    "422": {
+                        "description": "Validation failed."
+                    }
+                },
+                "security": []
+            }
+        },
+        "/inspectors": {
+            "post": {
+                "tags": [
+                    "Inspectors",
+                    "Facilities"
+                ],
+                "summary": "Create an inspector",
+                "description": "Creates an inspector for a facility available to the signed-in user. This is a Laravel web route and requires an authenticated browser session. On success the controller redirects to `inspectors.hub`.",
+                "operationId": "webInspectorsStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "required": [
+                                    "facility_id",
+                                    "first_name",
+                                    "last_name",
+                                    "national_id",
+                                    "phone_number",
+                                    "email",
+                                    "dob",
+                                    "nationality",
+                                    "authorization_number",
+                                    "authorization_issue_date",
+                                    "authorization_expiry_date",
+                                    "species_allowed",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "facility_id": {
+                                        "type": "integer",
+                                        "example": 3
+                                    },
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Jean"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Uwimana"
+                                    },
+                                    "national_id": {
+                                        "type": "string",
+                                        "example": "1199980012345678"
+                                    },
+                                    "phone_number": {
+                                        "type": "string",
+                                        "example": "+250788123456"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "inspector@example.com"
+                                    },
+                                    "dob": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "1990-05-10"
+                                    },
+                                    "nationality": {
+                                        "type": "string",
+                                        "example": "Rwandan"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "Rwanda",
+                                        "nullable": true
+                                    },
+                                    "country_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "province_id": {
+                                        "type": "integer",
+                                        "example": 2,
+                                        "nullable": true
+                                    },
+                                    "district_id": {
+                                        "type": "integer",
+                                        "example": 3,
+                                        "nullable": true
+                                    },
+                                    "sector_id": {
+                                        "type": "integer",
+                                        "example": 4,
+                                        "nullable": true
+                                    },
+                                    "cell_id": {
+                                        "type": "integer",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
+                                    "village_id": {
+                                        "type": "integer",
+                                        "example": 6,
+                                        "nullable": true
+                                    },
+                                    "district": {
+                                        "type": "string",
+                                        "example": "Gasabo",
+                                        "nullable": true
+                                    },
+                                    "sector": {
+                                        "type": "string",
+                                        "example": "Remera",
+                                        "nullable": true
+                                    },
+                                    "cell": {
+                                        "type": "string",
+                                        "example": "Rukiri II",
+                                        "nullable": true
+                                    },
+                                    "village": {
+                                        "type": "string",
+                                        "example": "Amahoro",
+                                        "nullable": true
+                                    },
+                                    "authorization_number": {
+                                        "type": "string",
+                                        "example": "AUTH-2026-009"
+                                    },
+                                    "authorization_issue_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-01-01"
+                                    },
+                                    "authorization_expiry_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2027-01-01"
+                                    },
+                                    "species_allowed": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "example": "Cattle"
+                                        },
+                                        "example": [
+                                            "Cattle",
+                                            "Goat"
+                                        ]
+                                    },
+                                    "daily_capacity": {
+                                        "type": "integer",
+                                        "example": 120,
+                                        "nullable": true
+                                    },
+                                    "stamp_serial_number": {
+                                        "type": "string",
+                                        "example": "STAMP-7788",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active",
+                                        "enum": [
+                                            "active",
+                                            "expired"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "302": {
+                        "description": "Inspector created; redirects to inspectors hub."
+                    },
+                    "404": {
+                        "description": "Facility not found or not accessible to the signed-in user."
+                    },
+                    "422": {
+                        "description": "Validation failed."
+                    }
+                },
+                "security": []
+            }
         }
     },
     "components": {
