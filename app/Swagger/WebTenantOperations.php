@@ -1,0 +1,225 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Swagger;
+
+use OpenApi\Attributes as OA;
+
+#[OA\Post(
+    path: '/businesses',
+    operationId: 'webBusinessesStore',
+    summary: 'Register a business',
+    description: 'Creates a tenant business through the web workspace. This is a Laravel web route and requires an authenticated browser session, not Bearer token auth. On success the controller redirects to `businesses.hub`.',
+    tags: ['Businesses'],
+    security: [],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\MediaType(
+            mediaType: 'application/x-www-form-urlencoded',
+            schema: new OA\Schema(
+                required: ['business_name', 'registration_number', 'contact_phone', 'email', 'status', 'owner_first_name', 'owner_last_name'],
+                properties: [
+                    new OA\Property(property: 'type', type: 'string', enum: ['farmer', 'processor', 'logistics'], nullable: true, example: 'processor', description: 'Optional. Defaults to `processor` when omitted.'),
+                    new OA\Property(property: 'business_name', type: 'string', example: 'Dayare Meat Ltd'),
+                    new OA\Property(property: 'registration_number', type: 'string', example: 'REG-2026-001'),
+                    new OA\Property(property: 'tax_id', type: 'string', nullable: true, example: 'TIN-20493'),
+                    new OA\Property(property: 'contact_phone', type: 'string', example: '+250788000000'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'info@dayaremeat.com'),
+                    new OA\Property(property: 'status', type: 'string', enum: ['active', 'suspended'], example: 'active'),
+                    new OA\Property(property: 'owner_first_name', type: 'string', example: 'Jean'),
+                    new OA\Property(property: 'owner_last_name', type: 'string', example: 'Claude'),
+                    new OA\Property(property: 'owner_dob', type: 'string', format: 'date', nullable: true, example: '1988-04-15'),
+                    new OA\Property(property: 'owner_phone', type: 'string', nullable: true, example: '+250788111111'),
+                    new OA\Property(property: 'owner_email', type: 'string', format: 'email', nullable: true, example: 'owner@dayaremeat.com'),
+                    new OA\Property(property: 'ownership_type', type: 'string', enum: ['sole_proprietor', 'partnership', 'company', 'cooperative', 'other'], nullable: true, example: 'company'),
+                    new OA\Property(property: 'country_id', type: 'integer', nullable: true, example: 1),
+                    new OA\Property(property: 'province_id', type: 'integer', nullable: true, example: 2),
+                    new OA\Property(property: 'district_id', type: 'integer', nullable: true, example: 3),
+                    new OA\Property(property: 'sector_id', type: 'integer', nullable: true, example: 4),
+                    new OA\Property(property: 'cell_id', type: 'integer', nullable: true, example: 5),
+                    new OA\Property(property: 'village_id', type: 'integer', nullable: true, example: 6),
+                    new OA\Property(property: 'city', type: 'string', nullable: true, example: 'Kigali'),
+                    new OA\Property(property: 'state_region', type: 'string', nullable: true, example: 'Kigali City'),
+                    new OA\Property(property: 'postal_code', type: 'string', nullable: true, example: '00000'),
+                    new OA\Property(property: 'country', type: 'string', nullable: true, example: 'Rwanda'),
+                    new OA\Property(
+                        property: 'members',
+                        type: 'array',
+                        nullable: true,
+                        items: new OA\Items(
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'first_name', type: 'string', nullable: true, example: 'Alice'),
+                                new OA\Property(property: 'last_name', type: 'string', nullable: true, example: 'Mukamana'),
+                                new OA\Property(property: 'date_of_birth', type: 'string', format: 'date', nullable: true, example: '1990-01-10'),
+                            ],
+                        ),
+                    ),
+                ],
+                type: 'object',
+            ),
+        ),
+    ),
+    responses: [
+        new OA\Response(response: 302, description: 'Redirect response. On success it goes to the business hub; unauthenticated users are redirected to login.'),
+        new OA\Response(response: 422, description: 'Validation failed.'),
+    ],
+)]
+#[OA\Post(
+    path: '/businesses/{business}/facilities',
+    operationId: 'webFacilitiesStore',
+    summary: 'Create a facility',
+    description: 'Creates a facility under the specified business through the web workspace. Requires an authenticated browser session and the business must belong to the signed-in user. On success the controller redirects to the business facilities index.',
+    tags: ['Facilities', 'Businesses'],
+    security: [],
+    parameters: [
+        new OA\Parameter(
+            name: 'business',
+            in: 'path',
+            required: true,
+            description: 'Business ID that owns the facility',
+            schema: new OA\Schema(type: 'integer', example: 10),
+        ),
+    ],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\MediaType(
+            mediaType: 'application/x-www-form-urlencoded',
+            schema: new OA\Schema(
+                required: ['facility_name', 'facility_type', 'status'],
+                properties: [
+                    new OA\Property(property: 'facility_name', type: 'string', example: 'Main Slaughterhouse'),
+                    new OA\Property(property: 'facility_type', type: 'string', enum: ['Slaughterhouse', 'Butchery', 'storage', 'Other'], example: 'Slaughterhouse'),
+                    new OA\Property(property: 'country_id', type: 'integer', nullable: true, example: 1),
+                    new OA\Property(property: 'province_id', type: 'integer', nullable: true, example: 2),
+                    new OA\Property(property: 'district_id', type: 'integer', nullable: true, example: 3),
+                    new OA\Property(property: 'sector_id', type: 'integer', nullable: true, example: 4),
+                    new OA\Property(property: 'cell_id', type: 'integer', nullable: true, example: 5),
+                    new OA\Property(property: 'village_id', type: 'integer', nullable: true, example: 6),
+                    new OA\Property(property: 'district', type: 'string', nullable: true, example: 'Gasabo'),
+                    new OA\Property(property: 'sector', type: 'string', nullable: true, example: 'Remera'),
+                    new OA\Property(property: 'gps', type: 'string', nullable: true, example: '-1.9441,30.0619'),
+                    new OA\Property(property: 'license_number', type: 'string', nullable: true, example: 'FAC-LIC-001'),
+                    new OA\Property(property: 'license_issue_date', type: 'string', format: 'date', nullable: true, example: '2026-01-01'),
+                    new OA\Property(property: 'license_expiry_date', type: 'string', format: 'date', nullable: true, example: '2027-01-01'),
+                    new OA\Property(property: 'daily_capacity', type: 'integer', nullable: true, example: 250),
+                    new OA\Property(property: 'status', type: 'string', enum: ['active', 'suspended'], example: 'active'),
+                ],
+                type: 'object',
+            ),
+        ),
+    ),
+    responses: [
+        new OA\Response(response: 302, description: 'Facility created; redirects to the business facilities list.'),
+        new OA\Response(response: 404, description: 'Business not found or not owned by the signed-in user.'),
+        new OA\Response(response: 422, description: 'Validation failed.'),
+    ],
+)]
+#[OA\Get(
+    path: '/businesses/{business}/facilities',
+    operationId: 'webFacilitiesIndexByBusiness',
+    summary: 'Retrieve facilities by business ID',
+    description: 'Returns the facilities index page for a business. This is an HTML web route, not a JSON API endpoint. Requires an authenticated browser session and the business must belong to the signed-in user.',
+    tags: ['Facilities', 'Businesses'],
+    security: [],
+    parameters: [
+        new OA\Parameter(
+            name: 'business',
+            in: 'path',
+            required: true,
+            description: 'Business ID whose facilities should be listed',
+            schema: new OA\Schema(type: 'integer', example: 10),
+        ),
+        new OA\Parameter(
+            name: 'page',
+            in: 'query',
+            required: false,
+            description: 'Paginator page number',
+            schema: new OA\Schema(type: 'integer', example: 1),
+        ),
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: 'HTML facilities index page for the specified business.',
+            content: new OA\MediaType(
+                mediaType: 'text/html',
+                schema: new OA\Schema(type: 'string', format: 'html'),
+            ),
+        ),
+        new OA\Response(response: 404, description: 'Business not found or not owned by the signed-in user.'),
+        new OA\Response(response: 302, description: 'Redirect to login when unauthenticated.'),
+    ],
+)]
+#[OA\Post(
+    path: '/inspectors',
+    operationId: 'webInspectorsStore',
+    summary: 'Create an inspector',
+    description: 'Creates an inspector for a facility available to the signed-in user. This is a Laravel web route and requires an authenticated browser session. On success the controller redirects to `inspectors.hub`.',
+    tags: ['Inspectors', 'Facilities'],
+    security: [],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\MediaType(
+            mediaType: 'application/x-www-form-urlencoded',
+            schema: new OA\Schema(
+                required: [
+                    'facility_id',
+                    'first_name',
+                    'last_name',
+                    'national_id',
+                    'phone_number',
+                    'email',
+                    'dob',
+                    'nationality',
+                    'authorization_number',
+                    'authorization_issue_date',
+                    'authorization_expiry_date',
+                    'species_allowed',
+                    'status',
+                ],
+                properties: [
+                    new OA\Property(property: 'facility_id', type: 'integer', example: 3),
+                    new OA\Property(property: 'first_name', type: 'string', example: 'Jean'),
+                    new OA\Property(property: 'last_name', type: 'string', example: 'Uwimana'),
+                    new OA\Property(property: 'national_id', type: 'string', example: '1199980012345678'),
+                    new OA\Property(property: 'phone_number', type: 'string', example: '+250788123456'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'inspector@example.com'),
+                    new OA\Property(property: 'dob', type: 'string', format: 'date', example: '1990-05-10'),
+                    new OA\Property(property: 'nationality', type: 'string', example: 'Rwandan'),
+                    new OA\Property(property: 'country', type: 'string', nullable: true, example: 'Rwanda'),
+                    new OA\Property(property: 'country_id', type: 'integer', nullable: true, example: 1),
+                    new OA\Property(property: 'province_id', type: 'integer', nullable: true, example: 2),
+                    new OA\Property(property: 'district_id', type: 'integer', nullable: true, example: 3),
+                    new OA\Property(property: 'sector_id', type: 'integer', nullable: true, example: 4),
+                    new OA\Property(property: 'cell_id', type: 'integer', nullable: true, example: 5),
+                    new OA\Property(property: 'village_id', type: 'integer', nullable: true, example: 6),
+                    new OA\Property(property: 'district', type: 'string', nullable: true, example: 'Gasabo'),
+                    new OA\Property(property: 'sector', type: 'string', nullable: true, example: 'Remera'),
+                    new OA\Property(property: 'cell', type: 'string', nullable: true, example: 'Rukiri II'),
+                    new OA\Property(property: 'village', type: 'string', nullable: true, example: 'Amahoro'),
+                    new OA\Property(property: 'authorization_number', type: 'string', example: 'AUTH-2026-009'),
+                    new OA\Property(property: 'authorization_issue_date', type: 'string', format: 'date', example: '2026-01-01'),
+                    new OA\Property(property: 'authorization_expiry_date', type: 'string', format: 'date', example: '2027-01-01'),
+                    new OA\Property(
+                        property: 'species_allowed',
+                        type: 'array',
+                        items: new OA\Items(type: 'string', example: 'Cattle'),
+                        example: ['Cattle', 'Goat'],
+                    ),
+                    new OA\Property(property: 'daily_capacity', type: 'integer', nullable: true, example: 120),
+                    new OA\Property(property: 'stamp_serial_number', type: 'string', nullable: true, example: 'STAMP-7788'),
+                    new OA\Property(property: 'status', type: 'string', enum: ['active', 'expired'], example: 'active'),
+                ],
+                type: 'object',
+            ),
+        ),
+    ),
+    responses: [
+        new OA\Response(response: 302, description: 'Inspector created; redirects to inspectors hub.'),
+        new OA\Response(response: 404, description: 'Facility not found or not accessible to the signed-in user.'),
+        new OA\Response(response: 422, description: 'Validation failed.'),
+    ],
+)]
+final class WebTenantOperations {}

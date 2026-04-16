@@ -15,7 +15,12 @@ class StoreCompanyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'business_id' => ['required', 'integer', Rule::exists('businesses', 'id')],
+            'business_id' => [
+                'required',
+                'integer',
+                Rule::exists('businesses', 'id'),
+                Rule::unique('logistics_companies', 'business_id'),
+            ],
             'name' => ['required', 'string', 'max:255'],
             'registration_number' => ['required', 'string', 'max:120', 'unique:logistics_companies,registration_number'],
             'tax_id' => ['nullable', 'string', 'max:120'],
@@ -29,6 +34,13 @@ class StoreCompanyRequest extends FormRequest
             'operating_regions.cell_id' => ['nullable', 'integer', Rule::exists('administrative_divisions', 'id')],
             'operating_regions.village_id' => ['nullable', 'integer', Rule::exists('administrative_divisions', 'id')],
             'contact_person' => ['nullable', 'string', 'max:150'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'business_id.unique' => __('A logistics company has already been registered for this business.'),
         ];
     }
 }
