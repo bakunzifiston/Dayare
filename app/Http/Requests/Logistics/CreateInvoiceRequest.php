@@ -13,16 +13,30 @@ class CreateInvoiceRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $items = collect($this->input('items', []))
+            ->filter(fn ($row): bool => is_array($row) && trim((string) ($row['description'] ?? '')) !== '')
+            ->values()
+            ->all();
+        $this->merge(['items' => $items]);
+    }
+
     public function rules(): array
     {
         return [
-            'base_cost' => ['required', 'numeric', 'min:0'],
-            'cost_per_km' => ['required', 'numeric', 'min:0'],
-            'distance_km' => ['nullable', 'numeric', 'min:0'],
-            'cost_per_unit' => ['required', 'numeric', 'min:0'],
-            'extra_charges' => ['nullable', 'numeric', 'min:0'],
+            'client_id' => ['required', 'integer', Rule::exists('clients', 'id')],
+            'currency' => ['required', 'string', 'max:8'],
+            'tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'issued_at' => ['nullable', 'date'],
+            'due_date' => ['nullable', 'date'],
             'payment_status' => ['nullable', Rule::in(LogisticsInvoice::PAYMENT_STATUSES)],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.description' => ['required', 'string', 'max:255'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.total' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }
-

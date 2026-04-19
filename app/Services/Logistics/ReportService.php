@@ -23,13 +23,13 @@ class ReportService
         $tripIds = $trips->pluck('id')->all();
         $invoices = $this->invoices->byTripIds($tripIds);
 
-        $delivered = $trips->where('status', LogisticsTrip::STATUS_DELIVERED);
+        $delivered = $trips->where('status', LogisticsTrip::STATUS_COMPLETED);
         $onTime = $delivered->filter(fn ($trip) => $trip->actual_arrival !== null && $trip->actual_arrival->lte($trip->planned_arrival))->count();
         $revenue = (float) $invoices->sum('total_amount');
         $revenuePerTrip = $trips->count() > 0 ? round($revenue / $trips->count(), 2) : 0.0;
 
-        $allocated = (int) $trips->sum(fn ($trip) => $trip->tripOrders->sum('allocated_quantity'));
-        $loss = (int) $trips->sum(fn ($trip) => $trip->tripOrders->sum('loss_quantity'));
+        $allocated = (int) $trips->sum('allocated_weight_kg');
+        $loss = (int) $trips->sum('loss_weight_kg');
         $lossRate = $allocated > 0 ? round(($loss / $allocated) * 100, 2) : 0.0;
 
         $durations = $trips->whereNotNull('actual_departure')->whereNotNull('actual_arrival')
@@ -45,4 +45,3 @@ class ReportService
         ];
     }
 }
-

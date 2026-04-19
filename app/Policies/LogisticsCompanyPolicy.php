@@ -25,5 +25,14 @@ class LogisticsCompanyPolicy
     {
         return in_array((int) $company->business_id, $user->accessibleBusinessIds()->all(), true);
     }
-}
 
+    public function update(User $user, LogisticsCompany $company): bool
+    {
+        return $this->view($user, $company);
+    }
+
+    public function delete(User $user, LogisticsCompany $company): bool
+    {
+        return $this->view($user, $company);
+    }
+}

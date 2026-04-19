@@ -27,18 +27,18 @@ class OrderRepository
     {
         return LogisticsOrder::query()
             ->where('company_id', $companyId)
-            ->latest('requested_date')
+            ->latest('created_at')
             ->get();
     }
 
+    /** Confirmed orders eligible for trip planning. */
     /** @return Collection<int, LogisticsOrder> */
-    public function approvedByCompanyAndIds(int $companyId, array $ids): Collection
+    public function planningEligibleByCompanyAndIds(int $companyId, array $ids): Collection
     {
         return LogisticsOrder::query()
             ->where('company_id', $companyId)
             ->whereIn('id', $ids)
-            ->where('status', LogisticsOrder::STATUS_APPROVED)
+            ->where('status', LogisticsOrder::STATUS_CONFIRMED)
             ->get();
     }
 }
-

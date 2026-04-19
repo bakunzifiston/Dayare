@@ -5,6 +5,7 @@ namespace App\Services\Logistics;
 use App\Events\Logistics\TripPlanned;
 use App\Models\LogisticsComplianceDocument;
 use App\Models\LogisticsDriver;
+use App\Models\LogisticsOrder;
 use App\Models\LogisticsTrip;
 use App\Models\LogisticsVehicle;
 use App\Models\User;
@@ -58,65 +59,62 @@ class TripPlanningService
             $this->ruleViolation(__('Driver already assigned to active trip.'), 'driver_id');
         }
 
-        $orderIds = collect((array) $payload['orders'])->pluck('order_id')->map(fn ($id) => (int) $id)->all();
-        $approvedOrders = $this->orders->approvedByCompanyAndIds((int) $company->id, $orderIds)->keyBy('id');
-        if (count($orderIds) !== $approvedOrders->count()) {
-            $this->ruleViolation(__('All selected orders must be approved.'), 'orders');
+        $order = $this->orders->find((int) $payload['order_id']);
+        if ($order === null || (int) $order->company_id !== (int) $company->id) {
+            $this->ruleViolation(__('Order not found for this company.'), 'order_id');
+        }
+        if ($order->status !== LogisticsOrder::STATUS_CONFIRMED) {
+            $this->ruleViolation(__('Only confirmed orders can be scheduled.'), 'order_id');
         }
 
-        $totalUnits = 0;
-        $totalWeight = 0.0;
-        $hasLivestock = false;
-        $syncPayload = [];
-        foreach ((array) $payload['orders'] as $row) {
-            $orderId = (int) $row['order_id'];
-            $allocated = (int) $row['allocated_quantity'];
-            $order = $approvedOrders->get($orderId);
-            if ($order === null || $allocated <= 0 || $allocated > (int) $order->quantity) {
-                $this->ruleViolation(__('Allocated quantity invalid.'), 'orders');
-            }
-
-            $alreadyReserved = $this->trips->reservedQuantityForOrder($orderId);
-            $alreadyDelivered = $this->trips->deliveredQuantityForOrder($orderId);
-            $availableToAllocate = max(0, ((int) $order->quantity) - $alreadyReserved - $alreadyDelivered);
-            if ($allocated > $availableToAllocate) {
-                $this->ruleViolation(__('Allocated quantity exceeds remaining order balance.'), 'orders');
-            }
-
-            $totalUnits += $allocated;
-            if ($order->weight !== null && (int) $order->quantity > 0) {
-                $totalWeight += (((float) $order->weight) / ((int) $order->quantity)) * $allocated;
-            }
-            if ($order->species !== null && trim((string) $order->species) !== '') {
-                $hasLivestock = true;
-            }
-            $syncPayload[$orderId] = ['allocated_quantity' => $allocated, 'delivered_quantity' => 0, 'loss_quantity' => 0];
+        $allocated = (int) $payload['allocated_weight_kg'];
+        $capKg = $order->allocatableWeightKg();
+        if ($allocated <= 0 || $allocated > $capKg) {
+            $this->ruleViolation(__('Allocated weight (kg) is invalid for this order.'), 'allocated_weight_kg');
         }
+
+        $alreadyReserved = $this->trips->reservedQuantityForOrder((int) $order->id);
+        $alreadyDelivered = $this->trips->deliveredQuantityForOrder((int) $order->id);
+        $availableToAllocate = max(0, $capKg - $alreadyReserved - $alreadyDelivered);
+        if ($allocated > $availableToAllocate) {
+            $this->ruleViolation(__('Allocated weight exceeds remaining order capacity.'), 'allocated_weight_kg');
+        }
+
+        $totalUnits = $allocated;
+        $totalWeight = (float) $allocated;
         if ($totalUnits > (int) $vehicle->max_units) {
-            $this->ruleViolation(__('Vehicle max units exceeded.'), 'orders');
+            $this->ruleViolation(__('Vehicle max units exceeded.'), 'allocated_weight_kg');
         }
         if ($vehicle->max_weight !== null && $totalWeight > (float) $vehicle->max_weight) {
-            $this->ruleViolation(__('Vehicle max weight exceeded.'), 'orders');
+            $this->ruleViolation(__('Vehicle max weight exceeded.'), 'allocated_weight_kg');
         }
-        if ($hasLivestock) {
+
+        $needsExportDocs = $order->service_type === LogisticsOrder::SERVICE_TYPE_EXPORT;
+        if ($needsExportDocs) {
             $docTypes = collect((array) ($payload['compliance_documents'] ?? []))->pluck('type')->all();
             foreach ([LogisticsComplianceDocument::TYPE_HEALTH_CERTIFICATE, LogisticsComplianceDocument::TYPE_MOVEMENT_PERMIT] as $required) {
                 if (! in_array($required, $docTypes, true)) {
-                    $this->ruleViolation(__('Livestock trip requires health certificate and movement permit.'), 'compliance_documents');
+                    $this->ruleViolation(__('Export trips require a health certificate and movement permit.'), 'compliance_documents');
                 }
             }
         }
 
-        return DB::transaction(function () use ($payload, $company, $vehicle, $driver, $syncPayload) {
+        return DB::transaction(function () use ($payload, $company, $vehicle, $driver, $order, $allocated) {
             $trip = $this->trips->create([
                 'company_id' => (int) $company->id,
+                'order_id' => (int) $order->id,
+                'origin_location_id' => (int) $payload['origin_location_id'],
+                'destination_location_id' => (int) $payload['destination_location_id'],
                 'vehicle_id' => (int) $vehicle->id,
                 'driver_id' => (int) $driver->id,
                 'planned_departure' => $payload['planned_departure'],
                 'planned_arrival' => $payload['planned_arrival'],
                 'status' => LogisticsTrip::STATUS_SCHEDULED,
+                'notes' => $payload['notes'] ?? null,
+                'allocated_weight_kg' => $allocated,
+                'delivered_weight_kg' => 0,
+                'loss_weight_kg' => 0,
             ]);
-            $this->trips->syncOrders($trip, $syncPayload);
             foreach ((array) ($payload['compliance_documents'] ?? []) as $doc) {
                 $this->compliance->create([
                     'trip_id' => (int) $trip->id,
@@ -131,8 +129,7 @@ class TripPlanningService
             $driver->save();
             event(new TripPlanned((int) $trip->id));
 
-            return $trip->refresh()->load(['vehicle', 'driver', 'orders', 'tripOrders', 'complianceDocuments']);
+            return $trip->refresh()->load(['vehicle', 'driver', 'order', 'originLocation', 'destinationLocation', 'complianceDocuments']);
         });
     }
 }
-

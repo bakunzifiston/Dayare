@@ -12,8 +12,8 @@ use App\Http\Requests\Logistics\StoreDriverRequest;
 use App\Http\Requests\Logistics\StoreOrderRequest;
 use App\Http\Requests\Logistics\StoreTrackingLogRequest;
 use App\Http\Requests\Logistics\StoreVehicleRequest;
+use App\Http\Requests\Logistics\UpdateCompanyRequest;
 use App\Models\LogisticsCompany;
-use App\Models\LogisticsOrder;
 use App\Models\LogisticsTrip;
 use App\Services\Logistics\BillingService;
 use App\Services\Logistics\CompanyService;
@@ -55,14 +55,33 @@ class LogisticsModuleController extends Controller
         return view('logistics.company.index', $context);
     }
 
-    public function assets(Request $request): View
+    /**
+     * Legacy URL: redirects to vehicles (fleet) index.
+     */
+    public function assets(Request $request): RedirectResponse
+    {
+        $companyId = (int) $request->query('company_id', 0);
+        $params = $companyId > 0 ? ['company_id' => $companyId] : [];
+
+        return redirect()->route('logistics.vehicles.index', $params);
+    }
+
+    public function vehicles(Request $request): View
     {
         $context = $this->workspaceContext->build($request);
-        $context['pageTitle'] = __('Assets');
-        $context['pageSubtitle'] = __('Register and manage vehicles plus drivers from one module.');
-        $context['actionLabel'] = __('Add Asset');
+        $context['pageTitle'] = __('Vehicles');
+        $context['pageSubtitle'] = __('Register and manage fleet vehicles for the selected company.');
 
-        return view('logistics.assets.index', $context);
+        return view('logistics.vehicles.index', $context);
+    }
+
+    public function drivers(Request $request): View
+    {
+        $context = $this->workspaceContext->build($request);
+        $context['pageTitle'] = __('Drivers');
+        $context['pageSubtitle'] = __('Register and manage drivers for the selected company.');
+
+        return view('logistics.drivers.index', $context);
     }
 
     public function orders(Request $request): View
@@ -70,14 +89,15 @@ class LogisticsModuleController extends Controller
         $context = $this->workspaceContext->build($request);
         $filters = [
             'status' => (string) $request->query('status', ''),
-            'priority' => (string) $request->query('priority', ''),
+            'service_type' => (string) $request->query('service_type', ''),
+            'transport_mode' => (string) $request->query('transport_mode', ''),
             'search' => trim((string) $request->query('search', '')),
         ];
 
         $context['orders'] = $this->filterOrders($context['orders'], $filters);
         $context['filters'] = $filters;
         $context['pageTitle'] = __('Orders');
-        $context['pageSubtitle'] = __('Manage and approve logistics requests.');
+        $context['pageSubtitle'] = __('Create and track logistics orders.');
         $context['actionLabel'] = __('Create Order');
 
         return view('logistics.orders.index', $context);
@@ -87,7 +107,7 @@ class LogisticsModuleController extends Controller
     {
         $context = $this->workspaceContext->build($request);
         $context['pageTitle'] = __('Trip Planning');
-        $context['pageSubtitle'] = __('Assign approved orders to available driver and vehicle capacity.');
+        $context['pageSubtitle'] = __('Assign confirmed orders to available driver and vehicle capacity.');
         $context['actionLabel'] = __('Plan Trip');
 
         return view('logistics.planning.index', $context);
@@ -133,22 +153,6 @@ class LogisticsModuleController extends Controller
         return view('logistics.billing.index', $context);
     }
 
-    public function vehicles(Request $request): RedirectResponse
-    {
-        $companyId = (int) $request->query('company_id', 0);
-        $params = $companyId > 0 ? ['company_id' => $companyId] : [];
-
-        return redirect()->route('logistics.assets.index', $params);
-    }
-
-    public function drivers(Request $request): RedirectResponse
-    {
-        $companyId = (int) $request->query('company_id', 0);
-        $params = $companyId > 0 ? ['company_id' => $companyId] : [];
-
-        return redirect()->route('logistics.assets.index', $params);
-    }
-
     public function invoices(Request $request): RedirectResponse
     {
         $companyId = (int) $request->query('company_id', 0);
@@ -173,13 +177,70 @@ class LogisticsModuleController extends Controller
         return redirect()->route('logistics.company.index', ['company_id' => $company->id])->with('status', __('Company registered.'));
     }
 
+    public function showCompany(Request $request, LogisticsCompany $logistics_company): View
+    {
+        $this->authorize('view', $logistics_company);
+
+        $logistics_company->load([
+            'members',
+            'business',
+            'country',
+            'province',
+            'district',
+            'sector',
+            'cell',
+            'village',
+        ]);
+
+        $context = $this->workspaceContext->build($request);
+        $context['pageTitle'] = $logistics_company->name;
+        $context['pageSubtitle'] = __('Company profile and members.');
+        $context['logisticsCompany'] = $logistics_company;
+
+        return view('logistics.company.show', $context);
+    }
+
+    public function editCompany(Request $request, LogisticsCompany $logistics_company): View
+    {
+        $this->authorize('update', $logistics_company);
+
+        $logistics_company->load('members');
+
+        $context = $this->workspaceContext->build($request);
+        $context['pageTitle'] = __('Edit company');
+        $context['pageSubtitle'] = $logistics_company->name;
+        $context['logisticsCompany'] = $logistics_company;
+
+        return view('logistics.company.edit', $context);
+    }
+
+    public function updateCompany(UpdateCompanyRequest $request, LogisticsCompany $logistics_company): RedirectResponse
+    {
+        $this->authorize('update', $logistics_company);
+        $this->companyService->update($request->user(), $logistics_company, $request->validated());
+
+        return redirect()
+            ->route('logistics.company.show', $logistics_company)
+            ->with('status', __('Company updated.'));
+    }
+
+    public function destroyCompany(Request $request, LogisticsCompany $logistics_company): RedirectResponse
+    {
+        $this->authorize('delete', $logistics_company);
+        $this->companyService->delete($request->user(), $logistics_company);
+
+        return redirect()
+            ->route('logistics.company.index')
+            ->with('status', __('Company deleted.'));
+    }
+
     public function storeVehicle(StoreVehicleRequest $request): RedirectResponse
     {
         $this->authorize('create', LogisticsCompany::class);
         $payload = $request->validated();
         $this->vehicleService->create($request->user(), $payload);
 
-        return redirect()->route('logistics.assets.index', ['company_id' => $payload['company_id']])->with('status', __('Vehicle added.'));
+        return redirect()->route('logistics.vehicles.index', ['company_id' => $payload['company_id']])->with('status', __('Vehicle added.'));
     }
 
     public function storeDriver(StoreDriverRequest $request): RedirectResponse
@@ -188,7 +249,7 @@ class LogisticsModuleController extends Controller
         $payload = $request->validated();
         $this->driverService->create($request->user(), $payload);
 
-        return redirect()->route('logistics.assets.index', ['company_id' => $payload['company_id']])->with('status', __('Driver added.'));
+        return redirect()->route('logistics.drivers.index', ['company_id' => $payload['company_id']])->with('status', __('Driver added.'));
     }
 
     public function storeOrder(StoreOrderRequest $request): RedirectResponse
@@ -198,14 +259,6 @@ class LogisticsModuleController extends Controller
         $this->orderService->create($request->user(), $payload);
 
         return redirect()->route('logistics.orders.index', ['company_id' => $payload['company_id']])->with('status', __('Order created.'));
-    }
-
-    public function approveOrder(Request $request, LogisticsOrder $order): RedirectResponse
-    {
-        $this->authorize('update', $order);
-        $this->orderService->approve($request->user(), $order);
-
-        return redirect()->route('logistics.orders.index', ['company_id' => $order->company_id])->with('status', __('Order approved.'));
     }
 
     public function planTrip(PlanTripRequest $request): RedirectResponse
@@ -263,13 +316,15 @@ class LogisticsModuleController extends Controller
     {
         return $orders
             ->when($filters['status'] !== '', fn (Collection $rows): Collection => $rows->where('status', $filters['status']))
-            ->when($filters['priority'] !== '', fn (Collection $rows): Collection => $rows->where('priority', $filters['priority']))
+            ->when($filters['service_type'] !== '', fn (Collection $rows): Collection => $rows->where('service_type', $filters['service_type']))
+            ->when($filters['transport_mode'] !== '', fn (Collection $rows): Collection => $rows->where('transport_mode', $filters['transport_mode']))
             ->when($filters['search'] !== '', function (Collection $rows) use ($filters): Collection {
                 $needle = mb_strtolower($filters['search']);
 
                 return $rows->filter(function ($order) use ($needle): bool {
                     return str_contains(mb_strtolower((string) $order->pickup_location), $needle)
                         || str_contains(mb_strtolower((string) $order->delivery_location), $needle)
+                        || str_contains(mb_strtolower((string) ($order->order_number ?? '')), $needle)
                         || str_contains((string) $order->id, $needle);
                 });
             })

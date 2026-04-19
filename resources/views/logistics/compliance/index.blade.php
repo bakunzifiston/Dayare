@@ -3,7 +3,13 @@
     'pageSubtitle' => $pageSubtitle,
     'selectedCompanyId' => $selectedCompanyId,
 ])
-    <div class="space-y-4">
+    @slot('actions')
+        <button type="button" class="rounded-md bg-[#7A1C22] px-4 py-2 text-sm font-semibold text-white hover:bg-[#64161c]" @click="$dispatch('open-compliance-form')">
+            {{ $actionLabel }}
+        </button>
+    @endslot
+
+    <div class="space-y-4" x-data="{ showForm: @js($errors->any()) }" @open-compliance-form.window="showForm = true">
         <form method="GET" action="{{ route('logistics.compliance.index') }}" class="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <label class="mb-1 block text-xs font-medium text-slate-500">{{ __('Company') }}</label>
             <div class="flex gap-2">
@@ -16,8 +22,11 @@
             </div>
         </form>
 
-        <section class="rounded-lg border border-slate-200 bg-white p-4">
-            <h2 class="mb-3 text-sm font-semibold text-slate-900">{{ __('Add compliance document') }}</h2>
+        <section id="logistics-compliance-form" x-show="showForm" x-transition class="rounded-lg border border-slate-200 bg-white p-4">
+            <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-slate-900">{{ __('Add compliance document') }}</h2>
+                <button type="button" class="text-xs text-slate-500 hover:text-slate-700" @click="showForm = false">{{ __('Close') }}</button>
+            </div>
             @if ($trips->isEmpty())
                 <p class="text-sm text-slate-500">{{ __('No trips available for compliance yet. Plan a trip first.') }}</p>
             @else

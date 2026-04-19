@@ -13,16 +13,32 @@ class CompleteTripRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('status') === LogisticsTrip::STATUS_CANCELLED) {
+            $this->merge([
+                'delivered_weight_kg' => 0,
+                'loss_weight_kg' => 0,
+            ]);
+
+            return;
+        }
+
+        if ($this->input('delivered_weight_kg') === null || $this->input('delivered_weight_kg') === '') {
+            $this->merge(['delivered_weight_kg' => 0]);
+        }
+        if ($this->input('loss_weight_kg') === null || $this->input('loss_weight_kg') === '') {
+            $this->merge(['loss_weight_kg' => 0]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'actual_arrival' => ['nullable', 'date'],
-            'status' => ['required', Rule::in([LogisticsTrip::STATUS_DELIVERED, LogisticsTrip::STATUS_FAILED])],
-            'deliveries' => ['nullable', 'array', 'required_if:status,'.LogisticsTrip::STATUS_DELIVERED, 'min:1'],
-            'deliveries.*.order_id' => ['required_with:deliveries', 'integer', Rule::exists('logistics_orders', 'id')],
-            'deliveries.*.delivered_quantity' => ['required_with:deliveries', 'integer', 'min:0'],
-            'deliveries.*.loss_quantity' => ['nullable', 'integer', 'min:0'],
+            'status' => ['required', Rule::in([LogisticsTrip::STATUS_COMPLETED, LogisticsTrip::STATUS_CANCELLED])],
+            'delivered_weight_kg' => ['required_if:status,'.LogisticsTrip::STATUS_COMPLETED, 'integer', 'min:0'],
+            'loss_weight_kg' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }
-

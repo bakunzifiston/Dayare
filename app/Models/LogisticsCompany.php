@@ -9,10 +9,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LogisticsCompany extends Model
 {
+    public const TYPE_INDIVIDUAL = 'individual';
+
+    public const TYPE_SHARED_COMPANY = 'shared_company';
+
+    public const COMPANY_TYPES = [
+        self::TYPE_INDIVIDUAL,
+        self::TYPE_SHARED_COMPANY,
+    ];
+
     protected $table = 'logistics_companies';
 
     protected $fillable = [
         'business_id',
+        'company_type',
         'name',
         'registration_number',
         'tax_id',
@@ -20,6 +30,12 @@ class LogisticsCompany extends Model
         'license_expiry_date',
         'operating_regions',
         'contact_person',
+        'country_id',
+        'province_id',
+        'district_id',
+        'sector_id',
+        'cell_id',
+        'village_id',
     ];
 
     protected function casts(): array
@@ -33,6 +49,46 @@ class LogisticsCompany extends Model
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class, 'business_id');
+    }
+
+    public function members(): HasMany
+    {
+        return $this->hasMany(LogisticsCompanyMember::class, 'logistics_company_id');
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'country_id');
+    }
+
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'province_id');
+    }
+
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'district_id');
+    }
+
+    public function sector(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'sector_id');
+    }
+
+    public function cell(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'cell_id');
+    }
+
+    public function village(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'village_id');
+    }
+
+    public function isSharedCompany(): bool
+    {
+        return $this->company_type === self::TYPE_SHARED_COMPANY;
     }
 
     public function vehicles(): HasMany

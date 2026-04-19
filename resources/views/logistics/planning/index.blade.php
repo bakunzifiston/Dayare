@@ -22,9 +22,29 @@
 
         <section id="plan-trip-form" class="rounded-lg border border-slate-200 bg-white p-4">
             <h2 class="mb-3 text-sm font-semibold text-slate-900">{{ __('Plan trip') }}</h2>
+            <p class="mb-3 text-xs text-slate-500">{{ __('Each trip executes one confirmed order. Allocation is in whole kilograms. Origin and destination reference the shared locations directory.') }}</p>
             <form method="POST" action="{{ route('logistics.planning.store') }}" class="grid gap-2 md:grid-cols-3">
                 @csrf
                 <input type="hidden" name="company_id" value="{{ $selectedCompanyId }}">
+                <select name="order_id" class="rounded-md border-slate-300 text-sm md:col-span-3" required>
+                    <option value="">{{ __('Confirmed order') }}</option>
+                    @foreach ($orders->where('status', 'confirmed') as $order)
+                        <option value="{{ $order->id }}">{{ $order->order_number ?? ('#'.$order->id) }} — {{ __('max :kg kg', ['kg' => $order->allocatableWeightKg()]) }}</option>
+                    @endforeach
+                </select>
+                <select name="origin_location_id" class="rounded-md border-slate-300 text-sm" required>
+                    <option value="">{{ __('Origin location') }}</option>
+                    @foreach ($locations as $location)
+                        <option value="{{ $location->id }}">{{ $location->name }}</option>
+                    @endforeach
+                </select>
+                <select name="destination_location_id" class="rounded-md border-slate-300 text-sm" required>
+                    <option value="">{{ __('Destination location') }}</option>
+                    @foreach ($locations as $location)
+                        <option value="{{ $location->id }}">{{ $location->name }}</option>
+                    @endforeach
+                </select>
+                <input type="number" min="1" name="allocated_weight_kg" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Allocated weight (kg)') }}" required>
                 <select name="vehicle_id" class="rounded-md border-slate-300 text-sm" required>
                     <option value="">{{ __('Vehicle') }}</option>
                     @foreach ($vehicles as $vehicle)
@@ -37,15 +57,9 @@
                         <option value="{{ $driver->id }}">{{ $driver->name }}</option>
                     @endforeach
                 </select>
-                <select name="orders[0][order_id]" class="rounded-md border-slate-300 text-sm" required>
-                    <option value="">{{ __('Approved order') }}</option>
-                    @foreach ($orders->where('status', 'approved') as $order)
-                        <option value="{{ $order->id }}">#{{ $order->id }} ({{ $order->quantity }})</option>
-                    @endforeach
-                </select>
-                <input type="number" min="1" name="orders[0][allocated_quantity]" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Allocated quantity') }}" required>
                 <input type="datetime-local" name="planned_departure" class="rounded-md border-slate-300 text-sm" required>
                 <input type="datetime-local" name="planned_arrival" class="rounded-md border-slate-300 text-sm" required>
+                <textarea name="notes" rows="2" class="md:col-span-3 rounded-md border-slate-300 text-sm" placeholder="{{ __('Notes (optional)') }}"></textarea>
                 <input type="hidden" name="compliance_documents[0][type]" value="health_certificate">
                 <input type="hidden" name="compliance_documents[0][status]" value="valid">
                 <input type="hidden" name="compliance_documents[1][type]" value="movement_permit">

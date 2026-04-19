@@ -8,20 +8,6 @@ function initDashboardCharts() {
   const config = window.dashboardCharts;
   if (!config) return;
 
-  const defaultOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { position: 'bottom' },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { precision: 0 },
-      },
-    },
-  };
-
   const colorPalette = {
     primary: 'rgb(161, 29, 30)',
     primaryBg: 'rgba(161, 29, 30, 0.12)',
@@ -42,7 +28,10 @@ function initDashboardCharts() {
     const el = document.getElementById(canvasId);
     if (!el || !config[chartId]) return;
 
-    const { labels, datasets: rawDatasets, type = 'bar' } = config[chartId];
+    const chartCfg = config[chartId];
+    const { labels, datasets: rawDatasets, type = 'bar' } = chartCfg;
+    const stacked = !!chartCfg.stacked;
+    const yTickPrecision = chartCfg.yTickPrecision ?? 0;
     const colors = [colorPalette.primary, colorPalette.green, colorPalette.slate, colorPalette.burgundy];
     const bgColors = [colorPalette.primaryBg, colorPalette.greenBg, colorPalette.slateBg, colorPalette.burgundyBg];
 
@@ -56,10 +45,30 @@ function initDashboardCharts() {
       tension: type === 'line' ? 0.3 : 0,
     }));
 
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' },
+      },
+      scales: {
+        x: {
+          stacked,
+        },
+        y: {
+          beginAtZero: true,
+          stacked,
+          ticks: {
+            precision: yTickPrecision,
+          },
+        },
+      },
+    };
+
     new Chart(el, {
       type,
       data: { labels, datasets },
-      options: defaultOptions,
+      options,
     });
   });
 }

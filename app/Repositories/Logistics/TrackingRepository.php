@@ -16,9 +16,9 @@ class TrackingRepository
     public function byTripIds(array $tripIds): Collection
     {
         return LogisticsTrackingLog::query()
+            ->with(['trip', 'location'])
             ->whereIn('trip_id', $tripIds)
-            ->latest('timestamp')
+            ->latest('event_time')
             ->get();
     }
 }
-

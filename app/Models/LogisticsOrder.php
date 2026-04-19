@@ -4,25 +4,77 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LogisticsOrder extends Model
 {
     protected $table = 'logistics_orders';
-    public const STATUS_PENDING = 'pending';
-    public const STATUS_APPROVED = 'approved';
-    public const STATUS_REJECTED = 'rejected';
-    public const STATUSES = [self::STATUS_PENDING, self::STATUS_APPROVED, self::STATUS_REJECTED];
-    public const PRIORITY_LOW = 'low';
-    public const PRIORITY_NORMAL = 'normal';
-    public const PRIORITY_HIGH = 'high';
-    public const PRIORITIES = [self::PRIORITY_LOW, self::PRIORITY_NORMAL, self::PRIORITY_HIGH];
-    protected $fillable = ['company_id', 'client_id', 'pickup_location', 'delivery_location', 'species', 'quantity', 'weight', 'requested_date', 'priority', 'status'];
+
+    public const SERVICE_TYPE_LOCAL = 'local';
+
+    public const SERVICE_TYPE_EXPORT = 'export';
+
+    public const SERVICE_TYPES = [self::SERVICE_TYPE_LOCAL, self::SERVICE_TYPE_EXPORT];
+
+    public const TRANSPORT_MODE_ROAD = 'road';
+
+    public const TRANSPORT_MODE_AIR = 'air';
+
+    public const TRANSPORT_MODE_SEA = 'sea';
+
+    public const TRANSPORT_MODES = [self::TRANSPORT_MODE_ROAD, self::TRANSPORT_MODE_AIR, self::TRANSPORT_MODE_SEA];
+
+    public const STATUS_CONFIRMED = 'confirmed';
+
+    public const STATUS_IN_PROGRESS = 'in_progress';
+
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_CONFIRMED,
+        self::STATUS_IN_PROGRESS,
+        self::STATUS_COMPLETED,
+        self::STATUS_CANCELLED,
+    ];
+
+    protected $fillable = [
+        'company_id',
+        'service_type',
+        'transport_mode',
+        'status',
+        'pickup_location',
+        'delivery_location',
+        'total_weight',
+        'total_volume',
+        'special_instructions',
+    ];
 
     protected function casts(): array
     {
-        return ['quantity' => 'integer', 'weight' => 'decimal:2', 'requested_date' => 'date'];
+        return [
+            'total_weight' => 'decimal:3',
+            'total_volume' => 'decimal:3',
+        ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (LogisticsOrder $order): void {
+            if ($order->order_number !== null && $order->order_number !== '') {
+                return;
+            }
+            do {
+                $order->order_number = 'LP-'.strtoupper(substr(bin2hex(random_bytes(5)), 0, 10));
+            } while (static::query()->where('order_number', $order->order_number)->exists());
+        });
+    }
+
+    /** Integer kg cap for trip allocation (whole kg vs vehicle pivot). */
+    public function allocatableWeightKg(): int
+    {
+        return max(0, (int) round((float) $this->total_weight));
     }
 
     public function company(): BelongsTo
@@ -30,22 +82,13 @@ class LogisticsOrder extends Model
         return $this->belongsTo(LogisticsCompany::class, 'company_id');
     }
 
-    public function client(): BelongsTo
+    public function trips(): HasMany
     {
-        return $this->belongsTo(Business::class, 'client_id');
+        return $this->hasMany(LogisticsTrip::class, 'order_id');
     }
 
-    public function trips(): BelongsToMany
+    public function invoices(): HasMany
     {
-        return $this->belongsToMany(LogisticsTrip::class, 'logistics_trip_orders', 'order_id', 'trip_id')
-            ->using(LogisticsTripOrder::class)
-            ->withPivot(['allocated_quantity', 'delivered_quantity', 'loss_quantity'])
-            ->withTimestamps();
-    }
-
-    public function tripOrderAllocations(): HasMany
-    {
-        return $this->hasMany(LogisticsTripOrder::class, 'order_id');
+        return $this->hasMany(LogisticsInvoice::class, 'order_id');
     }
 }
-

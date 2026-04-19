@@ -3,7 +3,8 @@
     $items = [
         ['label' => __('Dashboard'), 'route' => 'logistics.dashboard.index', 'icon' => 'dashboard', 'routeIs' => 'logistics.dashboard.*'],
         ['label' => __('Company'), 'route' => 'logistics.company.index', 'icon' => 'building', 'routeIs' => 'logistics.company.*'],
-        ['label' => __('Assets'), 'route' => 'logistics.assets.index', 'icon' => 'truck', 'routeIs' => 'logistics.assets.*'],
+        ['label' => __('Vehicles'), 'route' => 'logistics.vehicles.index', 'icon' => 'truck', 'routeIs' => 'logistics.vehicles.*'],
+        ['label' => __('Drivers'), 'route' => 'logistics.drivers.index', 'icon' => 'user', 'routeIs' => 'logistics.drivers.*'],
         ['label' => __('Orders'), 'route' => 'logistics.orders.index', 'icon' => 'clipboard-list', 'routeIs' => 'logistics.orders.*'],
         ['label' => __('Trip Planning'), 'route' => 'logistics.planning.index', 'icon' => 'calendar', 'routeIs' => 'logistics.planning.*'],
         ['label' => __('Active Trips'), 'route' => 'logistics.trips.index', 'icon' => 'play', 'routeIs' => 'logistics.trips.*'],

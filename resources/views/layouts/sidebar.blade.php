@@ -76,7 +76,8 @@
             $tenantNav = [
                 ['label' => __('Dashboard'), 'route' => 'logistics.dashboard.index', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['logistics.dashboard.*']],
                 ['label' => __('Company'), 'route' => 'logistics.company.index', 'icon' => 'building', 'permission' => null, 'routeIs' => ['logistics.company.*']],
-                ['label' => __('Assets'), 'route' => 'logistics.assets.index', 'icon' => 'truck', 'permission' => null, 'routeIs' => ['logistics.assets.*']],
+                ['label' => __('Vehicles'), 'route' => 'logistics.vehicles.index', 'icon' => 'truck', 'permission' => null, 'routeIs' => ['logistics.vehicles.*']],
+                ['label' => __('Drivers'), 'route' => 'logistics.drivers.index', 'icon' => 'user', 'permission' => null, 'routeIs' => ['logistics.drivers.*']],
                 ['label' => __('Orders'), 'route' => 'logistics.orders.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['logistics.orders.*']],
                 ['label' => __('Trip Planning'), 'route' => 'logistics.planning.index', 'icon' => 'calendar', 'permission' => null, 'routeIs' => ['logistics.planning.*']],
                 ['label' => __('Active Trips'), 'route' => 'logistics.trips.index', 'icon' => 'play', 'permission' => null, 'routeIs' => ['logistics.trips.*']],

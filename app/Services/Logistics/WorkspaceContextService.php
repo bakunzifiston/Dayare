@@ -3,6 +3,8 @@
 namespace App\Services\Logistics;
 
 use App\Models\Business;
+use App\Models\Client;
+use App\Models\Location;
 use App\Models\User;
 use App\Repositories\Logistics\ComplianceRepository;
 use App\Repositories\Logistics\DriverRepository;
@@ -48,9 +50,16 @@ class WorkspaceContextService
         $trackingLogs = collect();
         $complianceDocuments = collect();
         $invoices = collect();
+        $clients = collect();
+        $locations = Location::query()->orderBy('name')->get();
 
         if ($withOperationalData && $selectedCompanyId > 0) {
             $company = $this->companyService->requireAccessible($user, $selectedCompanyId);
+            $clients = Client::query()
+                ->where('business_id', (int) $company->business_id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']);
             $vehicles = $this->vehicles->byCompany((int) $company->id);
             $drivers = $this->drivers->byCompany((int) $company->id);
             $orders = $this->orders->byCompany((int) $company->id);
@@ -80,7 +89,9 @@ class WorkspaceContextService
             'trips',
             'trackingLogs',
             'complianceDocuments',
-            'invoices'
+            'invoices',
+            'locations',
+            'clients'
         );
     }
 }

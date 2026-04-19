@@ -17,11 +17,14 @@ class LogTripCompleted
 
         LogisticsTrackingLog::query()->create([
             'trip_id' => $trip->id,
-            'timestamp' => $trip->actual_arrival ?? now(),
-            'location' => __('Destination'),
-            'status' => $trip->status,
-            'notes' => $trip->status === LogisticsTrip::STATUS_FAILED ? __('Trip failed.') : __('Trip delivered.'),
+            'location_id' => $trip->destination_location_id,
+            'latitude' => null,
+            'longitude' => null,
+            'event_time' => $trip->actual_arrival ?? now(),
+            'status' => LogisticsTrackingLog::STATUS_COMPLETED,
+            'notes' => $trip->status === LogisticsTrip::STATUS_CANCELLED
+                ? __('Trip cancelled.')
+                : __('Trip completed.'),
         ]);
     }
 }
-

@@ -3,7 +3,6 @@
 namespace App\Repositories\Logistics;
 
 use App\Models\LogisticsTrip;
-use App\Models\LogisticsTripOrder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -17,7 +16,7 @@ class TripRepository
     public function find(int $tripId): ?LogisticsTrip
     {
         return LogisticsTrip::query()
-            ->with(['vehicle', 'driver', 'orders', 'tripOrders', 'complianceDocuments', 'invoice'])
+            ->with(['vehicle', 'driver', 'order', 'originLocation', 'destinationLocation', 'complianceDocuments', 'invoice'])
             ->find($tripId);
     }
 
@@ -31,7 +30,7 @@ class TripRepository
     {
         return LogisticsTrip::query()
             ->where('company_id', $companyId)
-            ->with(['vehicle', 'driver', 'orders', 'tripOrders', 'invoice'])
+            ->with(['vehicle', 'driver', 'order', 'originLocation', 'destinationLocation', 'invoice'])
             ->latest('planned_departure')
             ->get();
     }
@@ -54,31 +53,17 @@ class TripRepository
 
     public function reservedQuantityForOrder(int $orderId): int
     {
-        return (int) LogisticsTripOrder::query()
+        return (int) LogisticsTrip::query()
             ->where('order_id', $orderId)
-            ->whereHas('trip', fn ($query) => $query->whereIn('status', LogisticsTrip::ACTIVE_STATUSES))
-            ->sum('allocated_quantity');
+            ->whereIn('status', LogisticsTrip::ACTIVE_STATUSES)
+            ->sum('allocated_weight_kg');
     }
 
     public function deliveredQuantityForOrder(int $orderId): int
     {
-        return (int) LogisticsTripOrder::query()
+        return (int) LogisticsTrip::query()
             ->where('order_id', $orderId)
-            ->whereHas('trip', fn ($query) => $query->where('status', LogisticsTrip::STATUS_DELIVERED))
-            ->sum(DB::raw('COALESCE(delivered_quantity, 0)'));
-    }
-
-    public function syncOrders(LogisticsTrip $trip, array $syncPayload): void
-    {
-        $trip->orders()->sync($syncPayload);
-    }
-
-    /** @return Collection<int, LogisticsTripOrder> */
-    public function tripOrders(int $tripId): Collection
-    {
-        return LogisticsTripOrder::query()
-            ->where('trip_id', $tripId)
-            ->get();
+            ->where('status', LogisticsTrip::STATUS_COMPLETED)
+            ->sum(DB::raw('COALESCE(delivered_weight_kg, 0)'));
     }
 }
-

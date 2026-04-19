@@ -25,23 +25,32 @@
                         <label class="mb-1 block text-xs font-medium text-slate-500">{{ __('Status') }}</label>
                         <select name="status" class="w-full rounded-md border-slate-300 text-sm">
                             <option value="">{{ __('All') }}</option>
-                            @foreach (['pending', 'approved', 'rejected'] as $status)
-                                <option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>{{ ucfirst($status) }}</option>
+                            @foreach (['confirmed', 'in_progress', 'completed', 'cancelled'] as $status)
+                                <option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>{{ str_replace('_', ' ', ucfirst($status)) }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-medium text-slate-500">{{ __('Priority') }}</label>
-                        <select name="priority" class="w-full rounded-md border-slate-300 text-sm">
+                        <label class="mb-1 block text-xs font-medium text-slate-500">{{ __('Service') }}</label>
+                        <select name="service_type" class="w-full rounded-md border-slate-300 text-sm">
                             <option value="">{{ __('All') }}</option>
-                            @foreach (['low', 'normal', 'high'] as $priority)
-                                <option value="{{ $priority }}" @selected(($filters['priority'] ?? '') === $priority)>{{ ucfirst($priority) }}</option>
+                            @foreach (['local', 'export'] as $st)
+                                <option value="{{ $st }}" @selected(($filters['service_type'] ?? '') === $st)>{{ ucfirst($st) }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
+                        <label class="mb-1 block text-xs font-medium text-slate-500">{{ __('Mode') }}</label>
+                        <select name="transport_mode" class="w-full rounded-md border-slate-300 text-sm">
+                            <option value="">{{ __('All') }}</option>
+                            @foreach (['road', 'air', 'sea'] as $mode)
+                                <option value="{{ $mode }}" @selected(($filters['transport_mode'] ?? '') === $mode)>{{ ucfirst($mode) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="md:col-span-4">
                         <label class="mb-1 block text-xs font-medium text-slate-500">{{ __('Search') }}</label>
-                        <input name="search" value="{{ $filters['search'] ?? '' }}" class="w-full rounded-md border-slate-300 text-sm" placeholder="{{ __('Order # or location') }}">
+                        <input name="search" value="{{ $filters['search'] ?? '' }}" class="w-full rounded-md border-slate-300 text-sm" placeholder="{{ __('Order number or location') }}">
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
@@ -66,18 +75,20 @@
             <form method="POST" action="{{ route('logistics.orders.store') }}" class="grid gap-2 md:grid-cols-4">
                 @csrf
                 <input type="hidden" name="company_id" value="{{ $selectedCompanyId }}">
-                <input type="number" min="1" name="client_id" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Client business ID') }}" required>
+                <select name="service_type" class="rounded-md border-slate-300 text-sm" required>
+                    <option value="local">{{ __('Local') }}</option>
+                    <option value="export">{{ __('Export') }}</option>
+                </select>
+                <select name="transport_mode" class="rounded-md border-slate-300 text-sm" required>
+                    <option value="road">{{ __('Road') }}</option>
+                    <option value="air">{{ __('Air') }}</option>
+                    <option value="sea">{{ __('Sea') }}</option>
+                </select>
                 <input name="pickup_location" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Pickup location') }}" required>
                 <input name="delivery_location" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Delivery location') }}" required>
-                <input name="species" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Species (optional)') }}">
-                <input type="number" min="1" name="quantity" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Quantity') }}" required>
-                <input type="number" min="0" step="0.01" name="weight" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Weight') }}">
-                <input type="date" name="requested_date" class="rounded-md border-slate-300 text-sm" required>
-                <select name="priority" class="rounded-md border-slate-300 text-sm">
-                    <option value="low">low</option>
-                    <option value="normal" selected>normal</option>
-                    <option value="high">high</option>
-                </select>
+                <input type="number" min="0" step="0.001" name="total_weight" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Total weight') }}" required>
+                <input type="number" min="0" step="0.001" name="total_volume" class="rounded-md border-slate-300 text-sm" placeholder="{{ __('Total volume') }}" required>
+                <textarea name="special_instructions" rows="2" class="md:col-span-2 rounded-md border-slate-300 text-sm" placeholder="{{ __('Special instructions (optional)') }}"></textarea>
                 <div class="md:col-span-4">
                     <button class="rounded-md bg-[#7A1C22] px-4 py-2 text-sm font-semibold text-white hover:bg-[#64161c]">{{ __('Save order') }}</button>
                 </div>
@@ -85,7 +96,7 @@
         </section>
 
         <x-logistics.table
-            :columns="[__('Order'), __('Route'), __('Quantity'), __('Priority'), __('Status'), __('Actions')]"
+            :columns="[__('Order'), __('Route'), __('Weight / vol.'), __('Service'), __('Status')]"
             :has-rows="$orders->isNotEmpty()"
             :empty-message="__('No orders found')"
             :empty-action-label="__('Create new order')"
@@ -93,16 +104,11 @@
         >
             @foreach ($orders as $order)
                 <tr>
-                    <td class="px-4 py-3 font-medium text-slate-900">#{{ $order->id }}</td>
+                    <td class="px-4 py-3 font-medium text-slate-900">{{ $order->order_number ?? ('#'.$order->id) }}</td>
                     <td class="px-4 py-3">{{ $order->pickup_location }} &rarr; {{ $order->delivery_location }}</td>
-                    <td class="px-4 py-3">{{ number_format((float) $order->quantity, 2) }}</td>
-                    <td class="px-4 py-3 capitalize">{{ $order->priority }}</td>
+                    <td class="px-4 py-3 text-sm">{{ number_format((float) $order->total_weight, 3) }} / {{ number_format((float) $order->total_volume, 3) }}</td>
+                    <td class="px-4 py-3 text-sm capitalize">{{ $order->service_type }} · {{ str_replace('_', ' ', $order->transport_mode) }}</td>
                     <td class="px-4 py-3"><x-logistics.status-badge :status="$order->status" /></td>
-                    <td class="px-4 py-3">
-                        <x-logistics.actions-menu :actions="array_filter([
-                            $order->status === 'pending' ? ['label' => __('Approve order'), 'href' => route('logistics.orders.approve', $order), 'method' => 'POST'] : null,
-                        ])" />
-                    </td>
                 </tr>
             @endforeach
         </x-logistics.table>
