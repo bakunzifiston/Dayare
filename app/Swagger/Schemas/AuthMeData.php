@@ -14,8 +14,14 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'email', type: 'string', format: 'email'),
         new OA\Property(property: 'is_super_admin', type: 'boolean'),
-        new OA\Property(property: 'userRole', type: 'string', example: 'business_manager'),
-        new OA\Property(property: 'business_type', type: 'string', example: 'processor'),
+        new OA\Property(property: 'userRole', type: 'string', example: 'owner'),
+        new OA\Property(property: 'business_type', type: 'string', nullable: true, example: 'processor'),
+        new OA\Property(property: 'business_id', type: 'integer', nullable: true, example: 12),
+        new OA\Property(
+            property: 'accessible_businesses',
+            type: 'array',
+            items: new OA\Items(type: 'object'),
+        ),
         new OA\Property(
             property: 'accessible_business_ids',
             type: 'array',

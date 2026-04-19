@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\MobileAuthController;
+use App\Http\Controllers\Api\MobileBusinessController;
 use App\Http\Controllers\Api\MobileCollectionController;
 use App\Http\Responses\ApiJson;
 use Illuminate\Support\Facades\Route;
@@ -25,9 +26,14 @@ Route::prefix('v1')->group(function () {
     Route::post('auth/login', [MobileAuthController::class, 'login'])
         ->middleware('throttle:5,1');
 
+    Route::post('auth/register', [MobileAuthController::class, 'register'])
+        ->middleware('throttle:10,1');
+
     Route::middleware('mobile.auth')->group(function () {
         Route::post('auth/logout', [MobileAuthController::class, 'logout']);
         Route::get('auth/me', [MobileAuthController::class, 'me']);
+
+        Route::post('businesses', [MobileBusinessController::class, 'store']);
 
         Route::get('lookups', [MobileCollectionController::class, 'lookups']);
 

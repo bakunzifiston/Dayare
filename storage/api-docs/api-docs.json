@@ -90,6 +90,50 @@
                 "security": []
             }
         },
+        "/api/v1/auth/register": {
+            "post": {
+                "tags": [
+                    "Mobile API",
+                    "Auth"
+                ],
+                "summary": "Register user and initial workspace (stateless)",
+                "description": "Creates a user, assigns tenant owner role, creates a starter business (same rules as web registration). Returns Bearer token — no session cookie. Rate limited.",
+                "operationId": "mobileAuthRegister",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Account created; token issued (see LoginResponse shape).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
         "/api/v1/auth/logout": {
             "post": {
                 "tags": [
@@ -120,6 +164,58 @@
                 ]
             }
         },
+        "/api/v1/businesses": {
+            "post": {
+                "tags": [
+                    "Mobile API",
+                    "Businesses"
+                ],
+                "summary": "Create a business (authenticated)",
+                "description": "Same payload rules as web `StoreBusinessRequest`. User must own the account (creates under their user). Stateless JSON — no CSRF.",
+                "operationId": "mobileBusinessesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "description": "Matches `StoreBusinessRequest`: business_name, registration_number, contact_phone, email, status, owner_first_name, owner_last_name, optional type, location fields, optional members[].",
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Business created in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/auth/me": {
             "get": {
                 "tags": [
@@ -127,8 +223,20 @@
                     "Users"
                 ],
                 "summary": "Current user for this token",
-                "description": "Requires `Authorization: Bearer <token>`. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).",
+                "description": "Requires `Authorization: Bearer <token>`. Optional query `business_id` to resolve `userRole` / `business_type` for that workspace. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).",
                 "operationId": "mobileAuthMe",
+                "parameters": [
+                    {
+                        "name": "business_id",
+                        "in": "query",
+                        "description": "Optional: resolve role/type for this business (must be accessible).",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 12
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "User profile and accessible businesses inside standard envelope.",
@@ -142,6 +250,9 @@
                     },
                     "401": {
                         "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "business_id not accessible"
                     }
                 },
                 "security": [
@@ -1459,11 +1570,23 @@
                     },
                     "userRole": {
                         "type": "string",
-                        "example": "business_manager"
+                        "example": "owner"
                     },
                     "business_type": {
                         "type": "string",
-                        "example": "processor"
+                        "example": "processor",
+                        "nullable": true
+                    },
+                    "business_id": {
+                        "type": "integer",
+                        "example": 12,
+                        "nullable": true
+                    },
+                    "accessible_businesses": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
                     },
                     "accessible_business_ids": {
                         "type": "array",
@@ -1864,6 +1987,12 @@
                         "example": "iPhone-15",
                         "nullable": true,
                         "maxLength": 120
+                    },
+                    "business_id": {
+                        "description": "Optional workspace context; must be in the user's accessible businesses.",
+                        "type": "integer",
+                        "example": 12,
+                        "nullable": true
                     }
                 },
                 "type": "object"
@@ -1964,6 +2093,47 @@
                                 "notes": null
                             }
                         }
+                    }
+                },
+                "type": "object"
+            },
+            "RegisterRequest": {
+                "required": [
+                    "name",
+                    "email",
+                    "password",
+                    "password_confirmation",
+                    "business_type"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Jane Doe"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password"
+                    },
+                    "password_confirmation": {
+                        "type": "string",
+                        "format": "password"
+                    },
+                    "business_type": {
+                        "type": "string",
+                        "enum": [
+                            "farmer",
+                            "processor",
+                            "logistics"
+                        ]
+                    },
+                    "device_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 120
                     }
                 },
                 "type": "object"
@@ -2237,12 +2407,47 @@
                         "example": false
                     },
                     "userRole": {
+                        "description": "Membership: owner, manager, staff, super_admin, or user",
                         "type": "string",
-                        "example": "business_manager"
+                        "example": "owner"
                     },
                     "business_type": {
+                        "description": "Tenant type for active workspace",
                         "type": "string",
-                        "example": "processor"
+                        "example": "processor",
+                        "nullable": true
+                    },
+                    "business_id": {
+                        "type": "integer",
+                        "example": 12,
+                        "nullable": true
+                    },
+                    "accessible_businesses": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "type": {
+                                    "type": "string"
+                                },
+                                "membership": {
+                                    "description": "owner | manager | staff",
+                                    "type": "string"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "accessible_business_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
                     }
                 },
                 "type": "object"

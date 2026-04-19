@@ -51,6 +51,26 @@ use OpenApi\Attributes as OA;
     ],
 )]
 #[OA\Post(
+    path: '/api/v1/auth/register',
+    operationId: 'mobileAuthRegister',
+    summary: 'Register user and initial workspace (stateless)',
+    description: 'Creates a user, assigns tenant owner role, creates a starter business (same rules as web registration). Returns Bearer token — no session cookie. Rate limited.',
+    tags: ['Mobile API', 'Auth'],
+    security: [],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/RegisterRequest'),
+    ),
+    responses: [
+        new OA\Response(
+            response: 201,
+            description: 'Account created; token issued (see LoginResponse shape).',
+            content: new OA\JsonContent(ref: '#/components/schemas/LoginResponse'),
+        ),
+        new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Post(
     path: '/api/v1/auth/logout',
     operationId: 'mobileAuthLogout',
     summary: 'Revoke current mobile token',
@@ -65,13 +85,45 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 401, description: 'Missing or invalid Bearer token'),
     ],
 )]
+#[OA\Post(
+    path: '/api/v1/businesses',
+    operationId: 'mobileBusinessesStore',
+    summary: 'Create a business (authenticated)',
+    description: 'Same payload rules as web `StoreBusinessRequest`. User must own the account (creates under their user). Stateless JSON — no CSRF.',
+    tags: ['Mobile API', 'Businesses'],
+    security: [['bearerAuth' => []]],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\MediaType(
+            mediaType: 'application/json',
+            schema: new OA\Schema(
+                description: 'Matches `StoreBusinessRequest`: business_name, registration_number, contact_phone, email, status, owner_first_name, owner_last_name, optional type, location fields, optional members[].',
+                type: 'object',
+            ),
+        ),
+    ),
+    responses: [
+        new OA\Response(response: 201, description: 'Business created in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized'),
+        new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
 #[OA\Get(
     path: '/api/v1/auth/me',
     operationId: 'mobileAuthMe',
     summary: 'Current user for this token',
-    description: 'Requires `Authorization: Bearer <token>`. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).',
+    description: 'Requires `Authorization: Bearer <token>`. Optional query `business_id` to resolve `userRole` / `business_type` for that workspace. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).',
     tags: ['Mobile API', 'Users'],
     security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(
+            name: 'business_id',
+            in: 'query',
+            required: false,
+            description: 'Optional: resolve role/type for this business (must be accessible).',
+            schema: new OA\Schema(type: 'integer', example: 12),
+        ),
+    ],
     responses: [
         new OA\Response(
             response: 200,
@@ -79,6 +131,7 @@ use OpenApi\Attributes as OA;
             content: new OA\JsonContent(ref: '#/components/schemas/AuthMeResponse'),
         ),
         new OA\Response(response: 401, description: 'Unauthorized'),
+        new OA\Response(response: 404, description: 'business_id not accessible'),
     ],
 )]
 #[OA\Get(

@@ -54,7 +54,7 @@ class MobileAuthControllerTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.user.userRole', 'business_owner')
+            ->assertJsonPath('data.user.userRole', 'owner')
             ->assertJsonPath('data.user.business_type', Business::TYPE_FARMER);
     }
 
@@ -90,7 +90,7 @@ class MobileAuthControllerTest extends TestCase
             ->getJson('/api/v1/auth/me')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.userRole', 'business_manager')
+            ->assertJsonPath('data.userRole', 'manager')
             ->assertJsonPath('data.business_type', Business::TYPE_LOGISTICS);
     }
 }

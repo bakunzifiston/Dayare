@@ -51,11 +51,14 @@ The mobile API uses Bearer token authentication.
 
 Request:
 
+Optional: `"business_id": 12` to resolve `userRole` / `business_type` for that workspace (must be in your accessible businesses).
+
 ```json
 {
   "email": "user@company.com",
   "password": "secret",
-  "device_name": "android-phone-1"
+  "device_name": "android-phone-1",
+  "business_id": null
 }
 ```
 
@@ -74,12 +77,32 @@ Response `200` (payload under `data`):
       "name": "Field User",
       "email": "user@company.com",
       "is_super_admin": false,
-      "userRole": "business_manager",
-      "business_type": "processor"
+      "userRole": "owner",
+      "business_type": "processor",
+      "business_id": 3,
+      "accessible_businesses": [
+        { "id": 3, "name": "Acme Ltd", "type": "processor", "membership": "owner" }
+      ],
+      "accessible_business_ids": [3]
     }
   }
 }
 ```
+
+- **`userRole`**: membership — `owner`, `manager`, `staff`, `super_admin`, or `user` (no business yet).
+- **`business_type`**: tenant type for the **active** workspace (`farmer` | `processor` | `logistics`).
+- Do **not** use web routes `POST /register` or `POST /businesses` from mobile JSON clients (they require CSRF). Use the API routes below instead.
+
+### Register (stateless)
+
+- `POST /api/v1/auth/register` — public, **no CSRF**; rate limited (10/min per IP).
+- Body: `name`, `email`, `password`, `password_confirmation`, `business_type` (`farmer` | `processor` | `logistics`), optional `device_name`.
+- Returns **`201`** with the same token + `user` shape as login.
+
+### Create business (authenticated)
+
+- `POST /api/v1/businesses` with `Authorization: Bearer <token>`.
+- JSON body matches server validation for creating a business (same fields as the web form / `StoreBusinessRequest`).
 
 Wrong email/password returns HTTP **`401`** with `success: false` and message `Invalid credentials.` Malformed requests (e.g. missing fields) return **`422`** with validation `errors`.
 

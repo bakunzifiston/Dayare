@@ -19,6 +19,7 @@ class StoreBusinessRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'type' => ['nullable', 'string', Rule::in(Business::TYPES)],
             // Business info
             'business_name' => ['required', 'string', 'max:255'],
             'registration_number' => ['required', 'string', 'max:100', 'unique:businesses,registration_number'],

@@ -212,31 +212,99 @@ class User extends Authenticatable
 
     /**
      * Mobile/API-facing role label used by clients for feature gating.
+     *
+     * @deprecated Prefer {@see self::mobileApiWorkspaceContext()} for API responses; kept for legacy callers.
      */
     public function mobileUserRole(): string
     {
+        $ctx = $this->mobileApiWorkspaceContext();
+
+        return match ($ctx['userRole']) {
+            'super_admin' => 'super_admin',
+            'owner' => 'business_owner',
+            'manager' => 'business_manager',
+            'staff' => 'business_staff',
+            default => 'user',
+        };
+    }
+
+    /**
+     * Workspace context for mobile JSON API: separates **membership role** (owner/manager/staff) from **tenant type** (farmer/processor/logistics).
+     *
+     * @return array{
+     *   userRole: string,
+     *   business_type: string|null,
+     *   business_id: int|null,
+     *   accessible_businesses: list<array{id: int, name: string, type: string, membership: string}>
+     * }
+     */
+    public function mobileApiWorkspaceContext(?int $preferredBusinessId = null): array
+    {
         if ($this->isSuperAdmin()) {
-            return 'super_admin';
+            return [
+                'userRole' => 'super_admin',
+                'business_type' => Business::TYPE_PROCESSOR,
+                'business_id' => null,
+                'accessible_businesses' => [],
+            ];
         }
 
-        if ($this->businesses()->exists() || $this->hasRole('owner')) {
-            return 'business_owner';
+        $accessible = [];
+
+        foreach ($this->businesses()->orderBy('id')->get() as $business) {
+            $accessible[] = [
+                'id' => $business->id,
+                'name' => $business->business_name,
+                'type' => $business->type,
+                'membership' => 'owner',
+            ];
         }
 
-        $memberRole = $this->memberBusinesses()
-            ->orderBy('businesses.id')
-            ->value('business_user.role');
+        $ownedIds = $this->businesses()->pluck('id')->all();
 
-        if (is_string($memberRole) && $memberRole !== '') {
-            return 'business_'.$memberRole;
+        foreach ($this->memberBusinesses()->orderBy('businesses.id')->get() as $business) {
+            if (in_array($business->id, $ownedIds, true)) {
+                continue;
+            }
+            $pivotRole = $business->pivot->role ?? BusinessUser::ROLE_STAFF;
+            $membership = $pivotRole === BusinessUser::ROLE_MANAGER ? 'manager' : 'staff';
+            $accessible[] = [
+                'id' => $business->id,
+                'name' => $business->business_name,
+                'type' => $business->type,
+                'membership' => $membership,
+            ];
         }
 
-        $appRole = $this->getRoleNames()->first();
-        if (is_string($appRole) && $appRole !== '') {
-            return $appRole;
+        $active = null;
+        if ($preferredBusinessId !== null) {
+            foreach ($accessible as $row) {
+                if ($row['id'] === $preferredBusinessId) {
+                    $active = $row;
+                    break;
+                }
+            }
+        }
+        if ($active === null && $accessible !== []) {
+            $active = $accessible[0];
         }
 
-        return 'user';
+        $userRole = 'user';
+        if ($active !== null) {
+            $userRole = match ($active['membership']) {
+                'owner' => 'owner',
+                'manager' => 'manager',
+                'staff' => 'staff',
+                default => 'user',
+            };
+        }
+
+        return [
+            'userRole' => $userRole,
+            'business_type' => $active['type'] ?? null,
+            'business_id' => $active['id'] ?? null,
+            'accessible_businesses' => $accessible,
+        ];
     }
 
     public function defaultDashboardRouteName(): string
