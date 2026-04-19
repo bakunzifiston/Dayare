@@ -167,13 +167,33 @@
         </section>
 
         {{-- WHAT IS BUCHAPRO --}}
-        <section id="what-is-buchapro" class="py-14 sm:py-16 bg-bucha-canvas">
-            <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-                <p class="text-xs uppercase tracking-wider font-semibold text-bucha-muted">{{ __('What is BuchaPro') }}</p>
-                <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900">{{ __('Redefining the Meat Value Chain') }}</h2>
-                <p class="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed">
-                    {{ __('BuchaPro is a digital and logistics platform that ensures meat is traceable, certified, and safely transported through a verifiable chain of custody.') }}
-                </p>
+        <section id="what-is-buchapro" class="py-14 sm:py-16 bg-bucha-canvas border-y border-slate-200/60">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 xl:gap-16 items-center">
+                    <div class="text-center lg:text-left">
+                        <p class="text-xs uppercase tracking-wider font-semibold text-bucha-muted">{{ __('What is BuchaPro') }}</p>
+                        <h2 class="mt-3 text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900 tracking-tight">
+                            {{ __('Redefining the Meat Value Chain') }}
+                        </h2>
+                        <p class="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed max-w-xl mx-auto lg:mx-0">
+                            {{ __('BuchaPro is a digital and logistics platform that ensures meat is traceable, certified, and safely transported through a verifiable chain of custody.') }}
+                        </p>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute -inset-3 sm:-inset-4 rounded-[24px] bg-gradient-to-br from-bucha-primary/15 via-emerald-500/10 to-slate-200/40 blur-2xl" aria-hidden="true"></div>
+                        <figure class="relative overflow-hidden rounded-[20px] border border-slate-200/80 bg-white shadow-bucha aspect-[4/3] sm:aspect-[16/10]">
+                            <img
+                                src="{{ asset('images/buchapro-cows-farm.png') }}"
+                                alt="{{ __('Cattle on a farm — traceable livestock and verified chain of custody') }}"
+                                class="absolute inset-0 h-full w-full object-cover object-center"
+                                width="1200"
+                                height="800"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                        </figure>
+                    </div>
+                </div>
             </div>
         </section>
 

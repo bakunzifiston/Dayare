@@ -52,6 +52,9 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "api-docs": [
+            "@php artisan l5-swagger:generate"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

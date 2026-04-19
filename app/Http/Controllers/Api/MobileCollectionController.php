@@ -171,6 +171,23 @@ class MobileCollectionController extends Controller
             return ApiJson::failure(__('Not found.'), [], 404);
         }
 
+        $plan = SlaughterPlan::query()->find($data['slaughter_plan_id']);
+        if ($plan === null) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        if (! Inspector::query()
+            ->whereKey((int) $data['inspector_id'])
+            ->where('facility_id', $plan->facility_id)
+            ->where('status', 'active')
+            ->exists()) {
+            return ApiJson::failure(
+                __('Inspector is not valid for this facility.'),
+                ['inspector_id' => [__('The selected inspector must be active and assigned to this slaughter plan\'s facility.')]],
+                422
+            );
+        }
+
         $items = AnteMortemChecklist::itemsForSpecies($data['species']);
         foreach ($items as $itemKey => $meta) {
             $value = $data['observations'][$itemKey]['value'] ?? null;
@@ -218,6 +235,26 @@ class MobileCollectionController extends Controller
 
         if (! $this->batchIds($request)->contains((int) $data['batch_id'])) {
             return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $batch = Batch::query()
+            ->with(['slaughterExecution.slaughterPlan'])
+            ->find($data['batch_id']);
+        $facilityId = $batch?->slaughterExecution?->slaughterPlan?->facility_id;
+        if ($facilityId === null) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        if (! Inspector::query()
+            ->whereKey((int) $data['inspector_id'])
+            ->where('facility_id', $facilityId)
+            ->where('status', 'active')
+            ->exists()) {
+            return ApiJson::failure(
+                __('Inspector is not valid for this facility.'),
+                ['inspector_id' => [__('The selected inspector must be active and assigned to this batch\'s facility.')]],
+                422
+            );
         }
 
         $items = PostMortemChecklist::itemsForSpecies($data['species']);

@@ -11,7 +11,7 @@ use OpenApi\Attributes as OA;
     operationId: 'apiV1Index',
     summary: 'API v1 index',
     description: 'Public metadata and link to Swagger UI (`documentation` URL). No authentication.',
-    tags: ['Auth'],
+    tags: ['Mobile API', 'Auth'],
     security: [],
     responses: [
         new OA\Response(
@@ -26,7 +26,7 @@ use OpenApi\Attributes as OA;
     operationId: 'mobileAuthLogin',
     summary: 'Issue mobile API token',
     description: 'Validates user email/password, creates a row in `mobile_api_tokens` (hashed token), returns plain token once.',
-    tags: ['Auth'],
+    tags: ['Mobile API', 'Auth'],
     security: [],
     requestBody: new OA\RequestBody(
         required: true,
@@ -39,8 +39,13 @@ use OpenApi\Attributes as OA;
             content: new OA\JsonContent(ref: '#/components/schemas/LoginResponse'),
         ),
         new OA\Response(
+            response: 401,
+            description: 'Invalid email or password (`success: false`, `message` describes failure).',
+            content: new OA\JsonContent(ref: '#/components/schemas/ApiError'),
+        ),
+        new OA\Response(
             response: 422,
-            description: 'Invalid credentials or validation failure',
+            description: 'Request body validation failure (e.g. missing email or password).',
             content: new OA\JsonContent(ref: '#/components/schemas/ApiError'),
         ),
     ],
@@ -49,7 +54,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/auth/logout',
     operationId: 'mobileAuthLogout',
     summary: 'Revoke current mobile token',
-    tags: ['Auth'],
+    tags: ['Mobile API', 'Auth'],
     security: [['bearerAuth' => []]],
     responses: [
         new OA\Response(
@@ -65,7 +70,7 @@ use OpenApi\Attributes as OA;
     operationId: 'mobileAuthMe',
     summary: 'Current user for this token',
     description: 'Requires `Authorization: Bearer <token>`. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).',
-    tags: ['Users'],
+    tags: ['Mobile API', 'Users'],
     security: [['bearerAuth' => []]],
     responses: [
         new OA\Response(
@@ -80,7 +85,8 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/lookups',
     operationId: 'mobileLookups',
     summary: 'Facilities, inspectors, species, status enums for mobile forms',
-    tags: ['Facilities', 'Inspectors', 'Businesses'],
+    tags: ['Mobile API', 'Facilities', 'Inspectors', 'Businesses'],
+    security: [['bearerAuth' => []]],
     responses: [
         new OA\Response(
             response: 200,
@@ -94,7 +100,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/animal-intakes',
     operationId: 'mobileAnimalIntakesIndex',
     summary: 'Paginated animal intakes for accessible facilities',
-    tags: ['Animal Intakes', 'Businesses', 'Livestock', 'AnimalHealthRecord'],
+    tags: ['Mobile API', 'Animal Intakes', 'Businesses', 'Livestock', 'AnimalHealthRecord'],
     parameters: [
         new OA\Parameter(
             name: 'per_page',
@@ -116,7 +122,7 @@ use OpenApi\Attributes as OA;
     operationId: 'mobileAnimalIntakesStore',
     summary: 'Create animal intake',
     description: 'Facility must belong to the user\'s accessible businesses. See also StoreAnimalIntakeRequest for extended web validation (species enum, optional supplier/division/health cert fields).',
-    tags: ['Animal Intakes', 'Businesses', 'Livestock', 'AnimalHealthRecord'],
+    tags: ['Mobile API', 'Animal Intakes', 'Businesses', 'Livestock', 'AnimalHealthRecord'],
     requestBody: new OA\RequestBody(
         required: true,
         content: new OA\JsonContent(ref: '#/components/schemas/AnimalIntakeCreateRequest'),
@@ -136,7 +142,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/slaughter-plans',
     operationId: 'mobileSlaughterPlansIndex',
     summary: 'Paginated slaughter plans',
-    tags: ['Slaughter Plans'],
+    tags: ['Mobile API', 'Slaughter Plans'],
     parameters: [
         new OA\Parameter(
             name: 'per_page',
@@ -154,7 +160,7 @@ use OpenApi\Attributes as OA;
     operationId: 'mobileSlaughterPlansStore',
     summary: 'Create slaughter plan',
     description: 'Uses StoreSlaughterPlanRequest rules: slaughter_date >= today; animal_intake must belong to facility; species must match intake and exist in `species`; inspector must belong to facility; intake health certificate not expired; number_of_animals_scheduled ≤ remaining animals on intake.',
-    tags: ['Slaughter Plans'],
+    tags: ['Mobile API', 'Slaughter Plans'],
     requestBody: new OA\RequestBody(
         required: true,
         content: new OA\JsonContent(ref: '#/components/schemas/SlaughterPlanCreateRequest'),
@@ -174,7 +180,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/slaughter-executions',
     operationId: 'mobileSlaughterExecutionsIndex',
     summary: 'Paginated slaughter executions',
-    tags: ['Slaughter Executions'],
+    tags: ['Mobile API', 'Slaughter Executions'],
     parameters: [
         new OA\Parameter(
             name: 'per_page',
@@ -191,7 +197,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/slaughter-executions',
     operationId: 'mobileSlaughterExecutionsStore',
     summary: 'Create slaughter execution',
-    tags: ['Slaughter Executions'],
+    tags: ['Mobile API', 'Slaughter Executions'],
     requestBody: new OA\RequestBody(
         required: true,
         content: new OA\JsonContent(ref: '#/components/schemas/SlaughterExecutionCreateRequest'),
@@ -211,7 +217,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/ante-mortem-inspections',
     operationId: 'mobileAnteMortemStore',
     summary: 'Create ante-mortem inspection with checklist observations',
-    tags: ['Ante Mortem Inspections', 'Slaughter Plans'],
+    tags: ['Mobile API', 'Ante Mortem Inspections', 'Slaughter Plans'],
     requestBody: new OA\RequestBody(
         required: true,
         content: new OA\JsonContent(ref: '#/components/schemas/AnteMortemCreateRequest'),
@@ -227,7 +233,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/post-mortem-inspections',
     operationId: 'mobilePostMortemStore',
     summary: 'Create post-mortem inspection',
-    tags: ['Post Mortem Inspections', 'Batches'],
+    tags: ['Mobile API', 'Post Mortem Inspections', 'Batches'],
     requestBody: new OA\RequestBody(
         required: true,
         content: new OA\JsonContent(ref: '#/components/schemas/PostMortemCreateRequest'),

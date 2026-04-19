@@ -12,6 +12,7 @@ use OpenApi\Attributes as OA;
     summary: 'Public QR traceability page',
     description: 'Resolves `certificate_qrs.slug` → certificate with batch, slaughter execution, plan, animal intake origin chain, facility, inspector. **Response is HTML** (Blade), not JSON. No authentication. Tags list the domain areas surfaced on this page.',
     tags: [
+        'Web Routes',
         'Traceability (public)',
         'Certificates',
         'Batches',
@@ -51,6 +52,7 @@ use OpenApi\Attributes as OA;
     summary: 'Compliance monitoring dashboard (HTML)',
     description: 'Aggregates system issues for the signed-in processor user: expired facility licenses, inspector authorizations, over capacity, missing inspections, transport gaps, temperature issues, etc. **Requires Laravel web session** (not Bearer). Route lives outside `/api/v1`.',
     tags: [
+        'Web Routes',
         'Compliance',
         'Certificates',
         'Warehouse Storage',

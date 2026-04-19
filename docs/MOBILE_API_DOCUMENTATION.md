@@ -8,6 +8,38 @@ This document is for mobile app integration with the BuchaPro backend deployed a
 - API prefix: `/api/v1`
 - Full example: `https://buchapro.com/api/v1/auth/login`
 
+Interactive reference: `GET /api/documentation` (Swagger UI). The bundled spec includes **web** routes for staff reference; filter by tag **Mobile API** for Bearer JSON endpoints only.
+
+**Regenerate OpenAPI JSON after changing annotations:** `composer api-docs` or `php artisan l5-swagger:generate` (run in CI/deploy so production stays current).
+
+## Standard JSON envelope
+
+Unless noted otherwise, successful responses use:
+
+```json
+{
+  "success": true,
+  "message": "Human-readable message",
+  "data": { }
+}
+```
+
+Errors:
+
+```json
+{
+  "success": false,
+  "message": "Summary message",
+  "errors": { }
+}
+```
+
+Validation failures use Laravel’s field map in `errors` (HTTP `422`). Paginated lists put the **Laravel paginator array** inside `data` (so list rows are at `data.data`).
+
+## HTTP verbs in v1
+
+This API is **read/create only** for processor workflows: **GET** and **POST** are implemented. There are **no** `PUT`, `PATCH`, or `DELETE` routes under `/api/v1` yet—updates and deletes must be done in the web workspace, or added in a future API version.
+
 ## Authentication
 
 The mobile API uses Bearer token authentication.
@@ -27,23 +59,31 @@ Request:
 }
 ```
 
-Response `200`:
+Response `200` (payload under `data`):
 
 ```json
 {
-  "token": "plain_token_string",
-  "token_type": "Bearer",
-  "expires_at": "2026-05-10T12:00:00+00:00",
-  "user": {
-    "id": 12,
-    "name": "Field User",
-    "email": "user@company.com",
-    "is_super_admin": false,
-    "userRole": "business_manager",
-    "business_type": "processor"
+  "success": true,
+  "message": "Logged in successfully.",
+  "data": {
+    "token": "plain_token_string",
+    "token_type": "Bearer",
+    "expires_at": "2026-05-10T12:00:00+00:00",
+    "user": {
+      "id": 12,
+      "name": "Field User",
+      "email": "user@company.com",
+      "is_super_admin": false,
+      "userRole": "business_manager",
+      "business_type": "processor"
+    }
   }
 }
 ```
+
+Wrong email/password returns HTTP **`401`** with `success: false` and message `Invalid credentials.` Malformed requests (e.g. missing fields) return **`422`** with validation `errors`.
+
+`POST /api/v1/auth/login` is **rate limited** (5 attempts per minute per IP by default).
 
 ### Auth header for protected endpoints
 
@@ -53,17 +93,21 @@ Response `200`:
 
 - `GET /api/v1/auth/me`
 
-Response `200`:
+Response `200` (user fields under `data`):
 
 ```json
 {
-  "id": 12,
-  "name": "Field User",
-  "email": "user@company.com",
-  "is_super_admin": false,
-  "userRole": "business_manager",
-  "business_type": "processor",
-  "accessible_business_ids": [3, 5]
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": 12,
+    "name": "Field User",
+    "email": "user@company.com",
+    "is_super_admin": false,
+    "userRole": "business_manager",
+    "business_type": "processor",
+    "accessible_business_ids": [3, 5]
+  }
 }
 ```
 
@@ -76,10 +120,12 @@ Response `200`:
 
 ## Common Response Notes
 
-- Validation errors return `422`.
+- Validation errors return `422` with `errors` populated.
 - Unauthorized token returns `401`.
 - Out-of-scope resources return `404`.
-- Paginated list endpoints return Laravel paginator JSON (`data`, `current_page`, `last_page`, etc.).
+- Successful creates return `201` where applicable.
+- Paginated list endpoints: paginator fields are inside the top-level `data` object (see **Standard JSON envelope**).
+- API routes are **stateless** (no CSRF); use `Authorization: Bearer` on protected routes.
 
 ---
 
@@ -91,23 +137,27 @@ Response `200`:
 
 - `GET /api/v1/lookups`
 
-Response `200`:
+Response `200` (lookup payload under `data`):
 
 ```json
 {
-  "facilities": [
-    { "id": 1, "facility_name": "Main Slaughterhouse", "facility_type": "slaughterhouse" }
-  ],
-  "inspectors": [
-    { "id": 10, "facility_id": 1, "first_name": "John", "last_name": "Doe", "status": "active" }
-  ],
-  "species": [
-    { "id": 1, "name": "Cattle", "code": "CAT" }
-  ],
-  "statuses": {
-    "animal_intake": ["received", "approved", "rejected"],
-    "slaughter_plan": ["planned", "approved"],
-    "slaughter_execution": ["scheduled", "in_progress", "completed", "cancelled"]
+  "success": true,
+  "message": "OK",
+  "data": {
+    "facilities": [
+      { "id": 1, "facility_name": "Main Slaughterhouse", "facility_type": "slaughterhouse" }
+    ],
+    "inspectors": [
+      { "id": 10, "facility_id": 1, "first_name": "John", "last_name": "Doe", "status": "active" }
+    ],
+    "species": [
+      { "id": 1, "name": "Cattle", "code": "CAT" }
+    ],
+    "statuses": {
+      "animal_intake": ["received", "approved", "rejected"],
+      "slaughter_plan": ["planned", "approved"],
+      "slaughter_execution": ["scheduled", "in_progress", "completed", "cancelled"]
+    }
   }
 }
 ```
@@ -226,6 +276,7 @@ Validation rules:
 
 - `number_approved + number_rejected <= number_examined`
 - `observations` required and validated against species checklist
+- `inspector_id` must refer to an **active** inspector assigned to the **same facility** as the slaughter plan
 
 ---
 
@@ -258,6 +309,7 @@ Validation rules:
 
 - `approved_quantity + condemned_quantity <= total_examined`
 - `observations` required and validated against species checklist
+- `inspector_id` must refer to an **active** inspector assigned to the **same facility** as the batch’s slaughter plan
 
 Computed result:
 
@@ -278,7 +330,7 @@ Computed result:
    - slaughter execution
    - ante-mortem inspection
    - post-mortem inspection
-4. On `401`, redirect to login.
+4. On `401` (invalid token or failed login), redirect to login or show invalid credentials.
 5. On `422`, show field-level or form-level validation message from response.
 
 ---

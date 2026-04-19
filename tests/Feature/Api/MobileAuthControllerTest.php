@@ -13,6 +13,22 @@ class MobileAuthControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_login_with_invalid_credentials_returns_401(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('correct-password'),
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ]);
+
+        $response->assertUnauthorized()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', __('Invalid credentials.'));
+    }
+
     public function test_login_response_includes_user_role_and_business_type(): void
     {
         $user = User::factory()->create([

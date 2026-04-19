@@ -8,22 +8,45 @@ use OpenApi\Attributes as OA;
 
 /**
  * Root OpenAPI document. Paths are defined alongside operation attribute classes under App\Swagger.
+ *
+ * This file mixes two audiences in one UI: use the **Mobile API** tag filter in Swagger UI for JSON
+ * Bearer clients. **Web Routes** document session-based HTML/form flows — not callable with the
+ * mobile token alone.
  */
 #[OA\OpenApi(
     openapi: '3.0.0',
     info: new OA\Info(
         title: 'Butchapro API',
         version: '1.0.0',
-        description: 'Traceability and compliance API for the meat processing system. JSON API base path: /api/v1. Auth: Bearer token from mobile_api_tokens. All JSON responses use `{ "success": true|false, "message": string, "data": object }` on success and `{ "success": false, "message": string, "errors": object }` on validation or domain errors (empty object when no field errors). Paginated lists expose Laravel\'s paginator array inside `data`.',
+        description: <<<'MD'
+**This documentation includes both web and API routes.**
+
+- **Mobile / API clients:** Only paths under `/api/v1/*` are intended for programmatic access. Use `Authorization: Bearer <token>` with a token from `POST /api/v1/auth/login`. Responses are JSON with envelope `{ "success": true|false, "message": string, "data": object }` (or `errors` on failure). Paginated lists nest Laravel’s paginator inside `data`.
+
+- **Web routes:** Operations tagged **Web Routes** use Laravel **session** authentication (browser cookies), often return **HTML** or **redirects**, and are **not** substitutes for the mobile API.
+
+**Filtering:** In Swagger UI, filter by tag **Mobile API** to see only Bearer JSON endpoints.
+
+**Future REST:** Additional verbs (`GET/PATCH/DELETE` on resource IDs) may be added under `/api/v1` without changing the envelope contract.
+MD
+        ,
     ),
     servers: [
         new OA\Server(
             url: '/',
-            description: 'Must be the site root only (e.g. http://127.0.0.1:8000 or "/"). Do NOT set the server to "/api" or "/api/v1" — every path below already starts with "/api/v1/...", and a wrong server will produce duplicate segments (404).',
+            description: 'Application root (e.g. https://buchapro.com/). Paths are absolute from this origin. Do NOT set the server to `/api` or `/api/v1` — paths already include `/api/v1/...`.',
         ),
     ],
     security: [['bearerAuth' => []]],
     tags: [
+        new OA\Tag(
+            name: 'Mobile API',
+            description: '**JSON API for mobile and integrations** — routes under `/api/v1/*`. Authenticate with `Authorization: Bearer` (opaque token from login).',
+        ),
+        new OA\Tag(
+            name: 'Web Routes',
+            description: '**Browser session routes** — HTML or redirects; requires signed-in web user, not the mobile Bearer token.',
+        ),
         new OA\Tag(
             name: 'Auth',
             description: 'Mobile API login and token lifecycle (`mobile_api_tokens`).',
@@ -107,8 +130,7 @@ use OpenApi\Attributes as OA;
                 securityScheme: 'bearerAuth',
                 type: 'http',
                 scheme: 'bearer',
-                bearerFormat: 'JWT',
-                description: 'Opaque mobile API token issued by `POST /api/v1/auth/login` and validated against `mobile_api_tokens.token_hash` (SHA-256). Header: `Authorization: Bearer <token>`.',
+                description: '**Opaque API token** (not JWT). Obtain with `POST /api/v1/auth/login`; send once in the response `data.token`, then `Authorization: Bearer <token>`. Stored hashed as SHA-256 in `mobile_api_tokens.token_hash`. Expires per `expires_at` on the token row.',
             ),
         ],
     ),

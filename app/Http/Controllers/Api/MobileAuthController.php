@@ -22,7 +22,7 @@ class MobileAuthController extends Controller
         $user = \App\Models\User::where('email', $data['email'])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
-            return ApiJson::failure(__('Invalid credentials.'), [], 422);
+            return ApiJson::failure(__('Invalid credentials.'), [], 401);
         }
 
         $plainToken = bin2hex(random_bytes(32));

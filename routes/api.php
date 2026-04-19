@@ -5,6 +5,14 @@ use App\Http\Controllers\Api\MobileCollectionController;
 use App\Http\Responses\ApiJson;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| Mobile JSON API (/api/v1)
+|--------------------------------------------------------------------------
+| Bearer auth via mobile_api_tokens. Envelope: ApiJson (success, message, data|errors).
+| Future: REST-style show/update/destroy routes may be added here (e.g. GET/PATCH/DELETE on IDs).
+*/
+
 Route::prefix('v1')->group(function () {
     Route::get('/', function () {
         return ApiJson::success([
@@ -14,7 +22,8 @@ Route::prefix('v1')->group(function () {
         ], __('Butchapro mobile API.'));
     });
 
-    Route::post('auth/login', [MobileAuthController::class, 'login']);
+    Route::post('auth/login', [MobileAuthController::class, 'login'])
+        ->middleware('throttle:5,1');
 
     Route::middleware('mobile.auth')->group(function () {
         Route::post('auth/logout', [MobileAuthController::class, 'logout']);

@@ -2,19 +2,20 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Butchapro API",
-        "description": "Traceability and compliance API for the meat processing system. JSON API base path: /api/v1. Auth: Bearer token from mobile_api_tokens. All JSON responses use `{ \"success\": true|false, \"message\": string, \"data\": object }` on success and `{ \"success\": false, \"message\": string, \"errors\": object }` on validation or domain errors (empty object when no field errors). Paginated lists expose Laravel's paginator array inside `data`.",
+        "description": "**This documentation includes both web and API routes.**\n\n- **Mobile / API clients:** Only paths under `/api/v1/*` are intended for programmatic access. Use `Authorization: Bearer <token>` with a token from `POST /api/v1/auth/login`. Responses are JSON with envelope `{ \"success\": true|false, \"message\": string, \"data\": object }` (or `errors` on failure). Paginated lists nest Laravel’s paginator inside `data`.\n\n- **Web routes:** Operations tagged **Web Routes** use Laravel **session** authentication (browser cookies), often return **HTML** or **redirects**, and are **not** substitutes for the mobile API.\n\n**Filtering:** In Swagger UI, filter by tag **Mobile API** to see only Bearer JSON endpoints.\n\n**Future REST:** Additional verbs (`GET/PATCH/DELETE` on resource IDs) may be added under `/api/v1` without changing the envelope contract.",
         "version": "1.0.0"
     },
     "servers": [
         {
             "url": "/",
-            "description": "Must be the site root only (e.g. http://127.0.0.1:8000 or \"/\"). Do NOT set the server to \"/api\" or \"/api/v1\" — every path below already starts with \"/api/v1/...\", and a wrong server will produce duplicate segments (404)."
+            "description": "Application root (e.g. https://buchapro.com/). Paths are absolute from this origin. Do NOT set the server to `/api` or `/api/v1` — paths already include `/api/v1/...`."
         }
     ],
     "paths": {
         "/api/v1": {
             "get": {
                 "tags": [
+                    "Mobile API",
                     "Auth"
                 ],
                 "summary": "API v1 index",
@@ -38,6 +39,7 @@
         "/api/v1/auth/login": {
             "post": {
                 "tags": [
+                    "Mobile API",
                     "Auth"
                 ],
                 "summary": "Issue mobile API token",
@@ -64,8 +66,18 @@
                             }
                         }
                     },
+                    "401": {
+                        "description": "Invalid email or password (`success: false`, `message` describes failure).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
                     "422": {
-                        "description": "Invalid credentials or validation failure",
+                        "description": "Request body validation failure (e.g. missing email or password).",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -81,6 +93,7 @@
         "/api/v1/auth/logout": {
             "post": {
                 "tags": [
+                    "Mobile API",
                     "Auth"
                 ],
                 "summary": "Revoke current mobile token",
@@ -110,6 +123,7 @@
         "/api/v1/auth/me": {
             "get": {
                 "tags": [
+                    "Mobile API",
                     "Users"
                 ],
                 "summary": "Current user for this token",
@@ -140,6 +154,7 @@
         "/api/v1/lookups": {
             "get": {
                 "tags": [
+                    "Mobile API",
                     "Facilities",
                     "Inspectors",
                     "Businesses"
@@ -160,12 +175,18 @@
                     "401": {
                         "description": "Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/animal-intakes": {
             "get": {
                 "tags": [
+                    "Mobile API",
                     "Animal Intakes",
                     "Businesses",
                     "Livestock",
@@ -201,6 +222,7 @@
             },
             "post": {
                 "tags": [
+                    "Mobile API",
                     "Animal Intakes",
                     "Businesses",
                     "Livestock",
@@ -245,6 +267,7 @@
         "/api/v1/slaughter-plans": {
             "get": {
                 "tags": [
+                    "Mobile API",
                     "Slaughter Plans"
                 ],
                 "summary": "Paginated slaughter plans",
@@ -277,6 +300,7 @@
             },
             "post": {
                 "tags": [
+                    "Mobile API",
                     "Slaughter Plans"
                 ],
                 "summary": "Create slaughter plan",
@@ -318,6 +342,7 @@
         "/api/v1/slaughter-executions": {
             "get": {
                 "tags": [
+                    "Mobile API",
                     "Slaughter Executions"
                 ],
                 "summary": "Paginated slaughter executions",
@@ -350,6 +375,7 @@
             },
             "post": {
                 "tags": [
+                    "Mobile API",
                     "Slaughter Executions"
                 ],
                 "summary": "Create slaughter execution",
@@ -390,6 +416,7 @@
         "/api/v1/ante-mortem-inspections": {
             "post": {
                 "tags": [
+                    "Mobile API",
                     "Ante Mortem Inspections",
                     "Slaughter Plans"
                 ],
@@ -438,6 +465,7 @@
         "/api/v1/post-mortem-inspections": {
             "post": {
                 "tags": [
+                    "Mobile API",
                     "Post Mortem Inspections",
                     "Batches"
                 ],
@@ -486,6 +514,7 @@
         "/trace/{slug}": {
             "get": {
                 "tags": [
+                    "Web Routes",
                     "Traceability (public)",
                     "Certificates",
                     "Batches",
@@ -534,6 +563,7 @@
         "/compliance": {
             "get": {
                 "tags": [
+                    "Web Routes",
                     "Compliance",
                     "Certificates",
                     "Warehouse Storage",
@@ -567,6 +597,7 @@
         "/businesses": {
             "post": {
                 "tags": [
+                    "Web Routes",
                     "Businesses"
                 ],
                 "summary": "Register a business",
@@ -760,6 +791,7 @@
         "/businesses/{business}/facilities": {
             "get": {
                 "tags": [
+                    "Web Routes",
                     "Facilities",
                     "Businesses"
                 ],
@@ -811,6 +843,7 @@
             },
             "post": {
                 "tags": [
+                    "Web Routes",
                     "Facilities",
                     "Businesses"
                 ],
@@ -952,6 +985,7 @@
         "/inspectors": {
             "post": {
                 "tags": [
+                    "Web Routes",
                     "Inspectors",
                     "Facilities"
                 ],
@@ -2270,8 +2304,7 @@
         "securitySchemes": {
             "bearerAuth": {
                 "type": "http",
-                "description": "Opaque mobile API token issued by `POST /api/v1/auth/login` and validated against `mobile_api_tokens.token_hash` (SHA-256). Header: `Authorization: Bearer <token>`.",
-                "bearerFormat": "JWT",
+                "description": "**Opaque API token** (not JWT). Obtain with `POST /api/v1/auth/login`; send once in the response `data.token`, then `Authorization: Bearer <token>`. Stored hashed as SHA-256 in `mobile_api_tokens.token_hash`. Expires per `expires_at` on the token row.",
                 "scheme": "bearer"
             }
         }
@@ -2282,6 +2315,14 @@
         }
     ],
     "tags": [
+        {
+            "name": "Mobile API",
+            "description": "**JSON API for mobile and integrations** — routes under `/api/v1/*`. Authenticate with `Authorization: Bearer` (opaque token from login)."
+        },
+        {
+            "name": "Web Routes",
+            "description": "**Browser session routes** — HTML or redirects; requires signed-in web user, not the mobile Bearer token."
+        },
         {
             "name": "Auth",
             "description": "Mobile API login and token lifecycle (`mobile_api_tokens`)."
