@@ -41,7 +41,7 @@
                                         {{ $batch->batch_code }}
                                     </a>
                                     <p class="text-sm text-slate-500">
-                                        {{ $batch->species }} · {{ $batch->quantity }} {{ __('carcasses') }}
+                                        {{ $batch->species }} · {{ $batch->quantity }} {{ $batch->quantity_unit_label ?: __('carcasses') }}
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1">
                                         {{ __('Execution') }} {{ $batch->slaughterExecution->slaughter_time->format('d M Y H:i') }} · {{ $batch->inspector->full_name }} · {{ ucfirst($batch->status) }}

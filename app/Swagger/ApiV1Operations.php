@@ -97,7 +97,7 @@ use OpenApi\Attributes as OA;
         content: new OA\MediaType(
             mediaType: 'application/json',
             schema: new OA\Schema(
-                description: 'Matches `StoreBusinessRequest`: business_name, registration_number, contact_phone, email, status, owner_first_name, owner_last_name, optional type, location fields, optional members[].',
+                description: 'Matches `StoreBusinessRequest`: business profile, owner demographics, VIBE metadata, location fields, and optional members[].',
                 type: 'object',
             ),
         ),

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BusinessOwnershipMember extends Model
 {
-    protected $fillable = ['business_id', 'first_name', 'last_name', 'date_of_birth', 'sort_order'];
+    protected $fillable = ['business_id', 'first_name', 'last_name', 'date_of_birth', 'gender', 'pwd_status', 'phone', 'email', 'sort_order'];
 
     protected $casts = [
         'date_of_birth' => 'date',

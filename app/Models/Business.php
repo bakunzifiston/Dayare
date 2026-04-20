@@ -28,10 +28,18 @@ class Business extends Model
         'owner_first_name',
         'owner_last_name',
         'owner_dob',
+        'owner_gender',
+        'owner_pwd_status',
         'owner_name',
         'owner_phone',
         'owner_email',
         'ownership_type',
+        'business_size',
+        'baseline_revenue',
+        'vibe_unique_id',
+        'vibe_commencement_date',
+        'pathway_status',
+        'vibe_comments',
         // Location info
         'address_line_1',
         'address_line_2',
@@ -64,8 +72,17 @@ class Business extends Model
 
     public const OWNERSHIP_TYPES_WITH_MEMBERS = ['partnership', 'cooperative', 'company'];
 
+    public const OWNER_GENDERS = ['male', 'female', 'other'];
+
+    public const OWNER_PWD_STATUSES = ['none', 'physical', 'visual', 'hearing', 'cognitive', 'other'];
+
+    public const BUSINESS_SIZES = ['micro', 'small', 'medium', 'large'];
+
+    public const PATHWAY_STATUSES = ['active', 'verification', 'inactive', 'graduated'];
+
     protected $casts = [
         'owner_dob' => 'date',
+        'vibe_commencement_date' => 'date',
     ];
 
     public const STATUS_ACTIVE = 'active';
@@ -84,6 +101,10 @@ class Business extends Model
                 $collapsedWhitespaceName = preg_replace('/\s+/', ' ', trim((string) $business->business_name)) ?? '';
                 $business->business_name = $collapsedWhitespaceName;
                 $business->business_name_normalized = Str::lower($collapsedWhitespaceName);
+            }
+
+            if ($business->vibe_unique_id === null || trim((string) $business->vibe_unique_id) === '') {
+                $business->vibe_unique_id = 'VIBE-'.strtoupper(Str::ulid());
             }
         });
 

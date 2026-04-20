@@ -12,6 +12,10 @@ class Employee extends Model
 {
     use HasFactory;
 
+    public const GENDERS = ['male', 'female', 'other'];
+
+    public const PWD_STATUSES = ['none', 'physical', 'visual', 'hearing', 'cognitive', 'other'];
+
     /** Job title options for dropdown (optional). */
     public const JOB_TITLES = [
         'general_manager' => 'General Manager',
@@ -30,6 +34,11 @@ class Employee extends Model
         'last_name',
         'national_id',
         'date_of_birth',
+        'gender',
+        'pwd_status',
+        'is_refugee',
+        'is_host_community',
+        'consent_given',
         'nationality',
         'country_id',
         'province_id',
@@ -52,6 +61,9 @@ class Employee extends Model
         'date_of_birth' => 'date',
         'hire_date' => 'date',
         'termination_date' => 'date',
+        'is_refugee' => 'boolean',
+        'is_host_community' => 'boolean',
+        'consent_given' => 'boolean',
     ];
 
     public function business(): BelongsTo

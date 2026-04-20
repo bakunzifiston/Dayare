@@ -30,6 +30,11 @@
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Last name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->last_name }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('National ID') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->national_id ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Date of birth') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->date_of_birth?->format('d M Y') ?? '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Gender') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->gender ? ucfirst($employee->gender) : '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Disability status') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->pwd_status ? ucfirst($employee->pwd_status) : '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Is refugee') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->is_refugee ? __('Yes') : __('No') }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Is host community') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->is_host_community ? __('Yes') : __('No') }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Consent given') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->consent_given ? __('Yes') : __('No') }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Nationality') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->nationality ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Job title') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $employee->job_title ? (__(\App\Models\Employee::JOB_TITLES[$employee->job_title] ?? $employee->job_title)) : '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Employment type') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ ucfirst(str_replace('_', ' ', $employee->employment_type ?? '')) }}</dd></div>

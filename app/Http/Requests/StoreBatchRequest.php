@@ -26,14 +26,33 @@ class StoreBatchRequest extends FormRequest
             ->where('slaughter_executions.id', $executionId)
             ->value('facilities.business_id');
         $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
+        $allowedUnits = $this->user()?->configuredUnitsForBusinessIds([$businessId])->pluck('code')->all() ?? [];
 
         return [
             'slaughter_execution_id' => ['required', 'exists:slaughter_executions,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
             'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
             'quantity' => ['required', 'integer', 'min:1'],
+            'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],
             'status' => ['required', 'string', Rule::in(Batch::STATUSES)],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $executionId = (int) $this->input('slaughter_execution_id');
+        if ($executionId <= 0) {
+            return;
+        }
+
+        $species = SlaughterExecution::query()
+            ->join('slaughter_plans', 'slaughter_plans.id', '=', 'slaughter_executions.slaughter_plan_id')
+            ->where('slaughter_executions.id', $executionId)
+            ->value('slaughter_plans.species');
+
+        if ($species !== null) {
+            $this->merge(['species' => $species]);
+        }
     }
 
     public function withValidator($validator): void

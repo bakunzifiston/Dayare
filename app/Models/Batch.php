@@ -22,10 +22,22 @@ class Batch extends Model
         'inspector_id',
         'species',
         'quantity',
+        'quantity_unit',
         'batch_code',
         'status',
         'cold_chain_status',
     ];
+
+    /** Display label for quantity_unit (from configured Unit name, or Demand legacy label, or code). */
+    public function getQuantityUnitLabelAttribute(): string
+    {
+        $unit = Unit::where('code', $this->quantity_unit)->first();
+        if ($unit) {
+            return $unit->name;
+        }
+
+        return Demand::QUANTITY_UNITS[$this->quantity_unit] ?? (string) $this->quantity_unit;
+    }
 
     /** Cold room / temperature compliance (separate from inspection status). */
     public const COLD_CHAIN_OK = 'ok';

@@ -59,7 +59,10 @@ class SuperAdminDashboardController extends Controller
             'top_customers' => $this->topCustomersByVolume(),
         ];
 
-        $allUsers = User::withCount('businesses')->orderBy('name')->get();
+        $allUsers = User::withCount('businesses')
+            ->with(['businesses:id,user_id,type'])
+            ->orderBy('name')
+            ->get();
         $allBusinesses = Business::with(['user', 'facilities'])->orderBy('business_name')->get();
 
         return view('super-admin.dashboard', compact(

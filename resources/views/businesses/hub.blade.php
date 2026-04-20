@@ -62,21 +62,13 @@
                     <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Search the full list, open a profile, edit or remove.') }}</p>
                     <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open list') }} →</span>
                 </a>
-                <a href="{{ route('inspectors.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                <a href="{{ route('businesses.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
                     <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M5 21V7l8-4 8 4v14M9 9h.01M9 13h.01M9 17h.01M13 9h.01M13 13h.01M13 17h.01M17 9h.01M17 13h.01M17 17h.01"/></svg>
                     </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Inspectors') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Manage inspectors used across your facilities and inspections.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open inspectors') }} →</span>
-                </a>
-                <a href="{{ route('animal-intakes.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                    </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Animal intake') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Record origin at slaughterhouse facilities under your businesses.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Intake home') }} →</span>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Facilities') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Open a business and manage its facilities (slaughterhouse, storage, and more).') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open facilities') }} →</span>
                 </a>
                 <a href="{{ route('dashboard') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
                     <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">

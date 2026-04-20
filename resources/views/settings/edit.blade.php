@@ -38,8 +38,12 @@
                             @endunless
                         </div>
                         @if ($isSuperAdmin)
-                            <a href="{{ route('super-admin.species.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">
-                                {{ __('Open species settings') }}
+                            <a href="{{ route('super-admin.species.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
+                                {{ __('Manage species') }}
+                            </a>
+                        @else
+                            <a href="#tenant-species-units" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
+                                {{ __('Manage species') }}
                             </a>
                         @endif
                     </div>
@@ -57,10 +61,26 @@
                             @endunless
                         </div>
                         @if ($isSuperAdmin)
-                            <a href="{{ route('super-admin.units.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">
-                                {{ __('Open units settings') }}
+                            <a href="{{ route('super-admin.units.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
+                                {{ __('Manage units') }}
+                            </a>
+                        @else
+                            <a href="#tenant-species-units" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
+                                {{ __('Manage units') }}
                             </a>
                         @endif
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-800">{{ __('Temperature standards') }}</h4>
+                            <p class="text-xs text-slate-600 mt-0.5">
+                                {{ __('Allowed °C ranges and tolerance before batches are marked at risk.') }}
+                            </p>
+                        </div>
+                        <a href="{{ route('cold-room-standards.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
+                            {{ __('Manage standards') }}
+                        </a>
                     </div>
 
                     <form method="POST" action="{{ route('settings.update') }}" class="space-y-8">
@@ -68,7 +88,7 @@
                         @method('PUT')
 
                         @unless($isSuperAdmin)
-                            <section class="border-t border-gray-100 pt-6 space-y-4">
+                            <section id="tenant-species-units" class="border-t border-gray-100 pt-6 space-y-4">
                                 <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                                     {{ __('Tenant species & units selection') }}
                                 </h4>
@@ -169,90 +189,10 @@
                             </div>
                         </section>
 
-                        <section class="border-t border-gray-100 pt-6">
-                            <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                                {{ __('Business & Facility defaults') }}
-                            </h4>
-                            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <x-input-label for="default_daily_capacity" :value="__('Default daily production capacity (carcasses)')" />
-                                    <x-text-input
-                                        id="default_daily_capacity"
-                                        name="default_daily_capacity"
-                                        type="number"
-                                        min="0"
-                                        class="mt-1 block w-full"
-                                        :value="$settings['default_daily_capacity'] ?? ''"
-                                    />
-                                    <x-input-error :messages="$errors->get('default_daily_capacity')" class="mt-2" />
-                                </div>
-                            </div>
-                        </section>
-
-                        <section class="border-t border-gray-100 pt-6">
-                            <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                                {{ __('Compliance & alerts') }}
-                            </h4>
-                            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div>
-                                    <x-input-label for="temperature_warning" :value="__('Temperature warning (°C)')" />
-                                    <x-text-input
-                                        id="temperature_warning"
-                                        name="temperature_warning"
-                                        type="number"
-                                        step="1"
-                                        class="mt-1 block w-full"
-                                        :value="$settings['temperature_warning'] ?? '5'"
-                                    />
-                                    <x-input-error :messages="$errors->get('temperature_warning')" class="mt-2" />
-                                </div>
-
-                                <div>
-                                    <x-input-label for="temperature_critical" :value="__('Temperature critical (°C)')" />
-                                    <x-text-input
-                                        id="temperature_critical"
-                                        name="temperature_critical"
-                                        type="number"
-                                        step="1"
-                                        class="mt-1 block w-full"
-                                        :value="$settings['temperature_critical'] ?? '10'"
-                                    />
-                                    <x-input-error :messages="$errors->get('temperature_critical')" class="mt-2" />
-                                </div>
-
-                                <div>
-                                    <x-input-label for="max_storage_days" :value="__('Max storage days before alert')" />
-                                    <x-text-input
-                                        id="max_storage_days"
-                                        name="max_storage_days"
-                                        type="number"
-                                        min="0"
-                                        class="mt-1 block w-full"
-                                        :value="$settings['max_storage_days'] ?? '7'"
-                                    />
-                                    <x-input-error :messages="$errors->get('max_storage_days')" class="mt-2" />
-                                </div>
-                            </div>
-
-                            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <x-input-label for="alert_email" :value="__('Alert email address')" />
-                                    <x-text-input
-                                        id="alert_email"
-                                        name="alert_email"
-                                        type="email"
-                                        class="mt-1 block w-full"
-                                        :value="$settings['alert_email'] ?? ''"
-                                    />
-                                    <x-input-error :messages="$errors->get('alert_email')" class="mt-2" />
-                                </div>
-                            </div>
-                        </section>
-
                         <div class="border-t border-gray-100 pt-6 flex justify-end">
                             <button
                                 type="submit"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bucha-primary"
+                                class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bucha-primary"
                             >
                                 {{ __('Save settings') }}
                             </button>

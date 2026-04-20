@@ -58,6 +58,7 @@ class BusinessController extends Controller
         unset($validated['members']);
 
         $validated['type'] = $validated['type'] ?? Business::TYPE_PROCESSOR;
+        $validated['pathway_status'] = $validated['pathway_status'] ?? 'active';
 
         $business = $request->user()->businesses()->create($validated);
 
@@ -69,6 +70,10 @@ class BusinessController extends Controller
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'date_of_birth' => $m['date_of_birth'] ?? null,
+                    'gender' => $m['gender'] ?? null,
+                    'pwd_status' => $m['pwd_status'] ?? null,
+                    'phone' => $m['phone'] ?? null,
+                    'email' => $m['email'] ?? null,
                     'sort_order' => $i,
                 ]);
             }
@@ -123,6 +128,10 @@ class BusinessController extends Controller
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'date_of_birth' => $m['date_of_birth'] ?? null,
+                    'gender' => $m['gender'] ?? null,
+                    'pwd_status' => $m['pwd_status'] ?? null,
+                    'phone' => $m['phone'] ?? null,
+                    'email' => $m['email'] ?? null,
                     'sort_order' => $i,
                 ]);
             }

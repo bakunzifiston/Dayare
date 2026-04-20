@@ -69,9 +69,17 @@
                 @php
                     $initialMembers = old('members');
                     if ($initialMembers === null) {
-                        $initialMembers = $business->ownershipMembers->map(fn ($m) => ['first_name' => $m->first_name, 'last_name' => $m->last_name, 'date_of_birth' => $m->date_of_birth?->format('Y-m-d') ?? ''])->values()->all();
+                        $initialMembers = $business->ownershipMembers->map(fn ($m) => [
+                            'first_name' => $m->first_name,
+                            'last_name' => $m->last_name,
+                            'phone' => $m->phone ?? '',
+                            'email' => $m->email ?? '',
+                            'date_of_birth' => $m->date_of_birth?->format('Y-m-d') ?? '',
+                            'gender' => $m->gender ?? '',
+                            'pwd_status' => $m->pwd_status ?? '',
+                        ])->values()->all();
                         if (empty($initialMembers)) {
-                            $initialMembers = [['first_name' => '', 'last_name' => '', 'date_of_birth' => '']];
+                            $initialMembers = [['first_name' => '', 'last_name' => '', 'phone' => '', 'email' => '', 'date_of_birth' => '', 'gender' => '', 'pwd_status' => '']];
                         }
                     } else {
                         $initialMembers = array_values($initialMembers);
@@ -99,6 +107,28 @@
                             <x-input-label for="owner_dob" :value="__('Date of birth')" />
                             <x-text-input id="owner_dob" name="owner_dob" type="date" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_dob', $business->owner_dob?->format('Y-m-d'))" max="{{ date('Y-m-d') }}" />
                             <x-input-error class="mt-2" :messages="$errors->get('owner_dob')" />
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <x-input-label for="owner_gender" :value="__('Owner gender')" />
+                                <select id="owner_gender" name="owner_gender" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                    <option value="">{{ __('Select gender') }}</option>
+                                    @foreach (\App\Models\Business::OWNER_GENDERS as $gender)
+                                        <option value="{{ $gender }}" @selected(old('owner_gender', $business->owner_gender) === $gender)>{{ __(ucfirst($gender)) }}</option>
+                                    @endforeach
+                                </select>
+                                <x-input-error class="mt-2" :messages="$errors->get('owner_gender')" />
+                            </div>
+                            <div>
+                                <x-input-label for="owner_pwd_status" :value="__('Disability status')" />
+                                <select id="owner_pwd_status" name="owner_pwd_status" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                    <option value="">{{ __('Select status') }}</option>
+                                    @foreach (\App\Models\Business::OWNER_PWD_STATUSES as $pwdStatus)
+                                        <option value="{{ $pwdStatus }}" @selected(old('owner_pwd_status', $business->owner_pwd_status) === $pwdStatus)>{{ __(ucfirst($pwdStatus)) }}</option>
+                                    @endforeach
+                                </select>
+                                <x-input-error class="mt-2" :messages="$errors->get('owner_pwd_status')" />
+                            </div>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
@@ -141,9 +171,39 @@
                                             <input type="text" :name="'members[' + index + '][last_name]'" x-model="member.last_name" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
                                         </div>
                                     </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Phone number') }}</label>
+                                            <input type="text" :name="'members[' + index + '][phone]'" x-model="member.phone" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Email') }}</label>
+                                            <input type="email" :name="'members[' + index + '][email]'" x-model="member.email" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                        </div>
+                                    </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Date of birth') }}</label>
                                         <input type="date" :name="'members[' + index + '][date_of_birth]'" x-model="member.date_of_birth" :max="maxDate" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Gender') }}</label>
+                                            <select :name="'members[' + index + '][gender]'" x-model="member.gender" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                                <option value="">{{ __('Select gender') }}</option>
+                                                @foreach (\App\Models\Business::OWNER_GENDERS as $gender)
+                                                    <option value="{{ $gender }}">{{ __(ucfirst($gender)) }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Disability status') }}</label>
+                                            <select :name="'members[' + index + '][pwd_status]'" x-model="member.pwd_status" class="block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                                <option value="">{{ __('Select status') }}</option>
+                                                @foreach (\App\Models\Business::OWNER_PWD_STATUSES as $pwdStatus)
+                                                    <option value="{{ $pwdStatus }}">{{ __(ucfirst($pwdStatus)) }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </template>
@@ -161,7 +221,7 @@
                             members: @json($initialMembers),
                             addMember() {
                                 if (this.ownershipType === 'partnership' || this.ownershipType === 'cooperative' || this.ownershipType === 'company') {
-                                    this.members.push({ first_name: '', last_name: '', date_of_birth: '' });
+                                    this.members.push({ first_name: '', last_name: '', phone: '', email: '', date_of_birth: '', gender: '', pwd_status: '' });
                                 }
                             },
                             removeMember(i) {
@@ -171,7 +231,67 @@
                     }
                 </script>
 
-                {{-- Section 3: Location info (dependent: country → province → district → sector → cell → village) --}}
+                {{-- Section 3: Business details --}}
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/80">
+                        <h3 class="text-base font-semibold text-slate-800">{{ __('Business details') }}</h3>
+                        <p class="text-sm text-slate-500 mt-0.5">{{ __('Additional profile information for processor onboarding.') }}</p>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <x-input-label for="business_size" :value="__('Business size')" />
+                            <select id="business_size" name="business_size" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                <option value="">{{ __('Select business size') }}</option>
+                                <option value="micro" @selected(old('business_size', $business->business_size) === 'micro')>{{ __('Micro (1-2 employees)') }}</option>
+                                <option value="small" @selected(old('business_size', $business->business_size) === 'small')>{{ __('Small (3-20 employees)') }}</option>
+                                <option value="medium" @selected(old('business_size', $business->business_size) === 'medium')>{{ __('Medium (21-100 employees)') }}</option>
+                                <option value="large" @selected(old('business_size', $business->business_size) === 'large')>{{ __('Large (100+ employees)') }}</option>
+                            </select>
+                            <x-input-error class="mt-2" :messages="$errors->get('business_size')" />
+                        </div>
+                        <div>
+                            <x-input-label for="baseline_revenue" :value="__('Baseline annual revenue (RWF)')" />
+                            <x-text-input id="baseline_revenue" name="baseline_revenue" type="number" min="0" step="1" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('baseline_revenue', $business->baseline_revenue)" />
+                            <x-input-error class="mt-2" :messages="$errors->get('baseline_revenue')" />
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Section 4: VIBE metadata --}}
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/80">
+                        <h3 class="text-base font-semibold text-slate-800">{{ __('VIBE metadata') }}</h3>
+                        <p class="text-sm text-slate-500 mt-0.5">{{ __('Tracking fields used by the VIBE pathway.') }}</p>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <x-input-label for="vibe_unique_id" :value="__('VIBE unique ID')" />
+                            <x-text-input id="vibe_unique_id" name="vibe_unique_id" type="text" class="mt-1 block w-full rounded-lg border-gray-300 bg-gray-100 text-gray-600" :value="old('vibe_unique_id', $business->vibe_unique_id)" readonly />
+                            <x-input-error class="mt-2" :messages="$errors->get('vibe_unique_id')" />
+                        </div>
+                        <div>
+                            <x-input-label for="vibe_commencement_date" :value="__('VIBE commencement date')" />
+                            <x-text-input id="vibe_commencement_date" name="vibe_commencement_date" type="date" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('vibe_commencement_date', $business->vibe_commencement_date?->format('Y-m-d'))" />
+                            <x-input-error class="mt-2" :messages="$errors->get('vibe_commencement_date')" />
+                        </div>
+                        <div>
+                            <x-input-label for="pathway_status" :value="__('Pathway status')" />
+                            <select id="pathway_status" name="pathway_status" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                @foreach (\App\Models\Business::PATHWAY_STATUSES as $pathwayStatus)
+                                    <option value="{{ $pathwayStatus }}" @selected(old('pathway_status', $business->pathway_status ?? 'active') === $pathwayStatus)>{{ __(ucfirst($pathwayStatus)) }}</option>
+                                @endforeach
+                            </select>
+                            <x-input-error class="mt-2" :messages="$errors->get('pathway_status')" />
+                        </div>
+                        <div>
+                            <x-input-label for="vibe_comments" :value="__('VIBE comments')" />
+                            <textarea id="vibe_comments" name="vibe_comments" rows="3" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary">{{ old('vibe_comments', $business->vibe_comments) }}</textarea>
+                            <x-input-error class="mt-2" :messages="$errors->get('vibe_comments')" />
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Section 5: Location info (dependent: country → province → district → sector → cell → village) --}}
                 @php
                     $cid = old('country_id', $business->country_id);
                     $pid = old('province_id', $business->province_id);

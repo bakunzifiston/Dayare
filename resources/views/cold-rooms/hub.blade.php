@@ -47,15 +47,15 @@
                     <span class="mt-5 inline-flex items-center text-sm font-semibold text-bucha-primary">{{ __('Open storage') }} →</span>
                 </a>
 
-                <a href="{{ route('cold-room-standards.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                <a href="{{ route('settings.edit') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
                     <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     </div>
                     <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Temperature standards') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600 leading-relaxed">{{ __('Allowed °C ranges and tolerance before batches are marked at risk.') }}</p>
+                    <p class="mt-2 flex-1 text-sm text-slate-600 leading-relaxed">{{ __('Allowed °C ranges and tolerance before batches are marked at risk. Managed from Settings.') }}</p>
                     <p class="mt-4 text-3xl font-bold tabular-nums text-slate-900">{{ $standardCount }}</p>
                     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Standards') }}</p>
-                    <span class="mt-5 inline-flex items-center text-sm font-semibold text-bucha-primary">{{ __('Manage standards') }} →</span>
+                    <span class="mt-5 inline-flex items-center text-sm font-semibold text-bucha-primary">{{ __('Open settings') }} →</span>
                 </a>
             </div>
         </div>

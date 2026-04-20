@@ -18,7 +18,7 @@
                 ['label' => __('Batches'), 'route' => 'batches.hub', 'icon' => 'box', 'permission' => 'manage batches', 'routeIs' => ['batches.hub', 'batches.index', 'batches.create', 'batches.edit', 'batches.show']],
                 ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard', 'permission' => 'manage post-mortem'],
                 ['label' => __('Certificates'), 'route' => 'certificates.hub', 'icon' => 'certificate', 'permission' => 'manage certificates', 'routeIs' => ['certificates.hub', 'certificates.index', 'certificates.create', 'certificates.edit', 'certificates.show', 'certificates.qr']],
-                ['label' => __('Cold Room'), 'route' => 'cold-rooms.hub', 'icon' => 'box', 'permission' => 'manage warehouse', 'routeIs' => ['cold-rooms.hub', 'cold-rooms.manage.*', 'warehouse-storages.*', 'cold-room-standards.*']],
+                ['label' => __('Cold Room'), 'route' => 'cold-rooms.hub', 'icon' => 'box', 'permission' => 'manage warehouse', 'routeIs' => ['cold-rooms.hub', 'cold-rooms.manage.*', 'warehouse-storages.*']],
                 ['label' => __('Transport'), 'route' => 'transport-trips.hub', 'icon' => 'truck', 'permission' => 'manage transport', 'routeIs' => ['transport-trips.hub', 'transport-trips.index', 'transport-trips.create', 'transport-trips.edit', 'transport-trips.show']],
                 ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check', 'permission' => 'manage delivery confirmations'],
                 ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield', 'permission' => 'view compliance'],
@@ -38,7 +38,7 @@
         ],
     ];
     $tenantNav[] = ['label' => __('Users'), 'route' => 'tenant-users.index', 'icon' => 'users', 'permission' => 'manage tenant users'];
-    $tenantNav[] = ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => 'manage settings'];
+    $tenantNav[] = ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => 'manage settings', 'routeIs' => ['settings.edit', 'cold-room-standards.*']];
 
     if (! $isSuperAdmin && $user && ! $user->canManageTenantUsers()) {
         $filtered = [];

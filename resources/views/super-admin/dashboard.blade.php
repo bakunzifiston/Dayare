@@ -49,6 +49,7 @@
                                     <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                         <th class="px-6 py-3">{{ __('Name') }}</th>
                                         <th class="px-6 py-3">{{ __('Email') }}</th>
+                                        <th class="px-6 py-3">{{ __('Business type') }}</th>
                                         <th class="px-6 py-3">{{ __('Businesses') }}</th>
                                         <th class="px-6 py-3">{{ __('Registered') }}</th>
                                     </tr>
@@ -58,6 +59,20 @@
                                         <tr class="hover:bg-slate-50/50">
                                             <td class="px-6 py-3 font-medium text-slate-900">{{ $u->name }}</td>
                                             <td class="px-6 py-3 text-slate-600">{{ $u->email }}</td>
+                                            <td class="px-6 py-3 text-slate-600">
+                                                @php
+                                                    $types = $u->businesses
+                                                        ->pluck('type')
+                                                        ->filter()
+                                                        ->unique()
+                                                        ->values();
+                                                @endphp
+                                                @if ($types->isEmpty())
+                                                    —
+                                                @else
+                                                    {{ $types->map(fn ($type) => ucfirst($type))->implode(', ') }}
+                                                @endif
+                                            </td>
                                             <td class="px-6 py-3 tabular-nums">{{ $u->businesses_count }}</td>
                                             <td class="px-6 py-3 text-slate-500">{{ $u->created_at?->format('d M Y') ?? '—' }}</td>
                                         </tr>

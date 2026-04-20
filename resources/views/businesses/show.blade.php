@@ -54,10 +54,22 @@
                         <dt class="text-sm font-medium text-gray-500">{{ __('Status') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($business->status) }}</dd>
                     </div>
+                    @if ($business->business_size)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Business size') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($business->business_size) }}</dd>
+                    </div>
+                    @endif
+                    @if ($business->baseline_revenue !== null)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Baseline annual revenue (RWF)') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ number_format((int) $business->baseline_revenue) }}</dd>
+                    </div>
+                    @endif
                 </dl>
             </div>
 
-            @if ($business->owner_first_name || $business->owner_last_name || $business->owner_name || $business->owner_phone || $business->owner_email || $business->ownership_type || $business->ownershipMembers->isNotEmpty())
+            @if ($business->owner_first_name || $business->owner_last_name || $business->owner_name || $business->owner_phone || $business->owner_email || $business->ownership_type || $business->owner_gender || $business->owner_pwd_status || $business->ownershipMembers->isNotEmpty())
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
                 <h3 class="text-base font-semibold text-slate-800 mb-1">{{ __('Ownership info') }}</h3>
                 <p class="text-sm text-slate-500 mb-4">{{ __('Owner or legal representative details.') }}</p>
@@ -77,6 +89,18 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Date of birth') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ $business->owner_dob->format('d/m/Y') }}</dd>
+                    </div>
+                    @endif
+                    @if ($business->owner_gender)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Owner gender') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($business->owner_gender) }}</dd>
+                    </div>
+                    @endif
+                    @if ($business->owner_pwd_status)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Disability status') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($business->owner_pwd_status) }}</dd>
                     </div>
                     @endif
                     @if ($business->owner_phone)
@@ -112,7 +136,19 @@
                     <ul class="space-y-2">
                         @foreach ($business->ownershipMembers as $member)
                         <li class="flex justify-between items-start text-sm">
-                            <span class="text-gray-900">{{ $member->full_name }}</span>
+                            <div class="text-gray-900">
+                                <div>{{ $member->full_name }}</div>
+                                @if ($member->gender || $member->pwd_status)
+                                <div class="text-xs text-gray-500">
+                                    {{ $member->gender ? ucfirst($member->gender) : '' }}{{ $member->gender && $member->pwd_status ? ' · ' : '' }}{{ $member->pwd_status ? ucfirst($member->pwd_status) : '' }}
+                                </div>
+                                @endif
+                                @if ($member->phone || $member->email)
+                                <div class="text-xs text-gray-500">
+                                    {{ $member->phone ?? '' }}{{ $member->phone && $member->email ? ' · ' : '' }}{{ $member->email ?? '' }}
+                                </div>
+                                @endif
+                            </div>
                             @if ($member->date_of_birth)
                             <span class="text-gray-500">{{ $member->date_of_birth->format('d/m/Y') }}</span>
                             @endif
@@ -121,6 +157,39 @@
                     </ul>
                 </div>
                 @endif
+            </div>
+            @endif
+
+            @if ($business->vibe_unique_id || $business->vibe_commencement_date || $business->pathway_status || $business->vibe_comments)
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
+                <h3 class="text-base font-semibold text-slate-800 mb-1">{{ __('VIBE metadata') }}</h3>
+                <p class="text-sm text-slate-500 mb-4">{{ __('Progress tracking details for the VIBE pathway.') }}</p>
+                <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    @if ($business->vibe_unique_id)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('VIBE unique ID') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $business->vibe_unique_id }}</dd>
+                    </div>
+                    @endif
+                    @if ($business->vibe_commencement_date)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('VIBE commencement date') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $business->vibe_commencement_date->format('d/m/Y') }}</dd>
+                    </div>
+                    @endif
+                    @if ($business->pathway_status)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Pathway status') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($business->pathway_status) }}</dd>
+                    </div>
+                    @endif
+                    @if ($business->vibe_comments)
+                    <div class="sm:col-span-2">
+                        <dt class="text-sm font-medium text-gray-500">{{ __('VIBE comments') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">{{ $business->vibe_comments }}</dd>
+                    </div>
+                    @endif
+                </dl>
             </div>
             @endif
 

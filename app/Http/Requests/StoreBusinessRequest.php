@@ -31,14 +31,28 @@ class StoreBusinessRequest extends FormRequest
             'owner_first_name' => ['required', 'string', 'max:255'],
             'owner_last_name' => ['required', 'string', 'max:255'],
             'owner_dob' => ['nullable', 'date', 'before:today'],
+            'owner_gender' => ['nullable', 'string', Rule::in(Business::OWNER_GENDERS)],
+            'owner_pwd_status' => ['nullable', 'string', Rule::in(Business::OWNER_PWD_STATUSES)],
             'owner_phone' => ['nullable', 'string', 'max:50'],
             'owner_email' => ['nullable', 'email', 'max:255'],
             'ownership_type' => ['nullable', 'string', 'max:100', Rule::in(Business::OWNERSHIP_TYPES)],
+            // Business profile extensions for processor workspace onboarding.
+            'business_size' => ['nullable', 'string', Rule::in(Business::BUSINESS_SIZES)],
+            'baseline_revenue' => ['nullable', 'integer', 'min:0'],
+            // VIBE metadata
+            'vibe_unique_id' => ['nullable', 'string', 'max:100'],
+            'vibe_commencement_date' => ['nullable', 'date'],
+            'pathway_status' => ['nullable', 'string', Rule::in(Business::PATHWAY_STATUSES)],
+            'vibe_comments' => ['nullable', 'string', 'max:1000'],
             'members' => ['nullable', 'array'],
             // Members are optional; when provided, we validate but do not force them if left blank.
             'members.*.first_name' => ['nullable', 'string', 'max:255'],
             'members.*.last_name' => ['nullable', 'string', 'max:255'],
             'members.*.date_of_birth' => ['nullable', 'date', 'before:today'],
+            'members.*.gender' => ['nullable', 'string', Rule::in(Business::OWNER_GENDERS)],
+            'members.*.pwd_status' => ['nullable', 'string', Rule::in(Business::OWNER_PWD_STATUSES)],
+            'members.*.phone' => ['nullable', 'string', 'max:50'],
+            'members.*.email' => ['nullable', 'email', 'max:255'],
             // Location info (optional – allow registering without full location)
             'country_id' => ['nullable', 'exists:administrative_divisions,id'],
             'province_id' => ['nullable', 'exists:administrative_divisions,id'],

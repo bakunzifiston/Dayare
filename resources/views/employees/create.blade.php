@@ -55,6 +55,51 @@
                     </div>
                 </div>
 
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label for="gender" :value="__('Gender')" />
+                        <select id="gender" name="gender" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary">
+                            <option value="">{{ __('Select gender') }}</option>
+                            @foreach (\App\Models\Employee::GENDERS as $gender)
+                                <option value="{{ $gender }}" @selected(old('gender') === $gender)>{{ __(ucfirst($gender)) }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('gender')" />
+                    </div>
+                    <div>
+                        <x-input-label for="pwd_status" :value="__('Disability status')" />
+                        <select id="pwd_status" name="pwd_status" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary">
+                            @foreach (\App\Models\Employee::PWD_STATUSES as $pwdStatus)
+                                <option value="{{ $pwdStatus }}" @selected(old('pwd_status', 'none') === $pwdStatus)>{{ __(ucfirst($pwdStatus)) }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('pwd_status')" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input type="hidden" name="is_refugee" value="0">
+                        <input type="checkbox" name="is_refugee" value="1" class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary" @checked(old('is_refugee'))>
+                        <span>{{ __('Is refugee') }}</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input type="hidden" name="is_host_community" value="0">
+                        <input type="checkbox" name="is_host_community" value="1" class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary" @checked(old('is_host_community'))>
+                        <span>{{ __('Is host community') }}</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input type="hidden" name="consent_given" value="0">
+                        <input type="checkbox" name="consent_given" value="1" class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary" @checked(old('consent_given'))>
+                        <span>{{ __('Consent given') }}</span>
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 -mt-2">
+                    <x-input-error class="mt-0" :messages="$errors->get('is_refugee')" />
+                    <x-input-error class="mt-0" :messages="$errors->get('is_host_community')" />
+                    <x-input-error class="mt-0" :messages="$errors->get('consent_given')" />
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <x-input-label for="national_id" :value="__('National ID')" />

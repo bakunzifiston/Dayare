@@ -18,10 +18,10 @@
             <div class="bg-white shadow-sm sm:rounded-lg border border-slate-200/60 overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-100">
                     <p class="text-sm text-slate-600">
-                        {{ __('Rooms belong to a storage facility. Set a standard here, then choose this room when recording storage so monitoring can run. Standards are managed from the Cold Room module home.') }}
+                        {{ __('Rooms belong to a storage facility. Set a standard here, then choose this room when recording storage so monitoring can run. Standards are managed from Settings.') }}
                     </p>
                     <p class="mt-2 text-sm">
-                        <a href="{{ route('cold-room-standards.index') }}" class="text-bucha-primary font-medium hover:text-bucha-burgundy">{{ __('Temperature standards') }} →</a>
+                        <a href="{{ route('settings.edit') }}" class="text-bucha-primary font-medium hover:text-bucha-burgundy">{{ __('Open settings') }} →</a>
                     </p>
                 </div>
                 @if (session('status'))

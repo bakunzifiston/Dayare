@@ -99,8 +99,9 @@ class BatchController extends Controller
             ->get()
             ->map(fn (SlaughterExecution $e) => [
                 'id' => $e->id,
-                'label' => $e->slaughter_time->format('d M Y H:i').' — '.$e->slaughterPlan->facility->facility_name.' ('.$e->actual_animals_slaughtered.' animals)',
+                'label' => $e->slaughter_time->format('d M Y H:i').' — '.$e->slaughterPlan->facility->facility_name.' — '.$e->slaughterPlan->species.' ('.$e->actual_animals_slaughtered.' animals)',
                 'facility_id' => $e->slaughterPlan->facility_id,
+                'species' => $e->slaughterPlan->species,
             ]);
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
@@ -110,9 +111,14 @@ class BatchController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
+        $units = $request->user()->configuredUnitsForBusinessIds()
+            ->map(fn ($unit) => ['code' => $unit->code, 'name' => $unit->name])
+            ->values();
+
         return view('batches.create', [
             'executions' => $executions,
             'inspectorsByFacility' => $inspectorsByFacility,
+            'units' => $units,
         ]);
     }
 
@@ -147,8 +153,9 @@ class BatchController extends Controller
             ->get()
             ->map(fn (SlaughterExecution $e) => [
                 'id' => $e->id,
-                'label' => $e->slaughter_time->format('d M Y H:i').' — '.$e->slaughterPlan->facility->facility_name,
+                'label' => $e->slaughter_time->format('d M Y H:i').' — '.$e->slaughterPlan->facility->facility_name.' — '.$e->slaughterPlan->species,
                 'facility_id' => $e->slaughterPlan->facility_id,
+                'species' => $e->slaughterPlan->species,
             ]);
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
@@ -158,10 +165,15 @@ class BatchController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
+        $units = $request->user()->configuredUnitsForBusinessIds()
+            ->map(fn ($unit) => ['code' => $unit->code, 'name' => $unit->name])
+            ->values();
+
         return view('batches.edit', [
             'batch' => $batch,
             'executions' => $executions,
             'inspectorsByFacility' => $inspectorsByFacility,
+            'units' => $units,
         ]);
     }
 
