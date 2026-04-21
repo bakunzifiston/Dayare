@@ -31,7 +31,7 @@
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <x-input-label for="registration_number" :value="__('Registration number')" />
+                                <x-input-label for="registration_number" :value="__('RDB registration number')" />
                                 <x-text-input id="registration_number" name="registration_number" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('registration_number', $business->registration_number)" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('registration_number')" />
                             </div>

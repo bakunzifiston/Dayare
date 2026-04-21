@@ -67,4 +67,15 @@ class UpdateBusinessRequest extends FormRequest
             'country' => ['nullable', 'string', 'max:100'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $registrationNumber = $this->input('registration_number');
+        if ($registrationNumber !== null) {
+            $normalized = preg_replace('/\s+/', ' ', trim((string) $registrationNumber)) ?? '';
+            $this->merge([
+                'registration_number' => mb_strtoupper($normalized),
+            ]);
+        }
+    }
 }

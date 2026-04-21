@@ -88,8 +88,23 @@ class User extends Authenticatable
     {
         $owned = $this->businesses()->pluck('id');
         $member = $this->memberBusinesses()->pluck('businesses.id');
+        $ids = $owned->merge($member)->unique()->values();
 
-        return $owned->merge($member)->unique()->values();
+        $routeName = request()?->route()?->getName();
+        $isProcessorRoute = $routeName !== null
+            && ! str_starts_with($routeName, 'farmer.')
+            && ! str_starts_with($routeName, 'logistics.')
+            && ! str_starts_with($routeName, 'super-admin.')
+            && ! str_starts_with($routeName, 'profile.');
+        $activeProcessorBusinessId = session('active_processor_business_id');
+
+        if ($isProcessorRoute
+            && $activeProcessorBusinessId !== null
+            && $ids->contains((int) $activeProcessorBusinessId)) {
+            return collect([(int) $activeProcessorBusinessId]);
+        }
+
+        return $ids;
     }
 
     /** All businesses the user can access (owned + member). */
@@ -111,11 +126,104 @@ class User extends Authenticatable
     /** Business IDs for processor workspace modules. */
     public function accessibleProcessorBusinessIds(): Collection
     {
-        return Business::query()
+        $ownedProcessorIds = Business::query()
+            ->where('type', Business::TYPE_PROCESSOR)
+            ->where('user_id', $this->id)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+        if ($ownedProcessorIds->isNotEmpty()) {
+            return $ownedProcessorIds;
+        }
+
+        $ids = Business::query()
             ->where('type', Business::TYPE_PROCESSOR)
             ->whereIn('id', $this->accessibleBusinessIds())
             ->pluck('id')
             ->values();
+
+        $active = $this->activeProcessorBusinessId();
+        if ($active !== null && $ids->contains($active)) {
+            return collect([$active]);
+        }
+
+        return $ids;
+    }
+
+    public function activeProcessorBusinessId(): ?int
+    {
+        if ($this->isSuperAdmin()) {
+            return null;
+        }
+
+        $processorIds = Business::query()
+            ->where('type', Business::TYPE_PROCESSOR)
+            ->whereIn('id', $this->businesses()->pluck('id')->merge($this->memberBusinesses()->pluck('businesses.id'))->unique())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+        if ($processorIds->isEmpty()) {
+            return null;
+        }
+
+        $sessionBusinessId = session('active_processor_business_id');
+        if ($sessionBusinessId !== null && $processorIds->contains((int) $sessionBusinessId)) {
+            return (int) $sessionBusinessId;
+        }
+
+        return (int) $processorIds->first();
+    }
+
+    public function setActiveProcessorBusinessId(int $businessId): void
+    {
+        session(['active_processor_business_id' => $businessId]);
+    }
+
+    public function processorRoleForBusiness(?int $businessId = null): ?string
+    {
+        $targetBusinessId = $businessId ?? $this->activeProcessorBusinessId();
+        if ($targetBusinessId === null) {
+            return null;
+        }
+
+        $membershipRole = BusinessUser::query()
+            ->where('user_id', $this->id)
+            ->where('business_id', $targetBusinessId)
+            ->value('role');
+        if ($membershipRole !== null) {
+            return $membershipRole;
+        }
+
+        $ownsBusiness = Business::query()
+            ->whereKey($targetBusinessId)
+            ->where('user_id', $this->id)
+            ->exists();
+
+        return $ownsBusiness ? BusinessUser::ROLE_ORG_ADMIN : null;
+    }
+
+    public function canProcessorPermission(string $permission, ?int $businessId = null): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $targetBusinessId = $businessId ?? $this->activeProcessorBusinessId();
+        if ($targetBusinessId !== null && $this->ownsBusiness($targetBusinessId)) {
+            return true;
+        }
+
+        $role = $this->processorRoleForBusiness($targetBusinessId);
+
+        return BusinessUser::roleHasPermission($role, $permission);
+    }
+
+    public function ownsBusiness(int $businessId): bool
+    {
+        return Business::query()
+            ->whereKey($businessId)
+            ->where('user_id', $this->id)
+            ->exists();
     }
 
     /**
@@ -177,15 +285,10 @@ class User extends Authenticatable
         return $this->configuredSpeciesForBusinessIds($businessIds)->pluck('name')->values();
     }
 
-    /** Whether this user is a tenant owner / can manage tenant users. */
+    /** Whether this user can manage users in the active processor business. */
     public function canManageTenantUsers(): bool
     {
-        // Tenant Owner is defined as a user with the "owner" role OR a user who owns at least one business.
-        if ($this->hasRole('owner')) {
-            return true;
-        }
-
-        return $this->businesses()->exists();
+        return $this->canProcessorPermission(BusinessUser::PERMISSION_MANAGE_BUSINESS_USERS);
     }
 
     /**
@@ -221,9 +324,11 @@ class User extends Authenticatable
 
         return match ($ctx['userRole']) {
             'super_admin' => 'super_admin',
-            'owner' => 'business_owner',
-            'manager' => 'business_manager',
-            'staff' => 'business_staff',
+            BusinessUser::ROLE_ORG_ADMIN => 'business_org_admin',
+            BusinessUser::ROLE_OPERATIONS_MANAGER => 'business_operations_manager',
+            BusinessUser::ROLE_COMPLIANCE_OFFICER => 'business_compliance_officer',
+            BusinessUser::ROLE_INSPECTOR => 'business_inspector',
+            BusinessUser::ROLE_TRANSPORT_MANAGER => 'business_transport_manager',
             default => 'user',
         };
     }
@@ -256,7 +361,7 @@ class User extends Authenticatable
                 'id' => $business->id,
                 'name' => $business->business_name,
                 'type' => $business->type,
-                'membership' => 'owner',
+                'membership' => BusinessUser::ROLE_ORG_ADMIN,
             ];
         }
 
@@ -266,8 +371,7 @@ class User extends Authenticatable
             if (in_array($business->id, $ownedIds, true)) {
                 continue;
             }
-            $pivotRole = $business->pivot->role ?? BusinessUser::ROLE_STAFF;
-            $membership = $pivotRole === BusinessUser::ROLE_MANAGER ? 'manager' : 'staff';
+            $membership = $business->pivot->role ?? BusinessUser::ROLE_OPERATIONS_MANAGER;
             $accessible[] = [
                 'id' => $business->id,
                 'name' => $business->business_name,
@@ -291,12 +395,7 @@ class User extends Authenticatable
 
         $userRole = 'user';
         if ($active !== null) {
-            $userRole = match ($active['membership']) {
-                'owner' => 'owner',
-                'manager' => 'manager',
-                'staff' => 'staff',
-                default => 'user',
-            };
+            $userRole = (string) ($active['membership'] ?? 'user');
         }
 
         return [

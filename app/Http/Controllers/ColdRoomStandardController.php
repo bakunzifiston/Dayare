@@ -19,10 +19,7 @@ class ColdRoomStandardController extends Controller
         if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
             return;
         }
-        if (method_exists($user, 'canManageTenantUsers') && $user->canManageTenantUsers()) {
-            return;
-        }
-        abort_unless($user->can('manage warehouse'), 403);
+        abort_unless($user->canProcessorPermission('monitor_temperature_logs'), 403);
     }
 
     public function index(Request $request): View

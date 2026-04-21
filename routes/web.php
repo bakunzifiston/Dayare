@@ -33,6 +33,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\LogisticsDashboardController;
 use App\Http\Controllers\LogisticsModuleController;
 use App\Http\Controllers\PostMortemInspectionController;
+use App\Http\Controllers\ProcessorBusinessContextController;
 use App\Http\Controllers\Processor\ProcessorSupplyRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipientController;
@@ -405,6 +406,7 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
         Route::get('supply-requests', [ProcessorSupplyRequestController::class, 'index'])->name('supply-requests.index');
         Route::get('supply-requests/create', [ProcessorSupplyRequestController::class, 'create'])->name('supply-requests.create');
         Route::post('supply-requests', [ProcessorSupplyRequestController::class, 'store'])->name('supply-requests.store');
+        Route::post('business-context', [ProcessorBusinessContextController::class, 'update'])->name('business-context.update');
     });
 
     Route::middleware('super_admin')->prefix('super-admin')->name('super-admin.')->group(function () {

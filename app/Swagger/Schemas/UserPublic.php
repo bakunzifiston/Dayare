@@ -13,7 +13,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'name', type: 'string', example: 'Jane Processor'),
         new OA\Property(property: 'email', type: 'string', format: 'email'),
         new OA\Property(property: 'is_super_admin', type: 'boolean', example: false),
-        new OA\Property(property: 'userRole', type: 'string', description: 'Membership: owner, manager, staff, super_admin, or user', example: 'owner'),
+        new OA\Property(property: 'userRole', type: 'string', description: 'Membership: org_admin, operations_manager, compliance_officer, inspector, transport_manager, super_admin, or user', example: 'org_admin'),
         new OA\Property(property: 'business_type', type: 'string', nullable: true, description: 'Tenant type for active workspace', example: 'processor'),
         new OA\Property(property: 'business_id', type: 'integer', nullable: true, example: 12),
         new OA\Property(
@@ -25,7 +25,7 @@ use OpenApi\Attributes as OA;
                     new OA\Property(property: 'id', type: 'integer'),
                     new OA\Property(property: 'name', type: 'string'),
                     new OA\Property(property: 'type', type: 'string'),
-                    new OA\Property(property: 'membership', type: 'string', description: 'owner | manager | staff'),
+                    new OA\Property(property: 'membership', type: 'string', description: 'org_admin | operations_manager | compliance_officer | inspector | transport_manager'),
                 ],
             ),
         ),

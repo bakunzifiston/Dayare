@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Business;
+use App\Models\BusinessUser;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\QueryException;
@@ -59,11 +60,6 @@ class RegisteredUserController extends Controller
                     'password' => Hash::make($request->password),
                 ]);
 
-                // New tenant: make them the Tenant Owner role so they start with full access for their workspace.
-                if (! $user->hasRole('owner')) {
-                    $user->assignRole('owner');
-                }
-
                 $nameTrim = trim((string) $request->name);
                 $nameParts = preg_split('/\s+/', $nameTrim, 2, PREG_SPLIT_NO_EMPTY) ?: [];
                 $ownerFirst = $nameParts[0] ?? '—';
@@ -71,7 +67,7 @@ class RegisteredUserController extends Controller
                 $generatedBusinessName = $this->generateUniqueWorkspaceName($nameTrim);
                 $normalizedBusinessName = $this->normalizeBusinessName($generatedBusinessName);
 
-                $user->businesses()->create([
+                $business = $user->businesses()->create([
                     'type' => $request->business_type,
                     'business_name' => $generatedBusinessName,
                     'business_name_normalized' => $normalizedBusinessName,
@@ -82,6 +78,10 @@ class RegisteredUserController extends Controller
                     'owner_first_name' => $ownerFirst,
                     'owner_last_name' => $ownerLast,
                 ]);
+                BusinessUser::query()->updateOrCreate(
+                    ['business_id' => $business->id, 'user_id' => $user->id],
+                    ['role' => BusinessUser::ROLE_ORG_ADMIN]
+                );
 
                 return $user;
             });

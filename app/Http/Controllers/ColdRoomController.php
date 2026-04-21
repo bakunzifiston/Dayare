@@ -29,11 +29,7 @@ class ColdRoomController extends Controller
         if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
             return;
         }
-        // Match EnsureTenantPermission: business owners pass without Spatie permission on the user.
-        if (method_exists($user, 'canManageTenantUsers') && $user->canManageTenantUsers()) {
-            return;
-        }
-        abort_unless($user->can('manage warehouse'), 403);
+        abort_unless($user->canProcessorPermission('monitor_temperature_logs'), 403);
     }
 
     public function hub(Request $request): View

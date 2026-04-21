@@ -5,125 +5,116 @@ namespace App\Http\Controllers;
 use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Spatie\Permission\Models\Permission;
 
 class TenantUserController extends Controller
 {
-    /** Permission names grouped by module for the "select modules" UI. */
-    public static function permissionGroups(): array
+    public static function roleOptions(): array
     {
-        $all = Permission::where('guard_name', 'web')->orderBy('name')->pluck('name');
-        $groups = [
-            __('Operations') => [],
-            __('CRM & HR') => [],
-            __('Settings') => [],
+        return [
+            BusinessUser::ROLE_ORG_ADMIN => __('Org Admin'),
+            BusinessUser::ROLE_OPERATIONS_MANAGER => __('Operations Manager'),
+            BusinessUser::ROLE_COMPLIANCE_OFFICER => __('Compliance Officer'),
+            BusinessUser::ROLE_INSPECTOR => __('Inspector'),
+            BusinessUser::ROLE_TRANSPORT_MANAGER => __('Transport Manager'),
         ];
-        $ops = ['manage businesses', 'manage facilities', 'manage inspectors', 'manage animal intakes', 'manage slaughter plans', 'manage slaughter executions', 'manage batches', 'manage ante-mortem', 'manage post-mortem', 'manage certificates', 'manage warehouse', 'manage transport', 'manage delivery confirmations', 'view compliance', 'view divisions'];
-        $crm = ['manage employees', 'manage suppliers', 'manage contracts', 'view crm', 'manage clients', 'manage demands', 'view recipients'];
-        $settings = ['manage settings', 'manage species', 'manage units'];
-        foreach ($all as $name) {
-            if (in_array($name, $ops, true)) {
-                $groups[__('Operations')][$name] = $name;
-            } elseif (in_array($name, $crm, true)) {
-                $groups[__('CRM & HR')][$name] = $name;
-            } elseif (in_array($name, $settings, true)) {
-                $groups[__('Settings')][$name] = $name;
-            }
-        }
-        return $groups;
-    }
-
-    /** @return array<int> */
-    private function myBusinessIds(Request $request): array
-    {
-        return $request->user()->businesses()->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
-    }
-
-    /** @return array<int> User IDs that are members of the current user's businesses (excluding owner). */
-    private function memberUserIds(Request $request): array
-    {
-        $ids = $this->myBusinessIds($request);
-        if ($ids === []) {
-            return [];
-        }
-        $raw = DB::table('business_user')->whereIn('business_id', $ids)->pluck('user_id')->unique()->values()->all();
-        return array_map('intval', $raw);
-    }
-
-    /** Check if user is a member of any of the current user's businesses (direct DB check). */
-    private function userIsInMyTeam(Request $request, int $userId): bool
-    {
-        $ids = $this->myBusinessIds($request);
-        if ($ids === []) {
-            return false;
-        }
-        return DB::table('business_user')
-            ->where('user_id', $userId)
-            ->whereIn('business_id', $ids)
-            ->exists();
     }
 
     public function index(Request $request): View|RedirectResponse
     {
-        if (! $request->user()->canManageTenantUsers()) {
-            abort(403, __('Only business owners can manage users.'));
-        }
+        $manageableBusinesses = $this->manageableBusinesses($request);
+        $this->authorizeOwnerOrFail($request, $manageableBusinesses);
+        $manageableBusinessIds = $manageableBusinesses->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $myBusinessIds = $this->myBusinessIds($request);
-        $memberUserIds = $this->memberUserIds($request);
-        $users = User::where('id', $request->user()->id)
-            ->orWhereIn('id', $memberUserIds)
-            ->with(['businesses', 'memberBusinesses'])
+        $users = User::query()
+            ->whereIn('id', BusinessUser::query()->whereIn('business_id', $manageableBusinessIds)->pluck('user_id'))
             ->orderBy('name')
             ->get();
 
         $userBusinessRoles = [];
         foreach ($users as $u) {
-            if ((int) $u->id === (int) $request->user()->id) {
-                $userBusinessRoles[$u->id] = [['business_name' => __('All your businesses'), 'role' => __('Owner')]];
-            } else {
-                $pivots = BusinessUser::where('user_id', (int) $u->id)->whereIn('business_id', $myBusinessIds)->with('business:id,business_name')->get();
-                $userBusinessRoles[$u->id] = $pivots->map(fn ($p) => ['business_name' => $p->business?->business_name ?? '—', 'role' => $p->role])->all();
-            }
+            $pivots = BusinessUser::query()
+                ->where('user_id', (int) $u->id)
+                ->whereIn('business_id', $manageableBusinessIds)
+                ->with('business:id,business_name')
+                ->orderBy('business_id')
+                ->get();
+            $userBusinessRoles[$u->id] = $pivots
+                ->map(fn (BusinessUser $pivot) => [
+                    'business_name' => $pivot->business?->business_name ?? '—',
+                    'role' => $pivot->role,
+                ])
+                ->all();
         }
 
-        return view('tenant-users.index', compact('users', 'userBusinessRoles'));
+        $validRoles = BusinessUser::ROLES;
+        $usersWithoutAssignedRoles = BusinessUser::query()
+            ->whereIn('business_id', $manageableBusinessIds)
+            ->where(function ($query) use ($validRoles): void {
+                $query->whereNull('role')
+                    ->orWhereNotIn('role', $validRoles);
+            })
+            ->count();
+        $pendingInvitations = $users->filter(fn (User $u) => $u->email_verified_at === null)->count();
+        $roleConflicts = BusinessUser::query()
+            ->whereIn('business_id', $manageableBusinessIds)
+            ->whereNotIn('role', $validRoles)
+            ->count();
+        $roleSummary = BusinessUser::query()
+            ->whereIn('business_id', $manageableBusinessIds)
+            ->selectRaw('role, COUNT(*) as total')
+            ->groupBy('role')
+            ->pluck('total', 'role')
+            ->mapWithKeys(fn ($total, $role) => [$role => (int) $total])
+            ->all();
+
+        $kpis = [
+            'total_users' => $users->count(),
+            'active_users' => $users->filter(fn (User $u) => $u->email_verified_at !== null)->count(),
+            'users_by_role' => $roleSummary,
+            'recently_added_users' => $users->filter(fn (User $u) => optional($u->created_at)?->gte(now()->subDays(7)))->count(),
+        ];
+        $alerts = [
+            'users_without_roles' => $usersWithoutAssignedRoles,
+            'pending_invitations' => $pendingInvitations,
+            'role_conflicts' => $roleConflicts,
+        ];
+
+        return view('tenant-users.index', compact('users', 'userBusinessRoles', 'kpis', 'alerts'));
     }
 
     public function create(Request $request): View|RedirectResponse
     {
-        if (! $request->user()->canManageTenantUsers()) {
-            abort(403, __('Only business owners can manage users.'));
-        }
+        $manageableBusinesses = $this->manageableBusinesses($request);
+        $this->authorizeOwnerOrFail($request, $manageableBusinesses);
 
-        $businesses = $request->user()->businesses()->orderBy('business_name')->get();
-        $permissionGroups = self::permissionGroups();
+        $roleOptions = self::roleOptions();
+        $assignableBusinesses = $manageableBusinesses->map(fn ($business) => [
+            'id' => (int) $business->id,
+            'name' => (string) $business->business_name,
+        ])->all();
 
-        return view('tenant-users.create', compact('businesses', 'permissionGroups'));
+        return view('tenant-users.create', compact('roleOptions', 'assignableBusinesses'));
     }
 
     public function store(Request $request): RedirectResponse
     {
-        if (! $request->user()->canManageTenantUsers()) {
-            abort(403, __('Only business owners can manage users.'));
-        }
+        $manageableBusinesses = $this->manageableBusinesses($request);
+        $this->authorizeOwnerOrFail($request, $manageableBusinesses);
+        $manageableBusinessIds = $manageableBusinesses->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $myBusinessIds = $this->myBusinessIds($request);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', 'string', Rule::in(BusinessUser::ROLES)],
             'business_ids' => ['required', 'array', 'min:1'],
-            'business_ids.*' => ['integer', Rule::in($myBusinessIds)],
-            'permissions' => ['nullable', 'array'],
-            'permissions.*' => ['string', Rule::in(Permission::where('guard_name', 'web')->pluck('name')->all())],
+            'business_ids.*' => ['required', 'integer', Rule::in($manageableBusinessIds)],
         ]);
 
         $user = User::create([
@@ -132,19 +123,15 @@ class TenantUserController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        foreach ($validated['business_ids'] as $businessId) {
-            BusinessUser::create([
-                'business_id' => $businessId,
-                'user_id' => $user->id,
-                'role' => $validated['role'],
-            ]);
-        }
-
-        $permissions = $validated['permissions'] ?? [];
-        if (! empty($permissions)) {
-            $user->syncPermissions($permissions);
-        } else {
-            $user->assignRole($validated['role']);
+        $businessIds = collect($validated['business_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        foreach ($businessIds as $businessId) {
+            BusinessUser::query()->updateOrCreate(
+                ['business_id' => $businessId, 'user_id' => $user->id],
+                ['role' => $validated['role']]
+            );
         }
 
         return redirect()->route('tenant-users.index')->with('status', __('User created successfully.'));
@@ -152,67 +139,64 @@ class TenantUserController extends Controller
 
     public function edit(Request $request, User $tenant_user): View|RedirectResponse
     {
-        if (! $request->user()->canManageTenantUsers()) {
-            abort(403, __('Only business owners can manage users.'));
-        }
+        $manageableBusinesses = $this->manageableBusinesses($request);
+        $this->authorizeOwnerOrFail($request, $manageableBusinesses);
+        $manageableBusinessIds = $manageableBusinesses->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         $me = $request->user();
         $user = $tenant_user;
         $userId = (int) $user->id;
         if ($userId === (int) $me->id) {
-            return redirect()->route('tenant-users.index')->with('info', __('You can edit your own profile from Profile.'));
+            return redirect()->route('tenant-users.index')->with('info', __('You cannot modify your own role.'));
         }
 
-        if (! $this->userIsInMyTeam($request, $userId)) {
+        $assignments = BusinessUser::query()
+            ->where('user_id', $userId)
+            ->whereIn('business_id', $manageableBusinessIds)
+            ->get(['business_id', 'role']);
+        if ($assignments->isEmpty()) {
             abort(404, __('User not found in your team.'));
         }
 
-        $myBusinessIds = $this->myBusinessIds($request);
-        $businesses = $me->businesses()->orderBy('business_name')->get();
-        $userBusinessIds = DB::table('business_user')
-            ->where('user_id', $userId)
-            ->whereIn('business_id', $myBusinessIds)
-            ->pluck('business_id')
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
-        $currentRole = DB::table('business_user')
-            ->where('user_id', $userId)
-            ->whereIn('business_id', $myBusinessIds)
-            ->value('role') ?? BusinessUser::ROLE_STAFF;
-        $permissionGroups = self::permissionGroups();
-        $userPermissionNames = $user->getPermissionNames()->all();
+        $currentRole = $assignments->first()?->role ?? BusinessUser::ROLE_OPERATIONS_MANAGER;
+        $selectedBusinessIds = $assignments->pluck('business_id')->map(fn ($id) => (int) $id)->all();
+        $roleOptions = self::roleOptions();
+        $assignableBusinesses = $manageableBusinesses->map(fn ($business) => [
+            'id' => (int) $business->id,
+            'name' => (string) $business->business_name,
+        ])->all();
 
-        return view('tenant-users.edit', compact('user', 'businesses', 'permissionGroups', 'userBusinessIds', 'currentRole', 'userPermissionNames'));
+        return view('tenant-users.edit', compact('user', 'currentRole', 'selectedBusinessIds', 'roleOptions', 'assignableBusinesses'));
     }
 
     public function update(Request $request, User $tenant_user): RedirectResponse
     {
-        if (! $request->user()->canManageTenantUsers()) {
-            abort(403, __('Only business owners can manage users.'));
-        }
+        $manageableBusinesses = $this->manageableBusinesses($request);
+        $this->authorizeOwnerOrFail($request, $manageableBusinesses);
+        $manageableBusinessIds = $manageableBusinesses->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         $user = $tenant_user;
         $me = $request->user();
         $userId = (int) $user->id;
         if ($userId === (int) $me->id) {
-            return redirect()->route('tenant-users.index');
+            return redirect()->route('tenant-users.index')->with('error', __('You cannot modify your own role.'));
         }
 
-        if (! $this->userIsInMyTeam($request, $userId)) {
+        $existingAssignments = BusinessUser::query()
+            ->where('user_id', $userId)
+            ->whereIn('business_id', $manageableBusinessIds)
+            ->get(['business_id', 'role']);
+        if ($existingAssignments->isEmpty()) {
             abort(404, __('User not found in your team.'));
         }
 
-        $myBusinessIds = $this->myBusinessIds($request);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'role' => ['required', 'string', Rule::in(BusinessUser::ROLES)],
             'business_ids' => ['required', 'array', 'min:1'],
-            'business_ids.*' => ['integer', Rule::in($myBusinessIds)],
-            'permissions' => ['nullable', 'array'],
-            'permissions.*' => ['string', Rule::in(Permission::where('guard_name', 'web')->pluck('name')->all())],
+            'business_ids.*' => ['required', 'integer', Rule::in($manageableBusinessIds)],
         ]);
 
         $user->update([
@@ -223,21 +207,31 @@ class TenantUserController extends Controller
             $user->update(['password' => Hash::make($validated['password'])]);
         }
 
-        BusinessUser::where('user_id', $user->id)->whereIn('business_id', $myBusinessIds)->delete();
-        foreach ($validated['business_ids'] as $businessId) {
-            BusinessUser::create([
-                'business_id' => $businessId,
-                'user_id' => $user->id,
-                'role' => $validated['role'],
-            ]);
+        $selectedBusinessIds = collect($validated['business_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        $currentAdminBusinessIds = $existingAssignments
+            ->filter(fn (BusinessUser $assignment) => $assignment->role === BusinessUser::ROLE_ORG_ADMIN)
+            ->pluck('business_id')
+            ->map(fn ($id) => (int) $id);
+        foreach ($currentAdminBusinessIds as $businessId) {
+            $remainsAdmin = $validated['role'] === BusinessUser::ROLE_ORG_ADMIN
+                && $selectedBusinessIds->contains($businessId);
+            if (! $remainsAdmin && $this->isLastAdmin((int) $businessId, $userId)) {
+                return redirect()->route('tenant-users.index')->with('error', __('Cannot remove the last org admin from one of your businesses.'));
+            }
         }
 
-        $permissions = $validated['permissions'] ?? [];
-        $user->syncRoles([]);
-        if (! empty($permissions)) {
-            $user->syncPermissions($permissions);
-        } else {
-            $user->assignRole($validated['role']);
+        BusinessUser::query()
+            ->where('user_id', $user->id)
+            ->whereIn('business_id', $manageableBusinessIds)
+            ->delete();
+        foreach ($selectedBusinessIds as $businessId) {
+            BusinessUser::query()->updateOrCreate(
+                ['business_id' => $businessId, 'user_id' => $user->id],
+                ['role' => $validated['role']]
+            );
         }
 
         return redirect()->route('tenant-users.index')->with('status', __('User updated successfully.'));
@@ -245,9 +239,9 @@ class TenantUserController extends Controller
 
     public function destroy(Request $request, User $tenant_user): RedirectResponse
     {
-        if (! $request->user()->canManageTenantUsers()) {
-            abort(403, __('Only business owners can manage users.'));
-        }
+        $manageableBusinesses = $this->manageableBusinesses($request);
+        $this->authorizeOwnerOrFail($request, $manageableBusinesses);
+        $manageableBusinessIds = $manageableBusinesses->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         $user = $tenant_user;
         $me = $request->user();
@@ -255,14 +249,80 @@ class TenantUserController extends Controller
         if ($userId === (int) $me->id) {
             return redirect()->route('tenant-users.index')->with('error', __('You cannot remove yourself.'));
         }
-        if (! $this->userIsInMyTeam($request, $userId)) {
+        $existingAssignments = BusinessUser::query()
+            ->where('user_id', $userId)
+            ->whereIn('business_id', $manageableBusinessIds)
+            ->get(['business_id', 'role']);
+        if ($existingAssignments->isEmpty()) {
             abort(404, __('User not found in your team.'));
         }
-        $myBusinessIds = $this->myBusinessIds($request);
-        BusinessUser::where('user_id', $userId)->whereIn('business_id', $myBusinessIds)->delete();
-        $user->syncPermissions([]);
-        $user->syncRoles([]);
+
+        foreach ($existingAssignments as $assignment) {
+            if ($assignment->role === BusinessUser::ROLE_ORG_ADMIN
+                && $this->isLastAdmin((int) $assignment->business_id, $userId)) {
+                return redirect()->route('tenant-users.index')->with('error', __('Cannot remove the last org admin from one of your businesses.'));
+            }
+        }
+
+        BusinessUser::query()
+            ->where('user_id', $userId)
+            ->whereIn('business_id', $manageableBusinessIds)
+            ->delete();
 
         return redirect()->route('tenant-users.index')->with('status', __('User removed from your team.'));
+    }
+
+    private function manageableBusinesses(Request $request): EloquentCollection
+    {
+        $owned = $request->user()
+            ->businesses()
+            ->where('type', Business::TYPE_PROCESSOR)
+            ->orderBy('business_name')
+            ->get(['id', 'business_name']);
+        if ($owned->isNotEmpty()) {
+            return $owned;
+        }
+
+        // Backward-compatible fallback for legacy accounts where ownership may only exist via membership.
+        $accessibleProcessorIds = $request->user()->accessibleProcessorBusinessIds()->all();
+        if ($accessibleProcessorIds === []) {
+            return collect();
+        }
+
+        return Business::query()
+            ->where('type', Business::TYPE_PROCESSOR)
+            ->whereIn('id', $accessibleProcessorIds)
+            ->orderBy('business_name')
+            ->get(['id', 'business_name']);
+    }
+
+    private function authorizeOwnerOrFail(Request $request, EloquentCollection $manageableBusinesses): void
+    {
+        $user = $request->user();
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+
+        if ($manageableBusinesses->isEmpty()) {
+            abort(403, __('Only account owners can manage users.'));
+        }
+    }
+
+    private function isLastAdmin(int $businessId, int $targetUserId): bool
+    {
+        $targetRole = BusinessUser::query()
+            ->where('business_id', $businessId)
+            ->where('user_id', $targetUserId)
+            ->value('role');
+        if ($targetRole !== BusinessUser::ROLE_ORG_ADMIN) {
+            return false;
+        }
+
+        $adminCount = BusinessUser::query()
+            ->where('business_id', $businessId)
+            ->where('role', BusinessUser::ROLE_ORG_ADMIN)
+            ->count();
+
+        return $adminCount <= 1;
     }
 }

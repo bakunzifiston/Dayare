@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\AdministrativeDivision;
 use App\Models\Business;
 use App\Models\BusinessOwnershipMember;
+use App\Models\BusinessUser;
 use App\Models\Client;
 use App\Models\Contract;
 use App\Models\Employee;
@@ -59,13 +60,6 @@ class TestDataSeeder extends Seeder
             ['email' => 'tester@dayare.me'],
             ['name' => 'Tester One', 'password' => $password, 'email_verified_at' => now(), 'is_super_admin' => false]
         );
-        // Assign tenant role (owner) so permission checks apply; Super Admin bypass is in Gate::before
-        foreach ([$user1, $user2] as $u) {
-            if (! $u->hasRole('owner')) {
-                $u->assignRole('owner');
-            }
-        }
-
         // Super Admin (platform owner) — separate credentials to access /super-admin dashboard (no role; is_super_admin + Gate::before)
         User::updateOrCreate(
             ['email' => 'superadmin@dayare.me'],
@@ -176,10 +170,16 @@ class TestDataSeeder extends Seeder
     private function createBusiness(User $user, array $attrs): Business
     {
         $defaults = ['user_id' => $user->id, 'status' => Business::STATUS_ACTIVE];
-        return Business::firstOrCreate(
+        $business = Business::firstOrCreate(
             ['user_id' => $user->id, 'registration_number' => $attrs['registration_number']],
             array_merge($defaults, $attrs)
         );
+        BusinessUser::query()->updateOrCreate(
+            ['business_id' => $business->id, 'user_id' => $user->id],
+            ['role' => BusinessUser::ROLE_ORG_ADMIN]
+        );
+
+        return $business;
     }
 
     private function createOwnershipMember(Business $business, string $firstName, string $lastName, string $dob): void

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBusinessRequest;
 use App\Http\Responses\ApiJson;
 use App\Models\Business;
+use App\Models\BusinessUser;
 use Illuminate\Http\JsonResponse;
 
 class MobileBusinessController extends Controller
@@ -23,6 +24,10 @@ class MobileBusinessController extends Controller
         $validated['pathway_status'] = $validated['pathway_status'] ?? 'active';
 
         $business = $request->user()->businesses()->create($validated);
+        BusinessUser::query()->updateOrCreate(
+            ['business_id' => $business->id, 'user_id' => $request->user()->id],
+            ['role' => BusinessUser::ROLE_ORG_ADMIN]
+        );
 
         foreach (array_values($members) as $i => $m) {
             $firstName = trim((string) ($m['first_name'] ?? ''));

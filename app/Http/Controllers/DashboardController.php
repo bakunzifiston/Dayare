@@ -2,234 +2,322 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AnimalIntake;
+use App\Models\AnteMortemInspection;
 use App\Models\Batch;
+use App\Models\Business;
+use App\Models\BusinessUser;
 use App\Models\Certificate;
 use App\Models\DeliveryConfirmation;
 use App\Models\Facility;
 use App\Models\Inspector;
+use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
+use App\Models\TemperatureLog;
 use App\Models\TransportTrip;
-use Carbon\Carbon;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    /**
-     * Display the authenticated user's (tenant's) dashboard.
-     * Each user only sees their own dashboard and data.
-     */
     public function __invoke(Request $request): View|\Illuminate\Http\RedirectResponse
     {
-        if ($request->user()->isSuperAdmin()) {
+        $user = $request->user();
+        if ($user->isSuperAdmin()) {
             return redirect()->route('super-admin.dashboard');
         }
 
-        $user = $request->user();
-        $businessIds = $user->accessibleBusinessIds();
+        $activeBusinessId = $user->activeProcessorBusinessId();
+        $role = $user->processorRoleForBusiness($activeBusinessId);
 
-        if ($businessIds->isEmpty()) {
-            $kpis = [
-                'businesses' => 0,
-                'facilities' => 0,
-                'inspectors' => 0,
-                'slaughter_plans' => 0,
-                'slaughter_plans_planned' => 0,
-                'slaughter_plans_approved' => 0,
-                'slaughter_executions' => 0,
-                'executions_completed' => 0,
-                'batches' => 0,
-                'certificates' => 0,
-                'certificates_active' => 0,
-                'transport_trips' => 0,
-                'delivery_confirmations' => 0,
-            ];
-            $charts = $this->buildChartDataEmpty();
-            $complianceSummary = $this->buildComplianceSummary($kpis);
-
-            return view('dashboard', ['user' => $user, 'kpis' => $kpis, 'charts' => $charts, 'complianceSummary' => $complianceSummary]);
+        if ($activeBusinessId === null || $role === null) {
+            return view('dashboard', [
+                'user' => $user,
+                'role' => $role,
+                'activeBusiness' => null,
+                'metrics' => [],
+                'alerts' => [],
+                'quickActions' => [],
+            ]);
         }
 
-        $facilityIds = Facility::whereIn('business_id', $businessIds)->pluck('id');
+        $user->setActiveProcessorBusinessId($activeBusinessId);
 
-        $plans = SlaughterPlan::whereIn('facility_id', $facilityIds);
-        $planIds = $plans->pluck('id');
-        $executions = SlaughterExecution::whereIn('slaughter_plan_id', $planIds);
-        $executionIds = $executions->pluck('id');
-        $batches = Batch::whereIn('slaughter_execution_id', $executionIds);
-        $batchIds = $batches->pluck('id');
-        $certificates = Certificate::whereIn('batch_id', $batchIds);
-        $certificateIds = $certificates->pluck('id');
-        $trips = TransportTrip::whereIn('certificate_id', $certificateIds);
-        $tripIds = $trips->pluck('id');
-
-        $kpis = [
-            'businesses' => $businessIds->count(),
-            'facilities' => $facilityIds->count(),
-            'inspectors' => Inspector::whereIn('facility_id', $facilityIds)->count(),
-            'slaughter_plans' => $planIds->count(),
-            'slaughter_plans_planned' => (clone $plans)->where('status', SlaughterPlan::STATUS_PLANNED)->count(),
-            'slaughter_plans_approved' => (clone $plans)->where('status', SlaughterPlan::STATUS_APPROVED)->count(),
-            'slaughter_executions' => $executionIds->count(),
-            'executions_completed' => (clone $executions)->where('status', SlaughterExecution::STATUS_COMPLETED)->count(),
-            'batches' => $batchIds->count(),
-            'certificates' => $certificateIds->count(),
-            'certificates_active' => (clone $certificates)->where('status', Certificate::STATUS_ACTIVE)->count(),
-            'transport_trips' => $tripIds->count(),
-            'delivery_confirmations' => DeliveryConfirmation::whereIn('transport_trip_id', $tripIds)->count(),
-        ];
-
-        $charts = $this->buildChartData($facilityIds, $planIds, $executionIds, $batchIds, $certificateIds);
-        $complianceSummary = $this->buildComplianceSummary($kpis);
+        $business = Business::query()->find($activeBusinessId);
+        $data = $this->buildRoleDashboardData($request, $role, $activeBusinessId);
 
         return view('dashboard', [
             'user' => $user,
-            'kpis' => $kpis,
-            'charts' => $charts,
-            'complianceSummary' => $complianceSummary,
+            'role' => $role,
+            'activeBusiness' => $business,
+            'metrics' => $data['metrics'],
+            'alerts' => $data['alerts'],
+            'quickActions' => $data['quickActions'],
         ]);
     }
 
     /**
-     * BuchaPro-style compliance score for dashboard hero + side panel.
-     *
-     * @param  array<string, int>  $kpis
-     * @return array{grade: string, score: int, label: string, pending_plans: int, attention: int}
+     * @return array{metrics: array<int, array<string, string|int>>, alerts: array<int, array<string, string|int>>, quickActions: array<int, array<string, string>>}
      */
-    private function buildComplianceSummary(array $kpis): array
+    private function buildRoleDashboardData(Request $request, string $role, int $businessId): array
     {
-        $total = (int) ($kpis['certificates'] ?? 0);
-        $active = (int) ($kpis['certificates_active'] ?? 0);
-        $plans = (int) ($kpis['slaughter_plans'] ?? 0);
-        $approved = (int) ($kpis['slaughter_plans_approved'] ?? 0);
-        $pending = (int) ($kpis['slaughter_plans_planned'] ?? 0);
+        $today = now()->startOfDay();
+        $weekStart = now()->startOfWeek();
+        $weekEnd = now()->endOfWeek();
+        $soonDate = now()->addDays(7)->endOfDay();
 
-        if ($total === 0 && $plans === 0) {
-            return [
-                'grade' => '—',
-                'score' => 0,
-                'label' => __('No data yet'),
-                'pending_plans' => $pending,
-                'attention' => $pending,
-            ];
-        }
+        $facilityIds = Facility::query()
+            ->where('business_id', $businessId)
+            ->pluck('id');
+        $planIds = SlaughterPlan::query()->whereIn('facility_id', $facilityIds)->pluck('id');
+        $executionIds = SlaughterExecution::query()->whereIn('slaughter_plan_id', $planIds)->pluck('id');
+        $batchIds = Batch::query()->whereIn('slaughter_execution_id', $executionIds)->pluck('id');
+        $certificateIds = Certificate::query()->whereIn('batch_id', $batchIds)->pluck('id');
+        $tripIds = TransportTrip::query()->whereIn('certificate_id', $certificateIds)->pluck('id');
 
-        $ratio = $total > 0
-            ? $active / max(1, $total)
-            : ($plans > 0 ? $approved / max(1, $plans) : 0);
-        $score = (int) round(min(100, max(0, $ratio * 100)));
+        $animalsProcessedToday = (int) SlaughterExecution::query()
+            ->whereIn('id', $executionIds)
+            ->whereDate('slaughter_time', $today)
+            ->sum('actual_animals_slaughtered');
+        $animalsProcessedWeek = (int) SlaughterExecution::query()
+            ->whereIn('id', $executionIds)
+            ->whereBetween('slaughter_time', [$weekStart, $weekEnd])
+            ->sum('actual_animals_slaughtered');
 
-        if ($score >= 90) {
-            $grade = 'A+';
-        } elseif ($score >= 75) {
-            $grade = 'A';
-        } elseif ($score >= 60) {
-            $grade = 'B';
-        } elseif ($score >= 40) {
-            $grade = 'C';
-        } else {
-            $grade = 'D';
-        }
+        $totalBatches = Batch::query()->whereIn('id', $batchIds)->count();
+        $batchesToday = Batch::query()->whereIn('id', $batchIds)->whereDate('created_at', $today)->count();
+        $pendingInspectionBatches = Batch::query()->whereIn('id', $batchIds)->whereDoesntHave('postMortemInspection')->count();
+        $unassignedBatches = Batch::query()->whereIn('id', $batchIds)->whereNull('inspector_id')->count();
+        $overdueInspections = Batch::query()
+            ->whereIn('id', $batchIds)
+            ->whereDoesntHave('postMortemInspection')
+            ->whereDate('created_at', '<', now()->subDay())
+            ->count();
 
-        return [
-            'grade' => $grade,
-            'score' => $score,
-            'label' => __('Based on active certificates & plans'),
-            'pending_plans' => $pending,
-            'attention' => $pending + max(0, $plans - $approved),
+        $certificatesIssued = Certificate::query()->whereIn('id', $certificateIds)->count();
+        $validCertificates = Certificate::query()->whereIn('id', $certificateIds)->compliant()->count();
+        $expiredCertificates = Certificate::query()
+            ->whereIn('id', $certificateIds)
+            ->where(function ($query): void {
+                $query->where('status', Certificate::STATUS_EXPIRED)
+                    ->orWhere(function ($q): void {
+                        $q->whereNotNull('expiry_date')->where('expiry_date', '<', now()->startOfDay());
+                    });
+            })->count();
+        $expiringCertificates = Certificate::query()
+            ->whereIn('id', $certificateIds)
+            ->whereNotNull('expiry_date')
+            ->whereBetween('expiry_date', [now()->startOfDay(), $soonDate])
+            ->count();
+
+        $nonComplianceIssues = (
+            SlaughterPlan::query()->whereIn('id', $planIds)->where('status', SlaughterPlan::STATUS_PLANNED)->whereDate('slaughter_date', '<', $today)->count()
+            + $pendingInspectionBatches
+            + TemperatureLog::query()
+                ->whereIn('warehouse_storage_id', \App\Models\WarehouseStorage::query()->whereIn('certificate_id', $certificateIds)->pluck('id'))
+                ->whereIn('status', [TemperatureLog::STATUS_WARNING, TemperatureLog::STATUS_CRITICAL])
+                ->count()
+        );
+        $complianceScore = $certificatesIssued > 0
+            ? (int) round(($validCertificates / max(1, $certificatesIssued)) * 100)
+            : 0;
+
+        $intakeQueue = AnimalIntake::query()
+            ->whereIn('facility_id', $facilityIds)
+            ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
+            ->count();
+        $slaughterScheduledToday = SlaughterPlan::query()
+            ->whereIn('id', $planIds)
+            ->whereDate('slaughter_date', $today)
+            ->count();
+        $schedulingDelays = SlaughterPlan::query()
+            ->whereIn('id', $planIds)
+            ->where('status', SlaughterPlan::STATUS_PLANNED)
+            ->whereDate('slaughter_date', '<', $today)
+            ->count();
+        $processingBottlenecks = $pendingInspectionBatches;
+
+        $anteToday = AnteMortemInspection::query()
+            ->whereIn('slaughter_plan_id', $planIds)
+            ->whereDate('inspection_date', $today)
+            ->count();
+        $postToday = PostMortemInspection::query()
+            ->whereIn('batch_id', $batchIds)
+            ->whereDate('inspection_date', $today)
+            ->count();
+        $inspectionsCompletedToday = $anteToday + $postToday;
+        $pendingInspections = $pendingInspectionBatches;
+        $inspectorCapacity = (int) Inspector::query()->whereIn('facility_id', $facilityIds)->sum('daily_capacity');
+        $remainingCapacity = max(0, $inspectorCapacity - $inspectionsCompletedToday);
+        $failedInspections = PostMortemInspection::query()
+            ->whereIn('batch_id', $batchIds)
+            ->where('result', PostMortemInspection::RESULT_REJECTED)
+            ->count();
+        $capacityOverload = max(0, $inspectionsCompletedToday - $inspectorCapacity);
+
+        $totalChecklistTasks = max(1, SlaughterPlan::query()->whereIn('id', $planIds)->count() + Batch::query()->whereIn('id', $batchIds)->count());
+        $completedChecklists = AnteMortemInspection::query()->whereIn('slaughter_plan_id', $planIds)->count()
+            + PostMortemInspection::query()->whereIn('batch_id', $batchIds)->count();
+        $checklistCompletionRate = (int) round((min($completedChecklists, $totalChecklistTasks) / $totalChecklistTasks) * 100);
+        $openComplianceIssues = $nonComplianceIssues;
+        $resolvedCompliance = max(0, $totalChecklistTasks - $openComplianceIssues);
+        $resolutionRate = (int) round(($resolvedCompliance / max(1, $totalChecklistTasks)) * 100);
+        $totalTemps = TemperatureLog::query()
+            ->whereIn('warehouse_storage_id', \App\Models\WarehouseStorage::query()->whereIn('certificate_id', $certificateIds)->pluck('id'))
+            ->count();
+        $normalTemps = TemperatureLog::query()
+            ->whereIn('warehouse_storage_id', \App\Models\WarehouseStorage::query()->whereIn('certificate_id', $certificateIds)->pluck('id'))
+            ->where('status', TemperatureLog::STATUS_NORMAL)
+            ->count();
+        $temperatureComplianceRate = $totalTemps > 0 ? (int) round(($normalTemps / $totalTemps) * 100) : 100;
+        $temperatureBreaches = max(0, $totalTemps - $normalTemps);
+        $missingChecklistSubmissions = max(0, $totalChecklistTasks - min($completedChecklists, $totalChecklistTasks));
+
+        $activeTrips = TransportTrip::query()
+            ->whereIn('id', $tripIds)
+            ->whereIn('status', [TransportTrip::STATUS_PENDING, TransportTrip::STATUS_IN_TRANSIT, TransportTrip::STATUS_ARRIVED])
+            ->count();
+        $deliveriesCompleted = DeliveryConfirmation::query()
+            ->whereIn('transport_trip_id', $tripIds)
+            ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
+            ->count();
+        $deliveriesPending = TransportTrip::query()
+            ->whereIn('id', $tripIds)
+            ->where(function ($query): void {
+                $query->whereDoesntHave('deliveryConfirmation')
+                    ->orWhereHas('deliveryConfirmation', fn ($q) => $q->where('confirmation_status', DeliveryConfirmation::STATUS_PENDING));
+            })
+            ->count();
+        $onTimeDeliveries = TransportTrip::query()
+            ->whereIn('id', $tripIds)
+            ->whereHas('deliveryConfirmation', function ($query): void {
+                $query->whereNotNull('received_date')
+                    ->whereColumn('received_date', '<=', 'transport_trips.arrival_date');
+            })
+            ->count();
+        $onTimeDeliveryRate = $deliveriesCompleted > 0 ? (int) round(($onTimeDeliveries / $deliveriesCompleted) * 100) : 0;
+        $delayedDeliveries = TransportTrip::query()
+            ->whereIn('id', $tripIds)
+            ->whereIn('status', [TransportTrip::STATUS_PENDING, TransportTrip::STATUS_IN_TRANSIT, TransportTrip::STATUS_ARRIVED])
+            ->whereDate('departure_date', '<', now()->subDay())
+            ->count();
+        $missingCertificateAttachments = TransportTrip::query()
+            ->whereIn('id', $tripIds)
+            ->where(function ($query): void {
+                $query->whereNull('certificate_id')->orWhereDoesntHave('certificate');
+            })
+            ->count();
+
+        $quickActions = [
+            BusinessUser::ROLE_ORG_ADMIN => [
+                ['label' => __('Manage users'), 'route' => 'tenant-users.index', 'permission' => BusinessUser::PERMISSION_MANAGE_BUSINESS_USERS],
+                ['label' => __('Review compliance'), 'route' => 'compliance.index', 'permission' => BusinessUser::PERMISSION_MONITOR_COMPLIANCE_METRICS],
+                ['label' => __('View certificates'), 'route' => 'certificates.index', 'permission' => BusinessUser::PERMISSION_VIEW_CERTIFICATES],
+            ],
+            BusinessUser::ROLE_OPERATIONS_MANAGER => [
+                ['label' => __('Create intake'), 'route' => 'animal-intakes.create', 'permission' => BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE],
+                ['label' => __('Schedule slaughter'), 'route' => 'slaughter-plans.create', 'permission' => BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER],
+                ['label' => __('Create batch'), 'route' => 'batches.create', 'permission' => BusinessUser::PERMISSION_CREATE_BATCH],
+            ],
+            BusinessUser::ROLE_INSPECTOR => [
+                ['label' => __('Ante-mortem queue'), 'route' => 'ante-mortem-inspections.index', 'permission' => BusinessUser::PERMISSION_RECORD_ANTE_MORTEM],
+                ['label' => __('Post-mortem queue'), 'route' => 'post-mortem-inspections.index', 'permission' => BusinessUser::PERMISSION_RECORD_POST_MORTEM],
+                ['label' => __('Issue certificates'), 'route' => 'certificates.create', 'permission' => BusinessUser::PERMISSION_ISSUE_CERTIFICATE],
+            ],
+            BusinessUser::ROLE_COMPLIANCE_OFFICER => [
+                ['label' => __('Open compliance monitor'), 'route' => 'compliance.index', 'permission' => BusinessUser::PERMISSION_MONITOR_COMPLIANCE_METRICS],
+                ['label' => __('Review temperature logs'), 'route' => 'warehouse-storages.index', 'permission' => BusinessUser::PERMISSION_MONITOR_TEMPERATURE_LOGS],
+                ['label' => __('Review certificates'), 'route' => 'certificates.index', 'permission' => BusinessUser::PERMISSION_VIEW_CERTIFICATES],
+            ],
+            BusinessUser::ROLE_TRANSPORT_MANAGER => [
+                ['label' => __('Create transport trip'), 'route' => 'transport-trips.create', 'permission' => BusinessUser::PERMISSION_CREATE_TRANSPORT_TRIP],
+                ['label' => __('Confirm deliveries'), 'route' => 'delivery-confirmations.index', 'permission' => BusinessUser::PERMISSION_CONFIRM_DELIVERY],
+                ['label' => __('Review trip statuses'), 'route' => 'transport-trips.index', 'permission' => BusinessUser::PERMISSION_TRACK_DELIVERY_STATUS],
+            ],
         ];
-    }
 
-    /**
-     * Empty chart structure (no data).
-     */
-    private function buildChartDataEmpty(): array
-    {
-        $months = collect();
-        $now = Carbon::now();
-        for ($i = 5; $i >= 0; $i--) {
-            $months->push($now->copy()->subMonths($i));
-        }
-        $labels = $months->map(fn ($d) => $d->locale(app()->getLocale())->translatedFormat('M Y'))->values()->all();
-        $zeros = array_fill(0, count($labels), 0);
-
-        return [
-            'slaughter_plans' => ['labels' => $labels, 'datasets' => [['label' => __('Slaughter plans'), 'data' => $zeros]], 'type' => 'bar'],
-            'certificates' => ['labels' => $labels, 'datasets' => [['label' => __('Certificates issued'), 'data' => $zeros]], 'type' => 'bar'],
-            'batches_executions' => ['labels' => $labels, 'datasets' => [['label' => __('Batches'), 'data' => $zeros], ['label' => __('Executions'), 'data' => $zeros]], 'type' => 'line'],
+        $metricsByRole = [
+            BusinessUser::ROLE_ORG_ADMIN => [
+                ['label' => __('Animals processed today'), 'value' => $animalsProcessedToday, 'description' => __('Used for same-day throughput decisions.')],
+                ['label' => __('Animals processed this week'), 'value' => $animalsProcessedWeek, 'description' => __('Used for weekly output planning.')],
+                ['label' => __('Total batches created'), 'value' => $totalBatches, 'description' => __('Tracks production volume and traceability load.')],
+                ['label' => __('Certificates issued (valid / expired)'), 'value' => $validCertificates.' / '.$expiredCertificates, 'description' => __('Signals certification health and legal exposure.')],
+                ['label' => __('Overall compliance score'), 'value' => $complianceScore.'%', 'description' => __('Composite signal for audit readiness.')],
+            ],
+            BusinessUser::ROLE_OPERATIONS_MANAGER => [
+                ['label' => __('Animals in intake queue'), 'value' => $intakeQueue, 'description' => __('Prioritize intake processing workload.')],
+                ['label' => __('Slaughter scheduled today'), 'value' => $slaughterScheduledToday, 'description' => __('Confirms execution plan for today.')],
+                ['label' => __('Batches created today'), 'value' => $batchesToday, 'description' => __('Monitors production conversion speed.')],
+                ['label' => __('Batches pending inspection'), 'value' => $pendingInspectionBatches, 'description' => __('Prevents inspection bottlenecks.')],
+                ['label' => __('Unassigned batches'), 'value' => $unassignedBatches, 'description' => __('Shows assignment gaps that block inspections.')],
+            ],
+            BusinessUser::ROLE_INSPECTOR => [
+                ['label' => __('Inspections completed today'), 'value' => $inspectionsCompletedToday, 'description' => __('Shows inspection output for the shift.')],
+                ['label' => __('Pending inspections'), 'value' => $pendingInspections, 'description' => __('Backlog requiring immediate assignment.')],
+                ['label' => __('Certificates issued'), 'value' => $certificatesIssued, 'description' => __('Reflects cleared inspection volume.')],
+                ['label' => __('Remaining inspection capacity'), 'value' => $remainingCapacity, 'description' => __('Capacity buffer before overload risk.')],
+                ['label' => __('Failed inspections'), 'value' => $failedInspections, 'description' => __('Rejected outcomes that need corrective action.')],
+            ],
+            BusinessUser::ROLE_COMPLIANCE_OFFICER => [
+                ['label' => __('Checklist completion rate'), 'value' => $checklistCompletionRate.'%', 'description' => __('Measures process control discipline.')],
+                ['label' => __('Open non-compliance issues'), 'value' => $openComplianceIssues, 'description' => __('Current unresolved compliance risks.')],
+                ['label' => __('Resolution rate'), 'value' => $resolutionRate.'%', 'description' => __('Speed of closing compliance findings.')],
+                ['label' => __('Temperature compliance'), 'value' => $temperatureComplianceRate.'%', 'description' => __('Cold-chain adherence indicator.')],
+                ['label' => __('Temperature breaches'), 'value' => $temperatureBreaches, 'description' => __('Count of warning/critical temperature incidents.')],
+            ],
+            BusinessUser::ROLE_TRANSPORT_MANAGER => [
+                ['label' => __('Active trips'), 'value' => $activeTrips, 'description' => __('Current live logistics workload.')],
+                ['label' => __('Deliveries completed'), 'value' => $deliveriesCompleted, 'description' => __('Total confirmed delivery throughput.')],
+                ['label' => __('Deliveries pending'), 'value' => $deliveriesPending, 'description' => __('Work queue requiring follow-up.')],
+                ['label' => __('On-time delivery rate'), 'value' => $onTimeDeliveryRate.'%', 'description' => __('Reliability and SLA performance.')],
+                ['label' => __('Delayed deliveries'), 'value' => $delayedDeliveries, 'description' => __('Trips at risk of missing delivery commitments.')],
+            ],
         ];
-    }
 
-    /**
-     * Build monthly trend data for the last 6 months (DB-agnostic).
-     */
-    private function buildChartData($facilityIds, $planIds, $executionIds, $batchIds, $certificateIds): array
-    {
-        $months = collect();
-        $now = Carbon::now();
-        for ($i = 5; $i >= 0; $i--) {
-            $months->push($now->copy()->subMonths($i));
-        }
-        $labels = $months->map(fn ($d) => $d->locale(app()->getLocale())->translatedFormat('M Y'))->values()->all();
-        $monthKeys = $months->map(fn ($d) => $d->format('Y-m'))->values()->all();
-        $fill = fn (array $data) => array_map(fn ($key) => $data[$key] ?? 0, $monthKeys);
+        $alertsByRole = [
+            BusinessUser::ROLE_ORG_ADMIN => [
+                ['title' => __('Expiring certificates'), 'count' => $expiringCertificates, 'description' => __('Certificates expiring in 7 days.'), 'route' => 'certificates.index'],
+                ['title' => __('High non-compliance rate'), 'count' => $openComplianceIssues, 'description' => __('Open issues requiring governance intervention.'), 'route' => 'compliance.index'],
+                ['title' => __('Inspection backlog'), 'count' => $pendingInspectionBatches, 'description' => __('Batches waiting for post-mortem inspection.'), 'route' => 'post-mortem-inspections.index'],
+            ],
+            BusinessUser::ROLE_OPERATIONS_MANAGER => [
+                ['title' => __('Unassigned batches'), 'count' => $unassignedBatches, 'description' => __('Batches without inspector assignment.'), 'route' => 'batches.index'],
+                ['title' => __('Scheduling delays'), 'count' => $schedulingDelays, 'description' => __('Planned slaughter dates already passed.'), 'route' => 'slaughter-plans.index'],
+                ['title' => __('Processing bottlenecks'), 'count' => $processingBottlenecks, 'description' => __('Pending batches blocking downstream flow.'), 'route' => 'batches.index'],
+            ],
+            BusinessUser::ROLE_INSPECTOR => [
+                ['title' => __('Overdue inspections'), 'count' => $overdueInspections, 'description' => __('Batches older than one day still pending inspection.'), 'route' => 'post-mortem-inspections.index'],
+                ['title' => __('Failed inspections'), 'count' => $failedInspections, 'description' => __('Rejected post-mortem outcomes needing action.'), 'route' => 'post-mortem-inspections.index'],
+                ['title' => __('Capacity overload'), 'count' => $capacityOverload, 'description' => __('Inspections above available daily inspector capacity.'), 'route' => 'inspectors.index'],
+            ],
+            BusinessUser::ROLE_COMPLIANCE_OFFICER => [
+                ['title' => __('Temperature breaches'), 'count' => $temperatureBreaches, 'description' => __('Warning or critical cold-chain records found.'), 'route' => 'warehouse-storages.index'],
+                ['title' => __('Overdue compliance tasks'), 'count' => $openComplianceIssues, 'description' => __('Open compliance issues requiring closure.'), 'route' => 'compliance.index'],
+                ['title' => __('Missing checklist submissions'), 'count' => $missingChecklistSubmissions, 'description' => __('Required inspections/checklists not yet submitted.'), 'route' => 'compliance.index'],
+            ],
+            BusinessUser::ROLE_TRANSPORT_MANAGER => [
+                ['title' => __('Temperature deviations'), 'count' => $temperatureBreaches, 'description' => __('Cold-chain incidents during storage/dispatch window.'), 'route' => 'warehouse-storages.index'],
+                ['title' => __('Delayed deliveries'), 'count' => $delayedDeliveries, 'description' => __('Trips delayed beyond expected delivery window.'), 'route' => 'transport-trips.index'],
+                ['title' => __('Missing certificate attachments'), 'count' => $missingCertificateAttachments, 'description' => __('Trips lacking valid certificate linkage.'), 'route' => 'transport-trips.index'],
+            ],
+        ];
 
-        $start = $months->first()->startOfMonth()->toDateString();
-        $end = $months->last()->endOfMonth()->toDateString();
-
-        $slaughterPlansByMonth = SlaughterPlan::whereIn('facility_id', $facilityIds)
-            ->whereBetween('slaughter_date', [$start, $end])
-            ->get()
-            ->groupBy(fn ($p) => Carbon::parse($p->slaughter_date)->format('Y-m'))
-            ->map->count()
-            ->all();
-
-        $certificatesByMonth = Certificate::whereIn('batch_id', $batchIds)
-            ->whereBetween('issued_at', [$start, $end])
-            ->get()
-            ->groupBy(fn ($c) => Carbon::parse($c->issued_at)->format('Y-m'))
-            ->map->count()
-            ->all();
-
-        $batchesByMonth = Batch::whereIn('id', $batchIds)
-            ->whereBetween('created_at', [$start, $end])
-            ->get()
-            ->groupBy(fn ($b) => Carbon::parse($b->created_at)->format('Y-m'))
-            ->map->count()
-            ->all();
-
-        $executionsByMonth = SlaughterExecution::whereIn('id', $executionIds)
-            ->whereBetween('slaughter_time', [$start, $end])
-            ->get()
-            ->groupBy(fn ($e) => Carbon::parse($e->slaughter_time)->format('Y-m'))
-            ->map->count()
+        $filteredQuickActions = collect($quickActions[$role] ?? [])
+            ->filter(function (array $action) use ($request): bool {
+                return $request->user()->canProcessorPermission((string) $action['permission']);
+            })
+            ->map(fn (array $action) => [
+                'label' => (string) $action['label'],
+                'url' => route((string) $action['route']),
+            ])
+            ->values()
             ->all();
 
         return [
-            'slaughter_plans' => [
-                'labels' => $labels,
-                'datasets' => [
-                    ['label' => __('Slaughter plans'), 'data' => $fill($slaughterPlansByMonth)],
-                ],
-                'type' => 'bar',
-            ],
-            'certificates' => [
-                'labels' => $labels,
-                'datasets' => [
-                    ['label' => __('Certificates issued'), 'data' => $fill($certificatesByMonth)],
-                ],
-                'type' => 'bar',
-            ],
-            'batches_executions' => [
-                'labels' => $labels,
-                'datasets' => [
-                    ['label' => __('Batches'), 'data' => $fill($batchesByMonth)],
-                    ['label' => __('Executions'), 'data' => $fill($executionsByMonth)],
-                ],
-                'type' => 'line',
-            ],
+            'metrics' => $metricsByRole[$role] ?? [],
+            'alerts' => $alertsByRole[$role] ?? [],
+            'quickActions' => $filteredQuickActions,
         ];
     }
 }

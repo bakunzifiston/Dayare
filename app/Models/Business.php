@@ -103,6 +103,11 @@ class Business extends Model
                 $business->business_name_normalized = Str::lower($collapsedWhitespaceName);
             }
 
+            if ($business->registration_number !== null) {
+                $normalizedRegistration = preg_replace('/\s+/', ' ', trim((string) $business->registration_number)) ?? '';
+                $business->registration_number = Str::upper($normalizedRegistration);
+            }
+
             if ($business->vibe_unique_id === null || trim((string) $business->vibe_unique_id) === '') {
                 $business->vibe_unique_id = 'VIBE-'.strtoupper(Str::ulid());
             }
@@ -167,7 +172,7 @@ class Business extends Model
         return $this->hasMany(BusinessOwnershipMember::class)->orderBy('sort_order');
     }
 
-    /** Users who are members of this business (manager/staff), not the owner. */
+    /** Users assigned to this business through the business_user role pivot. */
     public function memberUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'business_user')

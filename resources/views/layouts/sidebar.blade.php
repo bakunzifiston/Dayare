@@ -8,49 +8,58 @@
             'group' => __('Operations'),
             'icon' => 'box',
             'children' => [
-                ['label' => __('Businesses'), 'route' => 'businesses.hub', 'icon' => 'building', 'permission' => 'manage businesses', 'routeIs' => ['businesses.hub', 'businesses.index', 'businesses.create', 'businesses.edit', 'businesses.show', 'businesses.facilities.*']],
-                ['label' => __('Inspectors'), 'route' => 'inspectors.hub', 'icon' => 'user', 'permission' => 'manage inspectors', 'routeIs' => ['inspectors.hub', 'inspectors.index', 'inspectors.create', 'inspectors.edit', 'inspectors.show']],
-                ['label' => __('Animal intake'), 'route' => 'animal-intakes.hub', 'icon' => 'intake', 'permission' => 'manage animal intakes', 'routeIs' => ['animal-intakes.hub', 'animal-intakes.index', 'animal-intakes.create', 'animal-intakes.edit', 'animal-intakes.show']],
-                ['label' => __('Farmer supply'), 'route' => 'processor.supply-requests.index', 'icon' => 'clipboard-list', 'permission' => 'manage animal intakes', 'routeIs' => ['processor.supply-requests.*']],
-                ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.hub', 'icon' => 'calendar', 'permission' => 'manage slaughter plans', 'routeIs' => ['slaughter-plans.hub', 'slaughter-plans.index', 'slaughter-plans.create', 'slaughter-plans.edit', 'slaughter-plans.show']],
-                ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list', 'permission' => 'manage ante-mortem'],
-                ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.hub', 'icon' => 'play', 'permission' => 'manage slaughter executions', 'routeIs' => ['slaughter-executions.hub', 'slaughter-executions.index', 'slaughter-executions.create', 'slaughter-executions.edit', 'slaughter-executions.show']],
-                ['label' => __('Batches'), 'route' => 'batches.hub', 'icon' => 'box', 'permission' => 'manage batches', 'routeIs' => ['batches.hub', 'batches.index', 'batches.create', 'batches.edit', 'batches.show']],
-                ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard', 'permission' => 'manage post-mortem'],
-                ['label' => __('Certificates'), 'route' => 'certificates.hub', 'icon' => 'certificate', 'permission' => 'manage certificates', 'routeIs' => ['certificates.hub', 'certificates.index', 'certificates.create', 'certificates.edit', 'certificates.show', 'certificates.qr']],
-                ['label' => __('Cold Room'), 'route' => 'cold-rooms.hub', 'icon' => 'box', 'permission' => 'manage warehouse', 'routeIs' => ['cold-rooms.hub', 'cold-rooms.manage.*', 'warehouse-storages.*']],
-                ['label' => __('Transport'), 'route' => 'transport-trips.hub', 'icon' => 'truck', 'permission' => 'manage transport', 'routeIs' => ['transport-trips.hub', 'transport-trips.index', 'transport-trips.create', 'transport-trips.edit', 'transport-trips.show']],
-                ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check', 'permission' => 'manage delivery confirmations'],
-                ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield', 'permission' => 'view compliance'],
+                ['label' => __('Businesses'), 'route' => 'businesses.hub', 'icon' => 'building', 'permission' => 'view_all_modules', 'routeIs' => ['businesses.hub', 'businesses.index', 'businesses.create', 'businesses.edit', 'businesses.show', 'businesses.facilities.*']],
+                ['label' => __('Inspectors'), 'route' => 'inspectors.hub', 'icon' => 'user', 'permission' => 'assign_batch_to_inspector', 'routeIs' => ['inspectors.hub', 'inspectors.index', 'inspectors.create', 'inspectors.edit', 'inspectors.show']],
+                ['label' => __('Animal intake'), 'route' => 'animal-intakes.hub', 'icon' => 'intake', 'permission' => 'create_animal_intake', 'routeIs' => ['animal-intakes.hub', 'animal-intakes.index', 'animal-intakes.create', 'animal-intakes.edit', 'animal-intakes.show']],
+                ['label' => __('Farmer supply'), 'route' => 'processor.supply-requests.index', 'icon' => 'clipboard-list', 'permission' => 'create_animal_intake', 'routeIs' => ['processor.supply-requests.*']],
+                ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.hub', 'icon' => 'calendar', 'permission' => 'schedule_slaughter', 'routeIs' => ['slaughter-plans.hub', 'slaughter-plans.index', 'slaughter-plans.create', 'slaughter-plans.edit', 'slaughter-plans.show']],
+                ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list', 'permission' => 'record_ante_mortem'],
+                ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.hub', 'icon' => 'play', 'permission' => 'schedule_slaughter', 'routeIs' => ['slaughter-executions.hub', 'slaughter-executions.index', 'slaughter-executions.create', 'slaughter-executions.edit', 'slaughter-executions.show']],
+                ['label' => __('Batches'), 'route' => 'batches.hub', 'icon' => 'box', 'permission' => 'create_batch', 'routeIs' => ['batches.hub', 'batches.index', 'batches.create', 'batches.edit', 'batches.show']],
+                ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard', 'permission' => 'record_post_mortem'],
+                ['label' => __('Certificates'), 'route' => 'certificates.hub', 'icon' => 'certificate', 'permission' => 'view_certificates', 'routeIs' => ['certificates.hub', 'certificates.index', 'certificates.create', 'certificates.edit', 'certificates.show', 'certificates.qr']],
+                ['label' => __('Cold Room'), 'route' => 'cold-rooms.hub', 'icon' => 'box', 'permission' => 'monitor_temperature_logs', 'routeIs' => ['cold-rooms.hub', 'cold-rooms.manage.*', 'warehouse-storages.*']],
+                ['label' => __('Transport'), 'route' => 'transport-trips.hub', 'icon' => 'truck', 'permission' => 'create_transport_trip', 'routeIs' => ['transport-trips.hub', 'transport-trips.index', 'transport-trips.create', 'transport-trips.edit', 'transport-trips.show']],
+                ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check', 'permission' => 'confirm_delivery'],
+                ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield', 'permission' => 'monitor_compliance_metrics'],
             ],
         ],
         [
             'group' => __('CRM & HR'),
             'icon' => 'user',
             'children' => [
-                ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard', 'permission' => 'view crm'],
-                ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user', 'permission' => 'manage employees'],
-                ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building', 'permission' => 'manage suppliers'],
-                ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard', 'permission' => 'manage contracts'],
-                ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user', 'permission' => 'manage clients'],
-                ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list', 'permission' => 'manage demands'],
+                ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard', 'permission' => 'view_all_modules'],
+                ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user', 'permission' => 'view_all_modules'],
+                ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building', 'permission' => 'view_all_modules'],
+                ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard', 'permission' => 'view_all_modules'],
+                ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user', 'permission' => 'view_all_modules'],
+                ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list', 'permission' => 'view_all_modules'],
             ],
         ],
     ];
-    $tenantNav[] = ['label' => __('Users'), 'route' => 'tenant-users.index', 'icon' => 'users', 'permission' => 'manage tenant users'];
-    $tenantNav[] = ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => 'manage settings', 'routeIs' => ['settings.edit', 'cold-room-standards.*']];
+    $tenantNav[] = ['label' => __('Users'), 'route' => 'tenant-users.index', 'icon' => 'users', 'permission' => 'manage_business_users'];
+    $tenantNav[] = ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => 'view_all_modules', 'routeIs' => ['settings.edit', 'cold-room-standards.*']];
 
-    if (! $isSuperAdmin && $user && ! $user->canManageTenantUsers()) {
+    if (! $isSuperAdmin && $user) {
+        $canAccessNavItem = function (?string $permission) use ($user): bool {
+            if (empty($permission)) {
+                return true;
+            }
+
+            return $user->canProcessorPermission($permission)
+                || $user->canProcessorPermission('view_all_modules');
+        };
+
         $filtered = [];
         foreach ($tenantNav as $item) {
             if (isset($item['group'])) {
-                $children = array_values(array_filter($item['children'] ?? [], fn ($c) => empty($c['permission']) || $user->can($c['permission'])));
+                $children = array_values(array_filter($item['children'] ?? [], fn ($c) => $canAccessNavItem($c['permission'] ?? null)));
                 if (count($children) > 0) {
                     $item['children'] = $children;
                     $filtered[] = $item;
                 }
             } else {
-                if (empty($item['permission']) || $user->can($item['permission'])) {
+                if ($canAccessNavItem($item['permission'] ?? null)) {
                     $filtered[] = $item;
                 }
             }
@@ -111,6 +120,29 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
     </div>
+    @if (! $isSuperAdmin && $user && $workspaceKind === 'processor')
+        @php
+            $allProcessorBusinesses = \App\Models\Business::query()
+                ->where('type', \App\Models\Business::TYPE_PROCESSOR)
+                ->whereIn('id', $user->businesses()->pluck('id')->merge($user->memberBusinesses()->pluck('businesses.id'))->unique())
+                ->orderBy('business_name')
+                ->get(['id', 'business_name']);
+            $activeProcessorBusinessId = $user->activeProcessorBusinessId();
+        @endphp
+        @if ($allProcessorBusinesses->isNotEmpty())
+            <form method="POST" action="{{ route('processor.business-context.update') }}" class="px-3 mb-3">
+                @csrf
+                <label class="block text-xs text-white/80 mb-1">{{ __('Active business') }}</label>
+                <select name="business_id" onchange="this.form.submit()" class="w-full rounded-bucha border border-white/20 bg-white/10 text-white text-sm focus:border-white/40 focus:ring-white/20">
+                    @foreach ($allProcessorBusinesses as $businessOption)
+                        <option value="{{ $businessOption->id }}" @selected((int) $businessOption->id === (int) $activeProcessorBusinessId) class="text-slate-900">
+                            {{ $businessOption->business_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </form>
+        @endif
+    @endif
     <nav class="flex-1 overflow-y-auto px-3 space-y-0.5">
         @foreach ($navGroups as $item)
             @if (isset($item['group']))

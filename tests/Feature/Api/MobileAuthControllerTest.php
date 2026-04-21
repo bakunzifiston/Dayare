@@ -54,7 +54,7 @@ class MobileAuthControllerTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.user.userRole', 'owner')
+            ->assertJsonPath('data.user.userRole', BusinessUser::ROLE_ORG_ADMIN)
             ->assertJsonPath('data.user.business_type', Business::TYPE_FARMER);
     }
 
@@ -76,7 +76,7 @@ class MobileAuthControllerTest extends TestCase
             'status' => Business::STATUS_ACTIVE,
         ]);
 
-        $business->memberUsers()->attach($member->id, ['role' => BusinessUser::ROLE_MANAGER]);
+        $business->memberUsers()->attach($member->id, ['role' => BusinessUser::ROLE_OPERATIONS_MANAGER]);
 
         $loginResponse = $this->postJson('/api/v1/auth/login', [
             'email' => $member->email,
@@ -90,7 +90,7 @@ class MobileAuthControllerTest extends TestCase
             ->getJson('/api/v1/auth/me')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.userRole', 'manager')
+            ->assertJsonPath('data.userRole', BusinessUser::ROLE_OPERATIONS_MANAGER)
             ->assertJsonPath('data.business_type', Business::TYPE_LOGISTICS);
     }
 }

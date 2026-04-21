@@ -40,43 +40,35 @@
                 <div>
                     <x-input-label :value="__('Role')" />
                     <select name="role" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary">
-                        <option value="manager" @selected(old('role', $currentRole) === 'manager')>{{ __('Manager') }}</option>
-                        <option value="staff" @selected(old('role', $currentRole) === 'staff')>{{ __('Staff') }}</option>
+                        @foreach ($roleOptions as $roleValue => $roleLabel)
+                            <option value="{{ $roleValue }}" @selected(old('role', $currentRole) === $roleValue)>{{ $roleLabel }}</option>
+                        @endforeach
                     </select>
                     <x-input-error class="mt-2" :messages="$errors->get('role')" />
                 </div>
                 <div>
-                    <x-input-label :value="__('Businesses')" />
-                    <div class="space-y-2">
-                        @foreach ($businesses as $b)
-                            <label class="flex items-center gap-2">
-                                <input type="checkbox" name="business_ids[]" value="{{ $b->id }}" @checked(in_array($b->id, old('business_ids', $userBusinessIds))) class="rounded border-gray-300 focus:ring-bucha-primary">
-                                <span class="text-sm text-slate-700">{{ $b->business_name }}</span>
+                    <x-input-label :value="__('Assigned businesses')" />
+                    <p class="mt-1 text-xs text-slate-500">{{ __('This user can only access selected businesses.') }}</p>
+                    <div class="mt-2 space-y-2 rounded-lg border border-slate-200 p-3 max-h-56 overflow-y-auto">
+                        @php
+                            $selected = array_map('intval', old('business_ids', $selectedBusinessIds ?? []));
+                        @endphp
+                        @foreach ($assignableBusinesses as $business)
+                            <label class="flex items-center gap-2 text-sm text-slate-700">
+                                <input
+                                    type="checkbox"
+                                    name="business_ids[]"
+                                    value="{{ $business['id'] }}"
+                                    class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary"
+                                    @checked(in_array((int) $business['id'], $selected, true))
+                                >
+                                <span>{{ $business['name'] }}</span>
                             </label>
                         @endforeach
                     </div>
                     <x-input-error class="mt-2" :messages="$errors->get('business_ids')" />
+                    <x-input-error class="mt-2" :messages="$errors->get('business_ids.*')" />
                 </div>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-                <h2 class="text-sm font-semibold text-slate-700 border-b border-slate-200 pb-2">{{ __('Module access') }}</h2>
-                <p class="text-sm text-slate-600">{{ __('Select which modules this user can access. Leave empty to use the role default.') }}</p>
-                @foreach ($permissionGroups as $groupLabel => $permissions)
-                    @if (count($permissions) > 0)
-                        <div class="border border-slate-200 rounded-lg p-3">
-                            <p class="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">{{ $groupLabel }}</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                @foreach ($permissions as $permName => $permLabel)
-                                    <label class="flex items-center gap-2 text-sm">
-                                        <input type="checkbox" name="permissions[]" value="{{ $permName }}" @checked(in_array($permName, old('permissions', $userPermissionNames))) class="rounded border-gray-300 focus:ring-bucha-primary">
-                                        <span class="text-slate-700">{{ $permLabel }}</span>
-                                    </label>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
-                @endforeach
             </div>
 
             <div class="flex gap-3">
