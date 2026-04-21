@@ -34,16 +34,44 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4" x-data="{ selectedRole: '{{ old('role', 'operations_manager') }}' }">
                 <h2 class="text-sm font-semibold text-slate-700 border-b border-slate-200 pb-2">{{ __('Access') }}</h2>
                 <div>
                     <x-input-label :value="__('Role')" />
-                    <select name="role" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary">
+                    <select name="role" x-model="selectedRole" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary">
                         @foreach ($roleOptions as $roleValue => $roleLabel)
                             <option value="{{ $roleValue }}" @selected(old('role', 'operations_manager') === $roleValue)>{{ $roleLabel }}</option>
                         @endforeach
                     </select>
                     <x-input-error class="mt-2" :messages="$errors->get('role')" />
+                </div>
+                <div>
+                    <x-input-label :value="__('Role access summary')" />
+                    <p class="mt-1 text-xs text-slate-500">{{ __('Review each role before assigning access.') }}</p>
+                    <div class="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        @foreach ($roleGuidance as $roleValue => $guidance)
+                            <div
+                                class="rounded-lg border p-3 transition-colors"
+                                :class="selectedRole === '{{ $roleValue }}'
+                                    ? 'border-bucha-primary bg-red-50/30'
+                                    : 'border-slate-200 bg-slate-50/60'"
+                            >
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-sm font-semibold text-slate-900">{{ $roleOptions[$roleValue] ?? $roleValue }}</p>
+                                    <span class="text-[11px] font-medium uppercase tracking-wide text-slate-500">{{ __('Role') }}</span>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-600">{{ $guidance['description'] }}</p>
+                                <ul class="mt-2 space-y-1 text-xs text-slate-700">
+                                    @foreach (($guidance['permissions'] ?? []) as $permissionLine)
+                                        <li class="flex items-start gap-1.5">
+                                            <span class="mt-1 inline-flex h-1.5 w-1.5 rounded-full bg-bucha-primary"></span>
+                                            <span>{{ $permissionLine }}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
                 <div>
                     <x-input-label :value="__('Assigned businesses')" />

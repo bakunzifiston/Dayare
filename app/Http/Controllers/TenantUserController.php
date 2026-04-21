@@ -25,6 +25,62 @@ class TenantUserController extends Controller
         ];
     }
 
+    public static function roleGuidance(): array
+    {
+        return [
+            BusinessUser::ROLE_ORG_ADMIN => [
+                'description' => __('Full workspace governance and cross-module visibility.'),
+                'permissions' => [
+                    __('View all modules'),
+                    __('Manage business users'),
+                    __('Assign business roles'),
+                    __('Monitor compliance metrics'),
+                    __('Track delivery status'),
+                ],
+            ],
+            BusinessUser::ROLE_OPERATIONS_MANAGER => [
+                'description' => __('Runs day-to-day processing operations and planning.'),
+                'permissions' => [
+                    __('Create animal intake records'),
+                    __('Schedule slaughter plans'),
+                    __('Create processing batches'),
+                    __('Assign batches to inspectors'),
+                    __('View inspections and certificates'),
+                ],
+            ],
+            BusinessUser::ROLE_COMPLIANCE_OFFICER => [
+                'description' => __('Oversees compliance controls, evidence, and monitoring.'),
+                'permissions' => [
+                    __('Submit compliance checklists'),
+                    __('Log non-compliance issues'),
+                    __('Upload compliance evidence'),
+                    __('Monitor compliance metrics'),
+                    __('Monitor temperature logs'),
+                ],
+            ],
+            BusinessUser::ROLE_INSPECTOR => [
+                'description' => __('Handles ante/post-mortem inspections and certification steps.'),
+                'permissions' => [
+                    __('Record ante-mortem inspections'),
+                    __('Record post-mortem inspections'),
+                    __('Issue certificates'),
+                    __('View assigned batches'),
+                    __('View inspections and certificates'),
+                ],
+            ],
+            BusinessUser::ROLE_TRANSPORT_MANAGER => [
+                'description' => __('Manages trip dispatch, delivery confirmation, and transport tracking.'),
+                'permissions' => [
+                    __('Create transport trips'),
+                    __('Assign vehicle and driver'),
+                    __('Dispatch deliveries'),
+                    __('Confirm deliveries'),
+                    __('Track delivery status'),
+                ],
+            ],
+        ];
+    }
+
     public function index(Request $request): View|RedirectResponse
     {
         $manageableBusinesses = $this->manageableBusinesses($request);
@@ -94,12 +150,13 @@ class TenantUserController extends Controller
         $this->authorizeOwnerOrFail($request, $manageableBusinesses);
 
         $roleOptions = self::roleOptions();
+        $roleGuidance = self::roleGuidance();
         $assignableBusinesses = $manageableBusinesses->map(fn ($business) => [
             'id' => (int) $business->id,
             'name' => (string) $business->business_name,
         ])->all();
 
-        return view('tenant-users.create', compact('roleOptions', 'assignableBusinesses'));
+        return view('tenant-users.create', compact('roleOptions', 'roleGuidance', 'assignableBusinesses'));
     }
 
     public function store(Request $request): RedirectResponse
