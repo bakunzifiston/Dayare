@@ -25,11 +25,13 @@ class SuperAdminVibeProgrammeController extends Controller
 
         $businesses = $query->paginate(20)->withQueryString();
 
+        $globalSummaryQuery = Business::query();
         $summary = [
-            'total_businesses' => (clone $query)->count(),
-            'active_businesses' => (clone $query)->where('status', Business::STATUS_ACTIVE)->count(),
-            'pathway_active' => (clone $query)->where('pathway_status', 'active')->count(),
-            'pathway_verification' => (clone $query)->where('pathway_status', 'verification')->count(),
+            'total_businesses' => (clone $globalSummaryQuery)->count(),
+            'active_businesses' => (clone $globalSummaryQuery)->where('status', Business::STATUS_ACTIVE)->count(),
+            'pathway_active' => (clone $globalSummaryQuery)->where('pathway_status', 'active')->count(),
+            'pathway_verification' => (clone $globalSummaryQuery)->where('pathway_status', 'verification')->count(),
+            'filtered_businesses' => (clone $this->filteredBusinessesQuery($request))->count(),
         ];
 
         return view('super-admin.vibe-programme.index', [
@@ -354,6 +356,7 @@ class SuperAdminVibeProgrammeController extends Controller
     private function businessTrendData(Business $business, Collection $facilityIds): array
     {
         $months = 6;
+        $windowStart = now()->subMonths($months - 1)->startOfMonth();
         $monthKeys = [];
         for ($i = $months - 1; $i >= 0; $i--) {
             $monthKeys[] = now()->subMonths($i)->format('Y-m');
@@ -361,7 +364,7 @@ class SuperAdminVibeProgrammeController extends Controller
 
         $intakes = AnimalIntake::query()
             ->whereIn('facility_id', $facilityIds)
-            ->whereDate('intake_date', '>=', now()->subMonths($months)->startOfMonth())
+            ->whereDate('intake_date', '>=', $windowStart)
             ->get();
         $intakeByMonth = $intakes
             ->groupBy(fn ($row) => Carbon::parse($row->intake_date)->format('Y-m'))
@@ -372,7 +375,7 @@ class SuperAdminVibeProgrammeController extends Controller
 
         $certificates = Certificate::query()
             ->whereIn('facility_id', $facilityIds)
-            ->whereDate('issued_at', '>=', now()->subMonths($months)->startOfMonth())
+            ->whereDate('issued_at', '>=', $windowStart)
             ->get();
         $certByMonth = $certificates
             ->groupBy(fn ($row) => Carbon::parse($row->issued_at)->format('Y-m'))
@@ -381,7 +384,7 @@ class SuperAdminVibeProgrammeController extends Controller
         $deliveries = DeliveryConfirmation::query()
             ->whereIn('receiving_facility_id', $facilityIds)
             ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
-            ->whereDate('received_date', '>=', now()->subMonths($months)->startOfMonth())
+            ->whereDate('received_date', '>=', $windowStart)
             ->get();
         $deliveryByMonth = $deliveries
             ->groupBy(fn ($row) => Carbon::parse($row->received_date)->format('Y-m'))

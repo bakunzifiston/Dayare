@@ -20,6 +20,9 @@
                 <div class="rounded-xl border border-slate-200 bg-white p-4">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Businesses') }}</p>
                     <p class="mt-2 text-3xl font-bold text-slate-900">{{ $summary['total_businesses'] ?? 0 }}</p>
+                    <p class="mt-1 text-xs text-slate-500">
+                        {{ __('Filtered: :count', ['count' => $summary['filtered_businesses'] ?? 0]) }}
+                    </p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-white p-4">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Active') }}</p>
