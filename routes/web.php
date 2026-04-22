@@ -44,6 +44,7 @@ use App\Http\Controllers\SlaughterPlanController;
 use App\Http\Controllers\SpeciesController;
 use App\Http\Controllers\SuperAdminConfigurationController;
 use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\SuperAdminVibeProgrammeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TenantUserController;
 use App\Http\Controllers\TransportTripController;
@@ -412,6 +413,10 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::middleware('super_admin')->prefix('super-admin')->name('super-admin.')->group(function () {
         Route::get('/', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('configuration', [SuperAdminConfigurationController::class, 'index'])->name('configurations.index');
+        Route::get('vibe-programme', [SuperAdminVibeProgrammeController::class, 'index'])->name('vibe-programme.index');
+        Route::get('vibe-programme/export', [SuperAdminVibeProgrammeController::class, 'exportProgrammeCsv'])->name('vibe-programme.export');
+        Route::get('vibe-programme/{business}', [SuperAdminVibeProgrammeController::class, 'show'])->name('vibe-programme.show');
+        Route::get('vibe-programme/{business}/export', [SuperAdminVibeProgrammeController::class, 'exportBusinessCsv'])->name('vibe-programme.export-business');
         Route::resource('species', SpeciesController::class)->except(['show', 'create', 'edit']);
         Route::resource('units', UnitController::class)->except(['show', 'create', 'edit']);
     });

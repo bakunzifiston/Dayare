@@ -100,6 +100,7 @@
     $navGroups = $isSuperAdmin
         ? [
             ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield'],
+            ['label' => __('VIBE Programme'), 'route' => 'super-admin.vibe-programme.index', 'icon' => 'dashboard'],
             ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
         ]
         : $tenantNav;
