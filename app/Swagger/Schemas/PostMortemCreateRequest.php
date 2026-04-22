@@ -18,10 +18,10 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'total_examined', type: 'integer', minimum: 0),
         new OA\Property(property: 'approved_quantity', type: 'integer', minimum: 0),
         new OA\Property(property: 'condemned_quantity', type: 'integer', minimum: 0),
-        new OA\Property(property: 'notes', type: 'string', nullable: true),
+        new OA\Property(property: 'notes', type: 'string', nullable: true, maxLength: 5000),
         new OA\Property(
             property: 'observations',
-            description: 'Keyed by checklist item id; each value: { "value", "notes" } per PostMortemChecklist.',
+            description: 'Keyed by checklist item id; each value: { "value": string (max 20), "notes": string|null (max 5000) } per PostMortemChecklist.',
             type: 'object',
             example: ['carcass_condition' => ['value' => 'normal', 'notes' => null]],
         ),

@@ -26,9 +26,21 @@ final class ApiJson
         ], $status);
     }
 
-    public static function paginated(LengthAwarePaginator $paginator, string $message = 'OK'): JsonResponse
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public static function paginated(LengthAwarePaginator $paginator, string $message = 'OK', array $filters = []): JsonResponse
     {
-        return self::success($paginator->toArray(), $message);
+        return self::success([
+            'data' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'filters' => $filters === [] ? new \stdClass : $filters,
+        ], $message);
     }
 
     /**

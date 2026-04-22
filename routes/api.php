@@ -39,14 +39,27 @@ Route::prefix('v1')->group(function () {
 
         Route::get('animal-intakes', [MobileCollectionController::class, 'animalIntakesIndex']);
         Route::post('animal-intakes', [MobileCollectionController::class, 'animalIntakesStore']);
+        Route::get('animal-intakes/{animalIntake}', [MobileCollectionController::class, 'animalIntakesShow']);
+        Route::put('animal-intakes/{animalIntake}', [MobileCollectionController::class, 'animalIntakesUpdate']);
+        Route::delete('animal-intakes/{animalIntake}', [MobileCollectionController::class, 'animalIntakesDestroy']);
 
         Route::get('slaughter-plans', [MobileCollectionController::class, 'slaughterPlansIndex']);
         Route::post('slaughter-plans', [MobileCollectionController::class, 'slaughterPlansStore']);
+        Route::get('slaughter-plans/{slaughterPlan}', [MobileCollectionController::class, 'slaughterPlansShow']);
+        Route::put('slaughter-plans/{slaughterPlan}', [MobileCollectionController::class, 'slaughterPlansUpdate']);
+        Route::delete('slaughter-plans/{slaughterPlan}', [MobileCollectionController::class, 'slaughterPlansDestroy']);
 
         Route::get('slaughter-executions', [MobileCollectionController::class, 'slaughterExecutionsIndex']);
         Route::post('slaughter-executions', [MobileCollectionController::class, 'slaughterExecutionsStore']);
+        Route::get('slaughter-executions/{slaughterExecution}', [MobileCollectionController::class, 'slaughterExecutionsShow']);
+        Route::put('slaughter-executions/{slaughterExecution}', [MobileCollectionController::class, 'slaughterExecutionsUpdate']);
+        Route::delete('slaughter-executions/{slaughterExecution}', [MobileCollectionController::class, 'slaughterExecutionsDestroy']);
 
         Route::post('ante-mortem-inspections', [MobileCollectionController::class, 'anteMortemStore']);
         Route::post('post-mortem-inspections', [MobileCollectionController::class, 'postMortemStore']);
+        Route::post('certificates', [MobileCollectionController::class, 'certificatesStore']);
+        Route::post('transport-trips', [MobileCollectionController::class, 'transportTripsStore']);
+        Route::post('delivery-confirmations', [MobileCollectionController::class, 'deliveryConfirmationsStore']);
+        Route::post('warehouse-storages', [MobileCollectionController::class, 'warehouseStoragesStore']);
     });
 });

@@ -7,7 +7,8 @@ namespace App\Swagger\Schemas;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(
-    schema: 'SlaughterExecutionCreateRequest',
+    schema: 'SlaughterExecutionUpdateRequest',
+    description: 'Aligned with UpdateSlaughterExecutionRequest.',
     required: ['slaughter_plan_id', 'actual_animals_slaughtered', 'slaughter_time', 'status'],
     properties: [
         new OA\Property(property: 'slaughter_plan_id', type: 'integer'),
@@ -17,4 +18,4 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
-final class SlaughterExecutionCreateRequest {}
+final class SlaughterExecutionUpdateRequest {}

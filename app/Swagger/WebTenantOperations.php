@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
     summary: 'Register a business',
     description: 'Creates a tenant business through the web workspace. This is a Laravel web route and requires an authenticated browser session, not Bearer token auth. On success the controller redirects to `businesses.hub`.',
     tags: ['Web Routes', 'Businesses'],
-    security: [],
+    security: [['cookieAuth' => []]],
     requestBody: new OA\RequestBody(
         required: true,
         content: new OA\MediaType(
@@ -84,7 +84,7 @@ use OpenApi\Attributes as OA;
     summary: 'Create a facility',
     description: 'Creates a facility under the specified business through the web workspace. Requires an authenticated browser session and the business must belong to the signed-in user. On success the controller redirects to the business facilities index.',
     tags: ['Web Routes', 'Facilities', 'Businesses'],
-    security: [],
+    security: [['cookieAuth' => []]],
     parameters: [
         new OA\Parameter(
             name: 'business',
@@ -134,7 +134,7 @@ use OpenApi\Attributes as OA;
     summary: 'Retrieve facilities by business ID',
     description: 'Returns the facilities index page for a business. This is an HTML web route, not a JSON API endpoint. Requires an authenticated browser session and the business must belong to the signed-in user.',
     tags: ['Web Routes', 'Facilities', 'Businesses'],
-    security: [],
+    security: [['cookieAuth' => []]],
     parameters: [
         new OA\Parameter(
             name: 'business',
@@ -170,7 +170,7 @@ use OpenApi\Attributes as OA;
     summary: 'Create an inspector',
     description: 'Creates an inspector for a facility available to the signed-in user. This is a Laravel web route and requires an authenticated browser session. On success the controller redirects to `inspectors.hub`.',
     tags: ['Web Routes', 'Inspectors', 'Facilities'],
-    security: [],
+    security: [['cookieAuth' => []]],
     requestBody: new OA\RequestBody(
         required: true,
         content: new OA\MediaType(

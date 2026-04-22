@@ -18,10 +18,10 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'number_examined', type: 'integer', minimum: 0),
         new OA\Property(property: 'number_approved', type: 'integer', minimum: 0),
         new OA\Property(property: 'number_rejected', type: 'integer', minimum: 0),
-        new OA\Property(property: 'notes', type: 'string', nullable: true),
+        new OA\Property(property: 'notes', type: 'string', nullable: true, maxLength: 5000),
         new OA\Property(
             property: 'observations',
-            description: 'Keyed by checklist item id; each value: { "value": string (allowed per AnteMortemChecklist), "notes": string|null }',
+            description: 'Keyed by checklist item id; each value: { "value": string (max 20, allowed per AnteMortemChecklist), "notes": string|null (max 5000) }',
             type: 'object',
             example: ['general_appearance' => ['value' => 'normal', 'notes' => null]],
         ),

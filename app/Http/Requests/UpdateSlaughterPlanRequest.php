@@ -57,7 +57,7 @@ class UpdateSlaughterPlanRequest extends FormRequest
             if ($intake->species !== $this->input('species')) {
                 $validator->errors()->add('species', __('Species must match the animal intake.'));
             }
-            $plan = $this->route('slaughter_plan');
+            $plan = $this->route('slaughter_plan') ?? $this->route('slaughterPlan');
             $otherScheduled = $plan && $plan->animal_intake_id == $intakeId
                 ? (int) $intake->slaughterPlans()->where('id', '!=', $plan->id)->sum('number_of_animals_scheduled')
                 : (int) $intake->totalScheduledForSlaughter();

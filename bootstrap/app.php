@@ -81,7 +81,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 return ApiJson::failure($message, [], $status);
             }
 
-            return null;
+            // Enforce API error contract for any uncategorized exception (prevents Laravel default JSON leaks).
+            return ApiJson::failure(
+                config('app.debug') ? ($e->getMessage() ?: __('Internal Server Error.')) : __('Internal Server Error.'),
+                [],
+                500
+            );
         });
 
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, $request) {

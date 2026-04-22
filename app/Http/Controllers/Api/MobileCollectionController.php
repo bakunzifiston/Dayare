@@ -3,18 +3,38 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreAnimalIntakeRequest;
+use App\Http\Requests\StoreAnteMortemInspectionRequest;
+use App\Http\Requests\StoreCertificateRequest;
+use App\Http\Requests\StoreDeliveryConfirmationRequest;
+use App\Http\Requests\StorePostMortemInspectionRequest;
+use App\Http\Requests\StoreSlaughterExecutionRequest;
 use App\Http\Requests\StoreSlaughterPlanRequest;
+use App\Http\Requests\StoreTransportTripRequest;
+use App\Http\Requests\StoreWarehouseStorageRequest;
+use App\Http\Requests\UpdateAnimalIntakeRequest;
+use App\Http\Requests\UpdateSlaughterExecutionRequest;
+use App\Http\Requests\UpdateSlaughterPlanRequest;
 use App\Http\Responses\ApiJson;
 use App\Models\AnimalIntake;
 use App\Models\AnteMortemInspection;
 use App\Models\Batch;
+use App\Models\Certificate;
+use App\Models\Client;
+use App\Models\Contract;
+use App\Models\Demand;
+use App\Models\DeliveryConfirmation;
 use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
+use App\Models\Supplier;
+use App\Models\TransportTrip;
+use App\Models\WarehouseStorage;
 use App\Support\AnteMortemChecklist;
 use App\Support\PostMortemChecklist;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +61,128 @@ class MobileCollectionController extends Controller
         return Batch::whereIn('slaughter_execution_id', $this->executionIds($request))->pluck('id');
     }
 
+    private function certificateIds(Request $request)
+    {
+        $batchIds = $this->batchIds($request);
+        $facilityIds = $this->facilityIds($request);
+
+        return Certificate::query()
+            ->where(function ($query) use ($batchIds, $facilityIds) {
+                $query->whereIn('batch_id', $batchIds)
+                    ->orWhere(function ($q2) use ($facilityIds) {
+                        $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds);
+                    });
+            })
+            ->pluck('id');
+    }
+
+    private function transportTripIds(Request $request)
+    {
+        return TransportTrip::query()
+            ->whereIn('certificate_id', $this->certificateIds($request))
+            ->pluck('id');
+    }
+
+    private function perPage(Request $request): int
+    {
+        return max(1, min(100, (int) $request->integer('per_page', 20)));
+    }
+
+    /**
+     * @param  array<int, string>  $allowedKeys
+     * @return array<string, mixed>
+     */
+    private function requestedFilters(Request $request, array $allowedKeys): array
+    {
+        $filters = [];
+        foreach ($allowedKeys as $key) {
+            $value = $request->query($key);
+            if ($value !== null && $value !== '') {
+                $filters[$key] = $value;
+            }
+        }
+
+        return $filters;
+    }
+
+    private function denyIfFacilityOutOfScope(Request $request, int $facilityId): ?JsonResponse
+    {
+        if (! $this->facilityIds($request)->contains($facilityId)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        return null;
+    }
+
+    private function denyIfPlanOutOfScope(Request $request, int $planId): ?JsonResponse
+    {
+        if (! $this->planIds($request)->contains($planId)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        return null;
+    }
+
+    private function denyIfIntakeOutOfScope(Request $request, AnimalIntake $animalIntake): ?JsonResponse
+    {
+        return $this->denyIfFacilityOutOfScope($request, (int) $animalIntake->facility_id);
+    }
+
+    private function denyIfSlaughterPlanOutOfScope(Request $request, SlaughterPlan $slaughterPlan): ?JsonResponse
+    {
+        return $this->denyIfFacilityOutOfScope($request, (int) $slaughterPlan->facility_id);
+    }
+
+    private function denyIfExecutionOutOfScope(Request $request, SlaughterExecution $slaughterExecution): ?JsonResponse
+    {
+        return $this->denyIfPlanOutOfScope($request, (int) $slaughterExecution->slaughter_plan_id);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function hydrateSupplierFields(Request $request, array $data): array
+    {
+        $facilityId = (int) ($data['facility_id'] ?? 0);
+        $facilityBusinessId = (int) Facility::query()->whereKey($facilityId)->value('business_id');
+
+        if (! empty($data['supplier_id'])) {
+            $supplier = Supplier::find((int) $data['supplier_id']);
+            if (! $supplier || ! $supplier->isApproved() || (int) $supplier->business_id !== $facilityBusinessId) {
+                abort(404);
+            }
+
+            $first = $supplier->first_name ?? '';
+            $last = $supplier->last_name ?? '';
+            if ($first === '' && $last === '' && ! empty($supplier->name)) {
+                $parts = explode(' ', (string) $supplier->name, 2);
+                $first = $parts[0] ?? '';
+                $last = $parts[1] ?? '';
+            }
+
+            $data['supplier_firstname'] = $data['supplier_firstname'] ?? $first;
+            $data['supplier_lastname'] = $data['supplier_lastname'] ?? $last;
+            $data['supplier_contact'] = $data['supplier_contact'] ?? $supplier->phone;
+            $data['farm_registration_number'] = $data['farm_registration_number'] ?? $supplier->registration_number;
+            $data['country_id'] = $data['country_id'] ?? $supplier->country_id;
+            $data['province_id'] = $data['province_id'] ?? $supplier->province_id;
+            $data['district_id'] = $data['district_id'] ?? $supplier->district_id;
+            $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
+            $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
+            $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
+        }
+
+        if (! empty($data['contract_id'])) {
+            $contract = Contract::find((int) $data['contract_id']);
+            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->accessibleBusinessIds()->contains($contract->business_id)) {
+                abort(404);
+            }
+        }
+
+        return $data;
+    }
+
     public function lookups(Request $request): JsonResponse
     {
         $facilityIds = $this->facilityIds($request);
@@ -65,47 +207,123 @@ class MobileCollectionController extends Controller
 
     public function animalIntakesIndex(Request $request): JsonResponse
     {
-        $items = AnimalIntake::whereIn('facility_id', $this->facilityIds($request))
-            ->latest('intake_date')
-            ->paginate((int) $request->integer('per_page', 20));
+        $facilityIds = $this->facilityIds($request);
+        $query = AnimalIntake::query()->whereIn('facility_id', $facilityIds);
 
-        return ApiJson::paginated($items);
-    }
-
-    public function animalIntakesStore(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'facility_id' => ['required', 'exists:facilities,id'],
-            'intake_date' => ['required', 'date'],
-            'species' => ['required', 'string', 'max:50'],
-            'number_of_animals' => ['required', 'integer', 'min:1'],
-            'status' => ['required', 'in:received,approved,rejected'],
-            'supplier_firstname' => ['required', 'string', 'max:100'],
-            'supplier_lastname' => ['required', 'string', 'max:100'],
-            'supplier_contact' => ['nullable', 'string', 'max:100'],
-            'notes' => ['nullable', 'string'],
-        ]);
-
-        if (! $this->facilityIds($request)->contains((int) $data['facility_id'])) {
-            return ApiJson::failure(__('Not found.'), [], 404);
+        $filters = $this->requestedFilters($request, ['facility_id', 'species', 'status', 'intake_date_from', 'intake_date_to']);
+        if (isset($filters['facility_id'])) {
+            $filteredFacilityId = (int) $filters['facility_id'];
+            if (! $facilityIds->contains($filteredFacilityId)) {
+                return ApiJson::failure(__('Not found.'), [], 404);
+            }
+            $query->where('facility_id', $filteredFacilityId);
+        }
+        if (isset($filters['species'])) {
+            $query->where('species', (string) $filters['species']);
+        }
+        if (isset($filters['status'])) {
+            $query->where('status', (string) $filters['status']);
+        }
+        if (isset($filters['intake_date_from'])) {
+            $query->whereDate('intake_date', '>=', (string) $filters['intake_date_from']);
+        }
+        if (isset($filters['intake_date_to'])) {
+            $query->whereDate('intake_date', '<=', (string) $filters['intake_date_to']);
         }
 
-        $item = AnimalIntake::create($data + [
-            'farm_name' => $request->input('farm_name'),
-            'animal_identification_numbers' => $request->input('animal_identification_numbers'),
-        ]);
+        $items = $query->latest('intake_date')->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items, 'OK', $filters);
+    }
+
+    public function animalIntakesStore(StoreAnimalIntakeRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $denied = $this->denyIfFacilityOutOfScope($request, (int) $data['facility_id']);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        $item = AnimalIntake::create($this->hydrateSupplierFields($request, $data));
 
         return ApiJson::success($item, __('Created.'), 201);
     }
 
+    public function animalIntakesShow(Request $request, AnimalIntake $animalIntake): JsonResponse
+    {
+        $denied = $this->denyIfIntakeOutOfScope($request, $animalIntake);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        return ApiJson::success($animalIntake->load(['facility:id,facility_name']));
+    }
+
+    public function animalIntakesUpdate(UpdateAnimalIntakeRequest $request, AnimalIntake $animalIntake): JsonResponse
+    {
+        $denied = $this->denyIfIntakeOutOfScope($request, $animalIntake);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        $data = $request->validated();
+        $denied = $this->denyIfFacilityOutOfScope($request, (int) $data['facility_id']);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        $animalIntake->update($this->hydrateSupplierFields($request, $data));
+
+        return ApiJson::success($animalIntake->fresh(), __('Updated.'));
+    }
+
+    public function animalIntakesDestroy(Request $request, AnimalIntake $animalIntake): JsonResponse
+    {
+        $denied = $this->denyIfIntakeOutOfScope($request, $animalIntake);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        try {
+            $animalIntake->delete();
+        } catch (QueryException $exception) {
+            return ApiJson::failure(__('This record cannot be deleted because related records exist.'), [], 422);
+        }
+
+        return ApiJson::success(null, __('Deleted.'));
+    }
+
     public function slaughterPlansIndex(Request $request): JsonResponse
     {
-        $items = SlaughterPlan::with(['facility:id,facility_name', 'inspector:id,first_name,last_name'])
-            ->whereIn('facility_id', $this->facilityIds($request))
-            ->latest('slaughter_date')
-            ->paginate((int) $request->integer('per_page', 20));
+        $facilityIds = $this->facilityIds($request);
+        $query = SlaughterPlan::with(['facility:id,facility_name', 'inspector:id,first_name,last_name'])
+            ->whereIn('facility_id', $facilityIds);
 
-        return ApiJson::paginated($items);
+        $filters = $this->requestedFilters($request, ['facility_id', 'species', 'status', 'slaughter_date_from', 'slaughter_date_to']);
+        if (isset($filters['facility_id'])) {
+            $filteredFacilityId = (int) $filters['facility_id'];
+            if (! $facilityIds->contains($filteredFacilityId)) {
+                return ApiJson::failure(__('Not found.'), [], 404);
+            }
+            $query->where('facility_id', $filteredFacilityId);
+        }
+        if (isset($filters['species'])) {
+            $query->where('species', (string) $filters['species']);
+        }
+        if (isset($filters['status'])) {
+            $query->where('status', (string) $filters['status']);
+        }
+        if (isset($filters['slaughter_date_from'])) {
+            $query->whereDate('slaughter_date', '>=', (string) $filters['slaughter_date_from']);
+        }
+        if (isset($filters['slaughter_date_to'])) {
+            $query->whereDate('slaughter_date', '<=', (string) $filters['slaughter_date_to']);
+        }
+
+        $items = $query->latest('slaughter_date')->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items, 'OK', $filters);
     }
 
     public function slaughterPlansStore(StoreSlaughterPlanRequest $request): JsonResponse
@@ -121,27 +339,90 @@ class MobileCollectionController extends Controller
         return ApiJson::success($item, __('Created.'), 201);
     }
 
-    public function slaughterExecutionsIndex(Request $request): JsonResponse
+    public function slaughterPlansShow(Request $request, SlaughterPlan $slaughterPlan): JsonResponse
     {
-        $items = SlaughterExecution::with(['slaughterPlan.facility:id,facility_name'])
-            ->whereIn('slaughter_plan_id', $this->planIds($request))
-            ->latest('slaughter_time')
-            ->paginate((int) $request->integer('per_page', 20));
+        $denied = $this->denyIfSlaughterPlanOutOfScope($request, $slaughterPlan);
+        if ($denied !== null) {
+            return $denied;
+        }
 
-        return ApiJson::paginated($items);
+        return ApiJson::success($slaughterPlan->load([
+            'facility:id,facility_name',
+            'inspector:id,first_name,last_name',
+            'animalIntake:id,species,number_of_animals',
+        ]));
     }
 
-    public function slaughterExecutionsStore(Request $request): JsonResponse
+    public function slaughterPlansUpdate(UpdateSlaughterPlanRequest $request, SlaughterPlan $slaughterPlan): JsonResponse
     {
-        $data = $request->validate([
-            'slaughter_plan_id' => ['required', 'exists:slaughter_plans,id'],
-            'actual_animals_slaughtered' => ['required', 'integer', 'min:0'],
-            'slaughter_time' => ['required', 'date'],
-            'status' => ['required', 'in:scheduled,in_progress,completed,cancelled'],
-        ]);
+        $denied = $this->denyIfSlaughterPlanOutOfScope($request, $slaughterPlan);
+        if ($denied !== null) {
+            return $denied;
+        }
 
-        if (! $this->planIds($request)->contains((int) $data['slaughter_plan_id'])) {
-            return ApiJson::failure(__('Not found.'), [], 404);
+        $data = $request->validated();
+        $denied = $this->denyIfFacilityOutOfScope($request, (int) $data['facility_id']);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        $slaughterPlan->update($data);
+
+        return ApiJson::success($slaughterPlan->fresh(), __('Updated.'));
+    }
+
+    public function slaughterPlansDestroy(Request $request, SlaughterPlan $slaughterPlan): JsonResponse
+    {
+        $denied = $this->denyIfSlaughterPlanOutOfScope($request, $slaughterPlan);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        try {
+            $slaughterPlan->delete();
+        } catch (QueryException $exception) {
+            return ApiJson::failure(__('This record cannot be deleted because related records exist.'), [], 422);
+        }
+
+        return ApiJson::success(null, __('Deleted.'));
+    }
+
+    public function slaughterExecutionsIndex(Request $request): JsonResponse
+    {
+        $planIds = $this->planIds($request);
+        $query = SlaughterExecution::with(['slaughterPlan.facility:id,facility_name'])
+            ->whereIn('slaughter_plan_id', $planIds);
+
+        $filters = $this->requestedFilters($request, ['slaughter_plan_id', 'status', 'slaughter_time_from', 'slaughter_time_to']);
+        if (isset($filters['slaughter_plan_id'])) {
+            $filteredPlanId = (int) $filters['slaughter_plan_id'];
+            if (! $planIds->contains($filteredPlanId)) {
+                return ApiJson::failure(__('Not found.'), [], 404);
+            }
+            $query->where('slaughter_plan_id', $filteredPlanId);
+        }
+        if (isset($filters['status'])) {
+            $query->where('status', (string) $filters['status']);
+        }
+        if (isset($filters['slaughter_time_from'])) {
+            $query->whereDate('slaughter_time', '>=', (string) $filters['slaughter_time_from']);
+        }
+        if (isset($filters['slaughter_time_to'])) {
+            $query->whereDate('slaughter_time', '<=', (string) $filters['slaughter_time_to']);
+        }
+
+        $items = $query->latest('slaughter_time')->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items, 'OK', $filters);
+    }
+
+    public function slaughterExecutionsStore(StoreSlaughterExecutionRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $denied = $this->denyIfPlanOutOfScope($request, (int) $data['slaughter_plan_id']);
+        if ($denied !== null) {
+            return $denied;
         }
 
         $item = SlaughterExecution::create($data);
@@ -149,26 +430,60 @@ class MobileCollectionController extends Controller
         return ApiJson::success($item, __('Created.'), 201);
     }
 
-    public function anteMortemStore(Request $request): JsonResponse
+    public function slaughterExecutionsShow(Request $request, SlaughterExecution $slaughterExecution): JsonResponse
     {
-        $data = $request->validate([
-            'slaughter_plan_id' => ['required', 'exists:slaughter_plans,id'],
-            'inspector_id' => ['required', 'exists:inspectors,id'],
-            'inspection_date' => ['required', 'date'],
-            'species' => ['required', 'string', 'max:50'],
-            'number_examined' => ['required', 'integer', 'min:0'],
-            'number_approved' => ['required', 'integer', 'min:0'],
-            'number_rejected' => ['required', 'integer', 'min:0'],
-            'notes' => ['nullable', 'string'],
-            'observations' => ['required', 'array'],
-        ]);
-
-        if (($data['number_approved'] + $data['number_rejected']) > $data['number_examined']) {
-            return ApiJson::failure(__('Approved + Rejected cannot exceed Number Examined.'), [], 422);
+        $denied = $this->denyIfExecutionOutOfScope($request, $slaughterExecution);
+        if ($denied !== null) {
+            return $denied;
         }
 
-        if (! $this->planIds($request)->contains((int) $data['slaughter_plan_id'])) {
-            return ApiJson::failure(__('Not found.'), [], 404);
+        return ApiJson::success($slaughterExecution->load([
+            'slaughterPlan:id,facility_id,slaughter_date,species',
+            'slaughterPlan.facility:id,facility_name',
+        ]));
+    }
+
+    public function slaughterExecutionsUpdate(UpdateSlaughterExecutionRequest $request, SlaughterExecution $slaughterExecution): JsonResponse
+    {
+        $denied = $this->denyIfExecutionOutOfScope($request, $slaughterExecution);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        $data = $request->validated();
+        $denied = $this->denyIfPlanOutOfScope($request, (int) $data['slaughter_plan_id']);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        $slaughterExecution->update($data);
+
+        return ApiJson::success($slaughterExecution->fresh(), __('Updated.'));
+    }
+
+    public function slaughterExecutionsDestroy(Request $request, SlaughterExecution $slaughterExecution): JsonResponse
+    {
+        $denied = $this->denyIfExecutionOutOfScope($request, $slaughterExecution);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        try {
+            $slaughterExecution->delete();
+        } catch (QueryException $exception) {
+            return ApiJson::failure(__('This record cannot be deleted because related records exist.'), [], 422);
+        }
+
+        return ApiJson::success(null, __('Deleted.'));
+    }
+
+    public function anteMortemStore(StoreAnteMortemInspectionRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $denied = $this->denyIfPlanOutOfScope($request, (int) $data['slaughter_plan_id']);
+        if ($denied !== null) {
+            return $denied;
         }
 
         $plan = SlaughterPlan::query()->find($data['slaughter_plan_id']);
@@ -215,23 +530,9 @@ class MobileCollectionController extends Controller
         return ApiJson::success($inspection->load('observations'), __('Created.'), 201);
     }
 
-    public function postMortemStore(Request $request): JsonResponse
+    public function postMortemStore(StorePostMortemInspectionRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'batch_id' => ['required', 'exists:batches,id'],
-            'inspector_id' => ['required', 'exists:inspectors,id'],
-            'species' => ['required', 'string', 'max:50'],
-            'inspection_date' => ['required', 'date'],
-            'total_examined' => ['required', 'integer', 'min:0'],
-            'approved_quantity' => ['required', 'integer', 'min:0'],
-            'condemned_quantity' => ['required', 'integer', 'min:0'],
-            'notes' => ['nullable', 'string'],
-            'observations' => ['required', 'array'],
-        ]);
-
-        if (($data['approved_quantity'] + $data['condemned_quantity']) > $data['total_examined']) {
-            return ApiJson::failure(__('Approved + Condemned cannot exceed Total Examined.'), [], 422);
-        }
+        $data = $request->validated();
 
         if (! $this->batchIds($request)->contains((int) $data['batch_id'])) {
             return ApiJson::failure(__('Not found.'), [], 404);
@@ -298,5 +599,175 @@ class MobileCollectionController extends Controller
         });
 
         return ApiJson::success($inspection->load('observations'), __('Created.'), 201);
+    }
+
+    public function certificatesStore(StoreCertificateRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $batchId = (int) $data['batch_id'];
+
+        if (! $this->batchIds($request)->contains($batchId)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $certificate = Certificate::create($data);
+
+        return ApiJson::success(
+            $certificate->load(['batch:id,batch_code,species', 'inspector:id,first_name,last_name', 'facility:id,facility_name']),
+            __('Created.'),
+            201
+        );
+    }
+
+    public function transportTripsStore(StoreTransportTripRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $certificateId = (int) $data['certificate_id'];
+
+        if (! $this->certificateIds($request)->contains($certificateId)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+        $facilityIds = $this->facilityIds($request);
+        if (! $facilityIds->contains((int) $data['origin_facility_id']) ||
+            ! $facilityIds->contains((int) $data['destination_facility_id'])) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $warehouseStorageId = (int) ($data['warehouse_storage_id'] ?? 0);
+        if ($warehouseStorageId > 0) {
+            $warehouseStorage = WarehouseStorage::query()->find($warehouseStorageId);
+            if (! $warehouseStorage || ! $this->certificateIds($request)->contains((int) $warehouseStorage->certificate_id)) {
+                return ApiJson::failure(__('Not found.'), [], 404);
+            }
+            if ($warehouseStorage->status !== WarehouseStorage::STATUS_RELEASED) {
+                return ApiJson::failure(
+                    __('Cannot transport: storage must be released first.'),
+                    ['warehouse_storage_id' => [__('Cannot transport: storage must be released first.')]],
+                    422
+                );
+            }
+        }
+
+        $trip = TransportTrip::query()->create($data);
+
+        return ApiJson::success(
+            $trip->load(['certificate:id,certificate_number,status', 'originFacility:id,facility_name', 'destinationFacility:id,facility_name']),
+            __('Created.'),
+            201
+        );
+    }
+
+    public function deliveryConfirmationsStore(StoreDeliveryConfirmationRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $transportTripId = (int) $data['transport_trip_id'];
+        if (! $this->transportTripIds($request)->contains($transportTripId)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $receivingFacilityId = (int) ($data['receiving_facility_id'] ?? 0);
+        if ($receivingFacilityId > 0 && ! $this->facilityIds($request)->contains($receivingFacilityId)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $clientId = (int) ($data['client_id'] ?? 0);
+        if ($clientId > 0) {
+            $client = Client::query()->find($clientId);
+            if (! $client || ! $request->user()->accessibleBusinessIds()->contains((int) $client->business_id)) {
+                return ApiJson::failure(__('Not found.'), [], 404);
+            }
+            if (! (bool) $client->is_active) {
+                return ApiJson::failure(
+                    __('Deliveries can only be created for active customers.'),
+                    ['client_id' => [__('Deliveries can only be created for active customers.')]],
+                    422
+                );
+            }
+        }
+
+        $contractId = (int) ($data['contract_id'] ?? 0);
+        if ($contractId > 0) {
+            $contract = Contract::query()->find($contractId);
+            if (! $contract || ! $request->user()->accessibleBusinessIds()->contains((int) $contract->business_id)) {
+                return ApiJson::failure(__('Not found.'), [], 404);
+            }
+        }
+
+        $confirmation = DeliveryConfirmation::query()->create($data);
+
+        return ApiJson::success(
+            $confirmation->load(['transportTrip:id,vehicle_plate_number,status', 'receivingFacility:id,facility_name', 'client:id,name']),
+            __('Created.'),
+            201
+        );
+    }
+
+    public function warehouseStoragesStore(StoreWarehouseStorageRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $certificateId = (int) $data['certificate_id'];
+        $warehouseFacilityId = (int) $data['warehouse_facility_id'];
+
+        $storageFacilityIds = Facility::query()
+            ->whereIn('business_id', $request->user()->accessibleBusinessIds())
+            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->pluck('id');
+
+        if (! $storageFacilityIds->contains($warehouseFacilityId)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $certificateIds = WarehouseStorage::accessibleCertificateIds($request);
+        if (! $certificateIds->contains($certificateId)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $certificate = Certificate::query()->find($certificateId);
+        if ($certificate === null) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+        if ($certificate->status !== Certificate::STATUS_ACTIVE) {
+            return ApiJson::failure(
+                __('Cannot store: certificate must be active.'),
+                ['certificate_id' => [__('Cannot store: certificate must be active.')]],
+                422
+            );
+        }
+        if (WarehouseStorage::query()
+            ->where('certificate_id', $certificateId)
+            ->where('status', WarehouseStorage::STATUS_IN_STORAGE)
+            ->exists()) {
+            return ApiJson::failure(
+                __('This batch is already in storage.'),
+                ['certificate_id' => [__('This batch is already in storage.')]],
+                422
+            );
+        }
+
+        $allowedUnits = $request->user()
+            ->configuredUnitsForBusinessIds($request->user()->accessibleBusinessIds())
+            ->pluck('code')
+            ->all();
+        $allowedUnits = empty($allowedUnits)
+            ? array_keys(Demand::QUANTITY_UNITS)
+            : array_values(array_unique(array_merge($allowedUnits, array_keys(Demand::QUANTITY_UNITS))));
+        if (! in_array((string) $data['quantity_unit'], $allowedUnits, true)) {
+            return ApiJson::failure(
+                __('Invalid quantity unit.'),
+                ['quantity_unit' => [__('The selected quantity unit is invalid.')]],
+                422
+            );
+        }
+
+        $data['batch_id'] = $certificate->batch_id;
+        $data['status'] = WarehouseStorage::STATUS_IN_STORAGE;
+
+        $storage = WarehouseStorage::query()->create($data);
+
+        return ApiJson::success(
+            $storage->load(['warehouseFacility:id,facility_name', 'batch:id,batch_code,species', 'certificate:id,certificate_number,status']),
+            __('Created.'),
+            201
+        );
     }
 }

@@ -21,13 +21,22 @@ use OpenApi\Attributes as OA;
         description: <<<'MD'
 **This documentation includes both web and API routes.**
 
-- **Mobile / API clients:** Only paths under `/api/v1/*` are intended for programmatic access. Use `Authorization: Bearer <token>` with a token from `POST /api/v1/auth/login`. Responses are JSON with envelope `{ "success": true|false, "message": string, "data": object }` (or `errors` on failure). Paginated lists nest Laravel’s paginator inside `data`.
+- **Mobile / API clients:** Only paths under `/api/v1/*` are intended for programmatic access. Use `Authorization: Bearer <token>` with a token from `POST /api/v1/auth/login`. Responses are JSON with envelope `{ "success": true|false, "message": string, "data": object }` (or `errors` on failure). Paginated lists use `{ data: { data: [], meta: {...}, filters: {...} } }`.
 
 - **Web routes:** Operations tagged **Web Routes** use Laravel **session** authentication (browser cookies), often return **HTML** or **redirects**, and are **not** substitutes for the mobile API.
 
 **Filtering:** In Swagger UI, filter by tag **Mobile API** to see only Bearer JSON endpoints.
 
-**Future REST:** Additional verbs (`GET/PATCH/DELETE` on resource IDs) may be added under `/api/v1` without changing the envelope contract.
+**Token lifecycle contract (mobile):**
+- Tokens are opaque (stored hashed in `mobile_api_tokens`) and currently expire **30 days** after issuance (`expires_at`).
+- There is **no refresh endpoint** in this API version.
+- When a token expires or is invalid, protected routes return `401` and the client must re-authenticate via `POST /api/v1/auth/login`.
+- `POST /api/v1/auth/logout` invalidates **only the current bearer token** used on that request.
+- Logging in again issues a new token; previous tokens remain valid until their own expiry or explicit logout with that token.
+
+**Ownership + 404 semantics (important):** For protected `/api/v1/*` routes, this API intentionally returns **404** when a resource is missing **or** outside the token's accessible workspace scope. This prevents cross-tenant resource enumeration. Mobile clients should treat these cases as a single "not available in current workspace" condition.
+
+**REST style:** Core processor modules expose list/create plus `GET/PUT/DELETE` resource routes under `/api/v1`.
 MD
         ,
     ),
@@ -69,7 +78,7 @@ MD
         ),
         new OA\Tag(
             name: 'Animal Intakes',
-            description: 'Animal origin records before slaughter. Mobile: `GET/POST /api/v1/animal-intakes`. Full web create rules: `StoreAnimalIntakeRequest`.',
+            description: 'Animal origin records before slaughter. Mobile: `GET/POST /api/v1/animal-intakes` and `GET/PUT/DELETE /api/v1/animal-intakes/{id}`. Full web/API rules: `StoreAnimalIntakeRequest` / `UpdateAnimalIntakeRequest`.',
         ),
         new OA\Tag(
             name: 'Slaughter Plans',
@@ -131,6 +140,13 @@ MD
                 type: 'http',
                 scheme: 'bearer',
                 description: '**Opaque API token** (not JWT). Obtain with `POST /api/v1/auth/login`; send once in the response `data.token`, then `Authorization: Bearer <token>`. Stored hashed as SHA-256 in `mobile_api_tokens.token_hash`. Expires per `expires_at` on the token row.',
+            ),
+            new OA\SecurityScheme(
+                securityScheme: 'cookieAuth',
+                type: 'apiKey',
+                in: 'cookie',
+                name: 'laravel_session',
+                description: 'Browser session cookie used by protected web routes.',
             ),
         ],
     ),

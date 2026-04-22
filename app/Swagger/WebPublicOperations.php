@@ -61,7 +61,7 @@ use OpenApi\Attributes as OA;
         'Facilities',
         'Inspectors',
     ],
-    security: [],
+    security: [['cookieAuth' => []]],
     responses: [
         new OA\Response(
             response: 200,

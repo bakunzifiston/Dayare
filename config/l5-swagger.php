@@ -20,7 +20,9 @@ return [
                 /*
                  * Edit to include full URL in ui for assets
                  */
-                'use_absolute_path' => env('L5_SWAGGER_USE_ABSOLUTE_PATH', true),
+                // Keep docs/asset URLs relative so Swagger UI always uses the current host
+                // (prevents localhost vs 127.0.0.1 mixed-origin fetch errors).
+                'use_absolute_path' => env('L5_SWAGGER_USE_ABSOLUTE_PATH', false),
 
                 /*
                 * Edit to set path where swagger ui assets should be stored

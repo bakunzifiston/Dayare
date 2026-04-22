@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\MobileLoginRequest;
+use App\Http\Requests\MobileRegisterRequest;
 use App\Http\Responses\ApiJson;
 use App\Models\Business;
 use App\Models\BusinessUser;
@@ -15,20 +17,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 
 class MobileAuthController extends Controller
 {
-    public function login(Request $request): JsonResponse
+    public function login(MobileLoginRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-            'device_name' => ['nullable', 'string', 'max:120'],
-            'business_id' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $data = $request->validated();
 
         $user = User::where('email', $data['email'])->first();
 
@@ -54,34 +49,21 @@ class MobileAuthController extends Controller
     /**
      * Stateless registration (same account rules as web `POST /register` — no CSRF).
      */
-    public function register(Request $request): JsonResponse
+    public function register(MobileRegisterRequest $request): JsonResponse
     {
-        $normalizedEmail = Str::lower(trim((string) $request->input('email', '')));
-
-        $request->merge([
-            'email' => $normalizedEmail,
-        ]);
-
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'business_type' => ['required', 'string', Rule::in(Business::TYPES)],
-            'device_name' => ['nullable', 'string', 'max:120'],
-        ], [
-            'email.unique' => __('This email is already registered'),
-        ]);
+        $data = $request->validated();
+        $normalizedEmail = Str::lower(trim((string) $data['email']));
 
         try {
-            $user = DB::transaction(function () use ($request, $normalizedEmail) {
+            $user = DB::transaction(function () use ($data, $normalizedEmail) {
                 $user = User::create([
-                    'name' => trim((string) $request->name),
-                    'email' => $request->email,
+                    'name' => trim((string) $data['name']),
+                    'email' => $data['email'],
                     'email_normalized' => $normalizedEmail,
-                    'password' => Hash::make($request->password),
+                    'password' => Hash::make($data['password']),
                 ]);
 
-                $nameTrim = trim((string) $request->name);
+                $nameTrim = trim((string) $data['name']);
                 $nameParts = preg_split('/\s+/', $nameTrim, 2, PREG_SPLIT_NO_EMPTY) ?: [];
                 $ownerFirst = $nameParts[0] ?? '—';
                 $ownerLast = $nameParts[1] ?? '—';
@@ -89,12 +71,12 @@ class MobileAuthController extends Controller
                 $normalizedBusinessName = $this->normalizeBusinessName($generatedBusinessName);
 
                 $business = $user->businesses()->create([
-                    'type' => $request->business_type,
+                    'type' => $data['business_type'],
                     'business_name' => $generatedBusinessName,
                     'business_name_normalized' => $normalizedBusinessName,
                     'registration_number' => 'PENDING-'.Str::uuid()->toString(),
                     'contact_phone' => '0000000000',
-                    'email' => $request->email,
+                    'email' => $data['email'],
                     'status' => Business::STATUS_ACTIVE,
                     'owner_first_name' => $ownerFirst,
                     'owner_last_name' => $ownerLast,
@@ -133,7 +115,7 @@ class MobileAuthController extends Controller
 
         $user->refresh();
 
-        [$plainToken, $token] = $this->createMobileToken($user, $request->input('device_name'));
+        [$plainToken, $token] = $this->createMobileToken($user, $data['device_name'] ?? null);
 
         return ApiJson::success([
             'token' => $plainToken,

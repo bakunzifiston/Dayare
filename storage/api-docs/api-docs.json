@@ -2,7 +2,7 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Butchapro API",
-        "description": "**This documentation includes both web and API routes.**\n\n- **Mobile / API clients:** Only paths under `/api/v1/*` are intended for programmatic access. Use `Authorization: Bearer <token>` with a token from `POST /api/v1/auth/login`. Responses are JSON with envelope `{ \"success\": true|false, \"message\": string, \"data\": object }` (or `errors` on failure). Paginated lists nest Laravel’s paginator inside `data`.\n\n- **Web routes:** Operations tagged **Web Routes** use Laravel **session** authentication (browser cookies), often return **HTML** or **redirects**, and are **not** substitutes for the mobile API.\n\n**Filtering:** In Swagger UI, filter by tag **Mobile API** to see only Bearer JSON endpoints.\n\n**Future REST:** Additional verbs (`GET/PATCH/DELETE` on resource IDs) may be added under `/api/v1` without changing the envelope contract.",
+        "description": "**This documentation includes both web and API routes.**\n\n- **Mobile / API clients:** Only paths under `/api/v1/*` are intended for programmatic access. Use `Authorization: Bearer <token>` with a token from `POST /api/v1/auth/login`. Responses are JSON with envelope `{ \"success\": true|false, \"message\": string, \"data\": object }` (or `errors` on failure). Paginated lists use `{ data: { data: [], meta: {...}, filters: {...} } }`.\n\n- **Web routes:** Operations tagged **Web Routes** use Laravel **session** authentication (browser cookies), often return **HTML** or **redirects**, and are **not** substitutes for the mobile API.\n\n**Filtering:** In Swagger UI, filter by tag **Mobile API** to see only Bearer JSON endpoints.\n\n**Token lifecycle contract (mobile):**\n- Tokens are opaque (stored hashed in `mobile_api_tokens`) and currently expire **30 days** after issuance (`expires_at`).\n- There is **no refresh endpoint** in this API version.\n- When a token expires or is invalid, protected routes return `401` and the client must re-authenticate via `POST /api/v1/auth/login`.\n- `POST /api/v1/auth/logout` invalidates **only the current bearer token** used on that request.\n- Logging in again issues a new token; previous tokens remain valid until their own expiry or explicit logout with that token.\n\n**Ownership + 404 semantics (important):** For protected `/api/v1/*` routes, this API intentionally returns **404** when a resource is missing **or** outside the token's accessible workspace scope. This prevents cross-tenant resource enumeration. Mobile clients should treat these cases as a single \"not available in current workspace\" condition.\n\n**REST style:** Core processor modules expose list/create plus `GET/PUT/DELETE` resource routes under `/api/v1`.",
         "version": "1.0.0"
     },
     "servers": [
@@ -43,7 +43,7 @@
                     "Auth"
                 ],
                 "summary": "Issue mobile API token",
-                "description": "Validates user email/password, creates a row in `mobile_api_tokens` (hashed token), returns plain token once.",
+                "description": "Validates user email/password, creates a row in `mobile_api_tokens` (hashed token), returns plain token once. Token currently expires 30 days after issuance. No refresh endpoint exists; re-login is required after expiry.",
                 "operationId": "mobileAuthLogin",
                 "requestBody": {
                     "required": true,
@@ -85,6 +85,16 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "description": "Too many login attempts (throttled).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": []
@@ -97,7 +107,7 @@
                     "Auth"
                 ],
                 "summary": "Register user and initial workspace (stateless)",
-                "description": "Creates a user, assigns tenant owner role, creates a starter business (same rules as web registration). Returns Bearer token — no session cookie. Rate limited.",
+                "description": "Creates a user, assigns tenant owner role, creates a starter business (same rules as web registration). Returns Bearer token — no session cookie. Token currently expires 30 days after issuance. No refresh endpoint exists; re-login is required after expiry. Rate limited.",
                 "operationId": "mobileAuthRegister",
                 "requestBody": {
                     "required": true,
@@ -129,6 +139,16 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "description": "Too many registration attempts (throttled).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": []
@@ -141,6 +161,7 @@
                     "Auth"
                 ],
                 "summary": "Revoke current mobile token",
+                "description": "Invalidates only the bearer token used on this request. Other active tokens for the same user remain valid until their own expiry or logout.",
                 "operationId": "mobileAuthLogout",
                 "responses": {
                     "200": {
@@ -154,7 +175,14 @@
                         }
                     },
                     "401": {
-                        "description": "Missing or invalid Bearer token"
+                        "description": "Missing or invalid Bearer token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -178,8 +206,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "description": "Matches `StoreBusinessRequest`: business_name, registration_number, contact_phone, email, status, owner_first_name, owner_last_name, optional type, location fields, optional members[].",
-                                "type": "object"
+                                "$ref": "#/components/schemas/BusinessCreateRequest"
                             }
                         }
                     }
@@ -196,7 +223,24 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation error",
@@ -249,10 +293,34 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "business_id not accessible"
+                        "description": "Business not found or not accessible in current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -284,7 +352,24 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -311,25 +396,101 @@
                         "in": "query",
                         "schema": {
                             "type": "integer",
-                            "default": 20
+                            "default": 20,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "facility_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "species",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "intake_date_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "intake_date_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Laravel length-aware paginator fields inside `data` (including `data` array of rows).",
+                        "description": "Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ApiSuccess"
+                                    "$ref": "#/components/schemas/ApiPaginatedSuccess"
                                 }
                             }
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Facility not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -364,15 +525,289 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Facility not in scope"
+                        "description": "Referenced resource not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Validation error"
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/animal-intakes/{animalIntake}": {
+            "get": {
+                "tags": [
+                    "Mobile API",
+                    "Animal Intakes",
+                    "Businesses",
+                    "Livestock",
+                    "AnimalHealthRecord"
+                ],
+                "summary": "Get one animal intake",
+                "operationId": "mobileAnimalIntakesShow",
+                "parameters": [
+                    {
+                        "name": "animalIntake",
+                        "in": "path",
+                        "description": "Animal intake ID.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Intake in standard success envelope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Mobile API",
+                    "Animal Intakes",
+                    "Businesses",
+                    "Livestock",
+                    "AnimalHealthRecord"
+                ],
+                "summary": "Update animal intake",
+                "description": "Uses UpdateAnimalIntakeRequest; same contract shape as create, scoped to accessible facilities.",
+                "operationId": "mobileAnimalIntakesUpdate",
+                "parameters": [
+                    {
+                        "name": "animalIntake",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AnimalIntakeUpdateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated record in standard envelope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Mobile API",
+                    "Animal Intakes",
+                    "Businesses",
+                    "Livestock",
+                    "AnimalHealthRecord"
+                ],
+                "summary": "Delete animal intake",
+                "operationId": "mobileAnimalIntakesDestroy",
+                "parameters": [
+                    {
+                        "name": "animalIntake",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Cannot delete due to related records",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/slaughter-plans": {
@@ -389,25 +824,101 @@
                         "in": "query",
                         "schema": {
                             "type": "integer",
-                            "default": 20
+                            "default": 20,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "facility_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "species",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "slaughter_date_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "slaughter_date_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Paginator inside `data`.",
+                        "description": "Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ApiSuccess"
+                                    "$ref": "#/components/schemas/ApiPaginatedSuccess"
                                 }
                             }
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Facility not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -439,15 +950,279 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Facility not in scope"
+                        "description": "Referenced resource not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Validation error"
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/slaughter-plans/{slaughterPlan}": {
+            "get": {
+                "tags": [
+                    "Mobile API",
+                    "Slaughter Plans"
+                ],
+                "summary": "Get one slaughter plan",
+                "operationId": "mobileSlaughterPlansShow",
+                "parameters": [
+                    {
+                        "name": "slaughterPlan",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plan in standard success envelope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Mobile API",
+                    "Slaughter Plans"
+                ],
+                "summary": "Update slaughter plan",
+                "description": "Uses UpdateSlaughterPlanRequest rules; same payload shape as create.",
+                "operationId": "mobileSlaughterPlansUpdate",
+                "parameters": [
+                    {
+                        "name": "slaughterPlan",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SlaughterPlanUpdateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated plan in standard envelope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Mobile API",
+                    "Slaughter Plans"
+                ],
+                "summary": "Delete slaughter plan",
+                "operationId": "mobileSlaughterPlansDestroy",
+                "parameters": [
+                    {
+                        "name": "slaughterPlan",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Cannot delete due to related records",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/slaughter-executions": {
@@ -464,25 +1239,93 @@
                         "in": "query",
                         "schema": {
                             "type": "integer",
-                            "default": 20
+                            "default": 20,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "slaughter_plan_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "slaughter_time_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "slaughter_time_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Paginator inside `data`.",
+                        "description": "Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ApiSuccess"
+                                    "$ref": "#/components/schemas/ApiPaginatedSuccess"
                                 }
                             }
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Slaughter plan not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -513,15 +1356,279 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Plan not in scope"
+                        "description": "Referenced resource not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Validation error"
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/slaughter-executions/{slaughterExecution}": {
+            "get": {
+                "tags": [
+                    "Mobile API",
+                    "Slaughter Executions"
+                ],
+                "summary": "Get one slaughter execution",
+                "operationId": "mobileSlaughterExecutionsShow",
+                "parameters": [
+                    {
+                        "name": "slaughterExecution",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Execution in standard success envelope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Mobile API",
+                    "Slaughter Executions"
+                ],
+                "summary": "Update slaughter execution",
+                "description": "Uses UpdateSlaughterExecutionRequest rules; same payload shape as create.",
+                "operationId": "mobileSlaughterExecutionsUpdate",
+                "parameters": [
+                    {
+                        "name": "slaughterExecution",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SlaughterExecutionUpdateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated execution in standard envelope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Mobile API",
+                    "Slaughter Executions"
+                ],
+                "summary": "Delete slaughter execution",
+                "operationId": "mobileSlaughterExecutionsDestroy",
+                "parameters": [
+                    {
+                        "name": "slaughterExecution",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found or outside current workspace scope (ownership-protected).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Cannot delete due to related records",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/ante-mortem-inspections": {
@@ -555,10 +1662,34 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Plan not in scope"
+                        "description": "Slaughter plan not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Totals or checklist validation failed",
@@ -570,7 +1701,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/post-mortem-inspections": {
@@ -604,10 +1740,34 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Batch not in scope"
+                        "description": "Batch not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Totals or checklist validation failed",
@@ -619,7 +1779,330 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/certificates": {
+            "post": {
+                "tags": [
+                    "Mobile API",
+                    "Certificates",
+                    "Batches"
+                ],
+                "summary": "Issue certificate",
+                "description": "Creates a certificate for a batch in scope. Batch must be eligible (post-mortem approved quantity > 0) and must not already have a certificate.",
+                "operationId": "mobileCertificatesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CertificateCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created certificate in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Batch not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or certificate eligibility error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/warehouse-storages": {
+            "post": {
+                "tags": [
+                    "Mobile API",
+                    "Warehouse Storage",
+                    "Certificates",
+                    "Batches"
+                ],
+                "summary": "Create warehouse storage record",
+                "description": "Creates a cold-room storage entry. Certificate must be in workspace scope, active, and not already in storage.",
+                "operationId": "mobileWarehouseStoragesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WarehouseStorageCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created storage record in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Facility or certificate not found / outside workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/transport-trips": {
+            "post": {
+                "tags": [
+                    "Mobile API",
+                    "Transport Trips",
+                    "Certificates",
+                    "Warehouse Storage"
+                ],
+                "summary": "Create transport trip",
+                "description": "Creates a transport trip. Certificate and facilities must be in workspace scope; optional warehouse storage must be released.",
+                "operationId": "mobileTransportTripsStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TransportTripCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created transport trip in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Referenced resource not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/delivery-confirmations": {
+            "post": {
+                "tags": [
+                    "Mobile API",
+                    "Delivery Confirmations",
+                    "Transport Trips"
+                ],
+                "summary": "Create delivery confirmation",
+                "description": "Creates a delivery confirmation for a transport trip in workspace scope. Client must be active if provided.",
+                "operationId": "mobileDeliveryConfirmationsStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DeliveryConfirmationCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created delivery confirmation in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Referenced resource not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or business rule error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/trace/{slug}": {
@@ -702,7 +2185,11 @@
                         "description": "Redirect to login when unauthenticated"
                     }
                 },
-                "security": []
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ]
             }
         },
         "/businesses": {
@@ -784,6 +2271,29 @@
                                         "example": "1988-04-15",
                                         "nullable": true
                                     },
+                                    "owner_gender": {
+                                        "type": "string",
+                                        "example": "male",
+                                        "nullable": true,
+                                        "enum": [
+                                            "male",
+                                            "female",
+                                            "other"
+                                        ]
+                                    },
+                                    "owner_pwd_status": {
+                                        "type": "string",
+                                        "example": "none",
+                                        "nullable": true,
+                                        "enum": [
+                                            "none",
+                                            "physical",
+                                            "visual",
+                                            "hearing",
+                                            "cognitive",
+                                            "other"
+                                        ]
+                                    },
                                     "owner_phone": {
                                         "type": "string",
                                         "example": "+250788111111",
@@ -806,6 +2316,49 @@
                                             "cooperative",
                                             "other"
                                         ]
+                                    },
+                                    "business_size": {
+                                        "type": "string",
+                                        "example": "small",
+                                        "nullable": true,
+                                        "enum": [
+                                            "micro",
+                                            "small",
+                                            "medium",
+                                            "large"
+                                        ]
+                                    },
+                                    "baseline_revenue": {
+                                        "type": "integer",
+                                        "example": 25000000,
+                                        "nullable": true
+                                    },
+                                    "vibe_unique_id": {
+                                        "type": "string",
+                                        "example": "VIBE-01JRSK1F0D2H0NANAX8EYG4P79",
+                                        "nullable": true
+                                    },
+                                    "vibe_commencement_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-04-20",
+                                        "nullable": true
+                                    },
+                                    "pathway_status": {
+                                        "type": "string",
+                                        "example": "active",
+                                        "nullable": true,
+                                        "enum": [
+                                            "active",
+                                            "verification",
+                                            "inactive",
+                                            "graduated"
+                                        ]
+                                    },
+                                    "vibe_comments": {
+                                        "type": "string",
+                                        "example": "Initial onboarding complete.",
+                                        "nullable": true
                                     },
                                     "country_id": {
                                         "type": "integer",
@@ -876,6 +2429,40 @@
                                                     "format": "date",
                                                     "example": "1990-01-10",
                                                     "nullable": true
+                                                },
+                                                "gender": {
+                                                    "type": "string",
+                                                    "example": "female",
+                                                    "nullable": true,
+                                                    "enum": [
+                                                        "male",
+                                                        "female",
+                                                        "other"
+                                                    ]
+                                                },
+                                                "pwd_status": {
+                                                    "type": "string",
+                                                    "example": "none",
+                                                    "nullable": true,
+                                                    "enum": [
+                                                        "none",
+                                                        "physical",
+                                                        "visual",
+                                                        "hearing",
+                                                        "cognitive",
+                                                        "other"
+                                                    ]
+                                                },
+                                                "phone": {
+                                                    "type": "string",
+                                                    "example": "+250788123456",
+                                                    "nullable": true
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "format": "email",
+                                                    "example": "alice@example.com",
+                                                    "nullable": true
                                                 }
                                             },
                                             "type": "object"
@@ -896,7 +2483,11 @@
                         "description": "Validation failed."
                     }
                 },
-                "security": []
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ]
             }
         },
         "/businesses/{business}/facilities": {
@@ -950,7 +2541,11 @@
                         "description": "Redirect to login when unauthenticated."
                     }
                 },
-                "security": []
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -1090,7 +2685,11 @@
                         "description": "Validation failed."
                     }
                 },
-                "security": []
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ]
             }
         },
         "/inspectors": {
@@ -1273,7 +2872,11 @@
                         "description": "Validation failed."
                     }
                 },
-                "security": []
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ]
             }
         }
     },
@@ -1387,20 +2990,28 @@
                 "type": "object"
             },
             "AnimalIntakeCreateRequest": {
-                "description": "Mobile create body. Web UI supports additional optional fields (divisions, supplier_id, health cert dates) via StoreAnimalIntakeRequest.",
+                "description": "Aligned with StoreAnimalIntakeRequest. `supplier_firstname` and `supplier_lastname` are conditionally required when `supplier_id` is null.",
                 "required": [
                     "facility_id",
                     "intake_date",
                     "species",
                     "number_of_animals",
-                    "status",
-                    "supplier_firstname",
-                    "supplier_lastname"
+                    "status"
                 ],
                 "properties": {
                     "facility_id": {
                         "type": "integer",
                         "example": 3
+                    },
+                    "supplier_id": {
+                        "type": "integer",
+                        "example": 12,
+                        "nullable": true
+                    },
+                    "contract_id": {
+                        "type": "integer",
+                        "example": 41,
+                        "nullable": true
                     },
                     "intake_date": {
                         "type": "string",
@@ -1424,11 +3035,13 @@
                     },
                     "supplier_firstname": {
                         "type": "string",
-                        "maxLength": 100
+                        "nullable": true,
+                        "maxLength": 255
                     },
                     "supplier_lastname": {
                         "type": "string",
-                        "maxLength": 100
+                        "nullable": true,
+                        "maxLength": 255
                     },
                     "supplier_contact": {
                         "type": "string",
@@ -1437,15 +3050,215 @@
                     },
                     "farm_name": {
                         "type": "string",
+                        "nullable": true,
+                        "maxLength": 255
+                    },
+                    "farm_registration_number": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "country_id": {
+                        "type": "integer",
                         "nullable": true
+                    },
+                    "province_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "district_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "sector_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "cell_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "village_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "unit_price": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "total_price": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true,
+                        "minimum": 0
                     },
                     "animal_identification_numbers": {
                         "type": "string",
                         "nullable": true
                     },
-                    "notes": {
+                    "transport_vehicle_plate": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 50
+                    },
+                    "driver_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 255
+                    },
+                    "animal_health_certificate_number": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "health_certificate_issue_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "health_certificate_expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "AnimalIntakeUpdateRequest": {
+                "description": "Aligned with UpdateAnimalIntakeRequest. `supplier_firstname` and `supplier_lastname` are conditionally required when `supplier_id` is null.",
+                "required": [
+                    "facility_id",
+                    "intake_date",
+                    "species",
+                    "number_of_animals",
+                    "status"
+                ],
+                "properties": {
+                    "facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "supplier_id": {
+                        "type": "integer",
+                        "example": 12,
+                        "nullable": true
+                    },
+                    "contract_id": {
+                        "type": "integer",
+                        "example": 41,
+                        "nullable": true
+                    },
+                    "intake_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "supplier_firstname": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 255
+                    },
+                    "supplier_lastname": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 255
+                    },
+                    "supplier_contact": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "farm_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 255
+                    },
+                    "farm_registration_number": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "country_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "province_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "district_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "sector_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "cell_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "village_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "species": {
+                        "type": "string",
+                        "maxLength": 50
+                    },
+                    "number_of_animals": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "unit_price": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "total_price": {
+                        "type": "number",
+                        "format": "float",
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "animal_identification_numbers": {
                         "type": "string",
                         "nullable": true
+                    },
+                    "transport_vehicle_plate": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 50
+                    },
+                    "driver_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 255
+                    },
+                    "animal_health_certificate_number": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "health_certificate_issue_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "health_certificate_expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "received",
+                            "approved",
+                            "rejected"
+                        ]
                     }
                 },
                 "type": "object"
@@ -1491,10 +3304,11 @@
                     },
                     "notes": {
                         "type": "string",
-                        "nullable": true
+                        "nullable": true,
+                        "maxLength": 5000
                     },
                     "observations": {
-                        "description": "Keyed by checklist item id; each value: { \"value\": string (allowed per AnteMortemChecklist), \"notes\": string|null }",
+                        "description": "Keyed by checklist item id; each value: { \"value\": string (max 20, allowed per AnteMortemChecklist), \"notes\": string|null (max 5000) }",
                         "type": "object",
                         "example": {
                             "general_appearance": {
@@ -1523,6 +3337,73 @@
                     },
                     "errors": {
                         "description": "Laravel-style field bag or arbitrary JSON object",
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiPaginatedSuccess": {
+                "description": "Standard paginated success envelope for list endpoints.",
+                "required": [
+                    "success",
+                    "message",
+                    "data"
+                ],
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "OK"
+                    },
+                    "data": {
+                        "required": [
+                            "data",
+                            "meta",
+                            "filters"
+                        ],
+                        "properties": {
+                            "data": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object"
+                                }
+                            },
+                            "meta": {
+                                "required": [
+                                    "current_page",
+                                    "last_page",
+                                    "per_page",
+                                    "total"
+                                ],
+                                "properties": {
+                                    "current_page": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "last_page": {
+                                        "type": "integer",
+                                        "example": 4
+                                    },
+                                    "per_page": {
+                                        "type": "integer",
+                                        "example": 20
+                                    },
+                                    "total": {
+                                        "type": "integer",
+                                        "example": 78
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "filters": {
+                                "description": "Echoes query filters applied to this listing. Empty object when none.",
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        },
                         "type": "object"
                     }
                 },
@@ -1570,7 +3451,7 @@
                     },
                     "userRole": {
                         "type": "string",
-                        "example": "owner"
+                        "example": "org_admin"
                     },
                     "business_type": {
                         "type": "string",
@@ -1724,6 +3605,66 @@
                         "type": "string",
                         "example": "active"
                     },
+                    "owner_gender": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "male",
+                            "female",
+                            "other"
+                        ]
+                    },
+                    "owner_pwd_status": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "none",
+                            "physical",
+                            "visual",
+                            "hearing",
+                            "cognitive",
+                            "other"
+                        ]
+                    },
+                    "business_size": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "micro",
+                            "small",
+                            "medium",
+                            "large"
+                        ]
+                    },
+                    "baseline_revenue": {
+                        "type": "integer",
+                        "example": 25000000,
+                        "nullable": true
+                    },
+                    "vibe_unique_id": {
+                        "type": "string",
+                        "example": "VIBE-01JRSK1F0D2H0NANAX8EYG4P79",
+                        "nullable": true
+                    },
+                    "vibe_commencement_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "pathway_status": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "active",
+                            "verification",
+                            "inactive",
+                            "graduated"
+                        ]
+                    },
+                    "vibe_comments": {
+                        "type": "string",
+                        "nullable": true
+                    },
                     "address_line_1": {
                         "type": "string",
                         "nullable": true
@@ -1734,6 +3675,286 @@
                     },
                     "country_id": {
                         "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "BusinessCreateRequest": {
+                "description": "Business create payload aligned to StoreBusinessRequest.",
+                "required": [
+                    "business_name",
+                    "registration_number",
+                    "contact_phone",
+                    "email",
+                    "status",
+                    "owner_first_name",
+                    "owner_last_name"
+                ],
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "example": "processor",
+                        "nullable": true,
+                        "enum": [
+                            "farmer",
+                            "processor",
+                            "logistics"
+                        ]
+                    },
+                    "business_name": {
+                        "type": "string",
+                        "example": "Dayare Meat Ltd",
+                        "maxLength": 255
+                    },
+                    "registration_number": {
+                        "type": "string",
+                        "example": "REG-2026-001",
+                        "maxLength": 100
+                    },
+                    "tax_id": {
+                        "type": "string",
+                        "example": "TIN-20493",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "contact_phone": {
+                        "type": "string",
+                        "example": "+250788000000",
+                        "maxLength": 50
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "info@dayaremeat.com",
+                        "maxLength": 255
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active",
+                        "enum": [
+                            "active",
+                            "suspended"
+                        ]
+                    },
+                    "owner_first_name": {
+                        "type": "string",
+                        "example": "Jean",
+                        "maxLength": 255
+                    },
+                    "owner_last_name": {
+                        "type": "string",
+                        "example": "Claude",
+                        "maxLength": 255
+                    },
+                    "owner_dob": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "1988-04-15",
+                        "nullable": true
+                    },
+                    "owner_gender": {
+                        "type": "string",
+                        "example": "male",
+                        "nullable": true,
+                        "enum": [
+                            "male",
+                            "female",
+                            "other"
+                        ]
+                    },
+                    "owner_pwd_status": {
+                        "type": "string",
+                        "example": "none",
+                        "nullable": true,
+                        "enum": [
+                            "none",
+                            "physical",
+                            "visual",
+                            "hearing",
+                            "cognitive",
+                            "other"
+                        ]
+                    },
+                    "owner_phone": {
+                        "type": "string",
+                        "example": "+250788111111",
+                        "nullable": true,
+                        "maxLength": 50
+                    },
+                    "owner_email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "owner@dayaremeat.com",
+                        "nullable": true,
+                        "maxLength": 255
+                    },
+                    "ownership_type": {
+                        "type": "string",
+                        "example": "company",
+                        "nullable": true,
+                        "enum": [
+                            "sole_proprietor",
+                            "partnership",
+                            "company",
+                            "cooperative",
+                            "other"
+                        ]
+                    },
+                    "business_size": {
+                        "type": "string",
+                        "example": "small",
+                        "nullable": true,
+                        "enum": [
+                            "micro",
+                            "small",
+                            "medium",
+                            "large"
+                        ]
+                    },
+                    "baseline_revenue": {
+                        "type": "integer",
+                        "example": 25000000,
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "vibe_unique_id": {
+                        "type": "string",
+                        "example": "VIBE-01JRSK1F0D2H0NANAX8EYG4P79",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "vibe_commencement_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-04-20",
+                        "nullable": true
+                    },
+                    "pathway_status": {
+                        "type": "string",
+                        "example": "active",
+                        "nullable": true,
+                        "enum": [
+                            "active",
+                            "verification",
+                            "inactive",
+                            "graduated"
+                        ]
+                    },
+                    "vibe_comments": {
+                        "type": "string",
+                        "example": "Initial onboarding complete.",
+                        "nullable": true,
+                        "maxLength": 1000
+                    },
+                    "country_id": {
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "province_id": {
+                        "type": "integer",
+                        "example": 2,
+                        "nullable": true
+                    },
+                    "district_id": {
+                        "type": "integer",
+                        "example": 3,
+                        "nullable": true
+                    },
+                    "sector_id": {
+                        "type": "integer",
+                        "example": 4,
+                        "nullable": true
+                    },
+                    "cell_id": {
+                        "type": "integer",
+                        "example": 5,
+                        "nullable": true
+                    },
+                    "village_id": {
+                        "type": "integer",
+                        "example": 6,
+                        "nullable": true
+                    },
+                    "city": {
+                        "type": "string",
+                        "example": "Kigali",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "state_region": {
+                        "type": "string",
+                        "example": "Kigali City",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "postal_code": {
+                        "type": "string",
+                        "example": "00000",
+                        "nullable": true,
+                        "maxLength": 20
+                    },
+                    "country": {
+                        "type": "string",
+                        "example": "Rwanda",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "members": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "first_name": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "maxLength": 255
+                                },
+                                "last_name": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "maxLength": 255
+                                },
+                                "date_of_birth": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "nullable": true
+                                },
+                                "gender": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "enum": [
+                                        "male",
+                                        "female",
+                                        "other"
+                                    ]
+                                },
+                                "pwd_status": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "enum": [
+                                        "none",
+                                        "physical",
+                                        "visual",
+                                        "hearing",
+                                        "cognitive",
+                                        "other"
+                                    ]
+                                },
+                                "phone": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "maxLength": 50
+                                },
+                                "email": {
+                                    "type": "string",
+                                    "format": "email",
+                                    "nullable": true,
+                                    "maxLength": 255
+                                }
+                            },
+                            "type": "object"
+                        },
                         "nullable": true
                     }
                 },
@@ -1791,6 +4012,57 @@
                 },
                 "type": "object"
             },
+            "CertificateCreateRequest": {
+                "description": "Aligned with StoreCertificateRequest. Batch must be in workspace scope, eligible for certificate, and without an existing certificate.",
+                "required": [
+                    "batch_id",
+                    "inspector_id",
+                    "facility_id",
+                    "issued_at",
+                    "status"
+                ],
+                "properties": {
+                    "batch_id": {
+                        "type": "integer",
+                        "example": 120
+                    },
+                    "inspector_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "certificate_number": {
+                        "type": "string",
+                        "example": "CERT-2026-0001",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "issued_at": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-04-22"
+                    },
+                    "expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-22",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active",
+                        "enum": [
+                            "active",
+                            "expired",
+                            "revoked"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
             "DeliveryConfirmation": {
                 "description": "Confirms receipt for a transport trip. FK: transport_trip_id.",
                 "required": [
@@ -1822,6 +4094,73 @@
                     },
                     "confirmation_status": {
                         "type": "string",
+                        "enum": [
+                            "pending",
+                            "confirmed",
+                            "disputed"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "DeliveryConfirmationCreateRequest": {
+                "description": "Create delivery confirmation for a transport trip in workspace scope.",
+                "required": [
+                    "transport_trip_id",
+                    "received_quantity",
+                    "received_date",
+                    "receiver_name",
+                    "confirmation_status"
+                ],
+                "properties": {
+                    "transport_trip_id": {
+                        "type": "integer",
+                        "example": 44
+                    },
+                    "receiving_facility_id": {
+                        "type": "integer",
+                        "example": 5,
+                        "nullable": true
+                    },
+                    "client_id": {
+                        "type": "integer",
+                        "example": 21,
+                        "nullable": true
+                    },
+                    "contract_id": {
+                        "type": "integer",
+                        "example": 16,
+                        "nullable": true
+                    },
+                    "received_quantity": {
+                        "type": "integer",
+                        "example": 24,
+                        "minimum": 0
+                    },
+                    "received_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-04-23"
+                    },
+                    "receiver_name": {
+                        "type": "string",
+                        "example": "Warehouse Receiver",
+                        "maxLength": 255
+                    },
+                    "receiver_country": {
+                        "type": "string",
+                        "example": "Rwanda",
+                        "nullable": true,
+                        "maxLength": 100
+                    },
+                    "receiver_address": {
+                        "type": "string",
+                        "example": "Kigali Special Economic Zone",
+                        "nullable": true
+                    },
+                    "confirmation_status": {
+                        "type": "string",
+                        "example": "confirmed",
                         "enum": [
                             "pending",
                             "confirmed",
@@ -1992,7 +4331,8 @@
                         "description": "Optional workspace context; must be in the user's accessible businesses.",
                         "type": "integer",
                         "example": 12,
-                        "nullable": true
+                        "nullable": true,
+                        "minimum": 1
                     }
                 },
                 "type": "object"
@@ -2020,7 +4360,7 @@
                 "type": "object"
             },
             "LoginSession": {
-                "description": "Payload inside success.data for POST /auth/login.",
+                "description": "Payload inside success.data for POST /auth/login and POST /auth/register. `expires_at` defines when this token becomes invalid (protected routes then return 401 and client must re-login).",
                 "properties": {
                     "token": {
                         "type": "string",
@@ -2033,6 +4373,7 @@
                     "expires_at": {
                         "type": "string",
                         "format": "date-time",
+                        "example": "2026-05-22T10:30:00Z",
                         "nullable": true
                     },
                     "user": {
@@ -2082,10 +4423,11 @@
                     },
                     "notes": {
                         "type": "string",
-                        "nullable": true
+                        "nullable": true,
+                        "maxLength": 5000
                     },
                     "observations": {
-                        "description": "Keyed by checklist item id; each value: { \"value\", \"notes\" } per PostMortemChecklist.",
+                        "description": "Keyed by checklist item id; each value: { \"value\": string (max 20), \"notes\": string|null (max 5000) } per PostMortemChecklist.",
                         "type": "object",
                         "example": {
                             "carcass_condition": {
@@ -2098,6 +4440,7 @@
                 "type": "object"
             },
             "RegisterRequest": {
+                "description": "Mobile registration payload (same account rules as web registration, stateless JSON).",
                 "required": [
                     "name",
                     "email",
@@ -2108,22 +4451,30 @@
                 "properties": {
                     "name": {
                         "type": "string",
-                        "example": "Jane Doe"
+                        "example": "John Doe",
+                        "maxLength": 255
                     },
                     "email": {
                         "type": "string",
-                        "format": "email"
+                        "format": "email",
+                        "example": "john@example.com",
+                        "maxLength": 255
                     },
                     "password": {
                         "type": "string",
-                        "format": "password"
+                        "format": "password",
+                        "example": "Secret123!",
+                        "minLength": 8
                     },
                     "password_confirmation": {
                         "type": "string",
-                        "format": "password"
+                        "format": "password",
+                        "example": "Secret123!",
+                        "minLength": 8
                     },
                     "business_type": {
                         "type": "string",
+                        "example": "processor",
                         "enum": [
                             "farmer",
                             "processor",
@@ -2132,6 +4483,7 @@
                     },
                     "device_name": {
                         "type": "string",
+                        "example": "Android-Phone",
                         "nullable": true,
                         "maxLength": 120
                     }
@@ -2193,7 +4545,39 @@
                     },
                     "slaughter_time": {
                         "type": "string",
-                        "format": "date-time"
+                        "format": "date"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "scheduled",
+                            "in_progress",
+                            "completed",
+                            "cancelled"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "SlaughterExecutionUpdateRequest": {
+                "description": "Aligned with UpdateSlaughterExecutionRequest.",
+                "required": [
+                    "slaughter_plan_id",
+                    "actual_animals_slaughtered",
+                    "slaughter_time",
+                    "status"
+                ],
+                "properties": {
+                    "slaughter_plan_id": {
+                        "type": "integer"
+                    },
+                    "actual_animals_slaughtered": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "slaughter_time": {
+                        "type": "string",
+                        "format": "date"
                     },
                     "status": {
                         "type": "string",
@@ -2284,7 +4668,51 @@
                         "type": "integer"
                     },
                     "species": {
-                        "type": "string"
+                        "type": "string",
+                        "maxLength": 50
+                    },
+                    "number_of_animals_scheduled": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "planned",
+                            "approved"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "SlaughterPlanUpdateRequest": {
+                "description": "Aligned with UpdateSlaughterPlanRequest. `animal_intake_id` is nullable on update for backward compatibility.",
+                "required": [
+                    "slaughter_date",
+                    "facility_id",
+                    "inspector_id",
+                    "species",
+                    "number_of_animals_scheduled",
+                    "status"
+                ],
+                "properties": {
+                    "slaughter_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "facility_id": {
+                        "type": "integer"
+                    },
+                    "animal_intake_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "inspector_id": {
+                        "type": "integer"
+                    },
+                    "species": {
+                        "type": "string",
+                        "maxLength": 50
                     },
                     "number_of_animals_scheduled": {
                         "type": "integer",
@@ -2355,6 +4783,80 @@
                 },
                 "type": "object"
             },
+            "TransportTripCreateRequest": {
+                "description": "Create transport trip. Certificate and facilities must be in workspace scope; optional warehouse storage must be released.",
+                "required": [
+                    "certificate_id",
+                    "origin_facility_id",
+                    "destination_facility_id",
+                    "vehicle_plate_number",
+                    "driver_name",
+                    "departure_date",
+                    "status"
+                ],
+                "properties": {
+                    "certificate_id": {
+                        "type": "integer",
+                        "example": 101
+                    },
+                    "warehouse_storage_id": {
+                        "type": "integer",
+                        "example": 55,
+                        "nullable": true
+                    },
+                    "batch_id": {
+                        "type": "integer",
+                        "example": 88,
+                        "nullable": true
+                    },
+                    "origin_facility_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "destination_facility_id": {
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "vehicle_plate_number": {
+                        "type": "string",
+                        "example": "RAB123C",
+                        "maxLength": 50
+                    },
+                    "driver_name": {
+                        "type": "string",
+                        "example": "Jean Claude",
+                        "maxLength": 255
+                    },
+                    "driver_phone": {
+                        "type": "string",
+                        "example": "+250788000000",
+                        "nullable": true,
+                        "maxLength": 50
+                    },
+                    "departure_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-04-22"
+                    },
+                    "arrival_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-04-23",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending",
+                        "enum": [
+                            "pending",
+                            "in_transit",
+                            "arrived",
+                            "completed"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
             "User": {
                 "description": "Application user (tenant membership via business_users / roles).",
                 "required": [
@@ -2407,9 +4909,9 @@
                         "example": false
                     },
                     "userRole": {
-                        "description": "Membership: owner, manager, staff, super_admin, or user",
+                        "description": "Membership: org_admin, operations_manager, compliance_officer, inspector, transport_manager, super_admin, or user",
                         "type": "string",
-                        "example": "owner"
+                        "example": "org_admin"
                     },
                     "business_type": {
                         "description": "Tenant type for active workspace",
@@ -2436,7 +4938,7 @@
                                     "type": "string"
                                 },
                                 "membership": {
-                                    "description": "owner | manager | staff",
+                                    "description": "org_admin | operations_manager | compliance_officer | inspector | transport_manager",
                                     "type": "string"
                                 }
                             },
@@ -2504,6 +5006,60 @@
                     }
                 },
                 "type": "object"
+            },
+            "WarehouseStorageCreateRequest": {
+                "description": "Create cold-room storage record. Certificate must be in workspace scope, active, and not already in storage.",
+                "required": [
+                    "warehouse_facility_id",
+                    "certificate_id",
+                    "entry_date",
+                    "quantity_stored",
+                    "quantity_unit"
+                ],
+                "properties": {
+                    "warehouse_facility_id": {
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "cold_room_id": {
+                        "type": "integer",
+                        "example": 12,
+                        "nullable": true
+                    },
+                    "certificate_id": {
+                        "type": "integer",
+                        "example": 120
+                    },
+                    "entry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-04-22"
+                    },
+                    "storage_location": {
+                        "type": "string",
+                        "example": "Aisle B / Rack 3",
+                        "nullable": true,
+                        "maxLength": 255
+                    },
+                    "temperature_at_entry": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 3.5,
+                        "nullable": true,
+                        "maximum": 50,
+                        "minimum": -50
+                    },
+                    "quantity_stored": {
+                        "type": "integer",
+                        "example": 24,
+                        "minimum": 1
+                    },
+                    "quantity_unit": {
+                        "type": "string",
+                        "example": "kg"
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -2511,6 +5067,12 @@
                 "type": "http",
                 "description": "**Opaque API token** (not JWT). Obtain with `POST /api/v1/auth/login`; send once in the response `data.token`, then `Authorization: Bearer <token>`. Stored hashed as SHA-256 in `mobile_api_tokens.token_hash`. Expires per `expires_at` on the token row.",
                 "scheme": "bearer"
+            },
+            "cookieAuth": {
+                "type": "apiKey",
+                "description": "Browser session cookie used by protected web routes.",
+                "name": "laravel_session",
+                "in": "cookie"
             }
         }
     },
@@ -2550,7 +5112,7 @@
         },
         {
             "name": "Animal Intakes",
-            "description": "Animal origin records before slaughter. Mobile: `GET/POST /api/v1/animal-intakes`. Full web create rules: `StoreAnimalIntakeRequest`."
+            "description": "Animal origin records before slaughter. Mobile: `GET/POST /api/v1/animal-intakes` and `GET/PUT/DELETE /api/v1/animal-intakes/{id}`. Full web/API rules: `StoreAnimalIntakeRequest` / `UpdateAnimalIntakeRequest`."
         },
         {
             "name": "Slaughter Plans",
