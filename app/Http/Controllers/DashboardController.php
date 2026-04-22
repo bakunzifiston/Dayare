@@ -39,6 +39,10 @@ class DashboardController extends Controller
                 'metrics' => [],
                 'alerts' => [],
                 'quickActions' => [],
+                'mapSummary' => [
+                    'facilities' => 0,
+                    'active_routes' => 0,
+                ],
             ]);
         }
 
@@ -54,11 +58,17 @@ class DashboardController extends Controller
             'metrics' => $data['metrics'],
             'alerts' => $data['alerts'],
             'quickActions' => $data['quickActions'],
+            'mapSummary' => $data['mapSummary'],
         ]);
     }
 
     /**
-     * @return array{metrics: array<int, array<string, string|int>>, alerts: array<int, array<string, string|int>>, quickActions: array<int, array<string, string>>}
+     * @return array{
+     *   metrics: array<int, array<string, string|int>>,
+     *   alerts: array<int, array<string, string|int>>,
+     *   quickActions: array<int, array<string, string>>,
+     *   mapSummary: array{facilities: int, active_routes: int}
+     * }
      */
     private function buildRoleDashboardData(Request $request, string $role, int $businessId): array
     {
@@ -75,6 +85,7 @@ class DashboardController extends Controller
         $batchIds = Batch::query()->whereIn('slaughter_execution_id', $executionIds)->pluck('id');
         $certificateIds = Certificate::query()->whereIn('batch_id', $batchIds)->pluck('id');
         $tripIds = TransportTrip::query()->whereIn('certificate_id', $certificateIds)->pluck('id');
+        $facilitiesCount = (int) $facilityIds->count();
 
         $animalsProcessedToday = (int) SlaughterExecution::query()
             ->whereIn('id', $executionIds)
@@ -318,6 +329,10 @@ class DashboardController extends Controller
             'metrics' => $metricsByRole[$role] ?? [],
             'alerts' => $alertsByRole[$role] ?? [],
             'quickActions' => $filteredQuickActions,
+            'mapSummary' => [
+                'facilities' => $facilitiesCount,
+                'active_routes' => $activeTrips,
+            ],
         ];
     }
 }

@@ -44,6 +44,7 @@ use App\Http\Controllers\SlaughterPlanController;
 use App\Http\Controllers\SpeciesController;
 use App\Http\Controllers\SuperAdminConfigurationController;
 use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\SuperAdminUserController;
 use App\Http\Controllers\SuperAdminVibeProgrammeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TenantUserController;
@@ -413,19 +414,42 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
 });
 
 Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->name('super-admin.')->group(function () {
-    Route::get('/', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
-    Route::get('configuration', [SuperAdminConfigurationController::class, 'index'])->name('configurations.index');
-    Route::get('vibe-programme', [SuperAdminVibeProgrammeController::class, 'index'])->name('vibe-programme.index');
-    Route::get('vibe-programme/export', [SuperAdminVibeProgrammeController::class, 'exportProgrammeCsv'])->name('vibe-programme.export');
-    Route::get('vibe-programme/{business}', [SuperAdminVibeProgrammeController::class, 'show'])->name('vibe-programme.show');
-    Route::get('vibe-programme/{business}/export', [SuperAdminVibeProgrammeController::class, 'exportBusinessCsv'])->name('vibe-programme.export-business');
-    Route::resource('species', SpeciesController::class)->except(['show', 'create', 'edit']);
-    Route::resource('units', UnitController::class)->except(['show', 'create', 'edit']);
+    Route::get('/', [SuperAdminDashboardController::class, 'index'])
+        ->middleware('super_admin.module:dashboard')
+        ->name('dashboard');
+    Route::get('configuration', [SuperAdminConfigurationController::class, 'index'])
+        ->middleware('super_admin.module:configuration')
+        ->name('configurations.index');
+    Route::get('vibe-programme', [SuperAdminVibeProgrammeController::class, 'index'])
+        ->middleware('super_admin.module:vibe_programme')
+        ->name('vibe-programme.index');
+    Route::get('vibe-programme/export', [SuperAdminVibeProgrammeController::class, 'exportProgrammeCsv'])
+        ->middleware('super_admin.module:vibe_programme')
+        ->name('vibe-programme.export');
+    Route::get('vibe-programme/{business}', [SuperAdminVibeProgrammeController::class, 'show'])
+        ->middleware('super_admin.module:vibe_programme')
+        ->name('vibe-programme.show');
+    Route::get('vibe-programme/{business}/export', [SuperAdminVibeProgrammeController::class, 'exportBusinessCsv'])
+        ->middleware('super_admin.module:vibe_programme')
+        ->name('vibe-programme.export-business');
+    Route::resource('species', SpeciesController::class)
+        ->middleware('super_admin.module:configuration')
+        ->except(['show', 'create', 'edit']);
+    Route::resource('units', UnitController::class)
+        ->middleware('super_admin.module:configuration')
+        ->except(['show', 'create', 'edit']);
+    Route::resource('users', SuperAdminUserController::class)
+        ->middleware('super_admin.module:user_management')
+        ->except(['show']);
 });
 
 Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
-    Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
-    Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::get('settings', [SettingsController::class, 'edit'])
+        ->middleware('super_admin.module:system_settings')
+        ->name('settings.edit');
+    Route::put('settings', [SettingsController::class, 'update'])
+        ->middleware('super_admin.module:system_settings')
+        ->name('settings.update');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

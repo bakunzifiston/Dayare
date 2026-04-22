@@ -37,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant' => \App\Http\Middleware\EnsureUserIsTenant::class,
             'workspace' => \App\Http\Middleware\EnsureUserWorkspace::class,
             'super_admin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
+            'super_admin.module' => \App\Http\Middleware\EnsureSuperAdminModuleAccess::class,
             'tenant.permission' => \App\Http\Middleware\EnsureTenantPermission::class,
             'mobile.auth' => \App\Http\Middleware\AuthenticateMobileToken::class,
         ]);

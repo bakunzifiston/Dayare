@@ -29,7 +29,7 @@ class ProcessorSupplyRequestController extends Controller
         return view('processor.supply-requests.index', compact('requests'));
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse
     {
         $processorIds = $request->user()->accessibleProcessorBusinessIds();
         $processorBusinesses = Business::query()

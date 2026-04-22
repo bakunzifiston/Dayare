@@ -7,8 +7,11 @@ use App\Http\Requests\UpdateBusinessRequest;
 use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\Facility;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class BusinessController extends Controller
@@ -61,7 +64,11 @@ class BusinessController extends Controller
         $validated['type'] = $validated['type'] ?? Business::TYPE_PROCESSOR;
         $validated['pathway_status'] = $validated['pathway_status'] ?? 'active';
 
-        $business = $request->user()->businesses()->create($validated);
+        try {
+            $business = $request->user()->businesses()->create($validated);
+        } catch (QueryException $exception) {
+            $this->throwBusinessValidationFromQueryException($exception);
+        }
         BusinessUser::query()->updateOrCreate(
             ['business_id' => $business->id, 'user_id' => $request->user()->id],
             ['role' => BusinessUser::ROLE_ORG_ADMIN]
@@ -122,7 +129,11 @@ class BusinessController extends Controller
         $members = $validated['members'] ?? [];
         unset($validated['members']);
 
-        $business->update($validated);
+        try {
+            $business->update($validated);
+        } catch (QueryException $exception) {
+            $this->throwBusinessValidationFromQueryException($exception);
+        }
 
         $business->ownershipMembers()->delete();
         foreach (array_values($members) as $i => $m) {
@@ -156,5 +167,31 @@ class BusinessController extends Controller
 
         return redirect()->route('businesses.hub')
             ->with('status', __('Business removed.'));
+    }
+
+    /**
+     * Convert duplicate-key DB exceptions into user-friendly validation messages.
+     */
+    private function throwBusinessValidationFromQueryException(QueryException $exception): never
+    {
+        $errorMessage = Str::lower($exception->getMessage());
+
+        if (str_contains($errorMessage, 'businesses_business_name_unique')
+            || str_contains($errorMessage, 'businesses_business_name_normalized_unique')
+            || str_contains($errorMessage, 'businesses.business_name')
+            || str_contains($errorMessage, 'business_name_normalized')) {
+            throw ValidationException::withMessages([
+                'business_name' => [__('This business name is already taken.')],
+            ]);
+        }
+
+        if (str_contains($errorMessage, 'businesses_registration_number_unique')
+            || str_contains($errorMessage, 'businesses.registration_number')) {
+            throw ValidationException::withMessages([
+                'registration_number' => [__('This registration number is already in use.')],
+            ]);
+        }
+
+        throw $exception;
     }
 }

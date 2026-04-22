@@ -28,6 +28,7 @@ class User extends Authenticatable
         'email_normalized',
         'password',
         'is_super_admin',
+        'super_admin_permissions',
     ];
 
     /**
@@ -51,6 +52,27 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_super_admin' => 'boolean',
+            'super_admin_permissions' => 'array',
+        ];
+    }
+
+    public const SUPER_ADMIN_MODULE_DASHBOARD = 'dashboard';
+    public const SUPER_ADMIN_MODULE_VIBE_PROGRAMME = 'vibe_programme';
+    public const SUPER_ADMIN_MODULE_CONFIGURATION = 'configuration';
+    public const SUPER_ADMIN_MODULE_USER_MANAGEMENT = 'user_management';
+    public const SUPER_ADMIN_MODULE_SYSTEM_SETTINGS = 'system_settings';
+
+    /**
+     * @return list<string>
+     */
+    public static function superAdminModules(): array
+    {
+        return [
+            self::SUPER_ADMIN_MODULE_DASHBOARD,
+            self::SUPER_ADMIN_MODULE_VIBE_PROGRAMME,
+            self::SUPER_ADMIN_MODULE_CONFIGURATION,
+            self::SUPER_ADMIN_MODULE_USER_MANAGEMENT,
+            self::SUPER_ADMIN_MODULE_SYSTEM_SETTINGS,
         ];
     }
 
@@ -67,6 +89,39 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         return (bool) $this->is_super_admin;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function normalizedSuperAdminPermissions(): array
+    {
+        $permissions = $this->super_admin_permissions;
+        if (! is_array($permissions)) {
+            return [];
+        }
+
+        return collect($permissions)
+            ->map(fn ($permission) => is_string($permission) ? trim($permission) : '')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function hasSuperAdminModuleAccess(string $module): bool
+    {
+        if (! $this->isSuperAdmin()) {
+            return false;
+        }
+
+        $permissions = $this->normalizedSuperAdminPermissions();
+        if ($permissions === []) {
+            // Backward compatibility: existing super admins without explicit assignment keep full access.
+            return true;
+        }
+
+        return in_array($module, $permissions, true);
     }
 
     public function businesses(): HasMany

@@ -60,28 +60,31 @@ class RegisteredUserController extends Controller
                     'password' => Hash::make($request->password),
                 ]);
 
-                $nameTrim = trim((string) $request->name);
-                $nameParts = preg_split('/\s+/', $nameTrim, 2, PREG_SPLIT_NO_EMPTY) ?: [];
-                $ownerFirst = $nameParts[0] ?? '—';
-                $ownerLast = $nameParts[1] ?? '—';
-                $generatedBusinessName = $this->generateUniqueWorkspaceName($nameTrim);
-                $normalizedBusinessName = $this->normalizeBusinessName($generatedBusinessName);
+                // For processor workspace, do not auto-create a placeholder business.
+                if ($request->business_type !== Business::TYPE_PROCESSOR) {
+                    $nameTrim = trim((string) $request->name);
+                    $nameParts = preg_split('/\s+/', $nameTrim, 2, PREG_SPLIT_NO_EMPTY) ?: [];
+                    $ownerFirst = $nameParts[0] ?? '—';
+                    $ownerLast = $nameParts[1] ?? '—';
+                    $generatedBusinessName = $this->generateUniqueWorkspaceName($nameTrim);
+                    $normalizedBusinessName = $this->normalizeBusinessName($generatedBusinessName);
 
-                $business = $user->businesses()->create([
-                    'type' => $request->business_type,
-                    'business_name' => $generatedBusinessName,
-                    'business_name_normalized' => $normalizedBusinessName,
-                    'registration_number' => 'PENDING-'.Str::uuid()->toString(),
-                    'contact_phone' => '0000000000',
-                    'email' => $request->email,
-                    'status' => Business::STATUS_ACTIVE,
-                    'owner_first_name' => $ownerFirst,
-                    'owner_last_name' => $ownerLast,
-                ]);
-                BusinessUser::query()->updateOrCreate(
-                    ['business_id' => $business->id, 'user_id' => $user->id],
-                    ['role' => BusinessUser::ROLE_ORG_ADMIN]
-                );
+                    $business = $user->businesses()->create([
+                        'type' => $request->business_type,
+                        'business_name' => $generatedBusinessName,
+                        'business_name_normalized' => $normalizedBusinessName,
+                        'registration_number' => 'PENDING-'.Str::uuid()->toString(),
+                        'contact_phone' => '0000000000',
+                        'email' => $request->email,
+                        'status' => Business::STATUS_ACTIVE,
+                        'owner_first_name' => $ownerFirst,
+                        'owner_last_name' => $ownerLast,
+                    ]);
+                    BusinessUser::query()->updateOrCreate(
+                        ['business_id' => $business->id, 'user_id' => $user->id],
+                        ['role' => BusinessUser::ROLE_ORG_ADMIN]
+                    );
+                }
 
                 return $user;
             });
@@ -111,6 +114,12 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
 
         Auth::login($user);
+
+        if ($user->tenantWorkspaceType() === Business::TYPE_PROCESSOR
+            && $user->accessibleProcessorBusinessIds()->isEmpty()) {
+            return redirect()->route('businesses.create')
+                ->with('status', __('Account created. Now register your first business.'));
+        }
 
         return redirect($user->tenantDashboardPath());
     }

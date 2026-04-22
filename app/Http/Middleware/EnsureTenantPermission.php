@@ -125,6 +125,10 @@ class EnsureTenantPermission
 
         $activeBusinessId = $user->activeProcessorBusinessId();
         if ($activeBusinessId === null) {
+            $routeName = $request->route()?->getName();
+            if ($this->canAccessBusinessOnboardingWithoutActiveContext($user, $routeName)) {
+                return $next($request);
+            }
             abort(403, __('Select a processor business first.'));
         }
         $user->setActiveProcessorBusinessId($activeBusinessId);
@@ -181,4 +185,15 @@ class EnsureTenantPermission
             || str_starts_with($routeName, 'super-admin.')
             || str_starts_with($routeName, 'profile.');
     }
+
+    private function canAccessBusinessOnboardingWithoutActiveContext($user, ?string $routeName): bool
+    {
+        if ($routeName === null || ! str_starts_with($routeName, 'businesses.')) {
+            return false;
+        }
+
+        return $user->tenantWorkspaceType() === 'processor'
+            && $user->accessibleProcessorBusinessIds()->isEmpty();
+    }
+
 }

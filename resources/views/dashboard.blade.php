@@ -100,7 +100,7 @@
                                         <path d="M146 128L246 140L332 122L394 160" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4 5"/>
                                     </svg>
                                     <div class="absolute bottom-3 left-3 rounded-md border border-slate-200 bg-white/90 px-2 py-1 text-[11px] text-slate-600">
-                                        {{ __('3 facilities • 1 active route') }}
+                                        {{ __(':facilities facilities • :routes active route(s)', ['facilities' => $mapSummary['facilities'] ?? 0, 'routes' => $mapSummary['active_routes'] ?? 0]) }}
                                     </div>
                                 </div>
                             </div>

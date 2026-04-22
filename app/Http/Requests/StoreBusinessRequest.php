@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Business;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class StoreBusinessRequest extends FormRequest
@@ -21,7 +22,17 @@ class StoreBusinessRequest extends FormRequest
         return [
             'type' => ['nullable', 'string', Rule::in(Business::TYPES)],
             // Business info
-            'business_name' => ['required', 'string', 'max:255'],
+            'business_name' => [
+                'required',
+                'string',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $normalized = $this->normalizeBusinessName((string) $value);
+                    if ($normalized !== '' && Business::query()->where('business_name_normalized', $normalized)->exists()) {
+                        $fail(__('This business name is already taken.'));
+                    }
+                },
+            ],
             'registration_number' => ['required', 'string', 'max:100', 'unique:businesses,registration_number'],
             'tax_id' => ['nullable', 'string', 'max:100'],
             'contact_phone' => ['required', 'string', 'max:50'],
@@ -69,6 +80,14 @@ class StoreBusinessRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $businessName = $this->input('business_name');
+        if ($businessName !== null) {
+            $collapsed = preg_replace('/\s+/', ' ', trim((string) $businessName)) ?? '';
+            $this->merge([
+                'business_name' => $collapsed,
+            ]);
+        }
+
         $registrationNumber = $this->input('registration_number');
         if ($registrationNumber !== null) {
             $normalized = preg_replace('/\s+/', ' ', trim((string) $registrationNumber)) ?? '';
@@ -76,5 +95,12 @@ class StoreBusinessRequest extends FormRequest
                 'registration_number' => mb_strtoupper($normalized),
             ]);
         }
+    }
+
+    private function normalizeBusinessName(string $businessName): string
+    {
+        $trimmed = trim($businessName);
+
+        return (string) preg_replace('/\s+/', ' ', Str::lower($trimmed));
     }
 }

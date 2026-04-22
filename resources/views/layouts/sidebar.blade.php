@@ -41,8 +41,17 @@
     $tenantNav[] = ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => 'view_all_modules', 'routeIs' => ['settings.edit', 'cold-room-standards.*']];
 
     if (! $isSuperAdmin && $user) {
-        $canAccessNavItem = function (?string $permission) use ($user): bool {
+        $canAccessNavItem = function (array $item) use ($user): bool {
+            $permission = $item['permission'] ?? null;
             if (empty($permission)) {
+                return true;
+            }
+
+            // Allow first-time processor users (no business yet) to access business onboarding.
+            $isBusinessOnboardingEntry = ($item['route'] ?? '') === 'businesses.hub'
+                && ($user->tenantWorkspaceType() === 'processor')
+                && $user->accessibleProcessorBusinessIds()->isEmpty();
+            if ($isBusinessOnboardingEntry) {
                 return true;
             }
 
@@ -53,13 +62,13 @@
         $filtered = [];
         foreach ($tenantNav as $item) {
             if (isset($item['group'])) {
-                $children = array_values(array_filter($item['children'] ?? [], fn ($c) => $canAccessNavItem($c['permission'] ?? null)));
+                $children = array_values(array_filter($item['children'] ?? [], fn ($c) => $canAccessNavItem($c)));
                 if (count($children) > 0) {
                     $item['children'] = $children;
                     $filtered[] = $item;
                 }
             } else {
-                if ($canAccessNavItem($item['permission'] ?? null)) {
+                if ($canAccessNavItem($item)) {
                     $filtered[] = $item;
                 }
             }
@@ -97,13 +106,22 @@
         }
     }
 
-    $navGroups = $isSuperAdmin
-        ? [
-            ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield'],
-            ['label' => __('VIBE Programme'), 'route' => 'super-admin.vibe-programme.index', 'icon' => 'dashboard'],
-            ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings'],
-        ]
-        : $tenantNav;
+    if ($isSuperAdmin && $user) {
+        $superAdminNav = [
+            ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_DASHBOARD],
+            ['label' => __('VIBE Programme'), 'route' => 'super-admin.vibe-programme.index', 'icon' => 'dashboard', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_VIBE_PROGRAMME],
+            ['label' => __('Global configuration'), 'route' => 'super-admin.configurations.index', 'icon' => 'settings', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_CONFIGURATION],
+            ['label' => __('Admin users'), 'route' => 'super-admin.users.index', 'icon' => 'users', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_USER_MANAGEMENT],
+            ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_SYSTEM_SETTINGS],
+        ];
+
+        $navGroups = array_values(array_filter(
+            $superAdminNav,
+            fn (array $item): bool => $user->hasSuperAdminModuleAccess((string) ($item['module'] ?? ''))
+        ));
+    } else {
+        $navGroups = $tenantNav;
+    }
 @endphp
 <aside
     id="sidebar"
