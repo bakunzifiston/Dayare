@@ -15,8 +15,11 @@ class Facility extends Model
         'business_id',
         'facility_name',
         'facility_type',
+        'province',
         'district',
         'sector',
+        'cell',
+        'village',
         'country_id',
         'province_id',
         'district_id',
@@ -31,6 +34,15 @@ class Facility extends Model
         'status',
     ];
 
+    protected $hidden = [
+        'country_id',
+        'province_id',
+        'district_id',
+        'sector_id',
+        'cell_id',
+        'village_id',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -39,19 +51,13 @@ class Facility extends Model
         ];
     }
 
-    public const TYPE_SLAUGHTERHOUSE = 'Slaughterhouse';
+    public const TYPE_SLAUGHTER_HOUSE = 'slaughter_house';
 
-    public const TYPE_BUTCHERY = 'Butchery';
-
-    public const TYPE_STORAGE = 'storage';
-
-    public const TYPE_OTHER = 'Other';
+    public const TYPE_COLD_ROOM = 'cold_room';
 
     public const TYPES = [
-        self::TYPE_SLAUGHTERHOUSE,
-        self::TYPE_BUTCHERY,
-        self::TYPE_STORAGE,
-        self::TYPE_OTHER,
+        self::TYPE_SLAUGHTER_HOUSE,
+        self::TYPE_COLD_ROOM,
     ];
 
     public const STATUS_ACTIVE = 'active';
@@ -68,12 +74,12 @@ class Facility extends Model
         return $this->belongsTo(Business::class);
     }
 
-    public function country(): BelongsTo
+    public function countryDivision(): BelongsTo
     {
         return $this->belongsTo(AdministrativeDivision::class, 'country_id');
     }
 
-    public function province(): BelongsTo
+    public function provinceDivision(): BelongsTo
     {
         return $this->belongsTo(AdministrativeDivision::class, 'province_id');
     }
@@ -88,12 +94,12 @@ class Facility extends Model
         return $this->belongsTo(AdministrativeDivision::class, 'sector_id');
     }
 
-    public function cell(): BelongsTo
+    public function cellDivision(): BelongsTo
     {
         return $this->belongsTo(AdministrativeDivision::class, 'cell_id');
     }
 
-    public function village(): BelongsTo
+    public function villageDivision(): BelongsTo
     {
         return $this->belongsTo(AdministrativeDivision::class, 'village_id');
     }
@@ -102,19 +108,15 @@ class Facility extends Model
     public function getLocationDisplayAttribute(): string
     {
         $parts = array_filter([
-            $this->village?->name,
-            $this->cell?->name,
-            $this->sectorDivision?->name,
-            $this->districtDivision?->name,
-            $this->province?->name,
+            $this->villageDivision?->name ?: $this->getRawOriginal('village'),
+            $this->cellDivision?->name ?: $this->getRawOriginal('cell'),
+            $this->sectorDivision?->name ?: $this->getRawOriginal('sector'),
+            $this->districtDivision?->name ?: $this->getRawOriginal('district'),
+            $this->provinceDivision?->name ?: $this->getRawOriginal('province'),
         ]);
+
         if ($parts !== []) {
             return implode(', ', $parts);
-        }
-        $legacyDistrict = $this->getRawOriginal('district');
-        $legacySector = $this->getRawOriginal('sector');
-        if ($legacyDistrict || $legacySector) {
-            return trim(($legacyDistrict ?? '').', '.($legacySector ?? ''), ', ');
         }
 
         return '—';
@@ -180,9 +182,9 @@ class Facility extends Model
         return $this->hasMany(ColdRoom::class, 'facility_id');
     }
 
-    public function isStorage(): bool
+    public function isColdRoom(): bool
     {
-        return $this->facility_type === self::TYPE_STORAGE;
+        return $this->facility_type === self::TYPE_COLD_ROOM;
     }
 
     /**

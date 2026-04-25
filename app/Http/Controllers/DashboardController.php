@@ -241,7 +241,7 @@ class DashboardController extends Controller
                 ['label' => __('Review temperature logs'), 'route' => 'warehouse-storages.index', 'permission' => BusinessUser::PERMISSION_MONITOR_TEMPERATURE_LOGS],
                 ['label' => __('Review certificates'), 'route' => 'certificates.index', 'permission' => BusinessUser::PERMISSION_VIEW_CERTIFICATES],
             ],
-            BusinessUser::ROLE_TRANSPORT_MANAGER => [
+            BusinessUser::ROLE_LOGISTICS_MANAGER => [
                 ['label' => __('Create transport trip'), 'route' => 'transport-trips.create', 'permission' => BusinessUser::PERMISSION_CREATE_TRANSPORT_TRIP],
                 ['label' => __('Confirm deliveries'), 'route' => 'delivery-confirmations.index', 'permission' => BusinessUser::PERMISSION_CONFIRM_DELIVERY],
                 ['label' => __('Review trip statuses'), 'route' => 'transport-trips.index', 'permission' => BusinessUser::PERMISSION_TRACK_DELIVERY_STATUS],
@@ -277,7 +277,7 @@ class DashboardController extends Controller
                 ['label' => __('Temperature compliance'), 'value' => $temperatureComplianceRate.'%', 'description' => __('Cold-chain adherence indicator.')],
                 ['label' => __('Temperature breaches'), 'value' => $temperatureBreaches, 'description' => __('Count of warning/critical temperature incidents.')],
             ],
-            BusinessUser::ROLE_TRANSPORT_MANAGER => [
+            BusinessUser::ROLE_LOGISTICS_MANAGER => [
                 ['label' => __('Active trips'), 'value' => $activeTrips, 'description' => __('Current live logistics workload.')],
                 ['label' => __('Deliveries completed'), 'value' => $deliveriesCompleted, 'description' => __('Total confirmed delivery throughput.')],
                 ['label' => __('Deliveries pending'), 'value' => $deliveriesPending, 'description' => __('Work queue requiring follow-up.')],
@@ -307,7 +307,7 @@ class DashboardController extends Controller
                 ['title' => __('Overdue compliance tasks'), 'count' => $openComplianceIssues, 'description' => __('Open compliance issues requiring closure.'), 'route' => 'compliance.index'],
                 ['title' => __('Missing checklist submissions'), 'count' => $missingChecklistSubmissions, 'description' => __('Required inspections/checklists not yet submitted.'), 'route' => 'compliance.index'],
             ],
-            BusinessUser::ROLE_TRANSPORT_MANAGER => [
+            BusinessUser::ROLE_LOGISTICS_MANAGER => [
                 ['title' => __('Temperature deviations'), 'count' => $temperatureBreaches, 'description' => __('Cold-chain incidents during storage/dispatch window.'), 'route' => 'warehouse-storages.index'],
                 ['title' => __('Delayed deliveries'), 'count' => $delayedDeliveries, 'description' => __('Trips delayed beyond expected delivery window.'), 'route' => 'transport-trips.index'],
                 ['title' => __('Missing certificate attachments'), 'count' => $missingCertificateAttachments, 'description' => __('Trips lacking valid certificate linkage.'), 'route' => 'transport-trips.index'],

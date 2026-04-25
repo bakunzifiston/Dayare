@@ -61,5 +61,8 @@ Route::prefix('v1')->group(function () {
         Route::post('transport-trips', [MobileCollectionController::class, 'transportTripsStore']);
         Route::post('delivery-confirmations', [MobileCollectionController::class, 'deliveryConfirmationsStore']);
         Route::post('warehouse-storages', [MobileCollectionController::class, 'warehouseStoragesStore']);
+
+        // Include custom mobile API routes
+        require base_path('routes/mobileroute.php');
     });
 });

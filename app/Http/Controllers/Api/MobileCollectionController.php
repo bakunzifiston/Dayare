@@ -710,7 +710,7 @@ class MobileCollectionController extends Controller
 
         $storageFacilityIds = Facility::query()
             ->whereIn('business_id', $request->user()->accessibleBusinessIds())
-            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->where('facility_type', Facility::TYPE_COLD_ROOM)
             ->pluck('id');
 
         if (! $storageFacilityIds->contains($warehouseFacilityId)) {

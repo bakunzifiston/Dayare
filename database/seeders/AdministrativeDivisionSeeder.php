@@ -27,10 +27,17 @@ class AdministrativeDivisionSeeder extends Seeder
     {
         $this->command?->info('Fetching Rwanda administrative data...');
 
-        $response = Http::timeout(30)->get(self::RWANDA_JSON_URL);
+        try {
+            $response = Http::timeout(10)->get(self::RWANDA_JSON_URL);
 
-        if (!$response->successful()) {
-            $this->command?->error('Could not fetch Rwanda data. Seeding minimal structure (country + provinces + districts only).');
+            if (!$response->successful()) {
+                $this->command?->error('Could not fetch Rwanda data from GitHub. Seeding minimal structure instead.');
+                $this->seedMinimalRwanda();
+                return;
+            }
+        } catch (\Exception $e) {
+            $this->command?->warn('Network error while fetching Rwanda data: ' . $e->getMessage());
+            $this->command?->info('Falling back to minimal local structure.');
             $this->seedMinimalRwanda();
             return;
         }

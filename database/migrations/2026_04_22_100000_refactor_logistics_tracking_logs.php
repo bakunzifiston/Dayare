@@ -76,12 +76,9 @@ return new class extends Migration
             'event_time' => DB::raw('created_at'),
         ]);
 
-        $driver = Schema::getConnection()->getDriverName();
-        if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            DB::statement('ALTER TABLE logistics_tracking_logs MODIFY event_time DATETIME NOT NULL');
-        } elseif ($driver === 'pgsql') {
-            DB::statement('ALTER TABLE logistics_tracking_logs ALTER COLUMN event_time SET NOT NULL');
-        }
+        Schema::table('logistics_tracking_logs', function (Blueprint $table) {
+            $table->dateTime('event_time')->nullable(false)->change();
+        });
 
         Schema::table('logistics_tracking_logs', function (Blueprint $table) {
             $table->index(['trip_id', 'event_time']);

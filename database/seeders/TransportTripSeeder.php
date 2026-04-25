@@ -21,7 +21,7 @@ class TransportTripSeeder extends Seeder
             $this->command?->warn('No certificates. Run CertificateSeeder first.');
             return;
         }
-        $facilities = Facility::whereIn('facility_type', [Facility::TYPE_SLAUGHTERHOUSE, Facility::TYPE_BUTCHERY])->get();
+        $facilities = Facility::whereIn('facility_type', [Facility::TYPE_SLAUGHTER_HOUSE, Facility::TYPE_COLD_ROOM])->get();
         if ($facilities->count() < 2) {
             $this->command?->warn('Need at least 2 facilities for transport trips.');
             return;

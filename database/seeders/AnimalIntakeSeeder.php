@@ -22,7 +22,7 @@ class AnimalIntakeSeeder extends Seeder
 
     public function run(): void
     {
-        $slaughterhouses = Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)->get();
+        $slaughterhouses = Facility::where('facility_type', Facility::TYPE_SLAUGHTER_HOUSE)->get();
         if ($slaughterhouses->isEmpty()) {
             $this->command?->warn('No slaughterhouse facilities. Run TestDataSeeder first.');
             return;

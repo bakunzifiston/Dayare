@@ -37,6 +37,7 @@ return new class extends Migration
         });
 
         Schema::table('logistics_orders', function (Blueprint $table) {
+            $table->dropIndex(['client_id', 'requested_date']);
             $table->dropColumn([
                 'client_id',
                 'species',
@@ -51,27 +52,14 @@ return new class extends Migration
             $table->unique('order_number');
         });
 
-        $driver = Schema::getConnection()->getDriverName();
-        if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            DB::statement('ALTER TABLE logistics_orders MODIFY order_number VARCHAR(40) NOT NULL');
-            DB::statement("ALTER TABLE logistics_orders MODIFY service_type VARCHAR(20) NOT NULL DEFAULT 'local'");
-            DB::statement("ALTER TABLE logistics_orders MODIFY transport_mode VARCHAR(20) NOT NULL DEFAULT 'road'");
-            DB::statement('ALTER TABLE logistics_orders MODIFY total_weight DECIMAL(14,3) NOT NULL DEFAULT 0');
-            DB::statement('ALTER TABLE logistics_orders MODIFY total_volume DECIMAL(14,3) NOT NULL DEFAULT 0');
-            DB::statement("ALTER TABLE logistics_orders MODIFY status VARCHAR(30) NOT NULL DEFAULT 'confirmed'");
-        } elseif ($driver === 'pgsql') {
-            DB::statement('ALTER TABLE logistics_orders ALTER COLUMN order_number SET NOT NULL');
-            DB::statement("ALTER TABLE logistics_orders ALTER COLUMN service_type SET DEFAULT 'local'");
-            DB::statement('ALTER TABLE logistics_orders ALTER COLUMN service_type SET NOT NULL');
-            DB::statement("ALTER TABLE logistics_orders ALTER COLUMN transport_mode SET DEFAULT 'road'");
-            DB::statement('ALTER TABLE logistics_orders ALTER COLUMN transport_mode SET NOT NULL');
-            DB::statement('ALTER TABLE logistics_orders ALTER COLUMN total_weight SET DEFAULT 0');
-            DB::statement('ALTER TABLE logistics_orders ALTER COLUMN total_weight SET NOT NULL');
-            DB::statement('ALTER TABLE logistics_orders ALTER COLUMN total_volume SET DEFAULT 0');
-            DB::statement('ALTER TABLE logistics_orders ALTER COLUMN total_volume SET NOT NULL');
-            DB::statement("ALTER TABLE logistics_orders ALTER COLUMN status SET DEFAULT 'confirmed'");
-            DB::statement('ALTER TABLE logistics_orders ALTER COLUMN status SET NOT NULL');
-        }
+        Schema::table('logistics_orders', function (Blueprint $table) {
+            $table->string('order_number', 40)->nullable(false)->change();
+            $table->string('service_type', 20)->nullable(false)->default('local')->change();
+            $table->string('transport_mode', 20)->nullable(false)->default('road')->change();
+            $table->decimal('total_weight', 14, 3)->nullable(false)->default(0)->change();
+            $table->decimal('total_volume', 14, 3)->nullable(false)->default(0)->change();
+            $table->string('status', 30)->nullable(false)->default('confirmed')->change();
+        });
     }
 
     public function down(): void

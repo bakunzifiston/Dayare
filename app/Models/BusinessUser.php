@@ -13,18 +13,30 @@ class BusinessUser extends Pivot
 
     protected $fillable = ['business_id', 'user_id', 'role'];
 
+    public const ROLE_AUDITOR = 'auditor';
     public const ROLE_ORG_ADMIN = 'org_admin';
-    public const ROLE_OPERATIONS_MANAGER = 'operations_manager';
     public const ROLE_COMPLIANCE_OFFICER = 'compliance_officer';
     public const ROLE_INSPECTOR = 'inspector';
-    public const ROLE_TRANSPORT_MANAGER = 'transport_manager';
+    public const ROLE_OPERATIONS_MANAGER = 'operations_manager';
+    public const ROLE_LOGISTICS_MANAGER = 'logistics_manager';
+    public const ROLE_DRIVER = 'driver';
+    public const ROLE_BUYER = 'buyer';
+    public const ROLE_FARMER = 'farmer';
+    public const ROLE_PROGRAMME_MANAGER = 'programme_manager';
+    public const ROLE_COLD_ROOM_OPERATOR = 'cold_room_operator';
 
     public const ROLES = [
+        self::ROLE_AUDITOR,
         self::ROLE_ORG_ADMIN,
-        self::ROLE_OPERATIONS_MANAGER,
         self::ROLE_COMPLIANCE_OFFICER,
         self::ROLE_INSPECTOR,
-        self::ROLE_TRANSPORT_MANAGER,
+        self::ROLE_OPERATIONS_MANAGER,
+        self::ROLE_LOGISTICS_MANAGER,
+        self::ROLE_DRIVER,
+        self::ROLE_BUYER,
+        self::ROLE_FARMER,
+        self::ROLE_PROGRAMME_MANAGER,
+        self::ROLE_COLD_ROOM_OPERATOR,
     ];
 
     public const PERMISSION_VIEW_ALL_MODULES = 'view_all_modules';
@@ -78,6 +90,12 @@ class BusinessUser extends Pivot
     ];
 
     public const ROLE_PERMISSION_MAP = [
+        self::ROLE_AUDITOR => [
+            self::PERMISSION_VIEW_INSPECTIONS,
+            self::PERMISSION_VIEW_CERTIFICATES,
+            self::PERMISSION_MONITOR_COMPLIANCE_METRICS,
+            self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
+        ],
         self::ROLE_ORG_ADMIN => [
             self::PERMISSION_VIEW_ALL_MODULES,
             self::PERMISSION_MANAGE_BUSINESS_USERS,
@@ -112,7 +130,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_INSPECTIONS,
             self::PERMISSION_VIEW_CERTIFICATES,
         ],
-        self::ROLE_TRANSPORT_MANAGER => [
+        self::ROLE_LOGISTICS_MANAGER => [
             self::PERMISSION_CREATE_TRANSPORT_TRIP,
             self::PERMISSION_ASSIGN_VEHICLE_DRIVER,
             self::PERMISSION_DISPATCH_DELIVERY,
@@ -120,6 +138,20 @@ class BusinessUser extends Pivot
             self::PERMISSION_CONFIRM_DELIVERY,
             self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
             self::PERMISSION_VIEW_CERTIFICATES,
+        ],
+        self::ROLE_DRIVER => [
+            self::PERMISSION_TRACK_DELIVERY_STATUS,
+            self::PERMISSION_CONFIRM_DELIVERY,
+        ],
+        self::ROLE_BUYER => [
+            self::PERMISSION_VIEW_CERTIFICATES,
+        ],
+        self::ROLE_FARMER => [
+            self::PERMISSION_VIEW_CERTIFICATES,
+        ],
+        self::ROLE_PROGRAMME_MANAGER => [
+            self::PERMISSION_VIEW_ALL_MODULES,
+            self::PERMISSION_MONITOR_COMPLIANCE_METRICS,
         ],
     ];
 

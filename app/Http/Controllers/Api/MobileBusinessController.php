@@ -24,9 +24,16 @@ class MobileBusinessController extends Controller
         $validated['pathway_status'] = $validated['pathway_status'] ?? 'active';
 
         $business = $request->user()->businesses()->create($validated);
+
+        $role = match ($business->type) {
+            Business::TYPE_FARMER => BusinessUser::ROLE_FARMER,
+            Business::TYPE_LOGISTICS => BusinessUser::ROLE_LOGISTICS_MANAGER,
+            default => BusinessUser::ROLE_ORG_ADMIN,
+        };
+
         BusinessUser::query()->updateOrCreate(
             ['business_id' => $business->id, 'user_id' => $request->user()->id],
-            ['role' => BusinessUser::ROLE_ORG_ADMIN]
+            ['role' => $role]
         );
 
         foreach (array_values($members) as $i => $m) {

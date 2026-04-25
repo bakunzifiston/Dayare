@@ -27,7 +27,7 @@ class WarehouseStorageController extends Controller
     private function coldRoomOptionsForUser(Request $request): \Illuminate\Support\Collection
     {
         $storageFacilityIds = Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
-            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->where('facility_type', Facility::TYPE_COLD_ROOM)
             ->pluck('id');
 
         return ColdRoom::query()
@@ -77,7 +77,7 @@ class WarehouseStorageController extends Controller
         $certificateIds = $this->userCertificateIds($request);
 
         $warehouseFacilities = Facility::whereIn('id', $facilityIds)
-            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->where('facility_type', Facility::TYPE_COLD_ROOM)
             ->orderBy('facility_name')
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
@@ -156,7 +156,7 @@ class WarehouseStorageController extends Controller
         $this->authorizeStorage($request, $warehouseStorage);
         $facilityIds = $this->userFacilityIds($request);
         $warehouseFacilities = Facility::whereIn('id', $facilityIds)
-            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->where('facility_type', Facility::TYPE_COLD_ROOM)
             ->orderBy('facility_name')
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);

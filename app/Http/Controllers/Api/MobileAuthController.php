@@ -81,9 +81,15 @@ class MobileAuthController extends Controller
                     'owner_first_name' => $ownerFirst,
                     'owner_last_name' => $ownerLast,
                 ]);
+                $role = match ($data['business_type']) {
+                    Business::TYPE_FARMER => BusinessUser::ROLE_FARMER,
+                    Business::TYPE_LOGISTICS => BusinessUser::ROLE_LOGISTICS_MANAGER,
+                    default => BusinessUser::ROLE_ORG_ADMIN,
+                };
+
                 BusinessUser::query()->updateOrCreate(
                     ['business_id' => $business->id, 'user_id' => $user->id],
-                    ['role' => BusinessUser::ROLE_ORG_ADMIN]
+                    ['role' => $role]
                 );
 
                 return $user;

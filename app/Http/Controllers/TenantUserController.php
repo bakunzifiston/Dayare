@@ -21,7 +21,7 @@ class TenantUserController extends Controller
             BusinessUser::ROLE_OPERATIONS_MANAGER => __('Operations Manager'),
             BusinessUser::ROLE_COMPLIANCE_OFFICER => __('Compliance Officer'),
             BusinessUser::ROLE_INSPECTOR => __('Inspector'),
-            BusinessUser::ROLE_TRANSPORT_MANAGER => __('Transport Manager'),
+            BusinessUser::ROLE_LOGISTICS_MANAGER => __('Logistics Manager'),
         ];
     }
 
@@ -68,7 +68,7 @@ class TenantUserController extends Controller
                     __('View inspections and certificates'),
                 ],
             ],
-            BusinessUser::ROLE_TRANSPORT_MANAGER => [
+            BusinessUser::ROLE_LOGISTICS_MANAGER => [
                 'description' => __('Manages trip dispatch, delivery confirmation, and transport tracking.'),
                 'permissions' => [
                     __('Create transport trips'),

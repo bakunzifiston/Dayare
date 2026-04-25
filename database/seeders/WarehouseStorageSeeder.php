@@ -14,7 +14,7 @@ class WarehouseStorageSeeder extends Seeder
 {
     public function run(): void
     {
-        $warehouse = Facility::where('facility_type', Facility::TYPE_STORAGE)->first();
+        $warehouse = Facility::where('facility_type', Facility::TYPE_COLD_ROOM)->first();
         if (! $warehouse) {
             $this->command?->warn('No storage facility. Add type "storage" in TestDataSeeder.');
             return;

@@ -14,11 +14,7 @@ return new class extends Migration
     {
         Schema::table('delivery_confirmations', function (Blueprint $table) {
             $table->dropForeign(['receiving_facility_id']);
-        });
-
-        DB::statement('ALTER TABLE delivery_confirmations MODIFY receiving_facility_id BIGINT UNSIGNED NULL');
-
-        Schema::table('delivery_confirmations', function (Blueprint $table) {
+            $table->unsignedBigInteger('receiving_facility_id')->nullable()->change();
             $table->foreign('receiving_facility_id')->references('id')->on('facilities')->nullOnDelete();
             $table->string('receiver_country', 100)->nullable()->after('receiver_name');
             $table->text('receiver_address')->nullable()->after('receiver_country');
@@ -30,11 +26,7 @@ return new class extends Migration
         Schema::table('delivery_confirmations', function (Blueprint $table) {
             $table->dropForeign(['receiving_facility_id']);
             $table->dropColumn(['receiver_country', 'receiver_address']);
-        });
-
-        DB::statement('ALTER TABLE delivery_confirmations MODIFY receiving_facility_id BIGINT UNSIGNED NOT NULL');
-
-        Schema::table('delivery_confirmations', function (Blueprint $table) {
+            $table->unsignedBigInteger('receiving_facility_id')->nullable(false)->change();
             $table->foreign('receiving_facility_id')->references('id')->on('facilities')->cascadeOnDelete();
         });
     }

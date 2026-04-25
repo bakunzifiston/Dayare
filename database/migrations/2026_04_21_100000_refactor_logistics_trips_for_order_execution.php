@@ -100,20 +100,13 @@ return new class extends Migration
             DB::table('logistics_trips')->where('id', $tripId)->delete();
         }
 
-        $driver = Schema::getConnection()->getDriverName();
-        if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            DB::statement('ALTER TABLE logistics_trips MODIFY order_id BIGINT UNSIGNED NOT NULL');
-            DB::statement('ALTER TABLE logistics_trips MODIFY origin_location_id BIGINT UNSIGNED NOT NULL');
-            DB::statement('ALTER TABLE logistics_trips MODIFY destination_location_id BIGINT UNSIGNED NOT NULL');
-            DB::statement('ALTER TABLE logistics_trips MODIFY allocated_weight_kg INT UNSIGNED NOT NULL');
-            DB::statement('ALTER TABLE logistics_trips MODIFY status VARCHAR(32) NOT NULL DEFAULT \'scheduled\'');
-        } elseif ($driver === 'pgsql') {
-            DB::statement('ALTER TABLE logistics_trips ALTER COLUMN order_id SET NOT NULL');
-            DB::statement('ALTER TABLE logistics_trips ALTER COLUMN origin_location_id SET NOT NULL');
-            DB::statement('ALTER TABLE logistics_trips ALTER COLUMN destination_location_id SET NOT NULL');
-            DB::statement('ALTER TABLE logistics_trips ALTER COLUMN allocated_weight_kg SET NOT NULL');
-            DB::statement('ALTER TABLE logistics_trips ALTER COLUMN status TYPE VARCHAR(32)');
-        }
+        Schema::table('logistics_trips', function (Blueprint $table) {
+            $table->unsignedBigInteger('order_id')->nullable(false)->change();
+            $table->unsignedBigInteger('origin_location_id')->nullable(false)->change();
+            $table->unsignedBigInteger('destination_location_id')->nullable(false)->change();
+            $table->unsignedInteger('allocated_weight_kg')->nullable(false)->change();
+            $table->string('status', 32)->nullable(false)->default('scheduled')->change();
+        });
     }
 
     public function down(): void

@@ -35,6 +35,6 @@ class RolesAndPermissionsSeeder extends Seeder
             ->where('name', 'like', 'manage %')
             ->delete();
 
-        $this->command?->info('Roles and permissions seeded: org_admin, operations_manager, compliance_officer, inspector, transport_manager.');
+        $this->command?->info('Roles and permissions seeded: ' . implode(', ', BusinessUser::ROLES));
     }
 }

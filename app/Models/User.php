@@ -254,7 +254,17 @@ class User extends Authenticatable
             ->where('user_id', $this->id)
             ->exists();
 
-        return $ownsBusiness ? BusinessUser::ROLE_ORG_ADMIN : null;
+        if ($ownsBusiness) {
+            $business = Business::find($targetBusinessId);
+
+            return match ($business?->type) {
+                Business::TYPE_FARMER => BusinessUser::ROLE_FARMER,
+                Business::TYPE_LOGISTICS => BusinessUser::ROLE_LOGISTICS_MANAGER,
+                default => BusinessUser::ROLE_ORG_ADMIN,
+            };
+        }
+
+        return null;
     }
 
     public function canProcessorPermission(string $permission, ?int $businessId = null): bool
@@ -383,7 +393,13 @@ class User extends Authenticatable
             BusinessUser::ROLE_OPERATIONS_MANAGER => 'business_operations_manager',
             BusinessUser::ROLE_COMPLIANCE_OFFICER => 'business_compliance_officer',
             BusinessUser::ROLE_INSPECTOR => 'business_inspector',
-            BusinessUser::ROLE_TRANSPORT_MANAGER => 'business_transport_manager',
+            BusinessUser::ROLE_LOGISTICS_MANAGER => 'business_logistics_manager',
+            BusinessUser::ROLE_AUDITOR => 'business_auditor',
+            BusinessUser::ROLE_DRIVER => 'business_driver',
+            BusinessUser::ROLE_BUYER => 'business_buyer',
+            BusinessUser::ROLE_FARMER => 'business_farmer',
+            BusinessUser::ROLE_PROGRAMME_MANAGER => 'business_programme_manager',
+            BusinessUser::ROLE_COLD_ROOM_OPERATOR => 'business_cold_room_operator',
             default => 'user',
         };
     }
@@ -412,11 +428,17 @@ class User extends Authenticatable
         $accessible = [];
 
         foreach ($this->businesses()->orderBy('id')->get() as $business) {
+            $membership = match ($business->type) {
+                Business::TYPE_FARMER => BusinessUser::ROLE_FARMER,
+                Business::TYPE_LOGISTICS => BusinessUser::ROLE_LOGISTICS_MANAGER,
+                default => BusinessUser::ROLE_ORG_ADMIN,
+            };
+
             $accessible[] = [
                 'id' => $business->id,
                 'name' => $business->business_name,
                 'type' => $business->type,
-                'membership' => BusinessUser::ROLE_ORG_ADMIN,
+                'membership' => $membership,
             ];
         }
 

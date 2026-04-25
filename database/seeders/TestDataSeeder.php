@@ -88,9 +88,9 @@ class TestDataSeeder extends Seeder
             'district_id' => $districtKigali?->id,
             'sector_id' => $sectorKigali?->id,
         ]);
-        $f1Slaughter = $this->createFacility($b1, 'Kigali Slaughterhouse', Facility::TYPE_SLAUGHTERHOUSE, $provinceKigali, $districtKigali, $sectorKigali, $cellKigali, $villageKigali);
-        $f1Butchery = $this->createFacility($b1, 'Downtown Butchery Kigali', Facility::TYPE_BUTCHERY, $provinceKigali, $districtKigali, $sectorKigali, null, null);
-        $storageFacility = $this->createFacility($b1, 'Kigali Cold Storage', Facility::TYPE_STORAGE, $provinceKigali, $districtKigali, $sectorKigali, null, null, 500);
+        $f1Slaughter = $this->createFacility($b1, 'Kigali Slaughterhouse', Facility::TYPE_SLAUGHTER_HOUSE, $provinceKigali, $districtKigali, $sectorKigali, $cellKigali, $villageKigali);
+        $f1Butchery = $this->createFacility($b1, 'Downtown Butchery Kigali', Facility::TYPE_COLD_ROOM, $provinceKigali, $districtKigali, $sectorKigali, null, null);
+        $storageFacility = $this->createFacility($b1, 'Kigali Cold Storage', Facility::TYPE_COLD_ROOM, $provinceKigali, $districtKigali, $sectorKigali, null, null, 500);
         $this->createInspector($f1Slaughter, 'André', 'Nkurunziza');
 
         // --- Rwanda Fresh Meats Ltd (Eastern Province) ---
@@ -114,7 +114,7 @@ class TestDataSeeder extends Seeder
         ]);
         $this->createOwnershipMember($b2, 'Patrick', 'Habimana', '1988-11-10');
         $this->createOwnershipMember($b2, 'Grace', 'Mukiza', '1992-07-05');
-        $f2 = $this->createFacility($b2, 'Nyagatare Slaughterhouse', Facility::TYPE_SLAUGHTERHOUSE, $provinceEast, $districtEast, $sectorEast, null, null);
+        $f2 = $this->createFacility($b2, 'Nyagatare Slaughterhouse', Facility::TYPE_SLAUGHTER_HOUSE, $provinceEast, $districtEast, $sectorEast, null, null);
         $this->createInspector($f2, 'Eric', 'Nkusi');
         $this->createInspector($f2, 'Claudine', 'Uwineza');
 
@@ -134,7 +134,7 @@ class TestDataSeeder extends Seeder
             'district_id' => $districtNorth?->id,
             'sector_id' => $sectorNorth?->id,
         ]);
-        $f3 = $this->createFacility($b3, 'Musanze Butchery', Facility::TYPE_BUTCHERY, $provinceNorth, $districtNorth, $sectorNorth, null, null);
+        $f3 = $this->createFacility($b3, 'Musanze Butchery', Facility::TYPE_COLD_ROOM, $provinceNorth, $districtNorth, $sectorNorth, null, null);
         $this->createInspector($f3, 'Jean Pierre', 'Ndayisaba');
 
         // Employees (Rwanda names, +250 phone)
@@ -204,7 +204,7 @@ class TestDataSeeder extends Seeder
     ): Facility {
         $districtName = $district?->name ?? '';
         $sectorName = $sector?->name ?? '';
-        $capacity = $dailyCapacity ?? ($type === Facility::TYPE_SLAUGHTERHOUSE ? 50 : ($type === Facility::TYPE_STORAGE ? 200 : 200));
+        $capacity = $dailyCapacity ?? ($type === Facility::TYPE_SLAUGHTER_HOUSE ? 50 : ($type === Facility::TYPE_COLD_ROOM ? 200 : 200));
         return Facility::firstOrCreate(
             ['business_id' => $business->id, 'facility_name' => $name],
             [

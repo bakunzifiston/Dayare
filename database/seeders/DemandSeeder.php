@@ -45,7 +45,7 @@ class DemandSeeder extends Seeder
         }
 
         foreach ($businesses as $business) {
-            $facilities = $business->facilities()->whereIn('facility_type', [Facility::TYPE_BUTCHERY, Facility::TYPE_STORAGE])->get();
+            $facilities = $business->facilities()->whereIn('facility_type', [Facility::TYPE_COLD_ROOM])->get();
             $clients = Client::where('business_id', $business->id)->where('is_active', true)->get();
             $contracts = \App\Models\Contract::where('business_id', $business->id)->where('status', \App\Models\Contract::STATUS_ACTIVE)->get();
 

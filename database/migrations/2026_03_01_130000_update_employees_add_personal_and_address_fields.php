@@ -10,6 +10,8 @@ return new class extends Migration
     {
         Schema::table('employees', function (Blueprint $table) {
             if (Schema::hasColumn('employees', 'employee_code')) {
+                // Drop unique index first for SQLite compatibility
+                $table->dropUnique(['employee_code']);
                 $table->dropColumn('employee_code');
             }
 

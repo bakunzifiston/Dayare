@@ -16,7 +16,7 @@ class ColdRoomController extends Controller
     private function userStorageFacilityIds(Request $request): \Illuminate\Support\Collection
     {
         return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
-            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->where('facility_type', Facility::TYPE_COLD_ROOM)
             ->pluck('id');
     }
 
@@ -149,7 +149,7 @@ class ColdRoomController extends Controller
     private function storageFacilitiesForForm(Request $request): \Illuminate\Support\Collection
     {
         return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
-            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->where('facility_type', Facility::TYPE_COLD_ROOM)
             ->orderBy('facility_name')
             ->get();
     }
