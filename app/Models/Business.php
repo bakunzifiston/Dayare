@@ -78,6 +78,23 @@ class Business extends Model
 
     public const BUSINESS_SIZES = ['micro', 'small', 'medium', 'large'];
 
+    /** Annual revenue band (RWF) — stored on `baseline_revenue` instead of a raw amount. */
+    public const BASELINE_REVENUE_BRACKET_LT_2M = 'lt_2m';
+
+    public const BASELINE_REVENUE_BRACKET_2M_20M = '2m_20m';
+
+    public const BASELINE_REVENUE_BRACKET_20M_100M = '20m_100m';
+
+    public const BASELINE_REVENUE_BRACKET_GT_101M = 'gt_101m';
+
+    /** @var list<string> */
+    public const BASELINE_REVENUE_BRACKETS = [
+        self::BASELINE_REVENUE_BRACKET_LT_2M,
+        self::BASELINE_REVENUE_BRACKET_2M_20M,
+        self::BASELINE_REVENUE_BRACKET_20M_100M,
+        self::BASELINE_REVENUE_BRACKET_GT_101M,
+    ];
+
     public const PATHWAY_STATUSES = ['active', 'verification', 'inactive', 'graduated'];
 
     protected $casts = [
@@ -239,6 +256,49 @@ class Business extends Model
     public function hasOwnershipMembers(): bool
     {
         return in_array($this->ownership_type, self::OWNERSHIP_TYPES_WITH_MEMBERS, true);
+    }
+
+    /**
+     * @return array<string, string> bracket key => translated label
+     */
+    public static function baselineRevenueBracketOptions(): array
+    {
+        return [
+            self::BASELINE_REVENUE_BRACKET_LT_2M => __('Less than 2 million RWF'),
+            self::BASELINE_REVENUE_BRACKET_2M_20M => __('2 million – 20 million RWF'),
+            self::BASELINE_REVENUE_BRACKET_20M_100M => __('20 million – 100 million RWF'),
+            self::BASELINE_REVENUE_BRACKET_GT_101M => __('More than 101 million RWF'),
+        ];
+    }
+
+    public static function mapLegacyBaselineRevenueIntegerToBracket(int $n): string
+    {
+        if ($n < 2_000_000) {
+            return self::BASELINE_REVENUE_BRACKET_LT_2M;
+        }
+        if ($n <= 20_000_000) {
+            return self::BASELINE_REVENUE_BRACKET_2M_20M;
+        }
+        if ($n <= 101_000_000) {
+            return self::BASELINE_REVENUE_BRACKET_20M_100M;
+        }
+
+        return self::BASELINE_REVENUE_BRACKET_GT_101M;
+    }
+
+    public static function baselineRevenueMidpointRwf(?string $bracket): ?float
+    {
+        if ($bracket === null || $bracket === '') {
+            return null;
+        }
+
+        return match ($bracket) {
+            self::BASELINE_REVENUE_BRACKET_LT_2M => 1_000_000.0,
+            self::BASELINE_REVENUE_BRACKET_2M_20M => 11_000_000.0,
+            self::BASELINE_REVENUE_BRACKET_20M_100M => 60_500_000.0,
+            self::BASELINE_REVENUE_BRACKET_GT_101M => 150_000_000.0,
+            default => null,
+        };
     }
 
     public function isActive(): bool

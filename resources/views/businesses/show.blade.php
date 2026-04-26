@@ -60,10 +60,10 @@
                         <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($business->business_size) }}</dd>
                     </div>
                     @endif
-                    @if ($business->baseline_revenue !== null)
+                    @if ($business->baseline_revenue !== null && $business->baseline_revenue !== '')
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Baseline annual revenue (RWF)') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ number_format((int) $business->baseline_revenue) }}</dd>
+                        <dd class="mt-1 text-sm text-gray-900">{{ \App\Models\Business::baselineRevenueBracketOptions()[$business->baseline_revenue] ?? $business->baseline_revenue }}</dd>
                     </div>
                     @endif
                 </dl>

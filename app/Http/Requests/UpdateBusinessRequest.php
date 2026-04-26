@@ -59,7 +59,7 @@ class UpdateBusinessRequest extends FormRequest
             'ownership_type' => ['nullable', 'string', 'max:100', Rule::in(Business::OWNERSHIP_TYPES)],
             // Business profile extensions for processor workspace onboarding.
             'business_size' => ['nullable', 'string', Rule::in(Business::BUSINESS_SIZES)],
-            'baseline_revenue' => ['nullable', 'integer', 'min:0'],
+            'baseline_revenue' => ['nullable', 'string', Rule::in(Business::BASELINE_REVENUE_BRACKETS)],
             // VIBE metadata
             'vibe_unique_id' => ['nullable', 'string', 'max:100'],
             'vibe_commencement_date' => ['nullable', 'date'],
@@ -103,6 +103,10 @@ class UpdateBusinessRequest extends FormRequest
             $this->merge([
                 'registration_number' => mb_strtoupper($normalized),
             ]);
+        }
+
+        if ($this->input('baseline_revenue') === '') {
+            $this->merge(['baseline_revenue' => null]);
         }
     }
 

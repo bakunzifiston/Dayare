@@ -184,6 +184,18 @@ class SuperAdminVibeProgrammeController extends Controller
      *
      * @return list<string>
      */
+    private function baselineRevenueCsvValue(Business $business): string
+    {
+        $b = $business->baseline_revenue;
+        if ($b === null || $b === '') {
+            return '';
+        }
+        $key = (string) $b;
+        $options = Business::baselineRevenueBracketOptions();
+
+        return (string) ($options[$key] ?? $key);
+    }
+
     private function registrationCsvRow(Business $business): array
     {
         $sortedMembers = $business->relationLoaded('ownershipMembers')
@@ -234,7 +246,7 @@ class SuperAdminVibeProgrammeController extends Controller
             (string) $membersNames,
             (string) $membersDetail,
             (string) ($business->business_size ?? ''),
-            (string) ($business->baseline_revenue ?? ''),
+            $this->baselineRevenueCsvValue($business),
             (string) ($business->vibe_unique_id ?? ''),
             (string) optional($business->vibe_commencement_date)->toDateString(),
             (string) ($business->pathway_status ?? ''),
@@ -317,7 +329,11 @@ class SuperAdminVibeProgrammeController extends Controller
             ? round(($compliantCertificates / $certificatesIssued) * 100, 1)
             : 0.0;
 
-        $beforeTurnover = (float) ($business->baseline_revenue ?? 0);
+        $beforeTurnover = (float) (Business::baselineRevenueMidpointRwf(
+            $business->baseline_revenue !== null && $business->baseline_revenue !== ''
+                ? (string) $business->baseline_revenue
+                : null
+        ) ?? 0);
         $afterTurnover = (float) AnimalIntake::query()
             ->whereIn('facility_id', $facilityIds)
             ->whereDate('intake_date', '>=', now()->subMonths(12)->startOfMonth())
@@ -438,7 +454,7 @@ class SuperAdminVibeProgrammeController extends Controller
             'pathway_status' => filled($business->pathway_status),
             'vibe_unique_id' => filled($business->vibe_unique_id),
             'vibe_commencement_date' => ! empty($business->vibe_commencement_date),
-            'baseline_revenue' => $business->baseline_revenue !== null,
+            'baseline_revenue' => filled($business->baseline_revenue),
             'country_id' => ! empty($business->country_id),
             'district_id' => ! empty($business->district_id),
             'sector_id' => ! empty($business->sector_id),

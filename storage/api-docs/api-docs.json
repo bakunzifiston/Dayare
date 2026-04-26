@@ -2329,9 +2329,15 @@
                                         ]
                                     },
                                     "baseline_revenue": {
-                                        "type": "integer",
-                                        "example": 25000000,
-                                        "nullable": true
+                                        "type": "string",
+                                        "example": "2m_20m",
+                                        "nullable": true,
+                                        "enum": [
+                                            "lt_2m",
+                                            "2m_20m",
+                                            "20m_100m",
+                                            "gt_101m"
+                                        ]
                                     },
                                     "vibe_unique_id": {
                                         "type": "string",
@@ -3637,9 +3643,15 @@
                         ]
                     },
                     "baseline_revenue": {
-                        "type": "integer",
-                        "example": 25000000,
-                        "nullable": true
+                        "type": "string",
+                        "example": "2m_20m",
+                        "nullable": true,
+                        "enum": [
+                            "lt_2m",
+                            "2m_20m",
+                            "20m_100m",
+                            "gt_101m"
+                        ]
                     },
                     "vibe_unique_id": {
                         "type": "string",
@@ -3813,10 +3825,15 @@
                         ]
                     },
                     "baseline_revenue": {
-                        "type": "integer",
-                        "example": 25000000,
+                        "type": "string",
+                        "example": "2m_20m",
                         "nullable": true,
-                        "minimum": 0
+                        "enum": [
+                            "lt_2m",
+                            "2m_20m",
+                            "20m_100m",
+                            "gt_101m"
+                        ]
                     },
                     "vibe_unique_id": {
                         "type": "string",
