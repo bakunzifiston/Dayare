@@ -29,7 +29,7 @@ class StoreAnteMortemInspectionRequest extends FormRequest
         return [
             'slaughter_plan_id' => ['required', 'exists:slaughter_plans,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
-            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
+            'species' => ['required', 'string', 'max:50'],
             'number_examined' => ['required', 'integer', 'min:0'],
             'number_approved' => ['required', 'integer', 'min:0'],
             'number_rejected' => ['required', 'integer', 'min:0'],
@@ -69,21 +69,21 @@ class StoreAnteMortemInspectionRequest extends FormRequest
 
             foreach ($checklistItems as $itemKey => $meta) {
                 $value = $observations[$itemKey]['value'] ?? null;
-                if (! is_string($value) || trim($value) === '') {
+                if (!is_string($value) || trim($value) === '') {
                     $validator->errors()->add('observations', __('Please complete all species checklist items.'));
 
                     continue;
                 }
 
                 $allowed = AnteMortemChecklist::allowedValuesForItem($species, (string) $itemKey);
-                if (! in_array($value, $allowed, true)) {
+                if (!in_array($value, $allowed, true)) {
                     $validator->errors()->add('observations', __('Invalid checklist value for :item.', ['item' => $meta['label'] ?? $itemKey]));
                 }
             }
 
-            if (! empty($checklistItems)) {
+            if (!empty($checklistItems)) {
                 foreach (array_keys($observations) as $submittedItem) {
-                    if (! array_key_exists($submittedItem, $checklistItems)) {
+                    if (!array_key_exists($submittedItem, $checklistItems)) {
                         $validator->errors()->add('observations', __('Unexpected checklist item submitted.'));
                         break;
                     }

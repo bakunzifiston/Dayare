@@ -133,6 +133,48 @@ class InspectorController extends Controller
         });
     }
 
+    public function slaughterPlans(Request $request, Inspector $inspector): JsonResponse
+    {
+        if (! $this->userFacilityIds($request)->contains($inspector->facility_id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $plans = \App\Models\SlaughterPlan::with(['facility:id,facility_name', 'inspector:id,first_name,last_name'])
+            ->where('inspector_id', $inspector->id)
+            ->latest('slaughter_date')
+            ->paginate($request->integer('per_page', 15));
+
+        return ApiJson::paginated($plans);
+    }
+
+    public function postMortemInspections(Request $request, Inspector $inspector): JsonResponse
+    {
+        if (! $this->userFacilityIds($request)->contains($inspector->facility_id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $inspections = \App\Models\PostMortemInspection::with(['batch:id,batch_code,species', 'inspector:id,first_name,last_name'])
+            ->where('inspector_id', $inspector->id)
+            ->latest('inspection_date')
+            ->paginate($request->integer('per_page', 15));
+
+        return ApiJson::paginated($inspections);
+    }
+
+    public function anteMortemInspections(Request $request, Inspector $inspector): JsonResponse
+    {
+        if (! $this->userFacilityIds($request)->contains($inspector->facility_id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $inspections = \App\Models\AnteMortemInspection::with(['slaughterPlan.facility:id,facility_name', 'inspector:id,first_name,last_name'])
+            ->where('inspector_id', $inspector->id)
+            ->latest('inspection_date')
+            ->paginate($request->integer('per_page', 15));
+
+        return ApiJson::paginated($inspections);
+    }
+
     private function syncInspectorLocationFromDivisions(array $data): array
     {
         if (! empty($data['country_id']) && is_numeric($data['country_id'])) {

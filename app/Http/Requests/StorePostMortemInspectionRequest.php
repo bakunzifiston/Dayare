@@ -31,7 +31,7 @@ class StorePostMortemInspectionRequest extends FormRequest
         return [
             'batch_id' => ['required', 'exists:batches,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
-            'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
+            'species' => ['required', 'string', 'max:50'],
             'total_examined' => ['required', 'integer', 'min:0'],
             'approved_quantity' => ['required', 'integer', 'min:0'],
             'condemned_quantity' => ['required', 'integer', 'min:0'],
@@ -77,20 +77,20 @@ class StorePostMortemInspectionRequest extends FormRequest
             $observations = $this->input('observations', []);
             foreach ($checklistItems as $itemKey => $meta) {
                 $value = $observations[$itemKey]['value'] ?? null;
-                if (! is_string($value) || trim($value) === '') {
+                if (!is_string($value) || trim($value) === '') {
                     $validator->errors()->add('observations', __('Please complete all post-mortem checklist items.'));
 
                     continue;
                 }
 
                 $allowed = PostMortemChecklist::allowedValuesForItem($species, (string) $itemKey);
-                if (! in_array($value, $allowed, true)) {
+                if (!in_array($value, $allowed, true)) {
                     $validator->errors()->add('observations', __('Invalid checklist value for :item.', ['item' => $meta['label'] ?? $itemKey]));
                 }
             }
 
             foreach (array_keys($observations) as $submittedItem) {
-                if (! array_key_exists($submittedItem, $checklistItems)) {
+                if (!array_key_exists($submittedItem, $checklistItems)) {
                     $validator->errors()->add('observations', __('Unexpected checklist item submitted.'));
                     break;
                 }

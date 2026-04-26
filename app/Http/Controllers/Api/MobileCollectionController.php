@@ -171,6 +171,13 @@ class MobileCollectionController extends Controller
             $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
             $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
             $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
+
+            $data['country'] = $data['country'] ?? $supplier->country;
+            $data['province'] = $data['province'] ?? $supplier->province;
+            $data['district'] = $data['district'] ?? $supplier->district;
+            $data['sector'] = $data['sector'] ?? $supplier->sector;
+            $data['cell'] = $data['cell'] ?? $supplier->cell;
+            $data['village'] = $data['village'] ?? $supplier->village;
         }
 
         if (! empty($data['contract_id'])) {
@@ -205,6 +212,80 @@ class MobileCollectionController extends Controller
         ]);
     }
 
+    public function suppliersIndex(Request $request): JsonResponse
+    {
+        $businessIds = $request->user()->accessibleBusinessIds();
+        $query = Supplier::query()->whereIn('business_id', $businessIds);
+
+        $filters = $this->requestedFilters($request, ['business_id', 'is_active', 'supplier_status', 'type', 'search']);
+        if (isset($filters['business_id'])) {
+            $filteredBusinessId = (int) $filters['business_id'];
+            if (! $businessIds->contains($filteredBusinessId)) {
+                return ApiJson::failure(__('Not found.'), [], 404);
+            }
+            $query->where('business_id', $filteredBusinessId);
+        }
+        if (isset($filters['is_active'])) {
+            $query->where('is_active', (bool) $filters['is_active']);
+        }
+        if (isset($filters['supplier_status'])) {
+            $query->where('supplier_status', (string) $filters['supplier_status']);
+        }
+        if (isset($filters['type'])) {
+            $query->where('type', (string) $filters['type']);
+        }
+        if (isset($filters['search'])) {
+            $search = (string) $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('registration_number', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        $items = $query->orderBy('last_name')->orderBy('first_name')->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items, 'OK', $filters);
+    }
+
+    public function suppliersStore(Request $request): JsonResponse
+    {
+        $businessIds = $request->user()->accessibleBusinessIds()->all();
+
+        $validated = $request->validate([
+            'business_id' => ['required', 'integer', 'in:'.implode(',', $businessIds)],
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'type' => ['required', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'country_id' => ['nullable', 'integer'],
+            'province_id' => ['nullable', 'integer'],
+            'district_id' => ['nullable', 'integer'],
+            'sector_id' => ['nullable', 'integer'],
+            'cell_id' => ['nullable', 'integer'],
+            'village_id' => ['nullable', 'integer'],
+            'country' => ['nullable', 'string', 'max:255'],
+            'province' => ['nullable', 'string', 'max:255'],
+            'district' => ['nullable', 'string', 'max:255'],
+            'sector' => ['nullable', 'string', 'max:255'],
+            'cell' => ['nullable', 'string', 'max:255'],
+            'village' => ['nullable', 'string', 'max:255'],
+            'registration_number' => ['nullable', 'string', 'max:100'],
+            'tax_id' => ['nullable', 'string', 'max:100'],
+            'is_active' => ['sometimes', 'boolean'],
+            'supplier_status' => ['nullable', 'string', 'in:'.implode(',', array_keys(Supplier::STATUSES))],
+        ]);
+
+        $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['supplier_status'] = $validated['supplier_status'] ?? Supplier::STATUS_APPROVED;
+
+        $item = Supplier::create($validated);
+
+        return ApiJson::success($item, __('Created.'), 201);
+    }
+
     public function animalIntakesIndex(Request $request): JsonResponse
     {
         $facilityIds = $this->facilityIds($request);
@@ -234,6 +315,18 @@ class MobileCollectionController extends Controller
         $items = $query->latest('intake_date')->paginate($this->perPage($request));
 
         return ApiJson::paginated($items, 'OK', $filters);
+    }
+
+    public function animalIntakesByFacility(Request $request, Facility $facility): JsonResponse
+    {
+        if (! $this->facilityIds($request)->contains($facility->id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $query = AnimalIntake::query()->where('facility_id', $facility->id);
+        $items = $query->latest('intake_date')->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items);
     }
 
     public function animalIntakesStore(StoreAnimalIntakeRequest $request): JsonResponse
@@ -300,13 +393,16 @@ class MobileCollectionController extends Controller
         $query = SlaughterPlan::with(['facility:id,facility_name', 'inspector:id,first_name,last_name'])
             ->whereIn('facility_id', $facilityIds);
 
-        $filters = $this->requestedFilters($request, ['facility_id', 'species', 'status', 'slaughter_date_from', 'slaughter_date_to']);
+        $filters = $this->requestedFilters($request, ['facility_id', 'inspector_id', 'species', 'status', 'slaughter_date_from', 'slaughter_date_to']);
         if (isset($filters['facility_id'])) {
             $filteredFacilityId = (int) $filters['facility_id'];
             if (! $facilityIds->contains($filteredFacilityId)) {
                 return ApiJson::failure(__('Not found.'), [], 404);
             }
             $query->where('facility_id', $filteredFacilityId);
+        }
+        if (isset($filters['inspector_id'])) {
+            $query->where('inspector_id', (int) $filters['inspector_id']);
         }
         if (isset($filters['species'])) {
             $query->where('species', (string) $filters['species']);
@@ -416,6 +512,21 @@ class MobileCollectionController extends Controller
         return ApiJson::paginated($items, 'OK', $filters);
     }
 
+    public function slaughterExecutionsByFacility(Request $request, Facility $facility): JsonResponse
+    {
+        if (! $this->facilityIds($request)->contains($facility->id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $planIds = SlaughterPlan::where('facility_id', $facility->id)->pluck('id');
+        $items = SlaughterExecution::with(['slaughterPlan:id,slaughter_date,species'])
+            ->whereIn('slaughter_plan_id', $planIds)
+            ->latest('slaughter_time')
+            ->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items);
+    }
+
     public function slaughterExecutionsStore(StoreSlaughterExecutionRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -475,6 +586,68 @@ class MobileCollectionController extends Controller
         }
 
         return ApiJson::success(null, __('Deleted.'));
+    }
+
+    public function batchesIndex(Request $request): JsonResponse
+    {
+        $batchIds = $this->batchIds($request);
+        $query = Batch::with(['slaughterExecution.slaughterPlan.facility:id,facility_name', 'inspector:id,first_name,last_name'])
+            ->whereIn('id', $batchIds);
+
+        $filters = $this->requestedFilters($request, ['slaughter_execution_id', 'status', 'species']);
+        if (isset($filters['slaughter_execution_id'])) {
+            $query->where('slaughter_execution_id', (int) $filters['slaughter_execution_id']);
+        }
+        if (isset($filters['status'])) {
+            $query->where('status', (string) $filters['status']);
+        }
+        if (isset($filters['species'])) {
+            $query->where('species', (string) $filters['species']);
+        }
+
+        $items = $query->latest()->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items, 'OK', $filters);
+    }
+
+    public function batchesByFacility(Request $request, Facility $facility): JsonResponse
+    {
+        if (! $this->facilityIds($request)->contains($facility->id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $planIds = SlaughterPlan::where('facility_id', $facility->id)->pluck('id');
+        $executionIds = SlaughterExecution::whereIn('slaughter_plan_id', $planIds)->pluck('id');
+        
+        $items = Batch::with(['slaughterExecution.slaughterPlan:id,slaughter_date,species'])
+            ->whereIn('slaughter_execution_id', $executionIds)
+            ->latest()
+            ->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items);
+    }
+
+    public function batchesStore(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'slaughter_execution_id' => ['required', 'integer', 'exists:slaughter_executions,id'],
+            'inspector_id' => ['required', 'integer', 'exists:inspectors,id'],
+            'species' => ['required', 'string', 'max:50'],
+            'quantity' => ['required', 'numeric', 'min:0'],
+            'quantity_unit' => ['required', 'string', 'max:20'],
+            'status' => ['nullable', 'string', 'in:'.implode(',', Batch::STATUSES)],
+            'batch_code' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $execution = SlaughterExecution::find($validated['slaughter_execution_id']);
+        if (! $this->planIds($request)->contains($execution->slaughter_plan_id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $validated['status'] = $validated['status'] ?? Batch::STATUS_PENDING;
+        $item = Batch::create($validated);
+
+        return ApiJson::success($item, __('Created.'), 201);
     }
 
     public function anteMortemStore(StoreAnteMortemInspectionRequest $request): JsonResponse

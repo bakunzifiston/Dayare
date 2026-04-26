@@ -36,6 +36,8 @@ Route::prefix('v1')->group(function () {
         Route::post('businesses', [MobileBusinessController::class, 'store']);
 
         Route::get('lookups', [MobileCollectionController::class, 'lookups']);
+        Route::get('suppliers', [MobileCollectionController::class, 'suppliersIndex']);
+        Route::post('suppliers', [MobileCollectionController::class, 'suppliersStore']);
 
         Route::get('animal-intakes', [MobileCollectionController::class, 'animalIntakesIndex']);
         Route::post('animal-intakes', [MobileCollectionController::class, 'animalIntakesStore']);
@@ -54,6 +56,9 @@ Route::prefix('v1')->group(function () {
         Route::get('slaughter-executions/{slaughterExecution}', [MobileCollectionController::class, 'slaughterExecutionsShow']);
         Route::put('slaughter-executions/{slaughterExecution}', [MobileCollectionController::class, 'slaughterExecutionsUpdate']);
         Route::delete('slaughter-executions/{slaughterExecution}', [MobileCollectionController::class, 'slaughterExecutionsDestroy']);
+
+        Route::get('batches', [MobileCollectionController::class, 'batchesIndex']);
+        Route::post('batches', [MobileCollectionController::class, 'batchesStore']);
 
         Route::post('ante-mortem-inspections', [MobileCollectionController::class, 'anteMortemStore']);
         Route::post('post-mortem-inspections', [MobileCollectionController::class, 'postMortemStore']);
