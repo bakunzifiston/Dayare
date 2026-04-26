@@ -232,7 +232,12 @@
                         </div>
                         <div>
                             <x-input-label for="baseline_revenue" :value="__('Baseline annual revenue (RWF)')" />
-                            <x-text-input id="baseline_revenue" name="baseline_revenue" type="number" min="0" step="1" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('baseline_revenue')" />
+                            <select id="baseline_revenue" name="baseline_revenue" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
+                                <option value="">{{ __('Select a range (optional)') }}</option>
+                                @foreach (\App\Models\Business::baselineRevenueBracketOptions() as $bracket => $bracketLabel)
+                                    <option value="{{ $bracket }}" @selected(old('baseline_revenue') === $bracket)>{{ $bracketLabel }}</option>
+                                @endforeach
+                            </select>
                             <x-input-error class="mt-2" :messages="$errors->get('baseline_revenue')" />
                         </div>
                     </div>

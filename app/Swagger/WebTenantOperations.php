@@ -36,7 +36,7 @@ use OpenApi\Attributes as OA;
                     new OA\Property(property: 'owner_email', type: 'string', format: 'email', nullable: true, example: 'owner@dayaremeat.com'),
                     new OA\Property(property: 'ownership_type', type: 'string', enum: ['sole_proprietor', 'partnership', 'company', 'cooperative', 'other'], nullable: true, example: 'company'),
                     new OA\Property(property: 'business_size', type: 'string', enum: ['micro', 'small', 'medium', 'large'], nullable: true, example: 'small'),
-                    new OA\Property(property: 'baseline_revenue', type: 'integer', nullable: true, example: 25000000),
+                    new OA\Property(property: 'baseline_revenue', type: 'string', enum: ['lt_2m', '2m_20m', '20m_100m', 'gt_101m'], nullable: true, example: '2m_20m'),
                     new OA\Property(property: 'vibe_unique_id', type: 'string', nullable: true, example: 'VIBE-01JRSK1F0D2H0NANAX8EYG4P79'),
                     new OA\Property(property: 'vibe_commencement_date', type: 'string', format: 'date', nullable: true, example: '2026-04-20'),
                     new OA\Property(property: 'pathway_status', type: 'string', enum: ['active', 'verification', 'inactive', 'graduated'], nullable: true, example: 'active'),
