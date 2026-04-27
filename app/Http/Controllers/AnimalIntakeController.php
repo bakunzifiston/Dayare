@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreAnimalIntakeRequest;
 use App\Http\Requests\UpdateAnimalIntakeRequest;
 use App\Models\AnimalIntake;
+use App\Models\Client;
 use App\Models\Contract;
 use App\Models\Facility;
 use App\Models\Supplier;
@@ -66,6 +67,101 @@ class AnimalIntakeController extends Controller
         return $out;
     }
 
+    /**
+     * @param  \Illuminate\Support\Collection<int, Client>  $clients
+     * @return array<int, array{first_name: string, last_name: string, phone: string, country_id: int|null, province_id: int|null, district_id: int|null, sector_id: int|null, cell_id: int|null, village_id: int|null}>
+     */
+    private function clientsPrefillData(\Illuminate\Support\Collection $clients): array
+    {
+        $out = [];
+        foreach ($clients as $client) {
+            $parts = preg_split('/\s+/', trim((string) $client->name), 2) ?: [];
+            $out[$client->id] = [
+                'first_name' => $parts[0] ?? '',
+                'last_name' => $parts[1] ?? '',
+                'phone' => $client->phone ?? '',
+                'country_id' => $client->country_id,
+                'province_id' => $client->province_id,
+                'district_id' => $client->district_id,
+                'sector_id' => $client->sector_id,
+                'cell_id' => $client->cell_id,
+                'village_id' => $client->village_id,
+            ];
+        }
+
+        return $out;
+    }
+
+    private function hydrateIntakeSourceData(Request $request, array $data): array
+    {
+        $facilityId = (int) ($data['facility_id'] ?? 0);
+        $facility = Facility::find($facilityId);
+        if (! $facility) {
+            abort(404);
+        }
+
+        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT) {
+            $clientId = (int) ($data['client_id'] ?? 0);
+            if ($clientId > 0) {
+                $client = Client::query()
+                    ->whereKey($clientId)
+                    ->where('is_active', true)
+                    ->first();
+                if (! $client || (int) $client->business_id !== (int) $facility->business_id) {
+                    abort(404);
+                }
+                $parts = preg_split('/\s+/', trim((string) $client->name), 2) ?: [];
+                $data['supplier_firstname'] = $data['supplier_firstname'] ?? ($parts[0] ?? '');
+                $data['supplier_lastname'] = $data['supplier_lastname'] ?? ($parts[1] ?? '');
+                $data['supplier_contact'] = $data['supplier_contact'] ?? $client->phone;
+                $data['country_id'] = $data['country_id'] ?? $client->country_id;
+                $data['province_id'] = $data['province_id'] ?? $client->province_id;
+                $data['district_id'] = $data['district_id'] ?? $client->district_id;
+                $data['sector_id'] = $data['sector_id'] ?? $client->sector_id;
+                $data['cell_id'] = $data['cell_id'] ?? $client->cell_id;
+                $data['village_id'] = $data['village_id'] ?? $client->village_id;
+            } else {
+                $data['client_id'] = null;
+                $data['supplier_firstname'] = $data['manual_client_firstname'] ?? $data['supplier_firstname'] ?? null;
+                $data['supplier_lastname'] = $data['manual_client_lastname'] ?? $data['supplier_lastname'] ?? null;
+                $data['supplier_contact'] = $data['manual_client_contact'] ?? $data['supplier_contact'] ?? null;
+            }
+
+            $data['supplier_id'] = null;
+            $data['contract_id'] = null;
+            $data['farm_registration_number'] = null;
+        } else {
+            $supplier = Supplier::find((int) ($data['supplier_id'] ?? 0));
+            if (! $supplier || $supplier->business_id !== $facility->business_id || ! $supplier->isApproved()) {
+                abort(404);
+            }
+
+            $names = $this->supplierFirstLastNames($supplier);
+            $data['client_id'] = null;
+            $data['supplier_firstname'] = $data['supplier_firstname'] ?? $names['first'];
+            $data['supplier_lastname'] = $data['supplier_lastname'] ?? $names['last'];
+            $data['supplier_contact'] = $data['supplier_contact'] ?? $supplier->phone;
+            $data['farm_registration_number'] = $data['farm_registration_number'] ?? $supplier->registration_number;
+            $data['country_id'] = $data['country_id'] ?? $supplier->country_id;
+            $data['province_id'] = $data['province_id'] ?? $supplier->province_id;
+            $data['district_id'] = $data['district_id'] ?? $supplier->district_id;
+            $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
+            $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
+            $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
+
+            if (! empty($data['contract_id'])) {
+                $contract = Contract::find($data['contract_id']);
+                if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->accessibleBusinessIds()->contains($contract->business_id)) {
+                    abort(404);
+                }
+            }
+        }
+
+        unset($data['manual_client_firstname'], $data['manual_client_lastname'], $data['manual_client_contact']);
+
+        return $data;
+    }
+
     public function hub(Request $request): View
     {
         $facilityIds = $this->userFacilityIds($request);
@@ -115,7 +211,11 @@ class AnimalIntakeController extends Controller
         $suppliers = $businessIds->isNotEmpty()
             ? Supplier::whereIn('business_id', $businessIds)->where('supplier_status', Supplier::STATUS_APPROVED)->orderBy('id')->get()
             : collect();
+        $clients = $businessIds->isNotEmpty()
+            ? Client::whereIn('business_id', $businessIds)->where('is_active', true)->orderBy('name')->get(['id', 'business_id', 'name', 'email'])
+            : collect();
         $suppliersForIntake = $this->suppliersPrefillData($suppliers);
+        $clientsForIntake = $this->clientsPrefillData($clients);
         $supplierContracts = $businessIds->isNotEmpty()
             ? Contract::where('contract_category', Contract::CATEGORY_SUPPLIER)
                 ->where('status', Contract::STATUS_ACTIVE)
@@ -128,7 +228,7 @@ class AnimalIntakeController extends Controller
                 ->get()
             : collect();
 
-        return view('animal-intakes.create', compact('facilities', 'suppliers', 'suppliersForIntake', 'supplierContracts'));
+        return view('animal-intakes.create', compact('facilities', 'suppliers', 'clients', 'suppliersForIntake', 'clientsForIntake', 'supplierContracts'));
     }
 
     public function store(StoreAnimalIntakeRequest $request): RedirectResponse
@@ -139,30 +239,7 @@ class AnimalIntakeController extends Controller
         }
 
         $data = $request->validated();
-        if (! empty($data['supplier_id'])) {
-            $facility = Facility::find($facilityId);
-            $supplier = Supplier::find($data['supplier_id']);
-            if (! $supplier || ! $facility || $supplier->business_id !== $facility->business_id || ! $supplier->isApproved()) {
-                abort(404);
-            }
-            $names = $this->supplierFirstLastNames($supplier);
-            $data['supplier_firstname'] = $data['supplier_firstname'] ?? $names['first'];
-            $data['supplier_lastname'] = $data['supplier_lastname'] ?? $names['last'];
-            $data['supplier_contact'] = $data['supplier_contact'] ?? $supplier->phone;
-            $data['farm_registration_number'] = $data['farm_registration_number'] ?? $supplier->registration_number;
-            $data['country_id'] = $data['country_id'] ?? $supplier->country_id;
-            $data['province_id'] = $data['province_id'] ?? $supplier->province_id;
-            $data['district_id'] = $data['district_id'] ?? $supplier->district_id;
-            $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
-            $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
-            $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
-        }
-        if (! empty($data['contract_id'])) {
-            $contract = Contract::find($data['contract_id']);
-            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->accessibleBusinessIds()->contains($contract->business_id)) {
-                abort(404);
-            }
-        }
+        $data = $this->hydrateIntakeSourceData($request, $data);
 
         AnimalIntake::create($data);
 
@@ -173,7 +250,7 @@ class AnimalIntakeController extends Controller
     public function show(Request $request, AnimalIntake $animalIntake): View
     {
         $this->authorizeIntake($request, $animalIntake);
-        $animalIntake->load(['facility', 'supplier', 'contract', 'country', 'province', 'district', 'sector', 'cell', 'village', 'slaughterPlans']);
+        $animalIntake->load(['facility', 'supplier', 'client', 'contract', 'country', 'province', 'district', 'sector', 'cell', 'village', 'slaughterPlans']);
 
         return view('animal-intakes.show', ['intake' => $animalIntake]);
     }
@@ -189,7 +266,11 @@ class AnimalIntakeController extends Controller
         $suppliers = $businessIds->isNotEmpty()
             ? Supplier::whereIn('business_id', $businessIds)->where('supplier_status', Supplier::STATUS_APPROVED)->orderBy('id')->get()
             : collect();
+        $clients = $businessIds->isNotEmpty()
+            ? Client::whereIn('business_id', $businessIds)->where('is_active', true)->orderBy('name')->get(['id', 'business_id', 'name', 'email'])
+            : collect();
         $suppliersForIntake = $this->suppliersPrefillData($suppliers);
+        $clientsForIntake = $this->clientsPrefillData($clients);
         $supplierContracts = $businessIds->isNotEmpty()
             ? Contract::where('contract_category', Contract::CATEGORY_SUPPLIER)
                 ->where('status', Contract::STATUS_ACTIVE)
@@ -202,7 +283,7 @@ class AnimalIntakeController extends Controller
                 ->get()
             : collect();
 
-        return view('animal-intakes.edit', ['intake' => $animalIntake, 'facilities' => $facilities, 'suppliers' => $suppliers, 'suppliersForIntake' => $suppliersForIntake, 'supplierContracts' => $supplierContracts]);
+        return view('animal-intakes.edit', ['intake' => $animalIntake, 'facilities' => $facilities, 'suppliers' => $suppliers, 'clients' => $clients, 'suppliersForIntake' => $suppliersForIntake, 'clientsForIntake' => $clientsForIntake, 'supplierContracts' => $supplierContracts]);
     }
 
     public function update(UpdateAnimalIntakeRequest $request, AnimalIntake $animalIntake): RedirectResponse
@@ -214,30 +295,7 @@ class AnimalIntakeController extends Controller
         }
 
         $data = $request->validated();
-        if (! empty($data['supplier_id'])) {
-            $facility = Facility::find($facilityId);
-            $supplier = Supplier::find($data['supplier_id']);
-            if (! $supplier || ! $facility || $supplier->business_id !== $facility->business_id || ! $supplier->isApproved()) {
-                abort(404);
-            }
-            $names = $this->supplierFirstLastNames($supplier);
-            $data['supplier_firstname'] = $data['supplier_firstname'] ?? $names['first'];
-            $data['supplier_lastname'] = $data['supplier_lastname'] ?? $names['last'];
-            $data['supplier_contact'] = $data['supplier_contact'] ?? $supplier->phone;
-            $data['farm_registration_number'] = $data['farm_registration_number'] ?? $supplier->registration_number;
-            $data['country_id'] = $data['country_id'] ?? $supplier->country_id;
-            $data['province_id'] = $data['province_id'] ?? $supplier->province_id;
-            $data['district_id'] = $data['district_id'] ?? $supplier->district_id;
-            $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
-            $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
-            $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
-        }
-        if (array_key_exists('contract_id', $data) && ! empty($data['contract_id'])) {
-            $contract = Contract::find($data['contract_id']);
-            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->accessibleBusinessIds()->contains($contract->business_id)) {
-                abort(404);
-            }
-        }
+        $data = $this->hydrateIntakeSourceData($request, $data);
 
         $animalIntake->update($data);
 

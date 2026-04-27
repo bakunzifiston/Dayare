@@ -17,29 +17,29 @@
     <div class="py-8">
         <div class="max-w-7xl mx-auto space-y-5">
             <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Businesses') }}</p>
                     <p class="mt-2 text-3xl font-bold text-slate-900">{{ $summary['total_businesses'] ?? 0 }}</p>
                     <p class="mt-1 text-xs text-slate-500">
                         {{ __('Filtered: :count', ['count' => $summary['filtered_businesses'] ?? 0]) }}
                     </p>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Active') }}</p>
                     <p class="mt-2 text-3xl font-bold text-slate-900">{{ $summary['active_businesses'] ?? 0 }}</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Pathway: Active') }}</p>
                     <p class="mt-2 text-3xl font-bold text-slate-900">{{ $summary['pathway_active'] ?? 0 }}</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Pathway: Verification') }}</p>
                     <p class="mt-2 text-3xl font-bold text-slate-900">{{ $summary['pathway_verification'] ?? 0 }}</p>
                 </div>
             </section>
 
-            <section class="rounded-xl border border-slate-200 bg-white p-4">
-                <form method="GET" action="{{ route('super-admin.vibe-programme.index') }}" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+            <section class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                <form method="GET" action="{{ route('super-admin.vibe-programme.index') }}" class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
                     <div class="md:col-span-2">
                         <x-input-label for="search" :value="__('Search')" />
                         <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" :value="$filters['search']" placeholder="{{ __('Business name, registration number, owner, VIBE ID') }}" />
@@ -71,22 +71,25 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="md:col-span-5 flex items-center gap-2">
+                    <div class="md:col-span-6 flex flex-wrap items-center gap-2 pt-1">
                         <x-primary-button>{{ __('Apply filters') }}</x-primary-button>
                         <a href="{{ route('super-admin.vibe-programme.index') }}" class="inline-flex items-center px-3 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                             {{ __('Reset') }}
                         </a>
+                        <span class="ml-auto inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                            {{ __('Results: :count', ['count' => $businesses->total()]) }}
+                        </span>
                     </div>
                 </form>
             </section>
 
-            <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <section class="rounded-xl border border-slate-200/80 bg-white overflow-hidden shadow-sm">
                 <div class="px-4 py-3 border-b border-slate-200 bg-slate-50/70">
                     <h3 class="text-sm font-semibold text-slate-900">{{ __('Businesses list') }}</h3>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-[620px]">
                     <table class="min-w-full text-sm">
-                        <thead class="bg-slate-50 border-b border-slate-200">
+                        <thead class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur border-b border-slate-200">
                             <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                 <th class="px-4 py-3">{{ __('Business') }}</th>
                                 <th class="px-4 py-3">{{ __('Owner') }}</th>
@@ -99,20 +102,30 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @forelse ($businesses as $business)
-                                <tr class="hover:bg-slate-50/50">
-                                    <td class="px-4 py-3">
+                                <tr class="hover:bg-slate-50/70 transition-colors align-top">
+                                    <td class="px-4 py-3.5">
                                         <p class="font-medium text-slate-900">{{ $business->business_name }}</p>
                                         <p class="text-xs text-slate-500">{{ $business->registration_number ?: '—' }}</p>
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3.5">
                                         <p class="text-slate-800">{{ $business->user?->name ?? trim(($business->owner_first_name ?? '').' '.($business->owner_last_name ?? '')) ?: '—' }}</p>
                                         <p class="text-xs text-slate-500">{{ $business->user?->email ?? $business->owner_email ?? '—' }}</p>
                                     </td>
-                                    <td class="px-4 py-3 text-slate-700">{{ ucfirst((string) $business->type) }}</td>
-                                    <td class="px-4 py-3 text-slate-700">{{ ucfirst((string) ($business->pathway_status ?? '—')) }}</td>
-                                    <td class="px-4 py-3 text-slate-700">{{ ucfirst((string) ($business->status ?? '—')) }}</td>
-                                    <td class="px-4 py-3 text-slate-700 tabular-nums">{{ $business->facilities_count }}</td>
-                                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                                    <td class="px-4 py-3.5 text-slate-700">
+                                        <span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{{ ucfirst((string) $business->type) }}</span>
+                                    </td>
+                                    <td class="px-4 py-3.5 text-slate-700">
+                                        <span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{{ ucfirst((string) ($business->pathway_status ?? '—')) }}</span>
+                                    </td>
+                                    <td class="px-4 py-3.5 text-slate-700">
+                                        <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium {{ ($business->status ?? '') === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700' }}">
+                                            {{ ucfirst((string) ($business->status ?? '—')) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3.5 text-slate-700">
+                                        <span class="inline-flex min-w-8 justify-center rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-700">{{ $business->facilities_count }}</span>
+                                    </td>
+                                    <td class="px-4 py-3.5 text-right whitespace-nowrap">
                                         <a href="{{ route('super-admin.vibe-programme.show', $business) }}" class="text-bucha-primary hover:text-bucha-burgundy text-xs font-semibold">{{ __('Profile') }}</a>
                                         <span class="text-slate-300 mx-1">|</span>
                                         <a href="{{ route('super-admin.vibe-programme.export-business', $business) }}" class="text-slate-700 hover:text-slate-900 text-xs font-semibold">{{ __('Export') }}</a>

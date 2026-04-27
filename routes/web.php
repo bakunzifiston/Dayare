@@ -441,6 +441,12 @@ Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->nam
     Route::resource('users', SuperAdminUserController::class)
         ->middleware('super_admin.module:user_management')
         ->except(['show']);
+    Route::delete('tenants/bulk-delete', [SuperAdminUserController::class, 'destroyTenantsBulk'])
+        ->middleware('super_admin.module:user_management')
+        ->name('tenants.bulk-destroy');
+    Route::delete('tenants/{tenant}', [SuperAdminUserController::class, 'destroyTenant'])
+        ->middleware('super_admin.module:user_management')
+        ->name('tenants.destroy');
 });
 
 Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {

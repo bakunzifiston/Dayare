@@ -31,7 +31,17 @@
                 </div>
 
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
-                    <h3 class="text-base font-semibold text-slate-800">{{ __('Supplier & farm') }}</h3>
+                    <h3 class="text-base font-semibold text-slate-800">{{ __('Source details') }}</h3>
+                    <div>
+                        <x-input-label for="source_type" :value="__('Source type')" />
+                        <select id="source_type" name="source_type" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                            <option value="{{ \App\Models\AnimalIntake::SOURCE_TYPE_SUPPLIER }}" @selected(old('source_type', \App\Models\AnimalIntake::SOURCE_TYPE_SUPPLIER) === \App\Models\AnimalIntake::SOURCE_TYPE_SUPPLIER)>{{ __('Supplier') }}</option>
+                            <option value="{{ \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT }}" @selected(old('source_type') === \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT)>{{ __('Client') }}</option>
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('source_type')" />
+                    </div>
+
+                    <div id="supplier-source-fields" class="space-y-4">
                     <div>
                         <x-input-label for="supplier_id" :value="__('Use existing supplier')" />
                         <select id="supplier_id" name="supplier_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
@@ -83,6 +93,40 @@
                             <x-input-label for="farm_registration_number" :value="__('Farm registration number')" />
                             <x-text-input id="farm_registration_number" name="farm_registration_number" type="text" class="mt-1 block w-full" :value="old('farm_registration_number')" />
                             <x-input-error class="mt-2" :messages="$errors->get('farm_registration_number')" />
+                        </div>
+                    </div>
+                    </div>
+
+                    <div id="client-source-fields" class="space-y-4 hidden">
+                        <div>
+                            <x-input-label for="client_id" :value="__('Use existing client')" />
+                            <select id="client_id" name="client_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
+                                <option value="">{{ __('None — enter details below') }}</option>
+                                @foreach ($clients as $client)
+                                    <option value="{{ $client->id }}" @selected(old('client_id') == $client->id)>
+                                        {{ $client->name }}{!! $client->email ? ' · ' . e($client->email) : '' !!}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1 text-sm text-slate-500">{{ __('Optional: select a client to prefill name, contact and location.') }}</p>
+                            <x-input-error class="mt-2" :messages="$errors->get('client_id')" />
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <x-input-label for="manual_client_firstname" :value="__('Client first name')" />
+                                <x-text-input id="manual_client_firstname" name="manual_client_firstname" type="text" class="mt-1 block w-full" :value="old('manual_client_firstname')" />
+                                <x-input-error class="mt-2" :messages="$errors->get('manual_client_firstname')" />
+                            </div>
+                            <div>
+                                <x-input-label for="manual_client_lastname" :value="__('Client last name')" />
+                                <x-text-input id="manual_client_lastname" name="manual_client_lastname" type="text" class="mt-1 block w-full" :value="old('manual_client_lastname')" />
+                                <x-input-error class="mt-2" :messages="$errors->get('manual_client_lastname')" />
+                            </div>
+                        </div>
+                        <div>
+                            <x-input-label for="manual_client_contact" :value="__('Client contact')" />
+                            <x-text-input id="manual_client_contact" name="manual_client_contact" type="text" class="mt-1 block w-full" :value="old('manual_client_contact')" />
+                            <x-input-error class="mt-2" :messages="$errors->get('manual_client_contact')" />
                         </div>
                     </div>
                 </div>
@@ -315,7 +359,59 @@
                 }
             };
         }
+        const sourceTypeEl = document.getElementById('source_type');
+        const supplierFieldsEl = document.getElementById('supplier-source-fields');
+        const clientFieldsEl = document.getElementById('client-source-fields');
+        const supplierEl = document.getElementById('supplier_id');
+        const clientEl = document.getElementById('client_id');
+        const contractEl = document.getElementById('contract_id');
+        const manualClientFirstEl = document.getElementById('manual_client_firstname');
+        const manualClientLastEl = document.getElementById('manual_client_lastname');
+
+        function updateClientManualRequirements() {
+            const isClientSource = (sourceTypeEl?.value || '') === '{{ \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT }}';
+            const needsManual = isClientSource && !clientEl?.value;
+            if (manualClientFirstEl) manualClientFirstEl.required = needsManual;
+            if (manualClientLastEl) manualClientLastEl.required = needsManual;
+        }
+
+        function toggleSourceFields() {
+            const sourceType = sourceTypeEl?.value || '{{ \App\Models\AnimalIntake::SOURCE_TYPE_SUPPLIER }}';
+            const isSupplier = sourceType === '{{ \App\Models\AnimalIntake::SOURCE_TYPE_SUPPLIER }}';
+
+            if (supplierFieldsEl) {
+                supplierFieldsEl.classList.toggle('hidden', !isSupplier);
+            }
+            if (clientFieldsEl) {
+                clientFieldsEl.classList.toggle('hidden', isSupplier);
+            }
+            if (supplierEl) {
+                supplierEl.required = isSupplier;
+                if (!isSupplier) {
+                    supplierEl.value = '';
+                }
+            }
+            if (contractEl) {
+                contractEl.disabled = !isSupplier;
+                if (!isSupplier) {
+                    contractEl.value = '';
+                }
+            }
+            if (clientEl) {
+                clientEl.required = !isSupplier;
+                if (isSupplier) {
+                    clientEl.value = '';
+                }
+            }
+            updateClientManualRequirements();
+        }
+
+        sourceTypeEl?.addEventListener('change', toggleSourceFields);
+        clientEl?.addEventListener('change', updateClientManualRequirements);
+        toggleSourceFields();
+
         window.suppliersForIntake = @json($suppliersForIntake);
+        window.clientsForIntake = @json($clientsForIntake);
         document.getElementById('supplier_id')?.addEventListener('change', function () {
             var id = this.value, data = window.suppliersForIntake && window.suppliersForIntake[id];
             if (data) {
@@ -324,6 +420,23 @@
                 if (ln) ln.value = data.last_name || '';
                 if (c) c.value = data.phone || '';
                 if (r) r.value = data.registration_number || '';
+            }
+        });
+        document.getElementById('client_id')?.addEventListener('change', function () {
+            var id = this.value, data = window.clientsForIntake && window.clientsForIntake[id];
+            if (data) {
+                var fn = document.getElementById('manual_client_firstname'), ln = document.getElementById('manual_client_lastname'), c = document.getElementById('manual_client_contact');
+                var country = document.getElementById('country_id'), province = document.getElementById('province_id'), district = document.getElementById('district_id');
+                var sector = document.getElementById('sector_id'), cell = document.getElementById('cell_id'), village = document.getElementById('village_id');
+                if (fn) fn.value = data.first_name || '';
+                if (ln) ln.value = data.last_name || '';
+                if (c) c.value = data.phone || '';
+                if (country) country.value = data.country_id || '';
+                if (province) province.value = data.province_id || '';
+                if (district) district.value = data.district_id || '';
+                if (sector) sector.value = data.sector_id || '';
+                if (cell) cell.value = data.cell_id || '';
+                if (village) village.value = data.village_id || '';
             }
         });
     </script>

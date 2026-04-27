@@ -147,7 +147,36 @@ class MobileCollectionController extends Controller
         $facilityId = (int) ($data['facility_id'] ?? 0);
         $facilityBusinessId = (int) Facility::query()->whereKey($facilityId)->value('business_id');
 
-        if (! empty($data['supplier_id'])) {
+        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT) {
+            $client = Client::query()
+                ->whereKey((int) ($data['client_id'] ?? 0))
+                ->where('is_active', true)
+                ->first();
+            if ((int) ($data['client_id'] ?? 0) > 0) {
+                if (! $client || (int) $client->business_id !== $facilityBusinessId) {
+                    abort(404);
+                }
+                $parts = preg_split('/\s+/', trim((string) $client->name), 2) ?: [];
+                $data['supplier_firstname'] = $data['supplier_firstname'] ?? ($parts[0] ?? '');
+                $data['supplier_lastname'] = $data['supplier_lastname'] ?? ($parts[1] ?? '');
+                $data['supplier_contact'] = $data['supplier_contact'] ?? $client->phone;
+                $data['country_id'] = $data['country_id'] ?? $client->country_id;
+                $data['province_id'] = $data['province_id'] ?? $client->province_id;
+                $data['district_id'] = $data['district_id'] ?? $client->district_id;
+                $data['sector_id'] = $data['sector_id'] ?? $client->sector_id;
+                $data['cell_id'] = $data['cell_id'] ?? $client->cell_id;
+                $data['village_id'] = $data['village_id'] ?? $client->village_id;
+            } else {
+                $data['client_id'] = null;
+                $data['supplier_firstname'] = $data['manual_client_firstname'] ?? $data['supplier_firstname'] ?? null;
+                $data['supplier_lastname'] = $data['manual_client_lastname'] ?? $data['supplier_lastname'] ?? null;
+                $data['supplier_contact'] = $data['manual_client_contact'] ?? $data['supplier_contact'] ?? null;
+            }
+
+            $data['supplier_id'] = null;
+            $data['contract_id'] = null;
+            $data['farm_registration_number'] = null;
+        } elseif (! empty($data['supplier_id'])) {
             $supplier = Supplier::find((int) $data['supplier_id']);
             if (! $supplier || ! $supplier->isApproved() || (int) $supplier->business_id !== $facilityBusinessId) {
                 abort(404);
@@ -171,6 +200,7 @@ class MobileCollectionController extends Controller
             $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
             $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
             $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
+            $data['client_id'] = null;
         }
 
         if (! empty($data['contract_id'])) {
@@ -179,6 +209,8 @@ class MobileCollectionController extends Controller
                 abort(404);
             }
         }
+
+        unset($data['manual_client_firstname'], $data['manual_client_lastname'], $data['manual_client_contact']);
 
         return $data;
     }

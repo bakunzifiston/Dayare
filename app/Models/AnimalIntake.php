@@ -19,7 +19,9 @@ class AnimalIntake extends Model
         'facility_id',
         'supply_request_id',
         'farm_id',
+        'source_type',
         'supplier_id',
+        'client_id',
         'contract_id',
         'intake_date',
         'supplier_firstname',
@@ -85,6 +87,15 @@ class AnimalIntake extends Model
         self::SPECIES_OTHER,
     ];
 
+    public const SOURCE_TYPE_SUPPLIER = 'supplier';
+
+    public const SOURCE_TYPE_CLIENT = 'client';
+
+    public const SOURCE_TYPES = [
+        self::SOURCE_TYPE_SUPPLIER,
+        self::SOURCE_TYPE_CLIENT,
+    ];
+
     public function facility(): BelongsTo
     {
         return $this->belongsTo(Facility::class);
@@ -103,6 +114,11 @@ class AnimalIntake extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 
     public function contract(): BelongsTo

@@ -7,6 +7,7 @@ use App\Models\AnimalIntake;
 use App\Models\AnteMortemInspection;
 use App\Models\Batch;
 use App\Models\Business;
+use App\Models\BusinessUser;
 use App\Models\Certificate;
 use App\Models\Client;
 use App\Models\Contract;
@@ -23,6 +24,8 @@ use App\Models\TransportTrip;
 use App\Models\User;
 use App\Models\WarehouseStorage;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -37,6 +40,9 @@ class SuperAdminDashboardController extends Controller
     public function index(Request $request): View
     {
         $platformKpis = $this->platformKpis();
+        $workspaceKpis = $this->workspaceKpis();
+        $tenantRows = $this->tenantRows();
+        $tenantUserRows = $this->tenantUserRows();
 
         $compliance = $this->complianceAlerts();
 
@@ -67,12 +73,124 @@ class SuperAdminDashboardController extends Controller
 
         return view('super-admin.dashboard', compact(
             'platformKpis',
+            'workspaceKpis',
+            'tenantRows',
+            'tenantUserRows',
             'compliance',
             'charts',
             'crmInsights',
             'allUsers',
             'allBusinesses'
         ));
+    }
+
+    private function workspaceKpis(): array
+    {
+        return [
+            'tenants' => (int) Business::query()->distinct('user_id')->count('user_id'),
+            'businesses' => Business::count(),
+            'users' => User::count(),
+            'delete_actions' => $this->totalDeleteActions(),
+        ];
+    }
+
+    private function tenantRows()
+    {
+        return User::query()
+            ->whereHas('businesses')
+            ->withCount('businesses')
+            ->with(['businesses.memberUsers:id'])
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $tenant) {
+                $memberIds = $tenant->businesses
+                    ->flatMap(fn (Business $business) => $business->memberUsers->pluck('id'));
+                $userCount = $memberIds
+                    ->push($tenant->id)
+                    ->unique()
+                    ->count();
+
+                return [
+                    'id' => (int) $tenant->id,
+                    'tenant_name' => $tenant->name,
+                    'tenant_email' => $tenant->email,
+                    'business_names' => $tenant->businesses
+                        ->pluck('business_name')
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all(),
+                    'business_types' => $tenant->businesses
+                        ->pluck('type')
+                        ->filter()
+                        ->map(fn ($type) => ucfirst((string) $type))
+                        ->unique()
+                        ->values()
+                        ->all(),
+                    'businesses_count' => (int) $tenant->businesses_count,
+                    'users_count' => (int) $userCount,
+                ];
+            });
+    }
+
+    private function tenantUserRows()
+    {
+        $businesses = Business::query()
+            ->with([
+                'user:id,name,email',
+                'memberUsers:id,name,email',
+            ])
+            ->orderBy('business_name')
+            ->get(['id', 'business_name', 'user_id']);
+
+        $rows = collect();
+
+        foreach ($businesses as $business) {
+            if ($business->user !== null) {
+                $rows->push([
+                    'name' => $business->user->name,
+                    'email' => $business->user->email,
+                    'role' => BusinessUser::ROLE_ORG_ADMIN,
+                    'tenant' => $business->business_name,
+                ]);
+            }
+
+            foreach ($business->memberUsers as $member) {
+                $rows->push([
+                    'name' => $member->name,
+                    'email' => $member->email,
+                    'role' => (string) ($member->pivot?->role ?? __('User')),
+                    'tenant' => $business->business_name,
+                ]);
+            }
+        }
+
+        return $rows
+            ->sortBy(['tenant', 'name'])
+            ->values();
+    }
+
+    private function totalDeleteActions(): int
+    {
+        if (Schema::hasTable('activity_log')) {
+            return (int) DB::table('activity_log')
+                ->where(function ($query) {
+                    $query->where('description', 'deleted')
+                        ->orWhere('event', 'deleted');
+                })
+                ->count();
+        }
+
+        if (Schema::hasTable('audit_logs')) {
+            return (int) DB::table('audit_logs')
+                ->where(function ($query) {
+                    $query->where('action', 'delete')
+                        ->orWhere('event', 'deleted');
+                })
+                ->count();
+        }
+
+        return 0;
     }
 
     private function platformKpis(): array
