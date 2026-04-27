@@ -189,6 +189,7 @@ class MobileAuthController extends Controller
             'business_id' => $ctx['business_id'],
             'accessible_businesses' => $ctx['accessible_businesses'],
             'accessible_business_ids' => $user->accessibleBusinessIds()->all(),
+            'facility_id' => $ctx['userRole'] === 'operations_manager' ? $user->operatorManager?->facility_id : null,
         ];
     }
 

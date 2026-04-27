@@ -129,6 +129,11 @@ class User extends Authenticatable
         return $this->hasMany(Business::class);
     }
 
+    public function operatorManager(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(OperatorManager::class, 'email', 'email');
+    }
+
     /** Businesses this user is a member of (not owner), with role on pivot. */
     public function memberBusinesses(): BelongsToMany
     {

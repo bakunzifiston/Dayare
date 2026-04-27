@@ -3,6 +3,8 @@
 use App\Http\Controllers\mobileapi\FacilityController as CustomFacilityController;
 use App\Http\Controllers\mobileapi\InspectorController as MobileInspectorController;
 use App\Http\Controllers\mobileapi\OperatorManagerController as MobileOperatorManagerController;
+use App\Http\Controllers\mobileapi\SupplierController as MobileSupplierController;
+use App\Http\Controllers\mobileapi\ContractController as MobileContractController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,6 +43,14 @@ Route::prefix('mobileapi')->group(function () {
     Route::put('operator-managers/{operator_manager}', [MobileOperatorManagerController::class, 'update']);
     Route::delete('operator-managers/{operator_manager}', [MobileOperatorManagerController::class, 'destroy']);
     Route::get('facilities/{facility}/operator-managers', [MobileOperatorManagerController::class, 'byFacility']);
+    Route::get('operator-managers/{operator_manager}/facility', [MobileOperatorManagerController::class, 'facility']);
+
+    // Supplier Management
+    Route::get('businesses/{business}/suppliers', [MobileSupplierController::class, 'index']);
+
+    // Contract Management
+    Route::get('businesses/{business}/contracts', [MobileContractController::class, 'index']);
+    Route::post('businesses/{business}/contracts', [MobileContractController::class, 'store']);
     
     // Batch Management
     Route::get('batches', [\App\Http\Controllers\Api\MobileCollectionController::class, 'batchesIndex']);

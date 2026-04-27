@@ -241,6 +241,16 @@ class Business extends Model
         return in_array($this->ownership_type, self::OWNERSHIP_TYPES_WITH_MEMBERS, true);
     }
 
+    public function suppliers(): HasMany
+    {
+        return $this->hasMany(Supplier::class);
+    }
+
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(Contract::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;

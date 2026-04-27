@@ -60,6 +60,17 @@ class OperatorManagerController extends Controller
         return ApiJson::paginated($operatorManagers);
     }
 
+    public function facility(Request $request, OperatorManager $operator_manager): JsonResponse
+    {
+        if (! $this->userFacilityIds($request)->contains($operator_manager->facility_id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $facility = $operator_manager->facility()->with('business')->first();
+
+        return ApiJson::success($facility);
+    }
+
     public function show(Request $request, OperatorManager $operatorManager): JsonResponse
     {
         if (! $this->userFacilityIds($request)->contains($operatorManager->facility_id)) {
