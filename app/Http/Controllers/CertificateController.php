@@ -11,6 +11,7 @@ use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -19,6 +20,52 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class CertificateController extends Controller
 {
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyCertificateFilters($query, array $filters)
+    {
+        if (! empty($filters['search'])) {
+            $search = trim((string) $filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->where('certificate_number', 'like', "%{$search}%")
+                    ->orWhere('id', $search);
+            });
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', (string) $filters['status']);
+        }
+
+        if (! empty($filters['facility_id'])) {
+            $query->where('facility_id', (int) $filters['facility_id']);
+        }
+
+        if (! empty($filters['issued_from'])) {
+            $query->whereDate('issued_at', '>=', (string) $filters['issued_from']);
+        }
+
+        if (! empty($filters['issued_to'])) {
+            $query->whereDate('issued_at', '<=', (string) $filters['issued_to']);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, int|string>  $batchIds
+     * @param  \Illuminate\Support\Collection<int, int|string>  $facilityIds
+     */
+    private function scopedCertificatesQuery($batchIds, $facilityIds)
+    {
+        return Certificate::query()->where(function ($q) use ($batchIds, $facilityIds) {
+            $q->whereIn('batch_id', $batchIds)
+                ->orWhere(function ($q2) use ($facilityIds) {
+                    $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds);
+                });
+        });
+    }
+
     private function userFacilityIds(Request $request): \Illuminate\Support\Collection
     {
         return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
@@ -94,27 +141,95 @@ class CertificateController extends Controller
     {
         $batchIds = $this->userBatchIds($request);
         $facilityIds = $this->userFacilityIds($request);
+        $filters = [
+            'search' => (string) $request->query('search', ''),
+            'status' => (string) $request->query('status', ''),
+            'facility_id' => (string) $request->query('facility_id', ''),
+            'issued_from' => (string) $request->query('issued_from', ''),
+            'issued_to' => (string) $request->query('issued_to', ''),
+        ];
 
-        $certificates = Certificate::with(['batch.slaughterExecution.slaughterPlan.facility', 'inspector', 'facility'])
-            ->where(function ($q) use ($batchIds, $facilityIds) {
-                $q->whereIn('batch_id', $batchIds)
-                    ->orWhere(function ($q2) use ($facilityIds) {
-                        $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds);
-                    });
-            })
+        $certificates = $this->applyCertificateFilters(
+            $this->scopedCertificatesQuery($batchIds, $facilityIds)
+                ->with(['batch.slaughterExecution.slaughterPlan.facility', 'inspector', 'facility']),
+            $filters
+        )
             ->latest('issued_at')
-            ->paginate(10);
+            ->paginate(10)
+            ->appends($filters);
 
-        $baseCertificates = Certificate::where(function ($q) use ($batchIds, $facilityIds) {
-            $q->whereIn('batch_id', $batchIds)
-                ->orWhere(fn ($q2) => $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds));
-        });
+        $baseCertificates = $this->applyCertificateFilters(
+            $this->scopedCertificatesQuery($batchIds, $facilityIds),
+            $filters
+        );
         $kpis = [
             'total' => (clone $baseCertificates)->count(),
             'active' => (clone $baseCertificates)->where('status', Certificate::STATUS_ACTIVE)->count(),
         ];
 
-        return view('certificates.index', compact('certificates', 'kpis'));
+        $facilities = Facility::query()
+            ->whereIn('id', $facilityIds)
+            ->orderBy('facility_name')
+            ->get(['id', 'facility_name']);
+
+        return view('certificates.index', compact('certificates', 'kpis', 'facilities', 'filters'));
+    }
+
+    public function export(Request $request): Response
+    {
+        $batchIds = $this->userBatchIds($request);
+        $facilityIds = $this->userFacilityIds($request);
+        $filters = [
+            'search' => (string) $request->query('search', ''),
+            'status' => (string) $request->query('status', ''),
+            'facility_id' => (string) $request->query('facility_id', ''),
+            'issued_from' => (string) $request->query('issued_from', ''),
+            'issued_to' => (string) $request->query('issued_to', ''),
+        ];
+
+        $rows = $this->applyCertificateFilters(
+            $this->scopedCertificatesQuery($batchIds, $facilityIds)
+                ->with(['batch', 'inspector', 'facility']),
+            $filters
+        )
+            ->latest('issued_at')
+            ->get();
+
+        $fileName = 'certificates-'.now()->format('Ymd-His').'.pdf';
+        $pdf = Pdf::loadView('certificates.pdf.list', [
+            'rows' => $rows,
+            'filters' => $filters,
+            'generatedAt' => now(),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download($fileName);
+    }
+
+    public function exportSingle(Request $request, Certificate $certificate): Response
+    {
+        $this->authorizeCertificate($request, $certificate);
+        $certificate->load([
+            'batch.postMortemInspection',
+            'batch.slaughterExecution.slaughterPlan.facility',
+            'batch.slaughterExecution.slaughterPlan.anteMortemInspections',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.country',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.province',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.district',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.sector',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.cell',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.village',
+            'inspector',
+            'facility',
+            'certificateQr',
+        ]);
+
+        $fileName = 'certificate-'.($certificate->certificate_number ?: $certificate->id).'.pdf';
+        $pdf = Pdf::loadView('certificates.pdf.single', [
+            'certificate' => $certificate,
+            'generatedAt' => now(),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download($fileName);
     }
 
     public function create(Request $request): View
@@ -170,7 +285,22 @@ class CertificateController extends Controller
     public function show(Request $request, Certificate $certificate): View|RedirectResponse
     {
         $this->authorizeCertificate($request, $certificate);
-        $certificate->load(['batch.slaughterExecution.slaughterPlan.facility', 'inspector', 'facility', 'certificateQr', 'transportTrips.originFacility', 'transportTrips.destinationFacility']);
+        $certificate->load([
+            'batch.postMortemInspection',
+            'batch.slaughterExecution.slaughterPlan.facility',
+            'batch.slaughterExecution.slaughterPlan.anteMortemInspections',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.country',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.province',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.district',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.sector',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.cell',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.village',
+            'inspector',
+            'facility',
+            'certificateQr',
+            'transportTrips.originFacility',
+            'transportTrips.destinationFacility',
+        ]);
         if (! $certificate->certificateQr) {
             $certificate->certificateQr()->create(['slug' => CertificateQr::generateSlug()]);
             $certificate->load('certificateQr');

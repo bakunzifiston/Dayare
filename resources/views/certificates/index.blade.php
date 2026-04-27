@@ -19,6 +19,50 @@
                 <x-kpi-card inline title="{{ __('Total certificates') }}" :value="$kpis['total']" color="blue" />
                 <x-kpi-card inline title="{{ __('Active') }}" :value="$kpis['active']" color="green" />
             </div>
+
+            <section class="mb-6 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
+                <form method="GET" action="{{ route('certificates.index') }}" class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+                    <div class="md:col-span-2">
+                        <x-input-label for="search" :value="__('Search')" />
+                        <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" :value="$filters['search']" placeholder="{{ __('Certificate number or ID') }}" />
+                    </div>
+                    <div>
+                        <x-input-label for="status" :value="__('Status')" />
+                        <select id="status" name="status" class="mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                            <option value="">{{ __('All') }}</option>
+                            @foreach (\App\Models\Certificate::STATUSES as $status)
+                                <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ ucfirst($status) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <x-input-label for="facility_id" :value="__('Facility')" />
+                        <select id="facility_id" name="facility_id" class="mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                            <option value="">{{ __('All') }}</option>
+                            @foreach ($facilities as $facility)
+                                <option value="{{ $facility->id }}" @selected((string) $filters['facility_id'] === (string) $facility->id)>{{ $facility->facility_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <x-input-label for="issued_from" :value="__('Issued from')" />
+                        <x-text-input id="issued_from" name="issued_from" type="date" class="mt-1 block w-full" :value="$filters['issued_from']" />
+                    </div>
+                    <div>
+                        <x-input-label for="issued_to" :value="__('Issued to')" />
+                        <x-text-input id="issued_to" name="issued_to" type="date" class="mt-1 block w-full" :value="$filters['issued_to']" />
+                    </div>
+                    <div class="md:col-span-6 flex flex-wrap items-center gap-2 pt-1">
+                        <x-primary-button>{{ __('Apply filters') }}</x-primary-button>
+                        <a href="{{ route('certificates.index') }}" class="inline-flex items-center px-3 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                            {{ __('Reset') }}
+                        </a>
+                        <a href="{{ route('certificates.export', array_filter($filters, fn ($value) => $value !== '')) }}" class="ml-auto inline-flex items-center px-3 py-2 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
+                            {{ __('Export PDF') }}
+                        </a>
+                    </div>
+                </form>
+            </section>
             @if (session('status'))
                 <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif

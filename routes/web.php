@@ -64,6 +64,7 @@ Route::get('/', function () {
 Route::post('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
 Route::get('/trace/{slug}', [\App\Http\Controllers\TraceabilityController::class, 'show'])->name('traceability.show');
+Route::get('/trace/{slug}/pdf', [\App\Http\Controllers\TraceabilityController::class, 'exportPdf'])->name('traceability.pdf');
 Route::view('/contact-us', 'contact')->name('contact-us');
 Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
 Route::get('/shop/product/{productId}', [ShopController::class, 'show'])->name('shop.product');
@@ -371,6 +372,8 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::get('certificates/overview', [CertificateController::class, 'hub'])->name('certificates.hub');
     Route::resource('certificates', CertificateController::class);
     Route::get('certificates/{certificate}/qr', [CertificateController::class, 'qr'])->name('certificates.qr');
+    Route::get('certificates-export', [CertificateController::class, 'export'])->name('certificates.export');
+    Route::get('certificates/{certificate}/export-pdf', [CertificateController::class, 'exportSingle'])->name('certificates.export-single');
     Route::resource('warehouse-storages', WarehouseStorageController::class);
     Route::resource('cold-room-standards', ColdRoomStandardController::class)->except(['show']);
     Route::prefix('cold-rooms')->name('cold-rooms.')->group(function () {

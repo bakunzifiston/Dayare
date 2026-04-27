@@ -21,12 +21,24 @@
         dt { font-size: 0.75rem; font-weight: 500; color: #64748b; margin-top: 0.5rem; }
         dd { font-size: 0.9375rem; color: #0f172a; margin: 0.15rem 0 0 0; }
         .brand { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 1.5rem; }
+        .checklist { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin-top: 0.5rem; }
+        .checklist th, .checklist td { text-align: left; padding: 0.4rem 0.35rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        .checklist th { color: #64748b; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .inspection-block { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+        .inspection-block:first-of-type { margin-top: 0.5rem; border-top: none; padding-top: 0; }
+        .inspection-h { font-size: 0.85rem; font-weight: 600; color: #0f172a; margin-bottom: 0.35rem; }
+        .inspection-meta { font-size: 0.8rem; color: #64748b; margin-bottom: 0.5rem; }
     </style>
 </head>
 <body>
     <div class="card">
         <h1>{{ __('Meat traceability') }}</h1>
         <p class="subtitle">{{ __('Certificate') }}: {{ $certificateNumber }}</p>
+        <div style="margin-bottom: 1rem;">
+            <a href="{{ route('traceability.pdf', $certificateQr->slug) }}" style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:0.45rem 0.75rem;border-radius:0.5rem;font-size:0.8rem;font-weight:600;">
+                {{ __('Export PDF') }}
+            </a>
+        </div>
 
         {{-- Purpose of QR: instant answers --}}
         <p class="section-title">{{ __('Quick answers') }}</p>
@@ -59,12 +71,10 @@
                 <dt>{{ __('Batch') }}</dt>
                 <dd>{{ $batchCode }}</dd>
             </div>
-            @if ($originLocation)
-                <div>
-                    <dt>{{ __('Origin (farm / location)') }}</dt>
-                    <dd>{{ $originLocation }}</dd>
-                </div>
-            @endif
+            <div>
+                <dt>{{ __('Farm location') }}</dt>
+                <dd>{{ $originLocation ?: '—' }}</dd>
+            </div>
         </dl>
     </div>
 
@@ -92,12 +102,10 @@
                         <dd>{{ $animalIntake->farm_name }}</dd>
                     </div>
                 @endif
-                @if ($originLocation)
-                    <div>
-                        <dt>{{ __('Origin location') }}</dt>
-                        <dd>{{ $originLocation }}</dd>
-                    </div>
-                @endif
+                <div>
+                    <dt>{{ __('Farm location') }}</dt>
+                    <dd>{{ $originLocation ?: '—' }}</dd>
+                </div>
                 <div>
                     <dt>{{ __('Species') }}</dt>
                     <dd>{{ $animalIntake->species }}</dd>
@@ -117,6 +125,117 @@
                     </div>
                 @endif
             </dl>
+        </div>
+    @endif
+
+    @if (!empty($anteMortemInspectionsDetail))
+        <div class="card">
+            <p class="section-title">{{ __('Ante-mortem inspection — checklist') }}</p>
+            @foreach ($anteMortemInspectionsDetail as $idx => $am)
+                <div class="inspection-block">
+                    <p class="inspection-h">{{ __('Record') }} {{ $idx + 1 }} — {{ $am['inspection_date'] }}</p>
+                    <p class="inspection-meta">
+                        {{ __('Species') }}: {{ $am['species'] }}
+                        @if (!empty($am['inspector'])) · {{ __('Inspector') }}: {{ $am['inspector'] }} @endif
+                    </p>
+                    <p class="inspection-meta">
+                        {{ __('Examined / approved / rejected') }}:
+                        {{ $am['number_examined'] }} / {{ $am['number_approved'] }} / {{ $am['number_rejected'] }}
+                    </p>
+                    @if (!empty($am['notes']))
+                        <p class="inspection-meta" style="white-space: pre-wrap;">{{ $am['notes'] }}</p>
+                    @endif
+                    @if (empty($am['rows']))
+                        <p style="font-size: 0.875rem; color: #64748b;">{{ __('No checklist line items recorded.') }}</p>
+                    @else
+                        <table class="checklist" role="presentation">
+                            <thead>
+                                <tr>
+                                    <th>{{ __('Item') }}</th>
+                                    <th>{{ __('Result') }}</th>
+                                    <th>{{ __('Notes') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($am['rows'] as $row)
+                                    <tr>
+                                        <td>{{ $row['label'] }}</td>
+                                        <td>{{ $row['value'] }}</td>
+                                        <td>{{ $row['notes'] ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+    @if (!empty($postMortemInspectionDetail))
+        @php $pm = $postMortemInspectionDetail; @endphp
+        <div class="card">
+            <p class="section-title">{{ __('Post-mortem inspection — checklist') }}</p>
+            <p class="inspection-h">{{ $pm['inspection_date'] }} · {{ $pm['result'] }}</p>
+            <p class="inspection-meta">
+                {{ __('Species') }}: {{ $pm['species'] }}
+                @if (!empty($pm['inspector'])) · {{ __('Inspector') }}: {{ $pm['inspector'] }} @endif
+            </p>
+            <p class="inspection-meta">
+                {{ __('Total examined / approved / condemned') }}:
+                {{ $pm['total_examined'] }} / {{ $pm['approved_quantity'] }} / {{ $pm['condemned_quantity'] }}
+            </p>
+            @if (!empty($pm['notes']))
+                <p class="inspection-meta" style="white-space: pre-wrap;">{{ $pm['notes'] }}</p>
+            @endif
+
+            <p style="font-size: 0.8rem; font-weight: 600; color: #334155; margin: 0.75rem 0 0.35rem;">{{ __('Carcass inspection') }}</p>
+            @if (empty($pm['carcass_rows']))
+                <p style="font-size: 0.875rem; color: #64748b;">{{ __('No carcass observations recorded.') }}</p>
+            @else
+                <table class="checklist" role="presentation">
+                    <thead>
+                        <tr>
+                            <th>{{ __('Item') }}</th>
+                            <th>{{ __('Status') }}</th>
+                            <th>{{ __('Notes') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($pm['carcass_rows'] as $row)
+                            <tr>
+                                <td>{{ $row['label'] }}</td>
+                                <td>{{ $row['value'] }}</td>
+                                <td>{{ $row['notes'] ?: '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+
+            <p style="font-size: 0.8rem; font-weight: 600; color: #334155; margin: 0.75rem 0 0.35rem;">{{ __('Organ inspection') }}</p>
+            @if (empty($pm['organ_rows']))
+                <p style="font-size: 0.875rem; color: #64748b;">{{ __('No organ observations recorded.') }}</p>
+            @else
+                <table class="checklist" role="presentation">
+                    <thead>
+                        <tr>
+                            <th>{{ __('Item') }}</th>
+                            <th>{{ __('Status') }}</th>
+                            <th>{{ __('Notes') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($pm['organ_rows'] as $row)
+                            <tr>
+                                <td>{{ $row['label'] }}</td>
+                                <td>{{ $row['value'] }}</td>
+                                <td>{{ $row['notes'] ?: '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
         </div>
     @endif
 
