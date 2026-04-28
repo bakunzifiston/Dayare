@@ -43,6 +43,8 @@ class DashboardController extends Controller
                     'facilities' => 0,
                     'active_routes' => 0,
                 ],
+                'kpiPeriod' => 'all',
+                'kpiPeriodLabel' => '',
             ]);
         }
 
@@ -59,6 +61,8 @@ class DashboardController extends Controller
             'alerts' => $data['alerts'],
             'quickActions' => $data['quickActions'],
             'mapSummary' => $data['mapSummary'],
+            'kpiPeriod' => $data['kpiPeriod'] ?? 'all',
+            'kpiPeriodLabel' => $data['kpiPeriodLabel'] ?? '',
         ]);
     }
 
@@ -67,14 +71,19 @@ class DashboardController extends Controller
      *   metrics: array<int, array<string, string|int>>,
      *   alerts: array<int, array<string, string|int>>,
      *   quickActions: array<int, array<string, string>>,
-     *   mapSummary: array{facilities: int, active_routes: int}
+     *   mapSummary: array{facilities: int, active_routes: int},
+     *   kpiPeriod: string,
+     *   kpiPeriodLabel: string
      * }
      */
     private function buildRoleDashboardData(Request $request, string $role, int $businessId): array
     {
+        $kpiPeriod = (string) $request->query('kpi_period', 'all');
+        if (! in_array($kpiPeriod, ['all', 'day', 'month', 'year'], true)) {
+            $kpiPeriod = 'all';
+        }
+
         $today = now()->startOfDay();
-        $weekStart = now()->startOfWeek();
-        $weekEnd = now()->endOfWeek();
         $soonDate = now()->addDays(7)->endOfDay();
 
         $facilityIds = Facility::query()
@@ -86,15 +95,6 @@ class DashboardController extends Controller
         $certificateIds = Certificate::query()->whereIn('batch_id', $batchIds)->pluck('id');
         $tripIds = TransportTrip::query()->whereIn('certificate_id', $certificateIds)->pluck('id');
         $facilitiesCount = (int) $facilityIds->count();
-
-        $animalsProcessedToday = (int) SlaughterExecution::query()
-            ->whereIn('id', $executionIds)
-            ->whereDate('slaughter_time', $today)
-            ->sum('actual_animals_slaughtered');
-        $animalsProcessedWeek = (int) SlaughterExecution::query()
-            ->whereIn('id', $executionIds)
-            ->whereBetween('slaughter_time', [$weekStart, $weekEnd])
-            ->sum('actual_animals_slaughtered');
 
         $totalBatches = Batch::query()->whereIn('id', $batchIds)->count();
         $batchesToday = Batch::query()->whereIn('id', $batchIds)->whereDate('created_at', $today)->count();
@@ -130,9 +130,43 @@ class DashboardController extends Controller
                 ->whereIn('status', [TemperatureLog::STATUS_WARNING, TemperatureLog::STATUS_CRITICAL])
                 ->count()
         );
-        $complianceScore = $certificatesIssued > 0
-            ? (int) round(($validCertificates / max(1, $certificatesIssued)) * 100)
-            : 0;
+        if ($kpiPeriod === 'all') {
+            $kpiPeriodLabel = (string) __('All time');
+            $kpiShortLabel = (string) __('All time');
+            $animalsProcessedKpi = (int) SlaughterExecution::query()
+                ->whereIn('id', $executionIds)
+                ->whereNotNull('slaughter_time')
+                ->sum('actual_animals_slaughtered');
+            $batchesInKpi = $totalBatches;
+            $certificatesIssuedKpi = $certificatesIssued;
+            $validCertificatesKpi = $validCertificates;
+            $otherCertificatesKpi = max(0, $certificatesIssued - $validCertificates);
+        } else {
+            $range = $this->kpiDateRange($kpiPeriod);
+            $rangeStart = $range['start'];
+            $rangeEnd = $range['end'];
+            $kpiPeriodLabel = $range['label'];
+            $kpiShortLabel = $range['shortLabel'];
+            $animalsProcessedKpi = (int) SlaughterExecution::query()
+                ->whereIn('id', $executionIds)
+                ->whereNotNull('slaughter_time')
+                ->whereBetween('slaughter_time', [$rangeStart, $rangeEnd])
+                ->sum('actual_animals_slaughtered');
+            $batchesInKpi = Batch::query()
+                ->whereIn('id', $batchIds)
+                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                ->count();
+            $certificatesIssuedKpi = Certificate::query()
+                ->whereIn('id', $certificateIds)
+                ->whereBetween('issued_at', [$rangeStart->toDateString(), $rangeEnd->toDateString()])
+                ->count();
+            $validCertificatesKpi = Certificate::query()
+                ->whereIn('id', $certificateIds)
+                ->whereBetween('issued_at', [$rangeStart->toDateString(), $rangeEnd->toDateString()])
+                ->compliant()
+                ->count();
+            $otherCertificatesKpi = max(0, $certificatesIssuedKpi - $validCertificatesKpi);
+        }
 
         $intakeQueue = AnimalIntake::query()
             ->whereIn('facility_id', $facilityIds)
@@ -248,13 +282,30 @@ class DashboardController extends Controller
             ],
         ];
 
+        $kpiIsAll = $kpiPeriod === 'all';
+
+        $orgAdminAnimalsDesc = $kpiIsAll
+            ? __('Total slaughtered head recorded for this business (all history).')
+            : __('Slaughtered head in :range — same throughput window as the filter.', ['range' => $kpiPeriodLabel]);
+
+        $orgAdminBatchesDesc = $kpiIsAll
+            ? __('All production batches tied to slaughter runs for this business (same as cumulative total).')
+            : __('Production batches with created date in the selected range.');
+
+        $orgAdminCertsLabel = $kpiIsAll
+            ? __('Certificates (valid / other)')
+            : __('Certificates in period (valid / other)');
+
+        $orgAdminCertsDesc = $kpiIsAll
+            ? __('Across every certificate issued for this business. “Other” includes expired, revoked, or not compliant.')
+            : __('Issued in :range. “Other” includes expired, revoked, or not yet valid.', ['range' => $kpiPeriodLabel]);
+
         $metricsByRole = [
             BusinessUser::ROLE_ORG_ADMIN => [
-                ['label' => __('Animals processed today'), 'value' => $animalsProcessedToday, 'description' => __('Used for same-day throughput decisions.')],
-                ['label' => __('Animals processed this week'), 'value' => $animalsProcessedWeek, 'description' => __('Used for weekly output planning.')],
-                ['label' => __('Total batches created'), 'value' => $totalBatches, 'description' => __('Tracks production volume and traceability load.')],
-                ['label' => __('Certificates issued (valid / expired)'), 'value' => $validCertificates.' / '.$expiredCertificates, 'description' => __('Signals certification health and legal exposure.')],
-                ['label' => __('Overall compliance score'), 'value' => $complianceScore.'%', 'description' => __('Composite signal for audit readiness.')],
+                ['label' => __('Animals processed (:span)', ['span' => $kpiShortLabel]), 'value' => $animalsProcessedKpi, 'description' => $orgAdminAnimalsDesc],
+                ['label' => __('Batches created (:span)', ['span' => $kpiShortLabel]), 'value' => $batchesInKpi, 'description' => $orgAdminBatchesDesc],
+                ['label' => __('Total batches (all time)'), 'value' => $totalBatches, 'description' => __('Cumulative traceability volume for this business.')],
+                ['label' => $orgAdminCertsLabel, 'value' => $validCertificatesKpi.' / '.$otherCertificatesKpi, 'description' => $orgAdminCertsDesc],
             ],
             BusinessUser::ROLE_OPERATIONS_MANAGER => [
                 ['label' => __('Animals in intake queue'), 'value' => $intakeQueue, 'description' => __('Prioritize intake processing workload.')],
@@ -333,6 +384,37 @@ class DashboardController extends Controller
                 'facilities' => $facilitiesCount,
                 'active_routes' => $activeTrips,
             ],
+            'kpiPeriod' => $kpiPeriod,
+            'kpiPeriodLabel' => $kpiPeriodLabel,
         ];
+    }
+
+    /**
+     * @return array{start: \Carbon\Carbon, end: \Carbon\Carbon, label: string, shortLabel: string}
+     */
+    private function kpiDateRange(string $period): array
+    {
+        $now = now();
+
+        return match ($period) {
+            'day' => [
+                'start' => $now->copy()->startOfDay(),
+                'end' => $now->copy()->endOfDay(),
+                'label' => $now->format('M j, Y'),
+                'shortLabel' => (string) __('Today'),
+            ],
+            'year' => [
+                'start' => $now->copy()->startOfYear(),
+                'end' => $now->copy()->endOfYear(),
+                'label' => (string) $now->year,
+                'shortLabel' => (string) __('This year'),
+            ],
+            default => [
+                'start' => $now->copy()->startOfMonth(),
+                'end' => $now->copy()->endOfMonth(),
+                'label' => $now->format('F Y'),
+                'shortLabel' => (string) __('This month'),
+            ],
+        };
     }
 }

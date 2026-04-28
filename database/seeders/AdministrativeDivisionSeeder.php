@@ -29,9 +29,10 @@ class AdministrativeDivisionSeeder extends Seeder
 
         $response = Http::timeout(30)->get(self::RWANDA_JSON_URL);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             $this->command?->error('Could not fetch Rwanda data. Seeding minimal structure (country + provinces + districts only).');
             $this->seedMinimalRwanda();
+
             return;
         }
 
@@ -40,10 +41,12 @@ class AdministrativeDivisionSeeder extends Seeder
 
         if (empty($items)) {
             $this->seedMinimalRwanda();
+
             return;
         }
 
         // Clear existing divisions and null business FKs to avoid constraint errors
+        // (Re-run ComprehensiveRwandaSeeder or TestDataSeeder after this, or business location/baseline on rows will stay empty.)
         Business::query()->update([
             'country_id' => null,
             'province_id' => null,
@@ -166,10 +169,17 @@ class AdministrativeDivisionSeeder extends Seeder
                 'code' => null,
             ]);
             foreach ($districts as $districtName) {
-                AdministrativeDivision::create([
+                $district = AdministrativeDivision::create([
                     'parent_id' => $province->id,
                     'name' => $districtName,
                     'type' => AdministrativeDivision::TYPE_DISTRICT,
+                    'code' => null,
+                ]);
+                // Minimal fallback must include at least one sector per district; otherwise demo businesses cannot resolve country/district/sector.
+                AdministrativeDivision::create([
+                    'parent_id' => $district->id,
+                    'name' => 'Seed sector — '.$districtName,
+                    'type' => AdministrativeDivision::TYPE_SECTOR,
                     'code' => null,
                 ]);
             }

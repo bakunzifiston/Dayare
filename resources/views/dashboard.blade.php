@@ -61,6 +61,28 @@
 
             @if (! empty($metrics))
                 <section class="space-y-3">
+                    @if (($role ?? '') === 'org_admin' && $activeBusiness)
+                        @php
+                            $p = (string) ($kpiPeriod ?? 'all');
+                        @endphp
+                        <div class="flex flex-wrap items-center justify-between gap-2 rounded-bucha border border-slate-200 bg-white px-4 py-2.5">
+                            <p class="text-xs font-medium text-slate-600">
+                                {{ __('KPI period: :label', ['label' => $kpiPeriodLabel ?? '']) }}
+                            </p>
+                            <div class="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-0.5" role="group" aria-label="{{ __('KPI time range') }}">
+                                @foreach (['all' => __('All time'), 'day' => __('Day'), 'month' => __('Month'), 'year' => __('Year')] as $q => $title)
+                                    <a
+                                        href="{{ request()->fullUrlWithQuery(['kpi_period' => $q]) }}"
+                                        @class([
+                                            'px-3 py-1.5 text-xs font-medium rounded-md transition',
+                                            'bg-bucha-primary text-white shadow-sm' => $p === $q,
+                                            'text-slate-600 hover:text-slate-900 hover:bg-white' => $p !== $q,
+                                        ])
+                                    >{{ $title }}</a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                         @foreach ($metrics as $metric)
                             <div class="rounded-bucha bg-white border border-slate-200 px-5 py-4 min-h-[132px] flex flex-col justify-between">

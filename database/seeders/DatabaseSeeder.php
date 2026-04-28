@@ -2,13 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database. All test data is Rwanda-related (locations, names, plates, etc.).
      * Run: php artisan db:seed  or  php artisan migrate:fresh --seed
@@ -19,19 +16,9 @@ class DatabaseSeeder extends Seeder
         $this->call(SpeciesSeeder::class);
         $this->call(UnitSeeder::class);
         $this->call(RolesAndPermissionsSeeder::class);
+        /** @see ComprehensiveRwandaSeeder Multi-tenant Rwanda demo (~200+ rows per major module). */
+        $this->call(ComprehensiveRwandaSeeder::class);
+        /** Local test tenants: test@example.com / tester@dayare.me — password: password; REG-TEST-* businesses. */
         $this->call(TestDataSeeder::class);
-        $this->call(AnimalIntakeSeeder::class);
-        $this->call(SlaughterPlanSeeder::class);
-        $this->call(SlaughterExecutionSeeder::class);
-        $this->call(AnteMortemInspectionSeeder::class);
-        $this->call(BatchSeeder::class);
-        $this->call(PostMortemInspectionSeeder::class);
-        $this->call(CertificateSeeder::class);
-        $this->call(WarehouseStorageSeeder::class);
-        $this->call(TemperatureLogSeeder::class);
-        $this->call(TransportTripSeeder::class);
-        $this->call(DeliveryConfirmationSeeder::class);
-        $this->call(DemandSeeder::class);
-        $this->call(ClientActivitySeeder::class);
     }
 }

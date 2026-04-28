@@ -14,7 +14,6 @@ use App\Models\Inspector;
 use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class TestDataSeeder extends Seeder
 {
@@ -29,8 +28,11 @@ class TestDataSeeder extends Seeder
         $country = AdministrativeDivision::ofType(AdministrativeDivision::TYPE_COUNTRY)->first();
         if (! $country) {
             $this->command?->warn('Run AdministrativeDivisionSeeder first. Skipping test data.');
+
             return;
         }
+
+        $this->call(TestLoginSeeder::class);
 
         $provinces = AdministrativeDivision::byParent($country->id)->orderBy('name')->get();
         $provinceKigali = $provinces->firstWhere('name', 'City of Kigali') ?? $provinces->first();
@@ -48,26 +50,8 @@ class TestDataSeeder extends Seeder
         $cellKigali = $sectorKigali ? AdministrativeDivision::byParent($sectorKigali->id)->orderBy('name')->first() : null;
         $villageKigali = $cellKigali ? AdministrativeDivision::byParent($cellKigali->id)->orderBy('name')->first() : null;
 
-        $password = Hash::make('password');
-        $superAdminPassword = Hash::make('superadmin');
-
-        // Tenant users (test@example.com and tester@dayare.me) — password: password
-        $user1 = User::updateOrCreate(
-            ['email' => 'test@example.com'],
-            ['name' => 'Test User', 'password' => $password, 'email_verified_at' => now(), 'is_super_admin' => false]
-        );
-        $user2 = User::updateOrCreate(
-            ['email' => 'tester@dayare.me'],
-            ['name' => 'Tester One', 'password' => $password, 'email_verified_at' => now(), 'is_super_admin' => false]
-        );
-        // Super Admin (platform owner) — separate credentials to access /super-admin dashboard (no role; is_super_admin + Gate::before)
-        User::updateOrCreate(
-            ['email' => 'superadmin@dayare.me'],
-            ['name' => 'Super Admin', 'password' => $superAdminPassword, 'email_verified_at' => now(), 'is_super_admin' => true]
-        );
-
-        $this->command?->info('Tenant logins: test@example.com / tester@dayare.me — password: password');
-        $this->command?->info('Super Admin login: superadmin@dayare.me — password: superadmin');
+        $user1 = User::query()->where('email', 'test@example.com')->firstOrFail();
+        $user2 = User::query()->where('email', 'tester@dayare.me')->firstOrFail();
 
         // --- Dayare Meat Co. (Kigali) ---
         $b1 = $this->createBusiness($user1, [
@@ -83,6 +67,8 @@ class TestDataSeeder extends Seeder
             'owner_phone' => '+250788111002',
             'owner_email' => 'jean@dayaremeat.test',
             'ownership_type' => 'sole_proprietor',
+            'business_size' => 'medium',
+            'baseline_revenue' => Business::BASELINE_REVENUE_BRACKET_2M_20M,
             'country_id' => $country->id,
             'province_id' => $provinceKigali?->id,
             'district_id' => $districtKigali?->id,
@@ -107,6 +93,8 @@ class TestDataSeeder extends Seeder
             'owner_phone' => '+250788222002',
             'owner_email' => 'marie@rwandafresh.test',
             'ownership_type' => 'company',
+            'business_size' => 'large',
+            'baseline_revenue' => Business::BASELINE_REVENUE_BRACKET_20M_100M,
             'country_id' => $country->id,
             'province_id' => $provinceEast?->id,
             'district_id' => $districtEast?->id,
@@ -129,6 +117,8 @@ class TestDataSeeder extends Seeder
             'owner_last_name' => 'Mugisha',
             'owner_dob' => '1982-09-12',
             'ownership_type' => 'sole_proprietor',
+            'business_size' => 'small',
+            'baseline_revenue' => Business::BASELINE_REVENUE_BRACKET_LT_2M,
             'country_id' => $country->id,
             'province_id' => $provinceNorth?->id,
             'district_id' => $districtNorth?->id,
@@ -205,6 +195,7 @@ class TestDataSeeder extends Seeder
         $districtName = $district?->name ?? '';
         $sectorName = $sector?->name ?? '';
         $capacity = $dailyCapacity ?? ($type === Facility::TYPE_SLAUGHTERHOUSE ? 50 : ($type === Facility::TYPE_STORAGE ? 200 : 200));
+
         return Facility::firstOrCreate(
             ['business_id' => $business->id, 'facility_name' => $name],
             [
@@ -217,7 +208,7 @@ class TestDataSeeder extends Seeder
                 'sector_id' => $sector?->id,
                 'cell_id' => $cell?->id,
                 'village_id' => $village?->id,
-                'license_number' => 'LIC-RW-' . strtoupper(substr(uniqid(), -6)),
+                'license_number' => 'LIC-RW-'.strtoupper(substr(uniqid(), -6)),
                 'license_issue_date' => now()->subMonths(6),
                 'license_expiry_date' => now()->addYear(),
                 'daily_capacity' => $capacity,
@@ -228,27 +219,28 @@ class TestDataSeeder extends Seeder
 
     private function createInspector(Facility $facility, string $firstName, string $lastName): Inspector
     {
-        $nationalId = 'NI-RW-' . $facility->id . '-' . substr(md5($firstName . $lastName), 0, 6);
+        $nationalId = 'NI-RW-'.$facility->id.'-'.substr(md5($firstName.$lastName), 0, 6);
         $districtName = $facility->district ?: $facility->districtDivision?->name ?? 'Kigali';
         $sectorName = $facility->sector ?: $facility->sectorDivision?->name ?? '';
+
         return Inspector::firstOrCreate(
             ['facility_id' => $facility->id, 'national_id' => $nationalId],
             [
                 'first_name' => $firstName,
                 'last_name' => $lastName,
-                'phone_number' => '+250788' . random_int(100000, 999999),
-                'email' => strtolower(str_replace(' ', '.', $firstName . '.' . $lastName)) . '@inspector.rw',
+                'phone_number' => '+250788'.random_int(100000, 999999),
+                'email' => strtolower(str_replace(' ', '.', $firstName.'.'.$lastName)).'@inspector.rw',
                 'dob' => now()->subYears(30)->format('Y-m-d'),
                 'nationality' => 'Rwandan',
                 'country' => 'Rwanda',
                 'district' => $districtName,
                 'sector' => $sectorName,
-                'authorization_number' => 'AUTH-RW-' . strtoupper(substr(uniqid(), -6)),
+                'authorization_number' => 'AUTH-RW-'.strtoupper(substr(uniqid(), -6)),
                 'authorization_issue_date' => now()->subMonths(12),
                 'authorization_expiry_date' => now()->addYear(),
                 'species_allowed' => 'Cattle, Goat, Sheep',
                 'daily_capacity' => 100,
-                'stamp_serial_number' => 'STAMP-' . random_int(1000, 9999),
+                'stamp_serial_number' => 'STAMP-'.random_int(1000, 9999),
                 'status' => Inspector::STATUS_ACTIVE,
             ]
         );
@@ -264,10 +256,10 @@ class TestDataSeeder extends Seeder
             ],
             [
                 'facility_id' => $facility?->id,
-                'national_id' => 'NI-RW-' . substr(md5($firstName . $lastName . $business->id), 0, 8),
+                'national_id' => 'NI-RW-'.substr(md5($firstName.$lastName.$business->id), 0, 8),
                 'date_of_birth' => now()->subYears(28)->format('Y-m-d'),
                 'nationality' => 'Rwandan',
-                'work_email' => strtolower(str_replace(' ', '.', $firstName . '.' . $lastName)) . '@' . str_replace(' ', '', $business->business_name) . '.rw',
+                'work_email' => strtolower(str_replace(' ', '.', $firstName.'.'.$lastName)).'@'.str_replace(' ', '', $business->business_name).'.rw',
                 'phone' => $phone,
                 'job_title' => $jobTitle,
                 'employment_type' => Employee::JOB_TITLES[$jobTitle] ? 'full_time' : 'full_time',
@@ -295,11 +287,11 @@ class TestDataSeeder extends Seeder
             [
                 'date_of_birth' => now()->subYears(35)->format('Y-m-d'),
                 'nationality' => 'Rwandan',
-                'registration_number' => 'SUP-RW-' . strtoupper(substr(uniqid(), -6)),
+                'registration_number' => 'SUP-RW-'.strtoupper(substr(uniqid(), -6)),
                 'type' => 'livestock_supply',
-                'phone' => '+250788' . random_int(100000, 999999),
-                'email' => strtolower($firstName . '.' . $lastName) . '@supplier.rw',
-                'address_line_1' => 'Farm / Co-op, ' . ($district?->name ?? 'Rwanda'),
+                'phone' => '+250788'.random_int(100000, 999999),
+                'email' => strtolower($firstName.'.'.$lastName).'@supplier.rw',
+                'address_line_1' => 'Farm / Co-op, '.($district?->name ?? 'Rwanda'),
                 'country_id' => $country?->id,
                 'province_id' => $province?->id,
                 'district_id' => $district?->id,
@@ -324,15 +316,15 @@ class TestDataSeeder extends Seeder
                 'name' => $name,
             ],
             [
-                'contact_person' => 'Contact ' . explode(' ', $name)[0],
-                'email' => strtolower(str_replace(' ', '.', $name)) . '@rwanda.rw',
-                'phone' => '+250788' . random_int(200000, 999999),
+                'contact_person' => 'Contact '.explode(' ', $name)[0],
+                'email' => strtolower(str_replace(' ', '.', $name)).'@rwanda.rw',
+                'phone' => '+250788'.random_int(200000, 999999),
                 'country' => 'Rwanda',
                 'country_id' => $country?->id,
                 'province_id' => $province?->id,
                 'district_id' => $district?->id,
                 'business_type' => in_array($name, ['Kigali Heights Restaurant'], true) ? Client::BUSINESS_TYPE_RESTAURANT : Client::BUSINESS_TYPE_BUTCHERY,
-                'address_line_1' => ($district?->name ?? 'Kigali') . ', Rwanda',
+                'address_line_1' => ($district?->name ?? 'Kigali').', Rwanda',
                 'preferred_facility_id' => $preferredFacility?->id,
                 'preferred_species' => 'Cattle',
                 'is_active' => true,
@@ -342,7 +334,8 @@ class TestDataSeeder extends Seeder
 
     private function createEmployeeContract(Business $business, Employee $employee, int $amountRwf): Contract
     {
-        $contractNumber = 'EMP-CONTRACT-' . strtoupper(substr(uniqid(), -6));
+        $contractNumber = 'EMP-CONTRACT-'.strtoupper(substr(uniqid(), -6));
+
         return Contract::firstOrCreate(
             [
                 'business_id' => $business->id,
@@ -351,32 +344,32 @@ class TestDataSeeder extends Seeder
             ],
             [
                 'contract_number' => $contractNumber,
-                'title' => 'Employment — ' . $employee->first_name . ' ' . $employee->last_name,
+                'title' => 'Employment — '.$employee->first_name.' '.$employee->last_name,
                 'type' => Contract::TYPE_EMPLOYMENT,
                 'employment_type' => Contract::EMPLOYMENT_FULL_TIME,
                 'start_date' => now()->subMonths(3),
                 'end_date' => now()->addYear(),
                 'status' => Contract::STATUS_ACTIVE,
                 'amount' => $amountRwf,
-                'notes' => 'RWF ' . number_format($amountRwf) . ' — Rwanda.',
+                'notes' => 'RWF '.number_format($amountRwf).' — Rwanda.',
             ]
         );
     }
 
     private function createContract(Business $business, string $category, array $foreignKeys, int $amountRwf): Contract
     {
-        $contractNumber = 'CONTRACT-' . strtoupper(substr(uniqid(), -6));
+        $contractNumber = 'CONTRACT-'.strtoupper(substr(uniqid(), -6));
         $attrs = array_merge([
             'business_id' => $business->id,
             'contract_category' => $category,
             'contract_number' => $contractNumber,
-            'title' => ($category === Contract::CATEGORY_SUPPLIER ? 'Livestock supply' : 'Meat supply') . ' — ' . $contractNumber,
+            'title' => ($category === Contract::CATEGORY_SUPPLIER ? 'Livestock supply' : 'Meat supply').' — '.$contractNumber,
             'type' => $category === Contract::CATEGORY_SUPPLIER ? Contract::TYPE_LIVESTOCK_SUPPLY : Contract::TYPE_SALE_AGREEMENT,
             'start_date' => now()->subMonths(3),
             'end_date' => now()->addYear(),
             'status' => Contract::STATUS_ACTIVE,
             'amount' => $amountRwf,
-            'notes' => 'RWF ' . number_format($amountRwf) . ' — Rwanda.',
+            'notes' => 'RWF '.number_format($amountRwf).' — Rwanda.',
         ], $foreignKeys);
 
         return Contract::firstOrCreate(
