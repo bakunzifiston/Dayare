@@ -24,8 +24,9 @@ class MobileAuthController extends Controller
     public function login(MobileLoginRequest $request): JsonResponse
     {
         $data = $request->validated();
-
-        $user = User::where('email', $data['email'])->first();
+        
+        $email = \Illuminate\Support\Str::lower(trim((string) $data['email']));
+        $user = User::where('email', $email)->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             return ApiJson::failure(__('Invalid credentials.'), [], 401);

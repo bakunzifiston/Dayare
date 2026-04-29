@@ -175,6 +175,20 @@ class InspectorController extends Controller
         return ApiJson::paginated($inspections);
     }
 
+    public function batches(Request $request, Inspector $inspector): JsonResponse
+    {
+        if (! $this->userFacilityIds($request)->contains($inspector->facility_id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $batches = \App\Models\Batch::with(['slaughterExecution.slaughterPlan.facility:id,facility_name', 'inspector:id,first_name,last_name'])
+            ->where('inspector_id', $inspector->id)
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return ApiJson::paginated($batches);
+    }
+
     private function syncInspectorLocationFromDivisions(array $data): array
     {
         if (! empty($data['country_id']) && is_numeric($data['country_id'])) {

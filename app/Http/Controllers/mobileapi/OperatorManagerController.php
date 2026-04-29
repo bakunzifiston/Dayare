@@ -71,6 +71,21 @@ class OperatorManagerController extends Controller
         return ApiJson::success($facility);
     }
 
+    public function slaughterExecutions(Request $request, OperatorManager $operator_manager): JsonResponse
+    {
+        if (! $this->userFacilityIds($request)->contains($operator_manager->facility_id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $planIds = \App\Models\SlaughterPlan::where('facility_id', $operator_manager->facility_id)->pluck('id');
+        $executions = \App\Models\SlaughterExecution::with(['slaughterPlan:id,slaughter_date,species,facility_id'])
+            ->whereIn('slaughter_plan_id', $planIds)
+            ->latest('slaughter_time')
+            ->paginate($request->integer('per_page', 15));
+
+        return ApiJson::paginated($executions);
+    }
+
     public function show(Request $request, OperatorManager $operatorManager): JsonResponse
     {
         if (! $this->userFacilityIds($request)->contains($operatorManager->facility_id)) {
@@ -114,7 +129,7 @@ class OperatorManagerController extends Controller
                 $user = User::create([
                     'name' => $operatorManager->first_name . ' ' . $operatorManager->last_name,
                     'email' => $operatorManager->email,
-                    'password' => Hash::make($request->password ?? 'password123'),
+                    'password' => Hash::make($request->password),
                 ]);
             }
 

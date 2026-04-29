@@ -39,7 +39,7 @@ class StoreOperatorManagerRequest extends FormRequest
             'cell' => ['nullable', 'string', 'max:100'],
             'village' => ['nullable', 'string', 'max:100'],
             'status' => ['required', 'string', Rule::in(OperatorManager::STATUSES)],
-            'password' => ['nullable', 'string', 'min:8'],
+            'password' => ['required', 'string', 'min:8'],
         ];
     }
 }

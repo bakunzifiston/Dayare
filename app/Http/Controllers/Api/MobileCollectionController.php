@@ -329,6 +329,20 @@ class MobileCollectionController extends Controller
         return ApiJson::paginated($items);
     }
 
+    public function slaughterPlansByFacility(Request $request, Facility $facility): JsonResponse
+    {
+        if (! $this->facilityIds($request)->contains($facility->id)) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+
+        $query = SlaughterPlan::with(['inspector:id,first_name,last_name'])
+            ->where('facility_id', $facility->id);
+        
+        $items = $query->latest('slaughter_date')->paginate($this->perPage($request));
+
+        return ApiJson::paginated($items);
+    }
+
     public function animalIntakesStore(StoreAnimalIntakeRequest $request): JsonResponse
     {
         $data = $request->validated();
