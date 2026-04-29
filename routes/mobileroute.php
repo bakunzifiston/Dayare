@@ -20,6 +20,7 @@ Route::prefix('mobileapi')->group(function () {
     Route::get('businesses/{business}/facilities/{facility}', [CustomFacilityController::class, 'show']);
     Route::put('businesses/{business}/facilities/{facility}', [CustomFacilityController::class, 'update']);
     Route::delete('businesses/{business}/facilities/{facility}', [CustomFacilityController::class, 'destroy']);
+    Route::get('{operator_manager_id}/facilities', [CustomFacilityController::class, 'getByOperatorManagerId']);
     Route::get('facilities/{facility}/animal-intakes', [\App\Http\Controllers\Api\MobileCollectionController::class, 'animalIntakesByFacility']);
     Route::get('facilities/{facility}/slaughter-executions', [\App\Http\Controllers\Api\MobileCollectionController::class, 'slaughterExecutionsByFacility']);
     Route::get('facilities/{facility}/batches', [\App\Http\Controllers\Api\MobileCollectionController::class, 'batchesByFacility']);

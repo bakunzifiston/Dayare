@@ -92,6 +92,27 @@ class FacilityController extends Controller
     }
 
     /**
+     * Get facility by operator manager ID.
+     * GET /api/v1/mobileapi/{operator_manager_id}/facilities
+     */
+    public function getByOperatorManagerId($operator_manager_id): JsonResponse
+    {
+        $operatorManager = \App\Models\OperatorManager::find($operator_manager_id);
+        
+        if (!$operatorManager) {
+            return ApiJson::failure(__('Operator Manager not found.'), [], 404);
+        }
+
+        $facility = $operatorManager->facility()->with('business')->first();
+
+        if (!$facility) {
+            return ApiJson::failure(__('Facility not found.'), [], 404);
+        }
+
+        return ApiJson::success($facility);
+    }
+
+    /**
      * Resolve location names to IDs.
      */
     private function resolveLocationIds(array $data): array
