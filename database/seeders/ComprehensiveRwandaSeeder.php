@@ -62,8 +62,12 @@ class ComprehensiveRwandaSeeder extends Seeder
 
         $password = 'password';
 
-        if (Business::query()->where('registration_number', self::REG_PREFIX.'PR-001')->exists()) {
-            $this->command?->warn('Comprehensive Rwanda data already present (SEED-MT-PR-001). Skipping bulk demo re-seed.');
+        // Processor regs are SEED-MT-PR-1 … PR-5 (not zero-padded). Legacy check kept for older DBs.
+        if (Business::query()->where(function ($q): void {
+            $q->where('registration_number', self::REG_PREFIX.'PR-1')
+                ->orWhere('registration_number', self::REG_PREFIX.'PR-001');
+        })->exists()) {
+            $this->command?->warn('Comprehensive Rwanda data already present (SEED-MT-PR-1). Skipping bulk demo re-seed.');
             $this->backfillMissingRegistrationFieldsOnSeededBusinesses();
             ProcessorFinanceSync::sync();
 
