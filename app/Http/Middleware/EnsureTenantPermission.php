@@ -93,6 +93,20 @@ class EnsureTenantPermission
         'client-activities' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
         'demands' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
         'recipients' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
+        'finance.dashboard' => ['view' => BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD],
+        'finance.invoices' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_AR_INVOICES,
+            'create' => BusinessUser::PERMISSION_MANAGE_AR_INVOICES,
+            'update' => BusinessUser::PERMISSION_MANAGE_AR_INVOICES,
+            'delete' => BusinessUser::PERMISSION_MANAGE_AR_INVOICES,
+        ],
+        'finance.payables' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_AP_PAYABLES,
+            'create' => BusinessUser::PERMISSION_MANAGE_AP_PAYABLES,
+            'update' => BusinessUser::PERMISSION_MANAGE_AP_PAYABLES,
+            'delete' => BusinessUser::PERMISSION_MANAGE_AP_PAYABLES,
+        ],
+        'finance.cost-allocations' => ['view' => BusinessUser::PERMISSION_VIEW_FINANCE_REPORTS],
         'settings' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
         'species' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
         'units' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
@@ -195,5 +209,4 @@ class EnsureTenantPermission
         return $user->tenantWorkspaceType() === 'processor'
             && $user->accessibleProcessorBusinessIds()->isEmpty();
     }
-
 }

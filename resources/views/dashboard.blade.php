@@ -10,6 +10,7 @@
             'compliance_officer' => __('Compliance Officer'),
             'inspector' => __('Inspector'),
             'transport_manager' => __('Transport Manager'),
+            'accountant' => __('Accountant'),
         ];
         $trendLabels = [];
         $trendValues = [];
@@ -31,10 +32,18 @@
                 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                         <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-                            {{ __('Welcome, :name', ['name' => $user->name]) }}
+                            @if (($role ?? '') === 'accountant')
+                                {{ __('Accountant dashboard') }}
+                            @else
+                                {{ __('Welcome, :name', ['name' => $user->name]) }}
+                            @endif
                         </h1>
                         <p class="mt-1 text-sm text-bucha-muted">
-                            {{ __('Business: :business • Role: :role', ['business' => $activeBusiness?->business_name ?? __('No active business selected'), 'role' => $roleLabels[$role ?? ''] ?? __('Unassigned')]) }}
+                            @if (($role ?? '') === 'accountant')
+                                {{ __('Business: :business • Financial KPIs and working capital', ['business' => $activeBusiness?->business_name ?? __('No active business selected')]) }}
+                            @else
+                                {{ __('Business: :business • Role: :role', ['business' => $activeBusiness?->business_name ?? __('No active business selected'), 'role' => $roleLabels[$role ?? ''] ?? __('Unassigned')]) }}
+                            @endif
                         </p>
                     </div>
                     <div class="flex items-center gap-3">
@@ -61,7 +70,7 @@
 
             @if (! empty($metrics))
                 <section class="space-y-3">
-                    @if (($role ?? '') === 'org_admin' && $activeBusiness)
+                    @if (in_array(($role ?? ''), ['org_admin', 'accountant'], true) && $activeBusiness)
                         @php
                             $p = (string) ($kpiPeriod ?? 'all');
                         @endphp
@@ -104,6 +113,28 @@
 
             <section class="grid grid-cols-1 xl:grid-cols-12 gap-4">
                 <div class="xl:col-span-8 space-y-4">
+                    @if (($role ?? '') === 'accountant' && ! empty($accountantSnapshot))
+                        <div class="rounded-bucha bg-white border border-slate-200 overflow-hidden">
+                            <div class="px-4 py-3 border-b border-slate-200 bg-slate-50/70">
+                                <h2 class="text-sm font-semibold text-slate-900">{{ __('Working capital snapshot') }}</h2>
+                                <p class="text-xs text-bucha-muted mt-0.5">{{ __('Open documents and allocation lines for the selected KPI period.') }}</p>
+                            </div>
+                            <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div class="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3">
+                                    <p class="text-[11px] font-medium uppercase tracking-wide text-bucha-muted">{{ __('Open AR documents') }}</p>
+                                    <p class="mt-1 text-2xl font-bold text-slate-900">{{ (int) ($accountantSnapshot['open_invoice_count'] ?? 0) }}</p>
+                                </div>
+                                <div class="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3">
+                                    <p class="text-[11px] font-medium uppercase tracking-wide text-bucha-muted">{{ __('Open AP documents') }}</p>
+                                    <p class="mt-1 text-2xl font-bold text-slate-900">{{ (int) ($accountantSnapshot['open_payable_count'] ?? 0) }}</p>
+                                </div>
+                                <div class="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3">
+                                    <p class="text-[11px] font-medium uppercase tracking-wide text-bucha-muted">{{ __('Cost allocation lines') }}</p>
+                                    <p class="mt-1 text-2xl font-bold text-slate-900">{{ (int) ($accountantSnapshot['allocation_line_count'] ?? 0) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    @else
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div class="rounded-bucha bg-white border border-slate-200 overflow-hidden">
                             <div class="px-4 py-3 border-b border-slate-200 bg-slate-50/70">
@@ -140,6 +171,7 @@
                             </div>
                         </div>
                     </div>
+                    @endif
 
                     @if (! empty($quickActions))
                         <div class="rounded-bucha bg-white border border-slate-200 p-4">
@@ -202,7 +234,7 @@
         </div>
     </div>
 
-    @if (! empty($trendLabels))
+    @if (! empty($trendLabels) && ($role ?? '') !== 'accountant')
         @push('scripts')
             @vite('resources/js/dashboard-charts.js')
             <script>

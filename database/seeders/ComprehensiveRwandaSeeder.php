@@ -41,9 +41,9 @@ use App\Models\User;
 use App\Models\WarehouseStorage;
 use App\Support\FarmerAnimalType;
 use Carbon\Carbon;
+use Database\Seeders\Support\ProcessorFinanceSync;
 use Database\Seeders\Support\RwandaSeederHelper;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
@@ -60,11 +60,12 @@ class ComprehensiveRwandaSeeder extends Seeder
     {
         $this->call(TestLoginSeeder::class);
 
-        $password = Hash::make('password');
+        $password = 'password';
 
         if (Business::query()->where('registration_number', self::REG_PREFIX.'PR-001')->exists()) {
             $this->command?->warn('Comprehensive Rwanda data already present (SEED-MT-PR-001). Skipping bulk demo re-seed.');
             $this->backfillMissingRegistrationFieldsOnSeededBusinesses();
+            ProcessorFinanceSync::sync();
 
             return;
         }
@@ -94,6 +95,8 @@ class ComprehensiveRwandaSeeder extends Seeder
 
         $this->command?->info('Seeding logistics company, orders, trips, and tracking…');
         $this->seedLogisticsOperations($ctx, $country, $rangeStart, $rangeEnd);
+        $this->command?->info('Deriving finance records from processor workflow data…');
+        ProcessorFinanceSync::sync(collect($ctx['processors'])->pluck('business.id'));
 
         $this->printCredentials();
     }

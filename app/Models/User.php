@@ -57,9 +57,13 @@ class User extends Authenticatable
     }
 
     public const SUPER_ADMIN_MODULE_DASHBOARD = 'dashboard';
+
     public const SUPER_ADMIN_MODULE_VIBE_PROGRAMME = 'vibe_programme';
+
     public const SUPER_ADMIN_MODULE_CONFIGURATION = 'configuration';
+
     public const SUPER_ADMIN_MODULE_USER_MANAGEMENT = 'user_management';
+
     public const SUPER_ADMIN_MODULE_SYSTEM_SETTINGS = 'system_settings';
 
     /**
@@ -384,6 +388,7 @@ class User extends Authenticatable
             BusinessUser::ROLE_COMPLIANCE_OFFICER => 'business_compliance_officer',
             BusinessUser::ROLE_INSPECTOR => 'business_inspector',
             BusinessUser::ROLE_TRANSPORT_MANAGER => 'business_transport_manager',
+            BusinessUser::ROLE_ACCOUNTANT => 'business_accountant',
             default => 'user',
         };
     }

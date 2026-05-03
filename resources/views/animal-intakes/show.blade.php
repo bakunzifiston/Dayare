@@ -50,8 +50,12 @@
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier contact') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_contact ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm registration number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_registration_number ?? '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Movement permit No') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->movement_permit_no ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Origin (location)') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->village?->name ?? $intake->sector?->name ?? $intake->district?->name ?? $intake->province?->name ?? $intake->country?->name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Species') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ __($intake->species) }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Species ear tag') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->species_ear_tag ?? '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Sex') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->sex ? ucfirst($intake->sex) : '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Age') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->age ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Number of animals') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->number_of_animals }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Remaining (for slaughter)') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->remainingAnimalsAvailable() }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Unit price') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->unit_price !== null ? number_format($intake->unit_price, 2) : '—' }}</dd></div>
@@ -61,6 +65,8 @@
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Health certificate number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->animal_health_certificate_number ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Health cert. issue date') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->health_certificate_issue_date?->format('d M Y') ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Health cert. expiry date') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->health_certificate_expiry_date?->format('d M Y') ?? '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Observation') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->observation ?? '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Meat inspector name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->meat_inspector_name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Status') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ ucfirst($intake->status) }}</dd></div>
                 </dl>
             </div>

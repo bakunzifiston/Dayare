@@ -7,7 +7,6 @@ use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
@@ -25,25 +24,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse|View
     {
-        try {
-            $request->authenticate();
+        $request->authenticate();
 
-            $request->session()->regenerate();
+        $request->session()->regenerate();
 
-            return redirect()->intended($request->user()->tenantDashboardPath());
-        } catch (ValidationException $e) {
-            throw $e;
-        } catch (\Throwable $e) {
-            report($e);
-
-            return redirect()
-                ->back()
-                ->withInput($request->only('email'))
-                ->withErrors([
-                    'email' => __('Wrong email or password. Please try again.'),
-                    'password' => __('Wrong email or password. Please try again.'),
-                ]);
-        }
+        return redirect()->intended($request->user()->tenantDashboardPath());
     }
 
     /**

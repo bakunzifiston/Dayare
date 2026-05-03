@@ -24,10 +24,10 @@ class AnteMortemChecklist
     {
         $key = self::speciesKey($species);
         if (! $key) {
-            return [];
+            return config('ante_mortem_checklist.checklists.all_species', []);
         }
 
-        return config('ante_mortem_checklist.checklists.'.$key, []);
+        return config('ante_mortem_checklist.checklists.'.$key, config('ante_mortem_checklist.checklists.all_species', []));
     }
 
     public static function allowedValuesForType(string $type): array

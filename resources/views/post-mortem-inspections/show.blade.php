@@ -131,6 +131,38 @@
                     @endif
                 </div>
             </div>
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Decision & comment') }}</h3>
+                @php
+                    $decisionItems = $inspection->observations->filter(function ($observation) {
+                        return $observation->category === 'decision' || in_array($observation->item, ['decision', 'comment'], true);
+                    });
+                @endphp
+                @if ($decisionItems->isEmpty())
+                    <p class="text-sm text-gray-500">{{ __('No decision/comment observations recorded.') }}</p>
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Item') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Status') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Notes') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 bg-white">
+                                @foreach ($decisionItems as $observation)
+                                    <tr>
+                                        <td class="px-3 py-2">{{ str($observation->item)->replace('_', ' ')->title() }}</td>
+                                        <td class="px-3 py-2">{{ str($observation->value)->replace('_', ' ')->title() }}</td>
+                                        <td class="px-3 py-2">{{ $observation->notes ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </div>
         </div>
     </div>
 </x-app-layout>

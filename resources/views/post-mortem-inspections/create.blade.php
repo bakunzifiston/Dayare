@@ -88,6 +88,21 @@
                         <p id="checklist-empty" class="mt-2 text-xs text-slate-500 hidden">{{ __('No checklist configured for this species.') }}</p>
                         <x-input-error class="mt-2" :messages="$errors->get('observations')" />
                     </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-800">{{ __('Decision & comment') }}</h3>
+                        <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Status') }}</th>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="decision-checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                            </table>
+                        </div>
+                    </div>
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
@@ -132,6 +147,7 @@
             const inspectorSelect = document.getElementById('inspector_id');
             const carcassBody = document.getElementById('carcass-checklist-body');
             const organBody = document.getElementById('organ-checklist-body');
+            const decisionBody = document.getElementById('decision-checklist-body');
             const checklistEmpty = document.getElementById('checklist-empty');
             const checklists = @json($checklists);
             const aliases = @json(config('post_mortem_checklist.species_aliases'));
@@ -170,13 +186,14 @@
             }
 
             function renderChecklist() {
-                if (!carcassBody || !organBody || !speciesSelect) return;
+                if (!carcassBody || !organBody || !decisionBody || !speciesSelect) return;
                 const key = speciesKey(speciesSelect.value);
                 const items = key ? (checklists[key] || {}) : {};
                 const entries = Object.entries(items);
 
                 carcassBody.innerHTML = '';
                 organBody.innerHTML = '';
+                decisionBody.innerHTML = '';
 
                 if (entries.length === 0) {
                     checklistEmpty.classList.remove('hidden');
@@ -190,13 +207,16 @@
                     const selectedValue = oldObservations[itemKey]?.value || '';
                     const selectedNotes = oldObservations[itemKey]?.notes || '';
                     const row = document.createElement('tr');
+                    const valueField = meta.type === 'free_text'
+                        ? `<input type="text" name="observations[${itemKey}][value]" value="${String(selectedValue).replace(/"/g, '&quot;')}" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required />`
+                        : `<select name="observations[${itemKey}][value]" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                                <option value="">{{ __('Select') }}</option>
+                                ${options.map(v => `<option value="${v}" ${selectedValue === v ? 'selected' : ''}>${v.charAt(0).toUpperCase() + v.slice(1)}</option>`).join('')}
+                           </select>`;
                     row.innerHTML = `
                         <td class="px-3 py-2 text-slate-700">${meta.label}</td>
                         <td class="px-3 py-2">
-                            <select name="observations[${itemKey}][value]" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                                <option value="">{{ __('Select') }}</option>
-                                ${options.map(v => `<option value="${v}" ${selectedValue === v ? 'selected' : ''}>${v.charAt(0).toUpperCase() + v.slice(1)}</option>`).join('')}
-                            </select>
+                            ${valueField}
                         </td>
                         <td class="px-3 py-2">
                             <input type="text" name="observations[${itemKey}][notes]" value="${String(selectedNotes).replace(/"/g, '&quot;')}" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" maxlength="5000" />
@@ -205,6 +225,8 @@
 
                     if (meta.category === 'organ') {
                         organBody.appendChild(row);
+                    } else if (meta.category === 'decision') {
+                        decisionBody.appendChild(row);
                     } else {
                         carcassBody.appendChild(row);
                     }

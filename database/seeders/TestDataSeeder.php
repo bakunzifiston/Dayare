@@ -13,6 +13,7 @@ use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\Supplier;
 use App\Models\User;
+use Database\Seeders\Support\ProcessorFinanceSync;
 use Illuminate\Database\Seeder;
 
 class TestDataSeeder extends Seeder
@@ -153,6 +154,7 @@ class TestDataSeeder extends Seeder
         $this->createContract($b1, Contract::CATEGORY_SUPPLIER, ['supplier_id' => $sup2->id], 8_500_000);
         $this->createContract($b1, Contract::CATEGORY_CUSTOMER, ['client_id' => $cl1->id], 5_000_000);
         $this->createContract($b2, Contract::CATEGORY_SUPPLIER, ['supplier_id' => $sup3->id], 15_000_000);
+        ProcessorFinanceSync::sync(collect([$b1->id, $b2->id, $b3->id]));
 
         $this->command?->info('Test data seeded: businesses, facilities, inspectors, employees, suppliers, clients, contracts (employee + supplier + customer) — Rwanda.');
     }

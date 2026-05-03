@@ -24,10 +24,10 @@ class PostMortemChecklist
     {
         $key = self::speciesKey($species);
         if (! $key) {
-            return [];
+            return config('post_mortem_checklist.checklists.all_species', []);
         }
 
-        return config('post_mortem_checklist.checklists.'.$key, []);
+        return config('post_mortem_checklist.checklists.'.$key, config('post_mortem_checklist.checklists.all_species', []));
     }
 
     public static function allowedValuesForType(string $type): array

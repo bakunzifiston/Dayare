@@ -14,10 +14,16 @@ class BusinessUser extends Pivot
     protected $fillable = ['business_id', 'user_id', 'role'];
 
     public const ROLE_ORG_ADMIN = 'org_admin';
+
     public const ROLE_OPERATIONS_MANAGER = 'operations_manager';
+
     public const ROLE_COMPLIANCE_OFFICER = 'compliance_officer';
+
     public const ROLE_INSPECTOR = 'inspector';
+
     public const ROLE_TRANSPORT_MANAGER = 'transport_manager';
+
+    public const ROLE_ACCOUNTANT = 'accountant';
 
     public const ROLES = [
         self::ROLE_ORG_ADMIN,
@@ -25,31 +31,62 @@ class BusinessUser extends Pivot
         self::ROLE_COMPLIANCE_OFFICER,
         self::ROLE_INSPECTOR,
         self::ROLE_TRANSPORT_MANAGER,
+        self::ROLE_ACCOUNTANT,
     ];
 
     public const PERMISSION_VIEW_ALL_MODULES = 'view_all_modules';
+
     public const PERMISSION_MANAGE_BUSINESS_USERS = 'manage_business_users';
+
     public const PERMISSION_ASSIGN_BUSINESS_ROLES = 'assign_business_roles';
+
     public const PERMISSION_CREATE_ANIMAL_INTAKE = 'create_animal_intake';
+
     public const PERMISSION_SCHEDULE_SLAUGHTER = 'schedule_slaughter';
+
     public const PERMISSION_CREATE_BATCH = 'create_batch';
+
     public const PERMISSION_ASSIGN_BATCH_TO_INSPECTOR = 'assign_batch_to_inspector';
+
     public const PERMISSION_VIEW_INSPECTIONS = 'view_inspections';
+
     public const PERMISSION_RECORD_ANTE_MORTEM = 'record_ante_mortem';
+
     public const PERMISSION_RECORD_POST_MORTEM = 'record_post_mortem';
+
     public const PERMISSION_ISSUE_CERTIFICATE = 'issue_certificate';
+
     public const PERMISSION_VIEW_CERTIFICATES = 'view_certificates';
+
     public const PERMISSION_SUBMIT_CHECKLIST = 'submit_checklist';
+
     public const PERMISSION_LOG_NON_COMPLIANCE = 'log_non_compliance';
+
     public const PERMISSION_UPLOAD_COMPLIANCE_EVIDENCE = 'upload_compliance_evidence';
+
     public const PERMISSION_MONITOR_COMPLIANCE_METRICS = 'monitor_compliance_metrics';
+
     public const PERMISSION_CREATE_TRANSPORT_TRIP = 'create_transport_trip';
+
     public const PERMISSION_ASSIGN_VEHICLE_DRIVER = 'assign_vehicle_driver';
+
     public const PERMISSION_DISPATCH_DELIVERY = 'dispatch_delivery';
+
     public const PERMISSION_TRACK_DELIVERY_STATUS = 'track_delivery_status';
+
     public const PERMISSION_CONFIRM_DELIVERY = 'confirm_delivery';
+
     public const PERMISSION_MONITOR_TEMPERATURE_LOGS = 'monitor_temperature_logs';
+
     public const PERMISSION_VIEW_ASSIGNED_BATCHES = 'view_assigned_batches';
+
+    public const PERMISSION_VIEW_FINANCE_DASHBOARD = 'view_finance_dashboard';
+
+    public const PERMISSION_MANAGE_AR_INVOICES = 'manage_ar_invoices';
+
+    public const PERMISSION_MANAGE_AP_PAYABLES = 'manage_ap_payables';
+
+    public const PERMISSION_VIEW_FINANCE_REPORTS = 'view_finance_reports';
 
     public const ACTION_PERMISSIONS = [
         self::PERMISSION_VIEW_ALL_MODULES,
@@ -75,6 +112,10 @@ class BusinessUser extends Pivot
         self::PERMISSION_CONFIRM_DELIVERY,
         self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
         self::PERMISSION_VIEW_ASSIGNED_BATCHES,
+        self::PERMISSION_VIEW_FINANCE_DASHBOARD,
+        self::PERMISSION_MANAGE_AR_INVOICES,
+        self::PERMISSION_MANAGE_AP_PAYABLES,
+        self::PERMISSION_VIEW_FINANCE_REPORTS,
     ];
 
     public const ROLE_PERMISSION_MAP = [
@@ -87,6 +128,10 @@ class BusinessUser extends Pivot
             self::PERMISSION_MONITOR_COMPLIANCE_METRICS,
             self::PERMISSION_TRACK_DELIVERY_STATUS,
             self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
+            self::PERMISSION_VIEW_FINANCE_DASHBOARD,
+            self::PERMISSION_MANAGE_AR_INVOICES,
+            self::PERMISSION_MANAGE_AP_PAYABLES,
+            self::PERMISSION_VIEW_FINANCE_REPORTS,
         ],
         self::ROLE_OPERATIONS_MANAGER => [
             self::PERMISSION_CREATE_ANIMAL_INTAKE,
@@ -95,6 +140,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_ASSIGN_BATCH_TO_INSPECTOR,
             self::PERMISSION_VIEW_INSPECTIONS,
             self::PERMISSION_VIEW_CERTIFICATES,
+            self::PERMISSION_VIEW_FINANCE_DASHBOARD,
         ],
         self::ROLE_COMPLIANCE_OFFICER => [
             self::PERMISSION_SUBMIT_CHECKLIST,
@@ -120,6 +166,13 @@ class BusinessUser extends Pivot
             self::PERMISSION_CONFIRM_DELIVERY,
             self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
             self::PERMISSION_VIEW_CERTIFICATES,
+            self::PERMISSION_VIEW_FINANCE_DASHBOARD,
+        ],
+        self::ROLE_ACCOUNTANT => [
+            self::PERMISSION_VIEW_FINANCE_DASHBOARD,
+            self::PERMISSION_MANAGE_AR_INVOICES,
+            self::PERMISSION_MANAGE_AP_PAYABLES,
+            self::PERMISSION_VIEW_FINANCE_REPORTS,
         ],
     ];
 

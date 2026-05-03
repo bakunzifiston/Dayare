@@ -210,6 +210,28 @@
                             <x-input-error class="mt-2" :messages="$errors->get('species')" />
                         </div>
                         <div>
+                            <x-input-label for="species_ear_tag" :value="__('Species ear tag')" />
+                            <x-text-input id="species_ear_tag" name="species_ear_tag" type="text" class="mt-1 block w-full" :value="old('species_ear_tag', $intake->species_ear_tag)" />
+                            <x-input-error class="mt-2" :messages="$errors->get('species_ear_tag')" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <x-input-label for="sex" :value="__('Sex')" />
+                            <select id="sex" name="sex" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary rounded-md shadow-sm">
+                                <option value="">{{ __('Select') }}</option>
+                                @foreach (\App\Models\AnimalIntake::SEX_OPTIONS as $sex)
+                                    <option value="{{ $sex }}" @selected(old('sex', $intake->sex) === $sex)>{{ ucfirst($sex) }}</option>
+                                @endforeach
+                            </select>
+                            <x-input-error class="mt-2" :messages="$errors->get('sex')" />
+                        </div>
+                        <div>
+                            <x-input-label for="age" :value="__('Age')" />
+                            <x-text-input id="age" name="age" type="number" min="0" max="99" class="mt-1 block w-full" :value="old('age', $intake->age)" />
+                            <x-input-error class="mt-2" :messages="$errors->get('age')" />
+                        </div>
+                        <div>
                             <x-input-label for="number_of_animals" :value="__('Number of animals')" />
                             <x-text-input id="number_of_animals" name="number_of_animals" type="number" min="1" class="mt-1 block w-full" :value="old('number_of_animals', $intake->number_of_animals)" required />
                             <x-input-error class="mt-2" :messages="$errors->get('number_of_animals')" />
@@ -228,6 +250,18 @@
                     <div>
                         <x-input-label for="animal_identification_numbers" :value="__('Animal identification numbers')" />
                         <textarea id="animal_identification_numbers" name="animal_identification_numbers" rows="2" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary rounded-md shadow-sm">{{ old('animal_identification_numbers', $intake->animal_identification_numbers) }}</textarea>
+                    </div>
+                    <div>
+                        <x-input-label for="movement_permit_no" :value="__('Movement permit No')" />
+                        <x-text-input id="movement_permit_no" name="movement_permit_no" type="text" class="mt-1 block w-full" :value="old('movement_permit_no', $intake->movement_permit_no)" />
+                    </div>
+                    <div>
+                        <x-input-label for="observation" :value="__('Observation')" />
+                        <textarea id="observation" name="observation" rows="2" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary rounded-md shadow-sm">{{ old('observation', $intake->observation) }}</textarea>
+                    </div>
+                    <div>
+                        <x-input-label for="meat_inspector_name" :value="__('Meat inspector name')" />
+                        <x-text-input id="meat_inspector_name" name="meat_inspector_name" type="text" class="mt-1 block w-full" :value="old('meat_inspector_name', $intake->meat_inspector_name)" />
                     </div>
                 </div>
 

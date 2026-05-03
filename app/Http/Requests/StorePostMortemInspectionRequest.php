@@ -38,7 +38,7 @@ class StorePostMortemInspectionRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:5000'],
             'inspection_date' => ['required', 'date'],
             'observations' => ['required', 'array'],
-            'observations.*.value' => ['required', 'string', 'max:20'],
+            'observations.*.value' => ['required', 'string', 'max:5000'],
             'observations.*.notes' => ['nullable', 'string', 'max:5000'],
         ];
     }
@@ -84,7 +84,7 @@ class StorePostMortemInspectionRequest extends FormRequest
                 }
 
                 $allowed = PostMortemChecklist::allowedValuesForItem($species, (string) $itemKey);
-                if (! in_array($value, $allowed, true)) {
+                if (! empty($allowed) && ! in_array($value, $allowed, true)) {
                     $validator->errors()->add('observations', __('Invalid checklist value for :item.', ['item' => $meta['label'] ?? $itemKey]));
                 }
             }

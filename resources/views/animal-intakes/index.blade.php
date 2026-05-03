@@ -40,7 +40,7 @@
                                         {{ $i->intake_date->format('d M Y') }} — {{ $i->facility->facility_name ?? '' }}
                                     </a>
                                     <p class="text-sm text-slate-500">
-                                        {{ $i->supplier_firstname }} {{ $i->supplier_lastname }} · {{ $i->farm_name ?? '—' }} · {{ __($i->species) }} · {{ $i->number_of_animals }} {{ __('animals') }}
+                                        {{ $i->supplier_firstname }} {{ $i->supplier_lastname }} · {{ $i->farm_name ?? '—' }} · {{ __($i->species) }}{{ $i->species_ear_tag ? ' · '.$i->species_ear_tag : '' }}{{ $i->sex ? ' · '.ucfirst($i->sex) : '' }}{{ $i->age !== null ? ' · '.$i->age.'y' : '' }} · {{ $i->number_of_animals }} {{ __('animals') }}
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1">
                                         {{ ucfirst($i->status) }} · {{ $i->animal_health_certificate_number ?: __('No health cert') }}

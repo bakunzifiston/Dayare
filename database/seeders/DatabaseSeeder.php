@@ -12,6 +12,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        /** Dev logins (must run before any seeder that uses firstOrFail on these users). */
+        $this->call(TestLoginSeeder::class);
+
         $this->call(AdministrativeDivisionSeeder::class);
         $this->call(SpeciesSeeder::class);
         $this->call(UnitSeeder::class);
@@ -20,5 +23,7 @@ class DatabaseSeeder extends Seeder
         $this->call(ComprehensiveRwandaSeeder::class);
         /** Local test tenants: test@example.com / tester@dayare.me — password: password; REG-TEST-* businesses. */
         $this->call(TestDataSeeder::class);
+        /** Full processor pipeline + CRM + cold chain + finance for test@ (REG-TEST-001/002), 2022-01-01 → 2026-05-03. */
+        $this->call(TestProcessorWorkspaceComprehensiveSeeder::class);
     }
 }

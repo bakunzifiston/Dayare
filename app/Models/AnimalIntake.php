@@ -29,6 +29,7 @@ class AnimalIntake extends Model
         'supplier_contact',
         'farm_name',
         'farm_registration_number',
+        'movement_permit_no',
         'country_id',
         'province_id',
         'district_id',
@@ -36,10 +37,15 @@ class AnimalIntake extends Model
         'cell_id',
         'village_id',
         'species',
+        'species_ear_tag',
+        'sex',
+        'age',
         'number_of_animals',
         'unit_price',
         'total_price',
         'animal_identification_numbers',
+        'observation',
+        'meat_inspector_name',
         'transport_vehicle_plate',
         'driver_name',
         'animal_health_certificate_number',
@@ -54,6 +60,7 @@ class AnimalIntake extends Model
             'intake_date' => 'date',
             'health_certificate_issue_date' => 'date',
             'health_certificate_expiry_date' => 'date',
+            'age' => 'integer',
         ];
     }
 
@@ -85,6 +92,18 @@ class AnimalIntake extends Model
         self::SPECIES_SHEEP,
         self::SPECIES_PIG,
         self::SPECIES_OTHER,
+    ];
+
+    public const SEX_MALE = 'male';
+
+    public const SEX_FEMALE = 'female';
+
+    public const SEX_UNKNOWN = 'unknown';
+
+    public const SEX_OPTIONS = [
+        self::SEX_MALE,
+        self::SEX_FEMALE,
+        self::SEX_UNKNOWN,
     ];
 
     public const SOURCE_TYPE_SUPPLIER = 'supplier';

@@ -76,7 +76,7 @@ class StoreAnteMortemInspectionRequest extends FormRequest
                 }
 
                 $allowed = AnteMortemChecklist::allowedValuesForItem($species, (string) $itemKey);
-                if (! in_array($value, $allowed, true)) {
+                if (! empty($allowed) && ! in_array($value, $allowed, true)) {
                     $validator->errors()->add('observations', __('Invalid checklist value for :item.', ['item' => $meta['label'] ?? $itemKey]));
                 }
             }

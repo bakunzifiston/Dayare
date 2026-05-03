@@ -22,6 +22,7 @@ class TenantUserController extends Controller
             BusinessUser::ROLE_COMPLIANCE_OFFICER => __('Compliance Officer'),
             BusinessUser::ROLE_INSPECTOR => __('Inspector'),
             BusinessUser::ROLE_TRANSPORT_MANAGER => __('Transport Manager'),
+            BusinessUser::ROLE_ACCOUNTANT => __('Accountant'),
         ];
     }
 
@@ -76,6 +77,15 @@ class TenantUserController extends Controller
                     __('Dispatch deliveries'),
                     __('Confirm deliveries'),
                     __('Track delivery status'),
+                ],
+            ],
+            BusinessUser::ROLE_ACCOUNTANT => [
+                'description' => __('Manages receivables, payables, and finance reporting for the business.'),
+                'permissions' => [
+                    __('View finance dashboard'),
+                    __('Manage AR invoices'),
+                    __('Manage AP payables'),
+                    __('View finance reports (cost allocations)'),
                 ],
             ],
         ];

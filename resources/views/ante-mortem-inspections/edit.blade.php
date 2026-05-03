@@ -164,14 +164,17 @@
                     const options = valueOptions[meta.type] || [];
                     const selectedValue = observationState[itemKey]?.value || '';
                     const selectedNotes = observationState[itemKey]?.notes || '';
+                    const valueField = meta.type === 'free_text'
+                        ? `<input type="text" name="observations[${itemKey}][value]" value="${String(selectedValue).replace(/"/g, '&quot;')}" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required />`
+                        : `<select name="observations[${itemKey}][value]" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                                <option value="">{{ __('Select') }}</option>
+                                ${options.map(v => `<option value="${v}" ${selectedValue === v ? 'selected' : ''}>${v.charAt(0).toUpperCase() + v.slice(1)}</option>`).join('')}
+                           </select>`;
 
                     row.innerHTML = `
                         <td class="px-3 py-2 text-slate-700">${meta.label}</td>
                         <td class="px-3 py-2">
-                            <select name="observations[${itemKey}][value]" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                                <option value="">{{ __('Select') }}</option>
-                                ${options.map(v => `<option value="${v}" ${selectedValue === v ? 'selected' : ''}>${v.charAt(0).toUpperCase() + v.slice(1)}</option>`).join('')}
-                            </select>
+                            ${valueField}
                         </td>
                         <td class="px-3 py-2">
                             <input type="text" name="observations[${itemKey}][notes]" value="${String(selectedNotes).replace(/"/g, '&quot;')}" class="block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" maxlength="5000" />

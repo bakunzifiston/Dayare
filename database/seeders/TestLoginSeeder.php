@@ -4,24 +4,23 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Idempotent dev / QA logins. Called from other seeders so test accounts always exist
  * when you run the comprehensive demo, test fixtures, or a full `db:seed`.
+ *
+ * Passwords are stored as plain strings here so {@see User}'s `password` => `hashed` cast
+ * performs a single bcrypt hash (avoids double-hashing if a pre-hashed value were mis-detected).
  */
 class TestLoginSeeder extends Seeder
 {
     public function run(): void
     {
-        $password = Hash::make('password');
-        $superAdminPassword = Hash::make('superadmin');
-
         User::query()->updateOrCreate(
             ['email' => 'test@example.com'],
             [
                 'name' => 'Test User',
-                'password' => $password,
+                'password' => 'password',
                 'email_verified_at' => now(),
                 'is_super_admin' => false,
             ]
@@ -30,7 +29,7 @@ class TestLoginSeeder extends Seeder
             ['email' => 'tester@dayare.me'],
             [
                 'name' => 'Tester One',
-                'password' => $password,
+                'password' => 'password',
                 'email_verified_at' => now(),
                 'is_super_admin' => false,
             ]
@@ -39,7 +38,7 @@ class TestLoginSeeder extends Seeder
             ['email' => 'superadmin@dayare.me'],
             [
                 'name' => 'Super Admin',
-                'password' => $superAdminPassword,
+                'password' => 'superadmin',
                 'email_verified_at' => now(),
                 'is_super_admin' => true,
             ]

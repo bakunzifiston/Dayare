@@ -28,13 +28,17 @@ use App\Http\Controllers\Farmer\LivestockController;
 use App\Http\Controllers\Farmer\LivestockMovementController;
 use App\Http\Controllers\Farmer\MovementPermitController;
 use App\Http\Controllers\FarmerDashboardController;
+use App\Http\Controllers\Finance\FinanceCostAllocationController;
+use App\Http\Controllers\Finance\FinanceInvoiceController;
+use App\Http\Controllers\Finance\FinancePayableController;
+use App\Http\Controllers\FinanceDashboardController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\LogisticsDashboardController;
 use App\Http\Controllers\LogisticsModuleController;
 use App\Http\Controllers\PostMortemInspectionController;
-use App\Http\Controllers\ProcessorBusinessContextController;
 use App\Http\Controllers\Processor\ProcessorSupplyRequestController;
+use App\Http\Controllers\ProcessorBusinessContextController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipientController;
 use App\Http\Controllers\SettingsController;
@@ -404,6 +408,17 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::resource('demands', DemandController::class);
     Route::get('recipients', [RecipientController::class, 'index'])->name('recipients.index');
     Route::delete('client-activities/{client_activity}', [App\Http\Controllers\ClientActivityController::class, 'destroy'])->name('client-activities.destroy');
+
+    Route::prefix('finance')->name('finance.')->group(function () {
+        Route::get('/', FinanceDashboardController::class)->name('dashboard');
+        Route::resource('invoices', FinanceInvoiceController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::post('invoices/{invoice}/mark-paid', [FinanceInvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
+        Route::post('invoices/from-delivery/{delivery}', [FinanceInvoiceController::class, 'createFromDelivery'])->name('invoices.from-delivery');
+        Route::resource('payables', FinancePayableController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::post('payables/{payable}/mark-paid', [FinancePayableController::class, 'markPaid'])->name('payables.mark-paid');
+        Route::resource('cost-allocations', FinanceCostAllocationController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::post('cost-allocations/template', [FinanceCostAllocationController::class, 'storeTemplate'])->name('cost-allocations.store-template');
+    });
 
     Route::resource('tenant-users', TenantUserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->names('tenant-users');
 

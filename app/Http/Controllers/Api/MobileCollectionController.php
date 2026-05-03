@@ -22,8 +22,8 @@ use App\Models\Batch;
 use App\Models\Certificate;
 use App\Models\Client;
 use App\Models\Contract;
-use App\Models\Demand;
 use App\Models\DeliveryConfirmation;
+use App\Models\Demand;
 use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\PostMortemInspection;
@@ -539,7 +539,10 @@ class MobileCollectionController extends Controller
         foreach ($items as $itemKey => $meta) {
             $value = $data['observations'][$itemKey]['value'] ?? null;
             $allowed = AnteMortemChecklist::allowedValuesForItem($data['species'], (string) $itemKey);
-            if (! is_string($value) || ! in_array($value, $allowed, true)) {
+            if (! is_string($value) || trim($value) === '') {
+                return ApiJson::failure(__('Invalid or missing checklist data.'), [], 422);
+            }
+            if (! empty($allowed) && ! in_array($value, $allowed, true)) {
                 return ApiJson::failure(__('Invalid or missing checklist data.'), [], 422);
             }
         }
@@ -594,7 +597,10 @@ class MobileCollectionController extends Controller
         foreach ($items as $itemKey => $meta) {
             $value = $data['observations'][$itemKey]['value'] ?? null;
             $allowed = PostMortemChecklist::allowedValuesForItem($data['species'], (string) $itemKey);
-            if (! is_string($value) || ! in_array($value, $allowed, true)) {
+            if (! is_string($value) || trim($value) === '') {
+                return ApiJson::failure(__('Invalid or missing checklist data.'), [], 422);
+            }
+            if (! empty($allowed) && ! in_array($value, $allowed, true)) {
                 return ApiJson::failure(__('Invalid or missing checklist data.'), [], 422);
             }
         }

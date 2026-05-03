@@ -16,7 +16,9 @@ use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
 use App\Models\TemperatureLog;
 use App\Models\TransportTrip;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -45,6 +47,7 @@ class DashboardController extends Controller
                 ],
                 'kpiPeriod' => 'all',
                 'kpiPeriodLabel' => '',
+                'accountantSnapshot' => null,
             ]);
         }
 
@@ -63,6 +66,7 @@ class DashboardController extends Controller
             'mapSummary' => $data['mapSummary'],
             'kpiPeriod' => $data['kpiPeriod'] ?? 'all',
             'kpiPeriodLabel' => $data['kpiPeriodLabel'] ?? '',
+            'accountantSnapshot' => $data['accountantSnapshot'] ?? null,
         ]);
     }
 
@@ -81,6 +85,10 @@ class DashboardController extends Controller
         $kpiPeriod = (string) $request->query('kpi_period', 'all');
         if (! in_array($kpiPeriod, ['all', 'day', 'month', 'year'], true)) {
             $kpiPeriod = 'all';
+        }
+
+        if ($role === BusinessUser::ROLE_ACCOUNTANT) {
+            return $this->buildAccountantDashboardData($request, $businessId, $kpiPeriod);
         }
 
         $today = now()->startOfDay();
@@ -386,7 +394,193 @@ class DashboardController extends Controller
             ],
             'kpiPeriod' => $kpiPeriod,
             'kpiPeriodLabel' => $kpiPeriodLabel,
+            'accountantSnapshot' => null,
         ];
+    }
+
+    /**
+     * @return array{
+     *   metrics: array<int, array<string, string|int>>,
+     *   alerts: array<int, array<string, string|int>>,
+     *   quickActions: array<int, array<string, string>>,
+     *   mapSummary: array{facilities: int, active_routes: int},
+     *   kpiPeriod: string,
+     *   kpiPeriodLabel: string,
+     *   accountantSnapshot: array{open_invoice_count: int, open_payable_count: int, allocation_line_count: int}
+     * }
+     */
+    private function buildAccountantDashboardData(Request $request, int $businessId, string $kpiPeriod): array
+    {
+        $range = $this->accountantFinanceKpiDateRange($kpiPeriod);
+        $kpiPeriodLabel = $range['label'];
+        $now = now();
+
+        $invoiceScoped = DB::table('finance_invoices')->where('business_id', $businessId);
+        $payableScoped = DB::table('finance_payables')->where('business_id', $businessId);
+        $allocationScoped = DB::table('finance_cost_allocations')->where('business_id', $businessId);
+
+        if ($kpiPeriod !== 'all') {
+            $this->applyFinanceDashboardDateWindow($invoiceScoped, 'issued_at', $range['start'], $range['end']);
+            $this->applyFinanceDashboardDateWindow($payableScoped, 'issued_at', $range['start'], $range['end']);
+            $allocationScoped->whereBetween('allocation_date', [$range['start']->toDateString(), $range['end']->toDateString()]);
+        }
+
+        $revenue = (float) (clone $invoiceScoped)->sum('total_amount');
+        $arOutstanding = (float) (clone $invoiceScoped)->sum(DB::raw('GREATEST(total_amount - amount_paid, 0)'));
+        $apOutstanding = (float) (clone $payableScoped)->sum(DB::raw('GREATEST(total_amount - amount_paid, 0)'));
+        $allocatedCosts = (float) (clone $allocationScoped)->sum('amount');
+        $grossMarginProxyPct = $revenue > 0
+            ? round((($revenue - ($apOutstanding + $allocatedCosts)) / $revenue) * 100, 1)
+            : 0.0;
+
+        $openInvoiceCount = (int) (clone $invoiceScoped)->whereRaw('amount_paid < total_amount')->count();
+        $openPayableCount = (int) (clone $payableScoped)->whereRaw('amount_paid < total_amount')->count();
+        $allocationLineCount = (int) (clone $allocationScoped)->count();
+
+        $overdueReceivablesCount = (int) DB::table('finance_invoices')
+            ->where('business_id', $businessId)
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', $now)
+            ->whereRaw('amount_paid < total_amount')
+            ->count();
+
+        $overduePayablesCount = (int) DB::table('finance_payables')
+            ->where('business_id', $businessId)
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', $now)
+            ->whereRaw('amount_paid < total_amount')
+            ->count();
+
+        $fmt = fn (float $n): string => number_format($n, 0, '.', ',');
+
+        $metrics = [
+            [
+                'label' => __('Revenue (invoiced, :span)', ['span' => $kpiPeriodLabel]),
+                'value' => $fmt($revenue).' '.__('RWF'),
+                'description' => __('Total invoice amounts in the selected period.'),
+            ],
+            [
+                'label' => __('AR outstanding'),
+                'value' => $fmt($arOutstanding).' '.__('RWF'),
+                'description' => __('Unpaid customer balance for invoices in the selected period.'),
+            ],
+            [
+                'label' => __('AP outstanding'),
+                'value' => $fmt($apOutstanding).' '.__('RWF'),
+                'description' => __('Open supplier balances for payables in the selected period.'),
+            ],
+            [
+                'label' => __('Allocated costs'),
+                'value' => $fmt($allocatedCosts).' '.__('RWF'),
+                'description' => __('Sum of cost allocation lines in the selected period.'),
+            ],
+            [
+                'label' => __('Gross margin proxy'),
+                'value' => (string) $grossMarginProxyPct.'%',
+                'description' => __('(Revenue − AP outstanding − allocated costs) ÷ Revenue for the period.'),
+            ],
+            [
+                'label' => __('Open AR documents'),
+                'value' => (string) $openInvoiceCount,
+                'description' => __('Invoices with a remaining balance in the selected period.'),
+            ],
+            [
+                'label' => __('Open AP documents'),
+                'value' => (string) $openPayableCount,
+                'description' => __('Payables with a remaining balance in the selected period.'),
+            ],
+        ];
+
+        $alerts = [];
+        if ($overdueReceivablesCount > 0) {
+            $alerts[] = [
+                'title' => __('Overdue receivables'),
+                'count' => $overdueReceivablesCount,
+                'description' => __('Invoices past due with unpaid balance.'),
+                'route' => 'finance.invoices.index',
+            ];
+        }
+        if ($overduePayablesCount > 0) {
+            $alerts[] = [
+                'title' => __('Overdue payables'),
+                'count' => $overduePayablesCount,
+                'description' => __('Payables past due with unpaid balance.'),
+                'route' => 'finance.payables.index',
+            ];
+        }
+
+        $candidateActions = [
+            ['label' => __('Review AR invoices'), 'route' => 'finance.invoices.index', 'permission' => BusinessUser::PERMISSION_MANAGE_AR_INVOICES],
+            ['label' => __('Review AP payables'), 'route' => 'finance.payables.index', 'permission' => BusinessUser::PERMISSION_MANAGE_AP_PAYABLES],
+            ['label' => __('Cost allocations'), 'route' => 'finance.cost-allocations.index', 'permission' => BusinessUser::PERMISSION_VIEW_FINANCE_REPORTS],
+        ];
+
+        $filteredQuickActions = collect($candidateActions)
+            ->filter(fn (array $action) => $request->user()->canProcessorPermission((string) $action['permission'], $businessId))
+            ->map(fn (array $action) => [
+                'label' => (string) $action['label'],
+                'url' => route((string) $action['route']),
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'metrics' => $metrics,
+            'alerts' => $alerts,
+            'quickActions' => $filteredQuickActions,
+            'mapSummary' => [
+                'facilities' => 0,
+                'active_routes' => 0,
+            ],
+            'kpiPeriod' => $kpiPeriod,
+            'kpiPeriodLabel' => $kpiPeriodLabel,
+            'accountantSnapshot' => [
+                'open_invoice_count' => $openInvoiceCount,
+                'open_payable_count' => $openPayableCount,
+                'allocation_line_count' => $allocationLineCount,
+            ],
+        ];
+    }
+
+    private function applyFinanceDashboardDateWindow(Builder $query, string $column, \Carbon\Carbon $start, \Carbon\Carbon $end): void
+    {
+        $query->where(function (Builder $q) use ($column, $start, $end): void {
+            $q->whereBetween($column, [$start, $end])
+                ->orWhere(function (Builder $fallback) use ($column, $start, $end): void {
+                    $fallback->whereNull($column)->whereBetween('created_at', [$start, $end]);
+                });
+        });
+    }
+
+    /**
+     * @return array{start: \Carbon\Carbon, end: \Carbon\Carbon, label: string}
+     */
+    private function accountantFinanceKpiDateRange(string $period): array
+    {
+        $now = now();
+
+        return match ($period) {
+            'day' => [
+                'start' => $now->copy()->startOfDay(),
+                'end' => $now->copy()->endOfDay(),
+                'label' => $now->format('M j, Y'),
+            ],
+            'month' => [
+                'start' => $now->copy()->startOfMonth(),
+                'end' => $now->copy()->endOfMonth(),
+                'label' => $now->format('F Y'),
+            ],
+            'year' => [
+                'start' => $now->copy()->startOfYear(),
+                'end' => $now->copy()->endOfYear(),
+                'label' => (string) $now->year,
+            ],
+            default => [
+                'start' => $now->copy()->startOfDay(),
+                'end' => $now->copy()->endOfDay(),
+                'label' => (string) __('All time'),
+            ],
+        };
     }
 
     /**
