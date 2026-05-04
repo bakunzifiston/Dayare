@@ -32,6 +32,7 @@ use App\Models\SlaughterPlan;
 use App\Models\Supplier;
 use App\Models\TransportTrip;
 use App\Models\WarehouseStorage;
+use App\Support\AnimalIntakeMovementPermitStorage;
 use App\Support\AnteMortemChecklist;
 use App\Support\PostMortemChecklist;
 use Illuminate\Database\QueryException;
@@ -176,6 +177,9 @@ class MobileCollectionController extends Controller
             $data['supplier_id'] = null;
             $data['contract_id'] = null;
             $data['farm_registration_number'] = null;
+            $data['transport_vehicle_plate'] = null;
+            $data['driver_name'] = null;
+            $data['movement_permit_no'] = null;
         } elseif (! empty($data['supplier_id'])) {
             $supplier = Supplier::find((int) $data['supplier_id']);
             if (! $supplier || ! $supplier->isApproved() || (int) $supplier->business_id !== $facilityBusinessId) {
@@ -271,13 +275,23 @@ class MobileCollectionController extends Controller
     public function animalIntakesStore(StoreAnimalIntakeRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $uploadedFile = $data['movement_permit_document'] ?? null;
+        unset($data['movement_permit_document']);
 
         $denied = $this->denyIfFacilityOutOfScope($request, (int) $data['facility_id']);
         if ($denied !== null) {
             return $denied;
         }
 
-        $item = AnimalIntake::create($this->hydrateSupplierFields($request, $data));
+        $data = $this->hydrateSupplierFields($request, $data);
+
+        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT && $uploadedFile) {
+            $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
+        } elseif (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_SUPPLIER) {
+            $data['movement_permit_document_path'] = null;
+        }
+
+        $item = AnimalIntake::create($data);
 
         return ApiJson::success($item, __('Created.'), 201);
     }
@@ -300,12 +314,29 @@ class MobileCollectionController extends Controller
         }
 
         $data = $request->validated();
+        $uploadedFile = $data['movement_permit_document'] ?? null;
+        unset($data['movement_permit_document']);
+
         $denied = $this->denyIfFacilityOutOfScope($request, (int) $data['facility_id']);
         if ($denied !== null) {
             return $denied;
         }
 
-        $animalIntake->update($this->hydrateSupplierFields($request, $data));
+        $data = $this->hydrateSupplierFields($request, $data);
+
+        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT) {
+            if ($uploadedFile) {
+                AnimalIntakeMovementPermitStorage::delete($animalIntake->movement_permit_document_path);
+                $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
+            }
+        } else {
+            if ($animalIntake->movement_permit_document_path) {
+                AnimalIntakeMovementPermitStorage::delete($animalIntake->movement_permit_document_path);
+            }
+            $data['movement_permit_document_path'] = null;
+        }
+
+        $animalIntake->update($data);
 
         return ApiJson::success($animalIntake->fresh(), __('Updated.'));
     }

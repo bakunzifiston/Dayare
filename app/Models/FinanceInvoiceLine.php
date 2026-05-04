@@ -16,6 +16,7 @@ class FinanceInvoiceLine extends Model
         'certificate_id',
         'description',
         'quantity',
+        'quantity_unit',
         'unit_price',
         'line_total',
     ];

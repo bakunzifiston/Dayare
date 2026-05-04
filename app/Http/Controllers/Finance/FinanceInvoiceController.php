@@ -3,16 +3,20 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Models\AnimalIntake;
 use App\Models\Batch;
 use App\Models\Certificate;
-use App\Models\Client;
 use App\Models\Contract;
 use App\Models\DeliveryConfirmation;
+use App\Models\Demand;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceInvoiceLine;
+use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class FinanceInvoiceController extends Controller
@@ -21,7 +25,7 @@ class FinanceInvoiceController extends Controller
     {
         $businessId = $this->activeBusinessId($request);
         $query = FinanceInvoice::query()
-            ->with(['client', 'contract'])
+            ->with(['client', 'contract', 'animalIntake.client'])
             ->where('business_id', $businessId);
 
         if ($request->filled('status')) {
@@ -49,12 +53,15 @@ class FinanceInvoiceController extends Controller
     public function create(Request $request): View
     {
         $businessId = $this->activeBusinessId($request);
+        $batches = $this->businessBatches($businessId);
 
         return view('finance.invoices.create', [
-            'clients' => Client::query()->where('business_id', $businessId)->orderBy('name')->get(),
+            'clientAnimalIntakes' => $this->businessClientAnimalIntakes($businessId),
             'contracts' => Contract::query()->where('business_id', $businessId)->orderByDesc('id')->get(),
-            'deliveries' => $this->businessDeliveries($businessId),
-            'batches' => $this->businessBatches($businessId),
+            'batches' => $batches,
+            'batchCertificateMap' => $this->batchCertificateMapForBatches($batches),
+            'batchQuantityMap' => $this->batchQuantityMapForBatches($batches),
+            'units' => $this->invoiceUnits($request, $businessId),
             'certificates' => $this->businessCertificates($businessId),
             'invoice' => null,
             'line' => null,
@@ -70,8 +77,9 @@ class FinanceInvoiceController extends Controller
             $invoice = FinanceInvoice::query()->create([
                 'business_id' => $businessId,
                 'client_id' => $data['client_id'],
+                'animal_intake_id' => $data['animal_intake_id'],
                 'contract_id' => $data['contract_id'],
-                'delivery_confirmation_id' => $data['delivery_confirmation_id'],
+                'delivery_confirmation_id' => null,
                 'invoice_number' => $data['invoice_number'],
                 'status' => $data['status'],
                 'currency' => $data['currency'],
@@ -92,6 +100,7 @@ class FinanceInvoiceController extends Controller
                 'certificate_id' => $data['certificate_id'],
                 'description' => $data['line_description'],
                 'quantity' => $data['quantity'],
+                'quantity_unit' => $data['quantity_unit'],
                 'unit_price' => $data['unit_price'],
                 'line_total' => $data['line_total'],
             ]);
@@ -107,14 +116,17 @@ class FinanceInvoiceController extends Controller
         $businessId = $this->activeBusinessId($request);
         abort_unless((int) $invoice->business_id === $businessId, 404);
         $invoice->load('lines');
+        $batches = $this->businessBatches($businessId);
 
         return view('finance.invoices.edit', [
             'invoice' => $invoice,
             'line' => $invoice->lines->first(),
-            'clients' => Client::query()->where('business_id', $businessId)->orderBy('name')->get(),
+            'clientAnimalIntakes' => $this->businessClientAnimalIntakesForForm($businessId, $invoice->animal_intake_id),
             'contracts' => Contract::query()->where('business_id', $businessId)->orderByDesc('id')->get(),
-            'deliveries' => $this->businessDeliveries($businessId),
-            'batches' => $this->businessBatches($businessId),
+            'batches' => $batches,
+            'batchCertificateMap' => $this->batchCertificateMapForBatches($batches),
+            'batchQuantityMap' => $this->batchQuantityMapForBatches($batches),
+            'units' => $this->invoiceUnits($request, $businessId),
             'certificates' => $this->businessCertificates($businessId),
         ]);
     }
@@ -128,8 +140,8 @@ class FinanceInvoiceController extends Controller
         DB::transaction(function () use ($invoice, $data): void {
             $invoice->update([
                 'client_id' => $data['client_id'],
+                'animal_intake_id' => $data['animal_intake_id'],
                 'contract_id' => $data['contract_id'],
-                'delivery_confirmation_id' => $data['delivery_confirmation_id'],
                 'invoice_number' => $data['invoice_number'],
                 'status' => $data['status'],
                 'currency' => $data['currency'],
@@ -151,6 +163,7 @@ class FinanceInvoiceController extends Controller
                     'certificate_id' => $data['certificate_id'],
                     'description' => $data['line_description'],
                     'quantity' => $data['quantity'],
+                    'quantity_unit' => $data['quantity_unit'],
                     'unit_price' => $data['unit_price'],
                     'line_total' => $data['line_total'],
                 ]);
@@ -161,6 +174,7 @@ class FinanceInvoiceController extends Controller
                     'certificate_id' => $data['certificate_id'],
                     'description' => $data['line_description'],
                     'quantity' => $data['quantity'],
+                    'quantity_unit' => $data['quantity_unit'],
                     'unit_price' => $data['unit_price'],
                     'line_total' => $data['line_total'],
                 ]);
@@ -187,14 +201,18 @@ class FinanceInvoiceController extends Controller
     public function createFromDelivery(Request $request, DeliveryConfirmation $delivery): RedirectResponse
     {
         $businessId = $this->activeBusinessId($request);
-        $delivery->load(['transportTrip.batch', 'transportTrip.certificate']);
+        $delivery->load(['transportTrip.batch.slaughterExecution.slaughterPlan', 'transportTrip.certificate']);
         $trip = $delivery->transportTrip;
         abort_unless($trip && (int) optional($trip->originFacility)->business_id === $businessId, 404);
+
+        $batch = $trip->batch;
+        $animalIntakeId = $batch?->slaughterExecution?->slaughterPlan?->animal_intake_id;
 
         $lineTotal = round((float) ($delivery->received_quantity ?? 0) * 3200, 2);
         $invoice = FinanceInvoice::query()->create([
             'business_id' => $businessId,
             'client_id' => $delivery->client_id,
+            'animal_intake_id' => $animalIntakeId,
             'contract_id' => $delivery->contract_id,
             'delivery_confirmation_id' => $delivery->id,
             'invoice_number' => 'AR-'.now()->format('Ymd').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
@@ -216,6 +234,7 @@ class FinanceInvoiceController extends Controller
             'certificate_id' => optional($trip)->certificate_id,
             'description' => 'Delivery '.$delivery->id.' invoice line',
             'quantity' => (float) ($delivery->received_quantity ?? 1),
+            'quantity_unit' => $batch?->quantity_unit,
             'unit_price' => 3200,
             'line_total' => $lineTotal,
         ]);
@@ -243,9 +262,13 @@ class FinanceInvoiceController extends Controller
             'invoice_number' => ['required', 'string', 'max:40', $unique],
             'status' => ['required', 'string', 'max:32'],
             'currency' => ['required', 'string', 'max:8'],
-            'client_id' => ['nullable', 'integer'],
-            'contract_id' => ['nullable', 'integer'],
-            'delivery_confirmation_id' => ['nullable', 'integer'],
+            'link_contract' => ['required', Rule::in(['yes', 'no'])],
+            'animal_intake_id' => ['required', 'integer'],
+            'contract_id' => [
+                'nullable',
+                'integer',
+                Rule::requiredIf(fn () => $request->input('link_contract') === 'yes'),
+            ],
             'issued_at' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:issued_at'],
             'paid_at' => ['nullable', 'date'],
@@ -258,37 +281,60 @@ class FinanceInvoiceController extends Controller
             'unit_price' => ['required', 'numeric', 'min:0'],
             'batch_id' => ['nullable', 'integer'],
             'certificate_id' => ['nullable', 'integer'],
+            'quantity_unit' => ['nullable', 'string', 'max:50'],
         ]);
 
-        foreach (['client_id' => 'clients', 'contract_id' => 'contracts'] as $field => $table) {
+        if (($data['link_contract'] ?? 'no') === 'no') {
+            $data['contract_id'] = null;
+        }
+        unset($data['link_contract']);
+
+        $intake = AnimalIntake::query()
+            ->whereKey((int) $data['animal_intake_id'])
+            ->where('source_type', AnimalIntake::SOURCE_TYPE_CLIENT)
+            ->whereHas('facility', fn ($q) => $q->where('business_id', $businessId))
+            ->first();
+        abort_unless($intake !== null, 422, __('Invalid animal intake selection.'));
+        $data['client_id'] = $intake->client_id;
+        $data['animal_intake_id'] = (int) $intake->id;
+
+        foreach (['contract_id' => 'contracts'] as $field => $table) {
             if (! empty($data[$field])) {
                 $exists = DB::table($table)->where('id', $data[$field])->where('business_id', $businessId)->exists();
                 abort_unless($exists, 422, __('Invalid selection for :field', ['field' => $field]));
             }
         }
 
-        if (! empty($data['delivery_confirmation_id'])) {
-            $deliveryExists = DeliveryConfirmation::query()
-                ->whereKey($data['delivery_confirmation_id'])
-                ->whereHas('transportTrip.originFacility', fn ($q) => $q->where('business_id', $businessId))
-                ->exists();
-            abort_unless($deliveryExists, 422, __('Invalid delivery confirmation selection.'));
-        }
-
         if (! empty($data['batch_id'])) {
-            $batchExists = Batch::query()
-                ->whereKey($data['batch_id'])
+            $batch = Batch::query()
+                ->whereKey((int) $data['batch_id'])
                 ->whereHas('slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $businessId))
-                ->exists();
-            abort_unless($batchExists, 422, __('Invalid batch selection.'));
-        }
-
-        if (! empty($data['certificate_id'])) {
+                ->with('certificate:id,batch_id,certificate_number')
+                ->first();
+            abort_unless($batch !== null, 422, __('Invalid batch selection.'));
+            $data['certificate_id'] = $batch->certificate?->id;
+            $batchQty = (float) ($batch->quantity ?? 0);
+            $data['quantity'] = $batchQty > 0 ? round($batchQty, 4) : 1.0;
+            $bu = $batch->quantity_unit;
+            $data['quantity_unit'] = ($bu !== null && $bu !== '') ? (string) $bu : null;
+        } elseif (! empty($data['certificate_id'])) {
             $certExists = Certificate::query()
                 ->whereKey($data['certificate_id'])
                 ->whereHas('batch.slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $businessId))
                 ->exists();
             abort_unless($certExists, 422, __('Invalid certificate selection.'));
+            $data['certificate_id'] = (int) $data['certificate_id'];
+        } else {
+            $data['certificate_id'] = null;
+        }
+
+        if (empty($data['batch_id'])) {
+            $allowedUnitCodes = $request->user()->configuredUnitsForBusinessIds([$businessId])->pluck('code')->all();
+            $qu = trim((string) ($data['quantity_unit'] ?? ''));
+            $data['quantity_unit'] = $qu === '' ? null : $qu;
+            if ($data['quantity_unit'] !== null && ! in_array($data['quantity_unit'], $allowedUnitCodes, true)) {
+                abort(422, __('Invalid unit.'));
+            }
         }
 
         $data['tax_amount'] = (float) ($data['tax_amount'] ?? 0);
@@ -301,22 +347,106 @@ class FinanceInvoiceController extends Controller
         return $data;
     }
 
-    private function businessDeliveries(int $businessId)
+    /**
+     * Client-source animal intakes for this processor business (AR invoice payer context).
+     *
+     * @return Collection<int, AnimalIntake>
+     */
+    private function businessClientAnimalIntakes(int $businessId): Collection
     {
-        return DeliveryConfirmation::query()
-            ->whereHas('transportTrip.originFacility', fn ($q) => $q->where('business_id', $businessId))
+        return AnimalIntake::query()
+            ->where('source_type', AnimalIntake::SOURCE_TYPE_CLIENT)
+            ->whereHas('facility', fn ($q) => $q->where('business_id', $businessId))
+            ->with(['client:id,name,business_id'])
+            ->orderByDesc('intake_date')
             ->orderByDesc('id')
-            ->limit(100)
+            ->limit(200)
             ->get();
     }
 
-    private function businessBatches(int $businessId)
+    /**
+     * Same as {@see businessClientAnimalIntakes} but ensures the selected intake appears (e.g. outside the 200 limit).
+     *
+     * @return Collection<int, AnimalIntake>
+     */
+    private function businessClientAnimalIntakesForForm(int $businessId, ?int $selectedIntakeId): Collection
+    {
+        $collection = $this->businessClientAnimalIntakes($businessId);
+        if ($selectedIntakeId === null) {
+            return $collection;
+        }
+        if ($collection->contains('id', $selectedIntakeId)) {
+            return $collection;
+        }
+
+        $current = AnimalIntake::query()
+            ->whereKey($selectedIntakeId)
+            ->whereHas('facility', fn ($q) => $q->where('business_id', $businessId))
+            ->with(['client:id,name,business_id'])
+            ->first();
+
+        return $current !== null ? $collection->prepend($current)->values() : $collection;
+    }
+
+    /**
+     * @return Collection<int, Batch>
+     */
+    private function businessBatches(int $businessId): Collection
     {
         return Batch::query()
             ->whereHas('slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $businessId))
+            ->with(['certificate:id,batch_id,certificate_number'])
             ->orderByDesc('id')
             ->limit(100)
-            ->get(['id', 'batch_code']);
+            ->get(['id', 'batch_code', 'quantity', 'quantity_unit']);
+    }
+
+    /**
+     * @param  Collection<int, Batch>  $batches
+     * @return array<string, array{quantity: float, quantity_unit: string, quantity_unit_label: string}>
+     */
+    private function batchQuantityMapForBatches(Collection $batches): array
+    {
+        $codes = $batches->pluck('quantity_unit')->filter()->unique()->values()->all();
+        $unitNames = $codes !== []
+            ? Unit::query()->whereIn('code', $codes)->pluck('name', 'code')->all()
+            : [];
+
+        $out = [];
+        foreach ($batches as $batch) {
+            $code = (string) ($batch->quantity_unit ?? '');
+            $label = $code === ''
+                ? ''
+                : (string) ($unitNames[$code] ?? Demand::QUANTITY_UNITS[$code] ?? $code);
+            $qty = (float) ($batch->quantity ?? 0);
+            $out[(string) $batch->id] = [
+                'quantity' => $qty > 0 ? round($qty, 4) : 1.0,
+                'quantity_unit' => $code,
+                'quantity_unit_label' => $label,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  Collection<int, Batch>  $batches
+     * @return array<string, array{certificate_id: int, certificate_number: string}|null>
+     */
+    private function batchCertificateMapForBatches(Collection $batches): array
+    {
+        $out = [];
+        foreach ($batches as $batch) {
+            $certificate = $batch->certificate;
+            $out[(string) $batch->id] = $certificate !== null
+                ? [
+                    'certificate_id' => (int) $certificate->id,
+                    'certificate_number' => (string) ($certificate->certificate_number ?? ''),
+                ]
+                : null;
+        }
+
+        return $out;
     }
 
     private function businessCertificates(int $businessId)
@@ -326,5 +456,15 @@ class FinanceInvoiceController extends Controller
             ->orderByDesc('id')
             ->limit(100)
             ->get(['id', 'certificate_number']);
+    }
+
+    /**
+     * @return Collection<int, array{code: string, name: string}>
+     */
+    private function invoiceUnits(Request $request, int $businessId): Collection
+    {
+        return $request->user()->configuredUnitsForBusinessIds([$businessId])
+            ->map(fn (Unit $unit) => ['code' => $unit->code, 'name' => $unit->name])
+            ->values();
     }
 }

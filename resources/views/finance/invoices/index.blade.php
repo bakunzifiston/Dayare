@@ -39,7 +39,14 @@
                             @forelse($invoices as $invoice)
                                 <tr class="border-t border-slate-100">
                                     <td class="px-4 py-2 font-medium text-slate-800">{{ $invoice->invoice_number }}</td>
-                                    <td class="px-4 py-2">{{ $invoice->client?->name ?? '—' }}</td>
+                                    <td class="px-4 py-2">
+                                        @if ($invoice->animalIntake)
+                                            <span class="block font-medium text-slate-800">{{ $invoice->animalIntake->clientSourceDisplayName() }}</span>
+                                            <span class="text-xs text-slate-500">{{ __($invoice->animalIntake->species) }} · {{ $invoice->animalIntake->number_of_animals }} {{ __('animals') }}</span>
+                                        @else
+                                            {{ $invoice->client?->name ?? '—' }}
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2">{{ ucfirst($invoice->status) }}</td>
                                     <td class="px-4 py-2 text-right">{{ number_format((float) $invoice->total_amount, 2) }}</td>
                                     <td class="px-4 py-2 text-right">{{ number_format((float) $invoice->amount_paid, 2) }}</td>

@@ -14,6 +14,7 @@ class FinanceInvoice extends Model
     protected $fillable = [
         'business_id',
         'client_id',
+        'animal_intake_id',
         'contract_id',
         'delivery_confirmation_id',
         'invoice_number',
@@ -47,6 +48,11 @@ class FinanceInvoice extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function animalIntake(): BelongsTo
+    {
+        return $this->belongsTo(AnimalIntake::class);
     }
 
     public function contract(): BelongsTo

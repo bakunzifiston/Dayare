@@ -103,6 +103,7 @@ class ProcessorFinanceSync
         foreach ($deliveries as $delivery) {
             $trip = $delivery->transportTrip;
             $batch = $trip?->batch;
+            $animalIntakeId = $batch?->slaughterExecution?->slaughterPlan?->animal_intake_id;
             $intakeUnitPrice = (float) ($batch?->slaughterExecution?->slaughterPlan?->animalIntake?->unit_price ?? 0);
             $quantity = (float) ($delivery->received_quantity ?? $batch?->quantity ?? 0);
             $quantity = max(0, $quantity);
@@ -116,6 +117,7 @@ class ProcessorFinanceSync
                 ],
                 [
                     'client_id' => $delivery->client_id,
+                    'animal_intake_id' => $animalIntakeId,
                     'contract_id' => $delivery->contract_id,
                     'invoice_number' => sprintf('AR-DEL-%06d', $delivery->id),
                     'status' => FinanceInvoice::query()->where('business_id', $businessId)->where('delivery_confirmation_id', $delivery->id)->value('status') ?? 'issued',
@@ -140,6 +142,7 @@ class ProcessorFinanceSync
                     'batch_id' => $trip?->batch_id,
                     'certificate_id' => $trip?->certificate_id,
                     'quantity' => $quantity,
+                    'quantity_unit' => $batch?->quantity_unit,
                     'unit_price' => $invoiceUnitPrice,
                     'line_total' => $totalAmount,
                 ]

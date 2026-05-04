@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Support\AnimalIntakeMovementPermitStorage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Animal Origin (Intake) – record where animals come from before slaughter.
@@ -14,6 +16,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class AnimalIntake extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::deleting(function (AnimalIntake $intake): void {
+            AnimalIntakeMovementPermitStorage::delete($intake->movement_permit_document_path);
+        });
+    }
 
     protected $fillable = [
         'facility_id',
@@ -30,6 +39,7 @@ class AnimalIntake extends Model
         'farm_name',
         'farm_registration_number',
         'movement_permit_no',
+        'movement_permit_document_path',
         'country_id',
         'province_id',
         'district_id',
@@ -200,5 +210,35 @@ class AnimalIntake extends Model
     public function remainingAnimalsAvailable(): int
     {
         return max(0, $this->number_of_animals - $this->totalScheduledForSlaughter());
+    }
+
+    /** Linked CRM client name, or manual client names on client-source intake without `client_id`. */
+    public function clientSourceDisplayName(): string
+    {
+        if ($this->client_id) {
+            $this->loadMissing('client');
+            if ($this->client) {
+                return (string) $this->client->name;
+            }
+        }
+
+        $name = trim((string) ($this->supplier_firstname ?? '').' '.(string) ($this->supplier_lastname ?? ''));
+
+        return $name !== '' ? $name : (string) __('Intake #:id', ['id' => $this->id]);
+    }
+
+    /** One line for AR invoice selector: name · species · number of animals. */
+    public function labelForFinanceInvoice(): string
+    {
+        return $this->clientSourceDisplayName().' · '.__((string) $this->species).' · '.$this->number_of_animals.' '.__('animals');
+    }
+
+    public function movementPermitDocumentUrl(): ?string
+    {
+        if ($this->movement_permit_document_path === null || $this->movement_permit_document_path === '') {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->movement_permit_document_path);
     }
 }

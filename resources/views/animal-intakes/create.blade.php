@@ -8,7 +8,7 @@
 
     <div class="py-12">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            <form method="post" action="{{ route('animal-intakes.store') }}" class="space-y-6" id="animal-intake-form" onsubmit="var f=document.getElementById('animal-intake-form');if(f){['country_id','province_id','district_id','sector_id','cell_id','village_id'].forEach(function(id){var s=document.getElementById(id),h=f.querySelector('input[name='+id+']');if(s&&h)h.value=s?s.value:'';});}return true;">
+            <form method="post" action="{{ route('animal-intakes.store') }}" enctype="multipart/form-data" class="space-y-6" id="animal-intake-form" onsubmit="var f=document.getElementById('animal-intake-form');if(f){['country_id','province_id','district_id','sector_id','cell_id','village_id'].forEach(function(id){var s=document.getElementById(id),h=f.querySelector('input[name='+id+']');if(s&&h)h.value=s?s.value:'';});}return true;">
                 @csrf
 
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
@@ -255,10 +255,16 @@
                         <textarea id="animal_identification_numbers" name="animal_identification_numbers" rows="2" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">{{ old('animal_identification_numbers') }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('animal_identification_numbers')" />
                     </div>
-                    <div>
+                    <div id="movement-permit-supplier-block" class="@if(old('source_type', \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT) === \App\Models\AnimalIntake::SOURCE_TYPE_SUPPLIER)@else hidden @endif">
                         <x-input-label for="movement_permit_no" :value="__('Movement permit No')" />
                         <x-text-input id="movement_permit_no" name="movement_permit_no" type="text" class="mt-1 block w-full" :value="old('movement_permit_no')" />
                         <x-input-error class="mt-2" :messages="$errors->get('movement_permit_no')" />
+                    </div>
+                    <div id="movement-permit-client-block" class="@if(old('source_type', \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT) === \App\Models\AnimalIntake::SOURCE_TYPE_SUPPLIER) hidden @endif">
+                        <x-input-label for="movement_permit_document" :value="__('Movement permit (upload)')" />
+                        <input id="movement_permit_document" name="movement_permit_document" type="file" accept=".pdf,image/jpeg,image/png,image/webp" class="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-bucha-primary file:text-white hover:file:bg-bucha-burgundy" />
+                        <p class="mt-1 text-xs text-slate-500">{{ __('PDF or image, max 10 MB.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('movement_permit_document')" />
                     </div>
                     <div>
                         <x-input-label for="observation" :value="__('Observation')" />
@@ -272,7 +278,7 @@
                     </div>
                 </div>
 
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
+                <div id="intake-transport-block" class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4 @if(old('source_type', \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT) === \App\Models\AnimalIntake::SOURCE_TYPE_SUPPLIER)@else hidden @endif">
                     <h3 class="text-base font-semibold text-slate-800">{{ __('Transport') }}</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -404,6 +410,9 @@
         const contractEl = document.getElementById('contract_id');
         const manualClientFirstEl = document.getElementById('manual_client_firstname');
         const manualClientLastEl = document.getElementById('manual_client_lastname');
+        const transportBlockEl = document.getElementById('intake-transport-block');
+        const movementPermitSupplierBlockEl = document.getElementById('movement-permit-supplier-block');
+        const movementPermitClientBlockEl = document.getElementById('movement-permit-client-block');
 
         function updateClientManualRequirements() {
             const isClientSource = (sourceTypeEl?.value || '') === '{{ \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT }}';
@@ -421,6 +430,15 @@
             }
             if (clientFieldsEl) {
                 clientFieldsEl.classList.toggle('hidden', isSupplier);
+            }
+            if (transportBlockEl) {
+                transportBlockEl.classList.toggle('hidden', !isSupplier);
+            }
+            if (movementPermitSupplierBlockEl) {
+                movementPermitSupplierBlockEl.classList.toggle('hidden', !isSupplier);
+            }
+            if (movementPermitClientBlockEl) {
+                movementPermitClientBlockEl.classList.toggle('hidden', isSupplier);
             }
             if (supplierEl) {
                 supplierEl.required = isSupplier;
