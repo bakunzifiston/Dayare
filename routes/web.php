@@ -28,6 +28,7 @@ use App\Http\Controllers\Farmer\LivestockController;
 use App\Http\Controllers\Farmer\LivestockMovementController;
 use App\Http\Controllers\Farmer\MovementPermitController;
 use App\Http\Controllers\FarmerDashboardController;
+use App\Http\Controllers\Finance\FinanceCasualWorkerController;
 use App\Http\Controllers\Finance\FinanceCostAllocationController;
 use App\Http\Controllers\Finance\FinanceInvoiceController;
 use App\Http\Controllers\Finance\FinancePayableController;
@@ -416,6 +417,7 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
         Route::post('invoices/from-delivery/{delivery}', [FinanceInvoiceController::class, 'createFromDelivery'])->name('invoices.from-delivery');
         Route::resource('payables', FinancePayableController::class)->only(['index', 'create', 'store', 'edit', 'update']);
         Route::post('payables/{payable}/mark-paid', [FinancePayableController::class, 'markPaid'])->name('payables.mark-paid');
+        Route::resource('casual-workers', FinanceCasualWorkerController::class)->except(['show']);
         Route::resource('cost-allocations', FinanceCostAllocationController::class)->only(['index', 'create', 'store', 'edit', 'update']);
         Route::post('cost-allocations/template', [FinanceCostAllocationController::class, 'storeTemplate'])->name('cost-allocations.store-template');
     });

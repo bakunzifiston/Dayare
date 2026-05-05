@@ -13,8 +13,10 @@ class FinancePayableLine extends Model
     protected $fillable = [
         'payable_id',
         'batch_id',
+        'certificate_id',
         'description',
         'quantity',
+        'quantity_unit',
         'unit_price',
         'line_total',
     ];
@@ -27,5 +29,10 @@ class FinancePayableLine extends Model
     public function batch(): BelongsTo
     {
         return $this->belongsTo(Batch::class);
+    }
+
+    public function certificate(): BelongsTo
+    {
+        return $this->belongsTo(Certificate::class);
     }
 }

@@ -4,15 +4,17 @@
     </x-slot>
 
     <div class="py-6 lg:py-8">
-        <div class="max-w-[1100px] mx-auto px-0 sm:px-0">
+        <div class="max-w-[1100px] mx-auto px-0 sm:px-0 space-y-4">
+            @include('finance.payables._tabs', ['activeTab' => $activeTab, 'filters' => ['status' => '', 'q' => '']])
+
             <section class="rounded-bucha border border-slate-200 bg-white px-5 py-5">
                 <form method="POST" action="{{ route('finance.payables.store') }}">
                     @csrf
-                    @include('finance.payables._form')
+                    @include('finance.payables._form', ['activeTab' => $activeTab])
 
                     <div class="mt-6 flex items-center gap-2">
                         <button class="rounded-lg bg-bucha-primary px-4 py-2 text-sm font-semibold text-white">{{ __('Create payable') }}</button>
-                        <a href="{{ route('finance.payables.index') }}" class="rounded-lg border border-slate-200 px-4 py-2 text-sm">{{ __('Cancel') }}</a>
+                        <a href="{{ route('finance.payables.index', ['tab' => $activeTab]) }}" class="rounded-lg border border-slate-200 px-4 py-2 text-sm">{{ __('Cancel') }}</a>
                     </div>
                 </form>
             </section>

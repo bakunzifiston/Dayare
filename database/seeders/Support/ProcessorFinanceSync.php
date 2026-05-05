@@ -58,8 +58,13 @@ class ProcessorFinanceSync
                     'animal_intake_id' => $intake->id,
                 ],
                 [
+                    'ap_bucket' => $intake->source_type === AnimalIntake::SOURCE_TYPE_SUPPLIER
+                        ? FinancePayable::BUCKET_SUPPLIER
+                        : FinancePayable::BUCKET_CLIENT,
                     'supplier_id' => $intake->source_type === AnimalIntake::SOURCE_TYPE_SUPPLIER ? $intake->supplier_id : null,
                     'client_id' => $intake->source_type === AnimalIntake::SOURCE_TYPE_CLIENT ? $intake->client_id : null,
+                    'employee_id' => null,
+                    'casual_worker_id' => null,
                     'contract_id' => $intake->contract_id,
                     'payable_number' => sprintf('AP-INTAKE-%06d', $intake->id),
                     'status' => FinancePayable::query()->where('business_id', $businessId)->where('animal_intake_id', $intake->id)->value('status') ?? 'open',
@@ -77,6 +82,9 @@ class ProcessorFinanceSync
             $batchId = Batch::query()
                 ->whereHas('slaughterExecution.slaughterPlan', fn ($q) => $q->where('animal_intake_id', $intake->id))
                 ->value('id');
+            $batch = $batchId !== null
+                ? Batch::query()->with('certificate')->find($batchId)
+                : null;
 
             FinancePayableLine::query()->updateOrCreate(
                 [
@@ -85,7 +93,9 @@ class ProcessorFinanceSync
                 ],
                 [
                     'batch_id' => $batchId,
+                    'certificate_id' => $batch?->certificate?->id,
                     'quantity' => max(1, (float) ($intake->number_of_animals ?? 0)),
+                    'quantity_unit' => $batch?->quantity_unit,
                     'unit_price' => (float) ($intake->unit_price ?? 0),
                     'line_total' => $computedTotal,
                 ]
