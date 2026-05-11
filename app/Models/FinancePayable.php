@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 
 class FinancePayable extends Model
 {
@@ -56,6 +59,66 @@ class FinancePayable extends Model
             'due_date' => 'datetime',
             'paid_at' => 'datetime',
         ];
+    }
+
+    public static function usesApBucketColumn(): bool
+    {
+        static $hasColumn = null;
+
+        if ($hasColumn === null) {
+            $hasColumn = Schema::hasColumn((new static)->getTable(), 'ap_bucket');
+        }
+
+        return $hasColumn;
+    }
+
+    public function scopeForPayablesTab(Builder $query, string $tab): Builder
+    {
+        if (! static::usesApBucketColumn()) {
+            return match ($tab) {
+                'employees' => Schema::hasColumn($this->getTable(), 'employee_id')
+                    ? $query->whereNotNull('employee_id')
+                    : $query->whereRaw('0 = 1'),
+                'casual' => Schema::hasColumn($this->getTable(), 'casual_worker_id')
+                    ? $query->whereNotNull('casual_worker_id')
+                    : $query->whereRaw('0 = 1'),
+                default => $query->where(function (Builder $inner): void {
+                    $inner->whereNotNull('supplier_id');
+                    if (Schema::hasColumn($this->getTable(), 'client_id')) {
+                        $inner->orWhereNotNull('client_id');
+                    }
+                }),
+            };
+        }
+
+        return match ($tab) {
+            'employees' => $query->where('ap_bucket', self::BUCKET_EMPLOYEE),
+            'casual' => $query->where('ap_bucket', self::BUCKET_CASUAL_WORKER),
+            default => $query->whereIn('ap_bucket', [self::BUCKET_SUPPLIER, self::BUCKET_CLIENT]),
+        };
+    }
+
+    protected function apBucket(): Attribute
+    {
+        return Attribute::get(function (?string $value): string {
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+
+            if (! empty($this->attributes['employee_id'])) {
+                return self::BUCKET_EMPLOYEE;
+            }
+
+            if (! empty($this->attributes['casual_worker_id'])) {
+                return self::BUCKET_CASUAL_WORKER;
+            }
+
+            if (! empty($this->attributes['client_id']) && empty($this->attributes['supplier_id'])) {
+                return self::BUCKET_CLIENT;
+            }
+
+            return self::BUCKET_SUPPLIER;
+        });
     }
 
     public function business(): BelongsTo

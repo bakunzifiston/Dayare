@@ -48,11 +48,7 @@ class FinancePayableController extends Controller
             ->with(['supplier', 'client', 'employee', 'casualWorker', 'contract'])
             ->where('business_id', $businessId);
 
-        match ($tab) {
-            self::TAB_EMPLOYEES => $query->where('ap_bucket', FinancePayable::BUCKET_EMPLOYEE),
-            self::TAB_CASUAL => $query->where('ap_bucket', FinancePayable::BUCKET_CASUAL_WORKER),
-            default => $query->whereIn('ap_bucket', [FinancePayable::BUCKET_SUPPLIER, FinancePayable::BUCKET_CLIENT]),
-        };
+        $query->forPayablesTab($tab);
 
         if ($request->filled('status')) {
             $query->where('status', (string) $request->query('status'));
