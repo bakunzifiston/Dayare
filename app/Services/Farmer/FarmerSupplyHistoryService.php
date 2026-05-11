@@ -75,7 +75,7 @@ class FarmerSupplyHistoryService
             ];
         });
 
-        return $intakeRows->merge($rejectedRows)
+        return $intakeRows->toBase()->merge($rejectedRows->toBase())
             ->sortByDesc('date')
             ->values()
             ->take($limit);
