@@ -3,133 +3,180 @@
 namespace App\Http\Controllers\Farmer;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Farmer\Concerns\InteractsWithAccessibleAnimals;
 use App\Http\Requests\Farmer\StoreMovementPermitRequest;
+use App\Http\Requests\Farmer\UpdateMovementPermitRequest;
 use App\Models\Farm;
-use App\Models\Livestock;
 use App\Models\MovementPermit;
+use App\Services\Farmer\MovementHistoryService;
+use App\Services\Farmer\MovementPermitPdfService;
+use App\Services\Farmer\MovementPermitService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MovementPermitController extends Controller
 {
+    use InteractsWithAccessibleAnimals;
+
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', MovementPermit::class);
         $farmerIds = $request->user()->accessibleFarmerBusinessIds();
-        $permits = MovementPermit::query()
+        $query = MovementPermit::query()
             ->whereIn('farmer_id', $farmerIds)
-            ->with(['sourceFarm', 'animals.livestock'])
-            ->latest('issue_date')
-            ->paginate(20);
+            ->with(['sourceFarm', 'animals'])
+            ->latest('departure_date');
 
-        return view('farmer.movement-permits.index', compact('permits'));
+        foreach (['permit_type', 'permit_status', 'movement_status'] as $filter) {
+            if ($value = (string) $request->query($filter, '')) {
+                $query->where($filter, $value);
+            }
+        }
+
+        if ($search = trim((string) $request->query('q', ''))) {
+            $query->where('permit_number', 'like', '%'.$search.'%');
+        }
+
+        $records = $query->paginate(20)->withQueryString();
+
+        return view('farmer.movement.permits.index', compact('records'));
     }
 
     public function create(Request $request): View
     {
-        $farmerIds = $request->user()->accessibleFarmerBusinessIds();
-        $farms = Farm::query()
-            ->whereIn('business_id', $farmerIds)
-            ->with(['livestock' => fn ($q) => $q->orderBy('type')])
-            ->orderBy('name')
-            ->get();
+        $this->authorize('create', MovementPermit::class);
 
-        return view('farmer.movement-permits.create', compact('farms'));
+        return view('farmer.movement.permits.create', [
+            'farms' => $this->accessibleFarms($request),
+            'animals' => $this->accessibleAnimalsQuery($request)->orderBy('animal_code')->get(),
+        ]);
     }
 
-    public function store(StoreMovementPermitRequest $request): RedirectResponse
+    public function store(StoreMovementPermitRequest $request, MovementPermitService $service, MovementHistoryService $history): RedirectResponse
     {
-        $farmerIds = $request->user()->accessibleFarmerBusinessIds();
-        $sourceFarm = Farm::query()
-            ->whereKey((int) $request->validated('source_farm_id'))
-            ->whereIn('business_id', $farmerIds)
-            ->firstOrFail();
+        $this->authorize('create', MovementPermit::class);
+        $data = $this->payload($request);
+        $permit = $service->create($data, $request->user()->id, $history->requestIp($request));
 
-        $data = $request->validated();
-        $filePath = $request->file('file')->store('movement-permits', 'public');
-
-        $permit = DB::transaction(function () use ($data, $sourceFarm, $filePath) {
-            $permit = MovementPermit::query()->create([
-                'permit_number' => $data['permit_number'],
-                'farmer_id' => $sourceFarm->business_id,
-                'source_farm_id' => $sourceFarm->id,
-                'destination_district_id' => $data['destination_district_id'],
-                'destination_sector_id' => $data['destination_sector_id'],
-                'destination_cell_id' => $data['destination_cell_id'],
-                'destination_village_id' => $data['destination_village_id'],
-                'transport_mode' => $data['transport_mode'] ?? null,
-                'vehicle_plate' => $data['vehicle_plate'] ?? null,
-                'issue_date' => $data['issue_date'],
-                'expiry_date' => $data['expiry_date'],
-                'issued_by' => $data['issued_by'],
-                'file_path' => $filePath,
-            ]);
-
-            foreach ($data['animals'] as $row) {
-                $livestockId = isset($row['livestock_id']) ? (int) $row['livestock_id'] : null;
-                if ($livestockId !== null) {
-                    $livestockBelongs = Livestock::query()
-                        ->where('farm_id', $sourceFarm->id)
-                        ->whereKey($livestockId)
-                        ->exists();
-                    if (! $livestockBelongs) {
-                        throw ValidationException::withMessages([
-                            'animals' => [__('Selected livestock does not belong to source farm.')],
-                        ]);
-                    }
-                }
-
-                $permit->animals()->create([
-                    'livestock_id' => $livestockId,
-                    'animal_identifier' => $row['animal_identifier'] ?? null,
-                    'quantity' => $row['quantity'] ?? 1,
-                ]);
-            }
-
-            return $permit;
-        });
-
-        return redirect()
-            ->route('farmer.movement-permits.show', $permit)
-            ->with('status', __('Movement permit uploaded successfully.'));
+        return redirect()->route('farmer.movement.permits.show', $permit)->with('status', __('Movement permit created.'));
     }
 
     public function show(Request $request, MovementPermit $movementPermit): View
     {
-        $this->authorizePermit($request, $movementPermit);
-        $movementPermit->load([
-            'sourceFarm',
-            'destinationDistrict',
-            'destinationSector',
-            'destinationCell',
-            'destinationVillage',
-            'animals.livestock',
-            'livestockEvents',
-        ]);
-
+        $this->authorize('view', $movementPermit);
+        $movementPermit->load(['sourceFarm', 'animals.animal', 'animals.livestock', 'transport', 'veterinaryApproval', 'logs.actor', 'approver']);
         $isValid = $movementPermit->isValidOn(Carbon::today());
 
-        return view('farmer.movement-permits.show', compact('movementPermit', 'isValid'));
+        return view('farmer.movement.permits.show', ['permit' => $movementPermit, 'isValid' => $isValid]);
     }
 
-    public function download(Request $request, MovementPermit $movementPermit)
+    public function edit(Request $request, MovementPermit $movementPermit): View
     {
-        $this->authorizePermit($request, $movementPermit);
-        abort_unless(Storage::disk('public')->exists($movementPermit->file_path), 404);
+        $this->authorize('update', $movementPermit);
+        abort_unless($movementPermit->isEditable(), 403);
+        $movementPermit->load(['animals', 'transport', 'veterinaryApproval']);
 
-        return Storage::disk('public')->download($movementPermit->file_path);
+        return view('farmer.movement.permits.edit', [
+            'permit' => $movementPermit,
+            'farms' => $this->accessibleFarms($request),
+            'animals' => $this->accessibleAnimalsQuery($request)->orderBy('animal_code')->get(),
+        ]);
     }
 
-    private function authorizePermit(Request $request, MovementPermit $permit): void
+    public function update(UpdateMovementPermitRequest $request, MovementPermit $movementPermit, MovementPermitService $service, MovementHistoryService $history): RedirectResponse
     {
-        abort_unless(
-            $request->user()->accessibleFarmerBusinessIds()->contains((int) $permit->farmer_id),
-            403
-        );
+        $this->authorize('update', $movementPermit);
+        $service->update($movementPermit, $this->payload($request), $request->user()->id, $history->requestIp($request));
+
+        return redirect()->route('farmer.movement.permits.show', $movementPermit)->with('status', __('Movement permit updated.'));
+    }
+
+    public function destroy(MovementPermit $movementPermit): RedirectResponse
+    {
+        $this->authorize('delete', $movementPermit);
+        $movementPermit->delete();
+
+        return redirect()->route('farmer.movement.permits.index')->with('status', __('Movement permit archived.'));
+    }
+
+    public function submit(Request $request, MovementPermit $movementPermit, MovementPermitService $service, MovementHistoryService $history): RedirectResponse
+    {
+        $this->authorize('update', $movementPermit);
+        $service->submitForApproval($movementPermit, $request->user()->id, $history->requestIp($request));
+
+        return back()->with('status', __('Permit submitted for approval.'));
+    }
+
+    public function approve(Request $request, MovementPermit $movementPermit, MovementPermitService $service, MovementHistoryService $history): RedirectResponse
+    {
+        $this->authorize('approve', $movementPermit);
+        $service->approve($movementPermit, $request->user()->id, $history->requestIp($request));
+
+        return back()->with('status', __('Permit approved.'));
+    }
+
+    public function reject(Request $request, MovementPermit $movementPermit, MovementPermitService $service, MovementHistoryService $history): RedirectResponse
+    {
+        $this->authorize('approve', $movementPermit);
+        $service->reject($movementPermit, $request->user()->id, $history->requestIp($request), $request->input('notes'));
+
+        return back()->with('status', __('Permit rejected.'));
+    }
+
+    public function startTransit(Request $request, MovementPermit $movementPermit, MovementPermitService $service, MovementHistoryService $history): RedirectResponse
+    {
+        $this->authorize('update', $movementPermit);
+        $service->startTransit($movementPermit, $request->user()->id, $history->requestIp($request));
+
+        return back()->with('status', __('Movement started.'));
+    }
+
+    public function confirmArrival(Request $request, MovementPermit $movementPermit, MovementPermitService $service, MovementHistoryService $history): RedirectResponse
+    {
+        $this->authorize('update', $movementPermit);
+        $service->confirmArrival($movementPermit, $request->user()->id, $history->requestIp($request));
+
+        return back()->with('status', __('Arrival confirmed.'));
+    }
+
+    public function cancel(Request $request, MovementPermit $movementPermit, MovementPermitService $service, MovementHistoryService $history): RedirectResponse
+    {
+        $this->authorize('update', $movementPermit);
+        $service->cancel($movementPermit, $request->user()->id, $history->requestIp($request), $request->input('notes'));
+
+        return back()->with('status', __('Permit cancelled.'));
+    }
+
+    public function download(Request $request, MovementPermit $movementPermit, MovementPermitPdfService $pdfService)
+    {
+        $this->authorize('view', $movementPermit);
+        $path = $movementPermit->pdf_path ?: $movementPermit->file_path;
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            $path = $pdfService->generate($movementPermit);
+        }
+
+        return Storage::disk('public')->download($path, $movementPermit->permit_number.'.pdf');
+    }
+
+    private function accessibleFarms(Request $request)
+    {
+        return Farm::query()
+            ->whereIn('business_id', $request->user()->accessibleFarmerBusinessIds())
+            ->orderBy('name')
+            ->get();
+    }
+
+    /** @return array<string, mixed> */
+    private function payload(StoreMovementPermitRequest $request): array
+    {
+        $data = $request->validated();
+        if ($request->hasFile('attachment')) {
+            $data['attachment_path'] = $request->file('attachment')->store('movement-permits/attachments', 'public');
+        }
+
+        return $data;
     }
 }
-

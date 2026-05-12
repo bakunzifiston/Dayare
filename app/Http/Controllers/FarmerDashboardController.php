@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Animal;
+use App\Models\AnimalCertificate;
 use App\Models\AnimalHealthRecord;
-use App\Models\AnimalIntake;
 use App\Models\Farm;
-use App\Models\FarmerHealthCertificate;
 use App\Models\Livestock;
 use App\Models\LivestockEvent;
-use App\Models\SupplyRequest;
-use App\Services\Farmer\FarmerSupplyHistoryService;
+use App\Models\MortalityRecord;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -29,77 +28,41 @@ class FarmerDashboardController extends Controller
         $healthyLivestock = (int) (clone $livestockBaseQuery)->sum('healthy_quantity');
         $sickLivestock = (int) (clone $livestockBaseQuery)->sum('sick_quantity');
 
-        $suppliedAnimals = (int) AnimalIntake::query()
-            ->where(function ($q) use ($farmIds, $farmerIds) {
-                $q->whereIn('farm_id', $farmIds)
-                    ->orWhereHas('supplyRequest', fn ($q2) => $q2->whereIn('farmer_id', $farmerIds));
-            })
-            ->sum('number_of_animals');
-
-        $pendingRequests = SupplyRequest::query()
-            ->whereIn('farmer_id', $farmerIds)
-            ->where('status', SupplyRequest::STATUS_PENDING)
-            ->count();
-        $activeSupplyRequests = SupplyRequest::query()
-            ->whereIn('farmer_id', $farmerIds)
-            ->whereIn('status', [SupplyRequest::STATUS_PENDING, SupplyRequest::STATUS_ACCEPTED])
-            ->count();
-        $totalSupplyRequests = SupplyRequest::query()
-            ->whereIn('farmer_id', $farmerIds)
-            ->count();
-        $fulfilledSupplyRequests = SupplyRequest::query()
-            ->whereIn('farmer_id', $farmerIds)
-            ->where('status', SupplyRequest::STATUS_FULFILLED)
-            ->count();
-
-        $supplyRevenue = (float) AnimalIntake::query()
-            ->whereHas('supplyRequest', fn ($q) => $q->whereIn('farmer_id', $farmerIds))
-            ->selectRaw('SUM(COALESCE(total_price, (unit_price * number_of_animals), 0)) as revenue_total')
-            ->value('revenue_total');
+        $animalIds = Animal::query()
+            ->whereHas('livestock.farm', fn ($query) => $query->whereIn('business_id', $farmerIds))
+            ->pluck('id');
+        $totalAnimals = $animalIds->count();
 
         $today = Carbon::today();
-        $validCertificates = FarmerHealthCertificate::query()
-            ->whereIn('farmer_id', $farmerIds)
-            ->where('status', FarmerHealthCertificate::STATUS_VALID)
+        $activeCertificates = AnimalCertificate::query()
+            ->whereIn('animal_id', $animalIds)
+            ->where('certificate_status', AnimalCertificate::STATUS_ACTIVE)
             ->whereDate('issue_date', '<=', $today)
-            ->where(function ($q) use ($today) {
-                $q->whereNull('expiry_date')
+            ->where(function ($query) use ($today): void {
+                $query->whereNull('expiry_date')
                     ->orWhereDate('expiry_date', '>=', $today);
             })
-            ->get(['id', 'farm_id', 'livestock_id']);
+            ->get(['id', 'animal_id', 'certificate_type']);
 
-        $certifiedLivestockIds = $validCertificates
-            ->pluck('livestock_id')
+        $certifiedAnimalIds = $activeCertificates
+            ->pluck('animal_id')
             ->filter()
             ->map(fn ($id) => (int) $id)
-            ->values();
-        $farmScopedCertificateIds = $validCertificates
-            ->whereNull('livestock_id')
-            ->pluck('farm_id')
+            ->unique();
+        $certifiedAnimalCount = $certifiedAnimalIds->count();
+        $traceabilityAnimalIds = $activeCertificates
+            ->where('certificate_type', AnimalCertificate::TYPE_TRACEABILITY)
+            ->pluck('animal_id')
             ->filter()
             ->map(fn ($id) => (int) $id)
-            ->values();
-        $farmScopedLivestockIds = $farmScopedCertificateIds->isEmpty()
-            ? collect()
-            : Livestock::query()
-                ->whereIn('farm_id', $farmScopedCertificateIds)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id);
-        $allCertifiedLivestockIds = $certifiedLivestockIds
-            ->merge($farmScopedLivestockIds)
-            ->unique()
-            ->values();
-        $certifiedLivestockCount = $allCertifiedLivestockIds->isEmpty()
-            ? 0
-            : (int) Livestock::query()
-                ->whereIn('id', $allCertifiedLivestockIds)
-                ->sum('total_quantity');
+            ->unique();
+        $traceabilityAnimalCount = $traceabilityAnimalIds->count();
+        $mortalityCount = (int) MortalityRecord::query()->whereIn('animal_id', $animalIds)->count();
 
         $healthyPercent = $this->percentage($healthyLivestock, $totalLivestock);
         $sickPercent = $this->percentage($sickLivestock, $totalLivestock);
-        $mortalityRatePercent = 0.0; // Mortality events are not currently tracked explicitly.
-        $fulfilledSupplyRatePercent = $this->percentage($fulfilledSupplyRequests, $totalSupplyRequests);
-        $complianceStatusPercent = $this->percentage($certifiedLivestockCount, $totalLivestock);
+        $mortalityRatePercent = $this->percentage($mortalityCount, max(1, $totalAnimals));
+        $complianceStatusPercent = $this->percentage($certifiedAnimalCount, max(1, $totalAnimals));
         $animalsPerSpecies = (clone $livestockBaseQuery)
             ->selectRaw('type, SUM(total_quantity) as total_animals')
             ->groupBy('type')
@@ -129,32 +92,7 @@ class FarmerDashboardController extends Controller
         $netGrowthAnimals = $newAnimals - $soldAnimals - $deadAnimals;
         $growthRatePercent = $this->percentage($netGrowthAnimals, max(1, $totalLivestock));
 
-        $breedCertificates = $validCertificates->where('certificate_type', FarmerHealthCertificate::TYPE_BREED)->values();
-        $breedCertificateLivestockIds = $breedCertificates
-            ->pluck('livestock_id')
-            ->filter()
-            ->map(fn ($id) => (int) $id);
-        $breedCertFarmIds = $breedCertificates
-            ->whereNull('livestock_id')
-            ->pluck('farm_id')
-            ->filter()
-            ->map(fn ($id) => (int) $id);
-        $breedCertFarmLivestockIds = $breedCertFarmIds->isEmpty()
-            ? collect()
-            : Livestock::query()
-                ->whereIn('farm_id', $breedCertFarmIds)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id);
-        $breedCertifiedLivestockIds = $breedCertificateLivestockIds
-            ->merge($breedCertFarmLivestockIds)
-            ->unique()
-            ->values();
-        $breedCertifiedAnimals = $breedCertifiedLivestockIds->isEmpty()
-            ? 0
-            : (int) Livestock::query()
-                ->whereIn('id', $breedCertifiedLivestockIds)
-                ->sum('total_quantity');
-        $breedingRatePercent = $this->percentage($breedCertifiedAnimals, $totalLivestock);
+        $passportCoveragePercent = $this->percentage($traceabilityAnimalCount, max(1, $totalAnimals));
 
         $farmsWithLivestock = Farm::query()
             ->whereIn('business_id', $farmerIds)
@@ -181,14 +119,6 @@ class FarmerDashboardController extends Controller
             'weight_range'
         );
 
-        $incomingRequests = SupplyRequest::query()
-            ->with(['processor', 'destinationFacility'])
-            ->whereIn('farmer_id', $farmerIds)
-            ->where('status', SupplyRequest::STATUS_PENDING)
-            ->latest()
-            ->limit(8)
-            ->get();
-
         $recentHealth = AnimalHealthRecord::query()
             ->whereIn('farm_id', $farmIds)
             ->with('farm')
@@ -196,24 +126,19 @@ class FarmerDashboardController extends Controller
             ->limit(8)
             ->get();
 
-        $historyPreview = app(FarmerSupplyHistoryService::class)->history($user, 10);
-
         return view('farmer.dashboard', compact(
             'user',
             'totalLivestock',
             'availableLivestock',
-            'suppliedAnimals',
-            'pendingRequests',
             'healthyLivestock',
             'sickLivestock',
             'healthyPercent',
             'sickPercent',
             'mortalityRatePercent',
-            'activeSupplyRequests',
-            'fulfilledSupplyRatePercent',
-            'supplyRevenue',
+            'mortalityCount',
             'complianceStatusPercent',
-            'certifiedLivestockCount',
+            'certifiedAnimalCount',
+            'totalAnimals',
             'animalsPerSpecies',
             'newAnimals',
             'soldAnimals',
@@ -221,14 +146,12 @@ class FarmerDashboardController extends Controller
             'netGrowthAnimals',
             'growthRatePercent',
             'stockDistributionByFarm',
-            'breedingRatePercent',
-            'breedCertifiedAnimals',
+            'passportCoveragePercent',
+            'traceabilityAnimalCount',
             'weightedAge',
             'weightedWeight',
             'farmsWithLivestock',
-            'incomingRequests',
-            'recentHealth',
-            'historyPreview'
+            'recentHealth'
         ));
     }
 

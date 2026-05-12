@@ -636,7 +636,7 @@ class ComprehensiveRwandaSeeder extends Seeder
                     'total_quantity' => random_int(4, 40),
                     'available_quantity' => random_int(2, 30),
                     'base_price' => (string) random_int(250_000, 420_000),
-                    'health_status' => Livestock::HEALTH_GOOD,
+                    'quality_band' => Livestock::QUALITY_GOOD,
                     'healthy_quantity' => random_int(2, 30),
                     'sick_quantity' => 0,
                 ]);

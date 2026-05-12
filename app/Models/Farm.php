@@ -12,21 +12,49 @@ class Farm extends Model
 
     public const STATUS_INACTIVE = 'inactive';
 
+    public const STATUS_SUSPENDED = 'suspended';
+
     /** @var list<string> */
     public const STATUSES = [
         self::STATUS_ACTIVE,
         self::STATUS_INACTIVE,
+        self::STATUS_SUSPENDED,
+    ];
+
+    public const LAND_OWNERSHIP_OWNED = 'owned';
+
+    public const LAND_OWNERSHIP_LEASED = 'leased';
+
+    public const LAND_OWNERSHIP_COMMUNAL = 'communal';
+
+    public const LAND_OWNERSHIP_GOVERNMENT = 'government';
+
+    public const LAND_OWNERSHIP_OTHER = 'other';
+
+    /** @var list<string> */
+    public const LAND_OWNERSHIP_TYPES = [
+        self::LAND_OWNERSHIP_OWNED,
+        self::LAND_OWNERSHIP_LEASED,
+        self::LAND_OWNERSHIP_COMMUNAL,
+        self::LAND_OWNERSHIP_GOVERNMENT,
+        self::LAND_OWNERSHIP_OTHER,
     ];
 
     protected $fillable = [
         'business_id',
         'country_id',
         'name',
+        'registration_number',
         'province_id',
         'district_id',
         'sector_id',
         'cell_id',
         'village_id',
+        'gps_latitude',
+        'gps_longitude',
+        'farm_size_hectares',
+        'land_ownership_type',
+        'registration_date',
         'animal_types',
         'status',
     ];
@@ -35,6 +63,10 @@ class Farm extends Model
     {
         return [
             'animal_types' => 'array',
+            'registration_date' => 'date',
+            'gps_latitude' => 'float',
+            'gps_longitude' => 'float',
+            'farm_size_hectares' => 'float',
         ];
     }
 
@@ -96,6 +128,11 @@ class Farm extends Model
     public function healthCertificates(): HasMany
     {
         return $this->hasMany(FarmerHealthCertificate::class);
+    }
+
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
     }
 
     public function isActive(): bool

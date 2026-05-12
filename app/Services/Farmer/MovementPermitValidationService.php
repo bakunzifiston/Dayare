@@ -26,6 +26,18 @@ class MovementPermitValidationService
             ]);
         }
 
+        if ($permit->permit_status !== MovementPermit::STATUS_APPROVED) {
+            throw ValidationException::withMessages([
+                'movement_permit_id' => [__('Movement permit is not approved.')],
+            ]);
+        }
+
+        if ($permit->veterinary_status !== MovementPermit::VET_CLEARED) {
+            throw ValidationException::withMessages([
+                'movement_permit_id' => [__('Movement permit does not have veterinary clearance.')],
+            ]);
+        }
+
         $today = Carbon::today();
         if (! $permit->isValidOn($today)) {
             throw ValidationException::withMessages([
@@ -54,4 +66,3 @@ class MovementPermitValidationService
         return (int) $rows->sum(fn ($row) => (int) ($row->quantity ?? 1));
     }
 }
-

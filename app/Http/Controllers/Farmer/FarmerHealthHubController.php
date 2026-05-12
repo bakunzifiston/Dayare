@@ -3,49 +3,59 @@
 namespace App\Http\Controllers\Farmer;
 
 use App\Http\Controllers\Controller;
-use App\Models\AnimalHealthRecord;
-use App\Models\Farm;
-use App\Models\Livestock;
+use App\Http\Controllers\Farmer\Concerns\InteractsWithAccessibleAnimals;
+use App\Models\Treatment;
+use App\Models\Vaccination;
+use App\Services\Farmer\HealthDashboardService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class FarmerHealthHubController extends Controller
 {
-    /**
-     * All health records across the farmer's farms (sidebar module).
-     */
-    public function index(Request $request): View
-    {
-        $farmIds = Farm::query()
-            ->whereIn('business_id', $request->user()->accessibleFarmerBusinessIds())
-            ->pluck('id');
+    use InteractsWithAccessibleAnimals;
 
-        $records = AnimalHealthRecord::query()
-            ->whereIn('farm_id', $farmIds)
-            ->with(['farm', 'livestock'])
-            ->latest('record_date')
-            ->paginate(25);
+    public function index(Request $request, HealthDashboardService $dashboard): View
+    {
+        $animalIds = $this->accessibleAnimalIds($request);
+        $metrics = $dashboard->metrics($animalIds);
+        $charts = $dashboard->charts($animalIds);
 
         $today = Carbon::today();
-        $upcomingVaccinations = AnimalHealthRecord::query()
-            ->whereIn('farm_id', $farmIds)
-            ->where('event_type', AnimalHealthRecord::EVENT_VACCINATION)
+        $upcomingVaccinations = Vaccination::query()
+            ->whereIn('animal_id', $animalIds)
+            ->whereIn('status', [Vaccination::STATUS_SCHEDULED, Vaccination::STATUS_COMPLETED])
             ->whereDate('next_due_date', '>=', $today)
             ->whereDate('next_due_date', '<=', $today->copy()->addDays(14))
-            ->with(['farm', 'livestock'])
+            ->with(['animal.livestock.farm'])
             ->orderBy('next_due_date')
-            ->limit(15)
+            ->limit(10)
             ->get();
 
-        $sickRows = Livestock::query()
-            ->whereIn('farm_id', $farmIds)
-            ->where('sick_quantity', '>', 0)
-            ->with('farm')
-            ->orderByDesc('sick_quantity')
-            ->limit(15)
+        $overdueVaccinations = Vaccination::query()
+            ->whereIn('animal_id', $animalIds)
+            ->whereIn('status', [Vaccination::STATUS_SCHEDULED, Vaccination::STATUS_MISSED])
+            ->whereDate('next_due_date', '<', $today)
+            ->with(['animal.livestock.farm'])
+            ->orderBy('next_due_date')
+            ->limit(10)
             ->get();
 
-        return view('farmer.health.hub', compact('records', 'upcomingVaccinations', 'sickRows'));
+        $followUpTreatments = Treatment::query()
+            ->whereIn('animal_id', $animalIds)
+            ->whereDate('follow_up_date', '>=', $today)
+            ->whereDate('follow_up_date', '<=', $today->copy()->addDays(14))
+            ->with(['animal.livestock.farm'])
+            ->orderBy('follow_up_date')
+            ->limit(10)
+            ->get();
+
+        return view('farmer.health.hub', compact(
+            'metrics',
+            'charts',
+            'upcomingVaccinations',
+            'overdueVaccinations',
+            'followUpTreatments',
+        ));
     }
 }

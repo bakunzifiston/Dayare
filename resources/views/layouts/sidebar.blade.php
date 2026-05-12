@@ -93,11 +93,12 @@
                 ['label' => __('Dashboard'), 'route' => 'farmer.dashboard', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['farmer.dashboard']],
                 ['label' => __('Farms'), 'route' => 'farmer.farms.index', 'icon' => 'building', 'permission' => null, 'routeIs' => ['farmer.farms.index', 'farmer.farms.create', 'farmer.farms.show', 'farmer.farms.edit']],
                 ['label' => __('Livestock'), 'route' => 'farmer.livestock.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['farmer.livestock.index', 'farmer.farms.livestock.*']],
-                ['label' => __('Health'), 'route' => 'farmer.health.hub', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['farmer.health.hub', 'farmer.farms.health-records.*']],
-                ['label' => __('Health certificates'), 'route' => 'farmer.health-certificates.index', 'icon' => 'certificate', 'permission' => null, 'routeIs' => ['farmer.health-certificates.*']],
-                ['label' => __('Movement permits'), 'route' => 'farmer.movement-permits.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.movement-permits.*']],
-                ['label' => __('Supply requests'), 'route' => 'farmer.supply-requests.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.supply-requests.*']],
-                ['label' => __('Supply history'), 'route' => 'farmer.supply-history', 'icon' => 'calendar', 'permission' => null, 'routeIs' => ['farmer.supply-history']],
+                ['label' => __('Animals'), 'route' => 'farmer.animals.index', 'icon' => 'user', 'permission' => null, 'routeIs' => ['farmer.animals.index', 'farmer.farms.livestock.animals.*']],
+                ['label' => __('Health'), 'route' => 'farmer.health.hub', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['farmer.health.*', 'farmer.farms.health-records.*']],
+                ['label' => __('Feeding'), 'route' => 'farmer.feeding.hub', 'icon' => 'box', 'permission' => null, 'routeIs' => ['farmer.feeding.*']],
+                ['label' => __('Certificates'), 'route' => 'farmer.certificates.hub', 'icon' => 'certificate', 'permission' => null, 'routeIs' => ['farmer.certificates.*']],
+                ['label' => __('Sales'), 'route' => 'farmer.sales.hub', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.sales.*']],
+                ['label' => __('Movement'), 'route' => 'farmer.movement.hub', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.movement.*', 'farmer.movement-permits.*']],
                 ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => null, 'routeIs' => ['settings.edit']],
             ];
         } else {

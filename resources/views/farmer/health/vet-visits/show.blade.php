@@ -1,0 +1,4 @@
+<x-app-layout>
+    <x-slot name="header"><h2 class="font-semibold text-xl text-slate-800">{{ __('Veterinary visit') }}</h2></x-slot>
+    <div class="max-w-4xl space-y-6">@include('farmer.health.partials.nav')<section class="rounded-bucha border border-slate-200 bg-white p-6 shadow-sm text-sm"><p class="text-xs uppercase tracking-wide text-slate-500">{{ $record->visit_code }}</p><h3 class="mt-1 text-lg font-semibold text-slate-900">{{ $record->purpose_of_visit ?: __('Veterinary visit') }}</h3><p class="mt-2 text-slate-600">{{ $record->visit_date?->toDateString() }} · {{ $record->animal?->animal_code }}</p><p class="mt-4">{{ $record->findings ?: '—' }}</p></section><a href="{{ route('farmer.health.vet-visits.edit', $record) }}" class="inline-flex items-center rounded-bucha border border-slate-300 px-4 py-2 text-sm">{{ __('Edit') }}</a></div>
+</x-app-layout>

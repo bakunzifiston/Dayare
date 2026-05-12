@@ -2,10 +2,15 @@
 
 namespace App\Http\Requests\Farmer;
 
+use App\Http\Requests\Farmer\Concerns\ValidatesMovementPermit;
+use App\Models\Farm;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreMovementPermitRequest extends FormRequest
 {
+    use ValidatesMovementPermit;
+
     public function authorize(): bool
     {
         return true;
@@ -13,24 +18,28 @@ class StoreMovementPermitRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'permit_number' => ['required', 'string', 'max:100', 'unique:movement_permits,permit_number'],
-            'source_farm_id' => ['required', 'integer', 'exists:farms,id'],
-            'destination_district_id' => ['required', 'integer', 'exists:administrative_divisions,id'],
-            'destination_sector_id' => ['required', 'integer', 'exists:administrative_divisions,id'],
-            'destination_cell_id' => ['required', 'integer', 'exists:administrative_divisions,id'],
-            'destination_village_id' => ['required', 'integer', 'exists:administrative_divisions,id'],
-            'transport_mode' => ['nullable', 'string', 'max:50'],
-            'vehicle_plate' => ['nullable', 'string', 'max:50'],
-            'issue_date' => ['required', 'date'],
-            'expiry_date' => ['required', 'date', 'after_or_equal:issue_date'],
-            'issued_by' => ['required', 'string', 'max:150'],
-            'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
-            'animals' => ['required', 'array', 'min:1'],
-            'animals.*.livestock_id' => ['nullable', 'integer', 'exists:livestock,id', 'required_without:animals.*.animal_identifier'],
-            'animals.*.animal_identifier' => ['nullable', 'string', 'max:120', 'required_without:animals.*.livestock_id'],
-            'animals.*.quantity' => ['nullable', 'integer', 'min:1'],
-        ];
+        return $this->movementPermitRules();
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $farm = Farm::query()->find((int) $this->input('source_farm_id'));
+            $farmerIds = $this->user()->accessibleFarmerBusinessIds();
+            if ($farm && ! $farmerIds->contains((int) $farm->business_id)) {
+                $validator->errors()->add('source_farm_id', __('Selected farm is not accessible.'));
+            }
+
+            $origin = trim((string) ($this->input('origin_location') ?: $farm?->name));
+            $destination = trim((string) $this->input('destination_location'));
+            if ($destination !== '' && strcasecmp($origin, $destination) === 0) {
+                $validator->errors()->add('destination_location', __('Destination must differ from origin.'));
+            }
+
+            $hasAnimal = collect($this->input('lines', []))->contains(fn ($line) => ! empty($line['animal_id']) || ! empty($line['livestock_id']) || ! empty($line['animal_identifier']));
+            if (! $hasAnimal) {
+                $validator->errors()->add('lines', __('At least one animal or livestock line is required.'));
+            }
+        });
     }
 }
-

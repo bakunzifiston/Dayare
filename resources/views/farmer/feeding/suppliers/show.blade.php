@@ -1,0 +1,4 @@
+<x-app-layout>
+    <x-slot name="header"><h2 class="font-semibold text-xl text-slate-800">{{ __('Supplier profile') }}</h2></x-slot>
+    <div class="max-w-4xl space-y-6">@include('farmer.feeding.partials.nav')<section class="rounded-bucha border border-slate-200 bg-white p-6 shadow-sm text-sm"><p class="text-xs uppercase tracking-wide text-slate-500">{{ $record->supplier_code }}</p><h3 class="mt-1 text-lg font-semibold text-slate-900">{{ $record->supplier_name }}</h3><p class="mt-2 text-slate-600">{{ $record->phone ?: '—' }} · {{ $record->email ?: '—' }}</p></section><section class="rounded-bucha border border-slate-200 bg-white p-6 shadow-sm"><h3 class="text-sm font-semibold text-slate-900">{{ __('Purchase history') }}</h3><p class="mt-2 text-sm text-slate-500">{{ __(':count inventory batches linked', ['count' => $record->inventories->count()]) }}</p></section></div>
+</x-app-layout>

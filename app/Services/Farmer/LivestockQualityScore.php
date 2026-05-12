@@ -20,7 +20,7 @@ final class LivestockQualityScore
      */
     public static function evaluate(Livestock $livestock): array
     {
-        $health = self::healthPoints($livestock->health_status);
+        $health = self::healthPoints($livestock->quality_band);
         $feeding = self::feedingPoints($livestock->feeding_type);
         $breed = self::breedPoints($livestock->breed);
 
@@ -44,10 +44,10 @@ final class LivestockQualityScore
     private static function healthPoints(?string $status): int
     {
         return match ($status) {
-            Livestock::HEALTH_EXCELLENT => 3,
-            Livestock::HEALTH_GOOD => 2,
-            Livestock::HEALTH_FAIR => 1,
-            Livestock::HEALTH_POOR => 0,
+            Livestock::QUALITY_EXCELLENT => 3,
+            Livestock::QUALITY_GOOD => 2,
+            Livestock::QUALITY_FAIR => 1,
+            Livestock::QUALITY_POOR => 0,
             default => 1,
         };
     }
