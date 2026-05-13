@@ -12,6 +12,9 @@ use Illuminate\View\View;
 
 class PublicAnimalPassportController extends Controller
 {
+    /** Maximum rows per health category on the public passport PDF (newest first). */
+    private const PASSPORT_HEALTH_RECORD_LIMIT = 200;
+
     public function create(): View
     {
         return view('public.animal-passport-form');
@@ -35,6 +38,13 @@ class PublicAnimalPassportController extends Controller
 
         $summary = $traceability->summarize($animal);
 
+        $limit = self::PASSPORT_HEALTH_RECORD_LIMIT;
+
+        $vaccinations = $animal->vaccinations()->orderByDesc('vaccination_date')->limit($limit)->get();
+        $treatments = $animal->treatments()->orderByDesc('treatment_start_date')->limit($limit)->get();
+        $diseaseRecords = $animal->diseaseRecords()->orderByDesc('diagnosis_date')->limit($limit)->get();
+        $veterinaryVisits = $animal->veterinaryVisits()->orderByDesc('visit_date')->limit($limit)->get();
+
         $verifyUrl = $animal->publicVerificationUrl()
             ?? route('animal.verify', ['token' => $animal->animal_code]);
 
@@ -44,6 +54,11 @@ class PublicAnimalPassportController extends Controller
             'animal' => $animal,
             'certificate' => $certificate,
             'summary' => $summary,
+            'vaccinations' => $vaccinations,
+            'treatments' => $treatments,
+            'diseaseRecords' => $diseaseRecords,
+            'veterinaryVisits' => $veterinaryVisits,
+            'healthRecordLimit' => $limit,
             'qrImage' => $qrImage,
             'generatedAt' => now(),
         ])->setPaper('a4', 'portrait');
