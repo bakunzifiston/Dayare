@@ -4,8 +4,8 @@ namespace App\Services\Farmer;
 
 use App\Models\Sale;
 use App\Models\SaleDocument;
+use App\Support\DomPdf;
 use App\Support\PdfQrCode;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 
 class SalePdfService
@@ -26,7 +26,7 @@ class SalePdfService
         $verificationUrl = route('farmer.sales.records.show', $sale);
         $qrImage = PdfQrCode::dataUri($verificationUrl);
 
-        $pdf = Pdf::loadView('farmer.sales.documents.pdf', [
+        $pdf = DomPdf::loadView('farmer.sales.documents.pdf', [
             'sale' => $sale,
             'document' => $document,
             'summaries' => $summaries,

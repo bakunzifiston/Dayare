@@ -3,8 +3,8 @@
 namespace App\Services\Farmer;
 
 use App\Models\MovementPermit;
+use App\Support\DomPdf;
 use App\Support\PdfQrCode;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 
 class MovementPermitPdfService
@@ -14,7 +14,7 @@ class MovementPermitPdfService
         $permit->load(['sourceFarm.business', 'animals.animal', 'animals.livestock', 'transport', 'veterinaryApproval']);
         $qrImage = PdfQrCode::dataUri($permit->verificationUrl() ?? $permit->permit_number);
 
-        $pdf = Pdf::loadView('farmer.movement.permits.pdf', [
+        $pdf = DomPdf::loadView('farmer.movement.permits.pdf', [
             'permit' => $permit,
             'qrImage' => $qrImage,
         ])->setPaper('a4', 'portrait');

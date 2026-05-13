@@ -6,8 +6,8 @@ use App\Models\AnteMortemInspection;
 use App\Models\CertificateQr;
 use App\Models\PostMortemInspection;
 use App\Support\AnteMortemChecklist;
+use App\Support\DomPdf;
 use App\Support\PostMortemChecklist;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
@@ -185,7 +185,7 @@ class TraceabilityController extends Controller
     public function exportPdf(Request $request, string $slug): Response
     {
         $data = $this->traceabilityPayload($slug);
-        $pdf = Pdf::loadView('traceability.pdf', [
+        $pdf = DomPdf::loadView('traceability.pdf', [
             ...$data,
             'generatedAt' => now(),
         ])->setPaper('a4', 'portrait');

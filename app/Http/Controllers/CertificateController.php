@@ -11,7 +11,7 @@ use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\DomPdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -196,7 +196,7 @@ class CertificateController extends Controller
             ->get();
 
         $fileName = 'certificates-'.now()->format('Ymd-His').'.pdf';
-        $pdf = Pdf::loadView('certificates.pdf.list', [
+        $pdf = DomPdf::loadView('certificates.pdf.list', [
             'rows' => $rows,
             'filters' => $filters,
             'generatedAt' => now(),
@@ -224,7 +224,7 @@ class CertificateController extends Controller
         ]);
 
         $fileName = 'certificate-'.($certificate->certificate_number ?: $certificate->id).'.pdf';
-        $pdf = Pdf::loadView('certificates.pdf.single', [
+        $pdf = DomPdf::loadView('certificates.pdf.single', [
             'certificate' => $certificate,
             'generatedAt' => now(),
         ])->setPaper('a4', 'portrait');
