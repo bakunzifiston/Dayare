@@ -70,6 +70,7 @@ class ComprehensiveRwandaSeeder extends Seeder
             $this->command?->warn('Comprehensive Rwanda data already present (SEED-MT-PR-1). Skipping bulk demo re-seed.');
             $this->backfillMissingRegistrationFieldsOnSeededBusinesses();
             ProcessorFinanceSync::sync();
+            $this->call(FarmerWorkspaceDemoSeeder::class);
 
             return;
         }
@@ -190,21 +191,25 @@ class ComprehensiveRwandaSeeder extends Seeder
         $this->makeFarmerTeamUser(1, $password, $farmerBiz);
 
         $farms = collect();
-        for ($f = 1; $f <= 20; $f++) {
-            $chain = $this->randomDivisionChain($provinces->random());
-            $farms->push(Farm::query()->create([
-                'business_id' => $farmerBiz->id,
-                'name' => 'Farm Gate '.$f.' — '.($chain['cell']?->name ?? 'Cell'),
-                'country_id' => $country->id,
-                'province_id' => $chain['province']->id,
-                'district_id' => $chain['district']->id,
-                'sector_id' => $chain['sector']->id,
-                'cell_id' => $chain['cell']?->id,
-                'village_id' => $chain['village']?->id,
-                'animal_types' => [FarmerAnimalType::CATTLE, FarmerAnimalType::GOAT],
-                'status' => Farm::STATUS_ACTIVE,
-            ]));
-        }
+        $chain = $this->randomDivisionChain($provinces->random());
+        $farms->push(Farm::query()->create([
+            'business_id' => $farmerBiz->id,
+            'name' => 'Kagarama Prime Livestock Farm',
+            'registration_number' => 'SEED-FA-KAGARAMA-001',
+            'country_id' => $country->id,
+            'province_id' => $chain['province']->id,
+            'district_id' => $chain['district']->id,
+            'sector_id' => $chain['sector']->id,
+            'cell_id' => $chain['cell']?->id,
+            'village_id' => $chain['village']?->id,
+            'gps_latitude' => -1.2925,
+            'gps_longitude' => 30.4568,
+            'farm_size_hectares' => 84.2,
+            'land_ownership_type' => Farm::LAND_OWNERSHIP_OWNED,
+            'registration_date' => Carbon::parse('2021-03-15'),
+            'animal_types' => [FarmerAnimalType::CATTLE, FarmerAnimalType::GOAT],
+            'status' => Farm::STATUS_ACTIVE,
+        ]));
 
         $logisticsOwner = User::query()->updateOrCreate(
             ['email' => 'owner.logistics@demo.rw'],
@@ -619,55 +624,7 @@ class ComprehensiveRwandaSeeder extends Seeder
      */
     private function seedFarmerEcosystem(array $ctx, Carbon $rangeStart, Carbon $rangeEnd): void
     {
-        $farmer = $ctx['farmers'][0];
-        $biz = $farmer['business'];
-        $farms = $farmer['farms'];
-        foreach ($farms as $idx => $farm) {
-            for ($h = 0; $h < 10; $h++) {
-                $type = $h % 2 === 0 ? FarmerAnimalType::CATTLE : FarmerAnimalType::GOAT;
-                $breed = $h % 2 === 0
-                    ? 'Ankole herd '.($farm->id).'-'.$h
-                    : 'East African herd '.($farm->id).'-'.$h;
-                Livestock::query()->create([
-                    'farm_id' => $farm->id,
-                    'type' => $type,
-                    'breed' => $breed,
-                    'feeding_type' => Livestock::FEEDING_PASTURE,
-                    'total_quantity' => random_int(4, 40),
-                    'available_quantity' => random_int(2, 30),
-                    'base_price' => (string) random_int(250_000, 420_000),
-                    'quality_band' => Livestock::QUALITY_GOOD,
-                    'healthy_quantity' => random_int(2, 30),
-                    'sick_quantity' => 0,
-                ]);
-            }
-        }
-
-        $processors = collect($ctx['processors']);
-        $lives = Livestock::query()->whereIn('farm_id', $farms->pluck('id'))->get();
-        for ($i = 0; $i < 200; $i++) {
-            $proc = $processors->random();
-            $dest = $proc['slaughter'];
-            $farm = $farms->random();
-            $live = $lives->where('farm_id', $farm->id)->random();
-            $st = [SupplyRequest::STATUS_PENDING, SupplyRequest::STATUS_ACCEPTED, SupplyRequest::STATUS_FULFILLED, SupplyRequest::STATUS_REJECTED];
-            SupplyRequest::query()->create([
-                'processor_id' => $proc['business']->id,
-                'farmer_id' => $biz->id,
-                'destination_facility_id' => $dest->id,
-                'animal_type' => $live->type,
-                'quantity_requested' => random_int(2, 15),
-                'required_breed' => $live->breed,
-                'required_weight' => (string) random_int(180, 480).' kg',
-                'healthy_stock_required' => true,
-                'certification_required' => (bool) random_int(0, 1),
-                'required_certification_type' => 'Local authorities',
-                'preferred_date' => RwandaSeederHelper::dateInRange($rangeStart, $rangeEnd, $i, 200)->addDays(5)->toDateString(),
-                'status' => $st[$i % count($st)],
-                'source_farm_id' => $farm->id,
-                'requested_livestock_id' => $live->id,
-            ]);
-        }
+        $this->call(FarmerWorkspaceDemoSeeder::class);
     }
 
     /**

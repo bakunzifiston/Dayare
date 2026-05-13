@@ -3,16 +3,16 @@
 namespace App\Services\Farmer;
 
 use App\Models\MovementPermit;
+use App\Support\PdfQrCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class MovementPermitPdfService
 {
     public function generate(MovementPermit $permit): string
     {
         $permit->load(['sourceFarm.business', 'animals.animal', 'animals.livestock', 'transport', 'veterinaryApproval']);
-        $qrImage = base64_encode((string) QrCode::format('png')->size(140)->margin(1)->generate($permit->verificationUrl() ?? $permit->permit_number));
+        $qrImage = PdfQrCode::dataUri($permit->verificationUrl() ?? $permit->permit_number);
 
         $pdf = Pdf::loadView('farmer.movement.permits.pdf', [
             'permit' => $permit,

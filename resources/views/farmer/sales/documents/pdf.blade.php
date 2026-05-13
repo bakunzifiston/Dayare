@@ -50,7 +50,7 @@
     <div class="signature">
         <div>{{ __('Seller signature') }}</div>
         <div class="qr">
-            <img src="data:image/png;base64,{{ $qrImage }}" alt="QR" width="110" height="110"><br>
+            <img src="{{ $qrImage }}" alt="QR" width="110" height="110"><br>
             {{ __('Scan to verify sale record') }}
         </div>
     </div>

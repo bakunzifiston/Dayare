@@ -92,8 +92,8 @@ class FeedAnalyticsService
 
         $costTrend = $months->map(function (Carbon $month) use ($feedTypeIds): float {
             return (float) FeedingRecord::query()
-                ->whereIn('feed_type_id', $feedTypeIds)
-                ->whereBetween('feeding_date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
+                ->whereIn('feeding_records.feed_type_id', $feedTypeIds)
+                ->whereBetween('feeding_records.feeding_date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
                 ->join('feed_inventories', 'feeding_records.feed_inventory_id', '=', 'feed_inventories.id')
                 ->selectRaw('SUM(feeding_records.quantity * COALESCE(feed_inventories.unit_cost, 0)) as total')
                 ->value('total');

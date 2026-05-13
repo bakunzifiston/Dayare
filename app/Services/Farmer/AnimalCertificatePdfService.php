@@ -3,9 +3,9 @@
 namespace App\Services\Farmer;
 
 use App\Models\AnimalCertificate;
+use App\Support\PdfQrCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AnimalCertificatePdfService
 {
@@ -17,7 +17,7 @@ class AnimalCertificatePdfService
     {
         $certificate->load(['animal.livestock.farm.business', 'template']);
         $summary = $this->traceability->summarize($certificate->animal);
-        $qrImage = base64_encode((string) QrCode::format('png')->size(140)->margin(1)->generate($certificate->verificationUrl()));
+        $qrImage = PdfQrCode::dataUri($certificate->verificationUrl());
 
         $pdf = Pdf::loadView('farmer.animal-certificates.pdf', [
             'certificate' => $certificate,

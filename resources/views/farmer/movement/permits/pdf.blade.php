@@ -76,7 +76,7 @@
             <p>{{ __('Issue date') }}: {{ $permit->issue_date?->toDateString() }}</p>
             <p>{{ __('Expiry date') }}: {{ $permit->expiry_date?->toDateString() ?: '—' }}</p>
         </div>
-    </td><td width="160" align="right"><img src="data:image/png;base64,{{ $qrImage }}" width="140" height="140" alt="QR"></td></tr></table>
+    </td><td width="160" align="right"><img src="{{ $qrImage }}" width="140" height="140" alt="QR"></td></tr></table>
     <div class="footer">{{ __('This movement permit authorizes live animal transport only and can be verified through the DayareMeat traceability portal.') }}</div>
 </body>
 </html>

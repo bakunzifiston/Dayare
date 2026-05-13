@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AnimalCertificateController extends Controller
 {
@@ -156,7 +157,7 @@ class AnimalCertificateController extends Controller
         return back()->with('status', __('Certificate revoked.'));
     }
 
-    public function download(Request $request, AnimalCertificate $certificate, AnimalCertificatePdfService $pdfService, AnimalCertificateService $service): Response|RedirectResponse
+    public function download(Request $request, AnimalCertificate $certificate, AnimalCertificatePdfService $pdfService, AnimalCertificateService $service): StreamedResponse
     {
         $this->authorize('view', $certificate);
 
