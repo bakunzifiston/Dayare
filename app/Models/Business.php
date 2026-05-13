@@ -150,6 +150,27 @@ class Business extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Individual registered owner (first + last name), for traceability / passport labels.
+     * Intentionally excludes legal business or cooperative name.
+     */
+    public function ownerIndividualDisplayName(): string
+    {
+        $first = trim((string) $this->owner_first_name);
+        $last = trim((string) $this->owner_last_name);
+        $fromParts = trim($first.' '.$last);
+        if ($fromParts !== '') {
+            return $fromParts;
+        }
+
+        $single = trim((string) $this->owner_name);
+        if ($single !== '') {
+            return $single;
+        }
+
+        return '';
+    }
+
     /** Business (1) → Many Facilities */
     public function facilities(): HasMany
     {

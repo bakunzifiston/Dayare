@@ -51,7 +51,7 @@
                     <table class="grid">
                         <tr><td><strong>{{ __('Farm') }}</strong></td><td>{{ $summary['farm']?->name ?: '—' }}</td></tr>
                         <tr><td><strong>{{ __('Registration number') }}</strong></td><td>{{ $summary['farm']?->registration_number ?: '—' }}</td></tr>
-                        <tr><td><strong>{{ __('Owner') }}</strong></td><td>{{ $summary['business']?->business_name ?: '—' }}</td></tr>
+                        <tr><td><strong>{{ __('Owner') }}</strong></td><td>{{ $summary['business']?->ownerIndividualDisplayName() ?: '—' }}</td></tr>
                         <tr><td><strong>{{ __('Current owner (on file)') }}</strong></td><td>{{ $summary['current_owner'] }}</td></tr>
                         <tr><td><strong>{{ __('Location') }}</strong></td><td>{{ $summary['farm_location'] }}</td></tr>
                     </table>

@@ -4,7 +4,6 @@ namespace App\Services\Farmer;
 
 use App\Models\Animal;
 use App\Models\AnimalCertificate;
-use App\Models\FeedingRecord;
 
 class AnimalCertificateTraceabilityService
 {
@@ -37,7 +36,10 @@ class AnimalCertificateTraceabilityService
         $lastFeeding = $animal->feedingRecords->first();
         $lastVaccination = $animal->vaccinations->first();
         $lastTreatment = $animal->treatments->first();
-        $currentOwner = $animal->ownershipTransfers->first()?->new_owner ?: $business?->name;
+        $currentOwner = trim((string) ($animal->ownershipTransfers->first()?->new_owner ?? ''));
+        if ($currentOwner === '') {
+            $currentOwner = $business?->ownerIndividualDisplayName() ?? '';
+        }
 
         return [
             'animal' => $animal,
@@ -48,7 +50,7 @@ class AnimalCertificateTraceabilityService
             'ownership_summary' => $animal->ownershipTransfers->isEmpty()
                 ? __('Original owner on file.')
                 : __(':count ownership updates recorded.', ['count' => $animal->ownershipTransfers->count()]),
-            'current_owner' => $currentOwner ?: '—',
+            'current_owner' => $currentOwner !== '' ? $currentOwner : '—',
             'health_summary' => ucfirst(str_replace('_', ' ', $animal->health_status)),
             'vaccination_summary' => $lastVaccination
                 ? __('Last vaccination: :name on :date', ['name' => $lastVaccination->vaccine_name, 'date' => $lastVaccination->vaccination_date?->toDateString()])
