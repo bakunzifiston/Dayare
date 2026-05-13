@@ -56,7 +56,6 @@
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <a href="{{ route('farmer.farms.show', $farm) }}" class="block truncate text-lg font-semibold text-slate-900 hover:text-bucha-primary">{{ $farm->name }}</a>
-                                <p class="mt-1 truncate text-sm text-slate-500">{{ $farm->business?->business_name ?: __('Unassigned business') }}</p>
                             </div>
                             <span class="inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize {{ $statusStyles }}">{{ __(ucfirst($farm->status)) }}</span>
                         </div>

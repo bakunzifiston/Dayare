@@ -28,7 +28,7 @@ class FarmController extends Controller
         ];
 
         $farms = $farmQuery
-            ->with(['business', 'district', 'sector', 'village'])
+            ->with(['district', 'sector', 'village'])
             ->withCount('livestock')
             ->withSum('livestock as total_headcount', 'total_quantity')
             ->withSum('livestock as available_headcount', 'available_quantity')

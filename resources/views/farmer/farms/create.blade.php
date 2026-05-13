@@ -8,9 +8,12 @@
         <form method="post" action="{{ route('farmer.farms.store') }}" class="space-y-8">
             @csrf
 
+            @isset($selectedBusiness)
+                <input type="hidden" name="business_id" value="{{ old('business_id', $selectedBusiness->id) }}" />
+            @endisset
+
             @include('farmer.farms.partials.registration-form', [
                 'business' => $selectedBusiness,
-                'showBusinessSelect' => true,
                 'farmerBusinesses' => $farmerBusinesses,
                 'selectedBusiness' => $selectedBusiness,
             ])
