@@ -387,7 +387,14 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:farmer', 'tenant.per
     Route::get('movement-permits/{movement_permit}/download', [MovementPermitController::class, 'download'])->name('movement-permits.download');
     Route::resource('farms', FarmController::class);
     Route::resource('farms.livestock', LivestockController::class);
-    Route::resource('farms.livestock.animals', AnimalController::class);
+    // Explicit animal routes — nested Route::resource can 404 on some hosts (same pattern as businesses.facilities).
+    Route::get('farms/{farm}/livestock/{livestock}/animals', [AnimalController::class, 'index'])->name('farms.livestock.animals.index');
+    Route::get('farms/{farm}/livestock/{livestock}/animals/create', [AnimalController::class, 'create'])->name('farms.livestock.animals.create');
+    Route::post('farms/{farm}/livestock/{livestock}/animals', [AnimalController::class, 'store'])->name('farms.livestock.animals.store');
+    Route::get('farms/{farm}/livestock/{livestock}/animals/{animal}', [AnimalController::class, 'show'])->name('farms.livestock.animals.show');
+    Route::get('farms/{farm}/livestock/{livestock}/animals/{animal}/edit', [AnimalController::class, 'edit'])->name('farms.livestock.animals.edit');
+    Route::match(['put', 'patch'], 'farms/{farm}/livestock/{livestock}/animals/{animal}', [AnimalController::class, 'update'])->name('farms.livestock.animals.update');
+    Route::delete('farms/{farm}/livestock/{livestock}/animals/{animal}', [AnimalController::class, 'destroy'])->name('farms.livestock.animals.destroy');
     Route::post('farms/{farm}/livestock/move', [LivestockMovementController::class, 'store'])->name('farms.livestock.move');
     Route::get('farms/{farm}/livestock/{livestock}', [LivestockController::class, 'show'])->name('farms.livestock.show');
     Route::patch('farms/{farm}/livestock/{livestock}/details', [LivestockController::class, 'updateDetails'])->name('farms.livestock.details.update');
