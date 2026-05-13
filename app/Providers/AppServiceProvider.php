@@ -8,48 +8,48 @@ use App\Events\Logistics\TripStarted;
 use App\Listeners\Logistics\LogTripCompleted;
 use App\Listeners\Logistics\LogTripPlanned;
 use App\Listeners\Logistics\LogTripStarted;
-use App\Models\Buyer;
-use App\Models\MovementPermit;
-use App\Models\Sale;
 use App\Models\Animal;
 use App\Models\AnimalCertificate;
 use App\Models\AnimalCertificateTemplate;
+use App\Models\Buyer;
 use App\Models\ColdRoomTemperatureLog;
 use App\Models\DiseaseRecord;
-use App\Models\FeedInventory;
 use App\Models\FeedingRecord;
 use App\Models\FeedingSchedule;
+use App\Models\FeedInventory;
 use App\Models\FeedSupplier;
 use App\Models\FeedType;
 use App\Models\Livestock;
-use App\Models\MortalityRecord;
-use App\Models\Treatment;
-use App\Models\Vaccination;
-use App\Models\VeterinaryVisit;
 use App\Models\LogisticsCompany;
 use App\Models\LogisticsOrder;
 use App\Models\LogisticsTrip;
+use App\Models\MortalityRecord;
+use App\Models\MovementPermit;
+use App\Models\Sale;
+use App\Models\Treatment;
+use App\Models\Vaccination;
+use App\Models\VeterinaryVisit;
 use App\Observers\ColdRoomTemperatureLogObserver;
-use App\Policies\BuyerPolicy;
-use App\Policies\MovementPermitPolicy;
-use App\Policies\SalePolicy;
 use App\Policies\AnimalCertificatePolicy;
 use App\Policies\AnimalCertificateTemplatePolicy;
 use App\Policies\AnimalPolicy;
+use App\Policies\BuyerPolicy;
 use App\Policies\DiseaseRecordPolicy;
-use App\Policies\FeedInventoryPolicy;
 use App\Policies\FeedingRecordPolicy;
 use App\Policies\FeedingSchedulePolicy;
+use App\Policies\FeedInventoryPolicy;
 use App\Policies\FeedSupplierPolicy;
 use App\Policies\FeedTypePolicy;
 use App\Policies\LivestockPolicy;
-use App\Policies\MortalityRecordPolicy;
-use App\Policies\TreatmentPolicy;
-use App\Policies\VaccinationPolicy;
-use App\Policies\VeterinaryVisitPolicy;
 use App\Policies\LogisticsCompanyPolicy;
 use App\Policies\LogisticsOrderPolicy;
 use App\Policies\LogisticsTripPolicy;
+use App\Policies\MortalityRecordPolicy;
+use App\Policies\MovementPermitPolicy;
+use App\Policies\SalePolicy;
+use App\Policies\TreatmentPolicy;
+use App\Policies\VaccinationPolicy;
+use App\Policies\VeterinaryVisitPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -63,7 +63,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Ensures dompdf.wrapper is bound even when package discovery is off or
+        // bootstrap/cache/services.php is stale (common on cPanel after adding providers).
+        if (class_exists(\Barryvdh\DomPDF\ServiceProvider::class)) {
+            $this->app->register(\Barryvdh\DomPDF\ServiceProvider::class);
+        }
     }
 
     /**
