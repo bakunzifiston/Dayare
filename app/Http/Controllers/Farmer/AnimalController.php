@@ -17,10 +17,13 @@ use Illuminate\View\View;
 
 class AnimalController extends Controller
 {
-    public function index(Request $request, Farm $farm, Livestock $livestock): View
+    public function index(Request $request, Farm $farm, Livestock $livestock): View|RedirectResponse
     {
+        if ($redirect = $this->redirectToCanonicalNestedAnimalUrl($farm, $livestock, null, 'farmer.farms.livestock.animals.index')) {
+            return $redirect;
+        }
+
         $this->authorize('viewAny', [Animal::class, $livestock]);
-        abort_unless($livestock->farm_id === $farm->id, 404);
 
         $query = $livestock->animals();
 
@@ -52,10 +55,13 @@ class AnimalController extends Controller
         return view('farmer.animals.index', compact('farm', 'livestock', 'animals', 'stats'));
     }
 
-    public function create(Request $request, Farm $farm, Livestock $livestock): View
+    public function create(Request $request, Farm $farm, Livestock $livestock): View|RedirectResponse
     {
+        if ($redirect = $this->redirectToCanonicalNestedAnimalUrl($farm, $livestock, null, 'farmer.farms.livestock.animals.create')) {
+            return $redirect;
+        }
+
         $this->authorize('create', [Animal::class, $livestock]);
-        abort_unless($livestock->farm_id === $farm->id, 404);
 
         return view('farmer.animals.create', compact('farm', 'livestock'));
     }
@@ -63,7 +69,13 @@ class AnimalController extends Controller
     public function store(StoreAnimalRequest $request, Farm $farm, Livestock $livestock, AnimalCodeService $codes): RedirectResponse
     {
         $this->authorize('create', [Animal::class, $livestock]);
-        abort_unless($livestock->farm_id === $farm->id, 404);
+        if ((int) $livestock->farm_id !== (int) $farm->id) {
+            $canonicalFarm = $livestock->farm ?? Farm::query()->findOrFail((int) $livestock->farm_id);
+
+            return redirect()->route('farmer.farms.livestock.animals.create', [$canonicalFarm, $livestock])
+                ->withInput()
+                ->with('status', __('The farm in the URL did not match this livestock group. Please submit again.'));
+        }
 
         $data = $request->validated();
         unset($data['photo']);
@@ -82,20 +94,26 @@ class AnimalController extends Controller
             ->with('status', __('Animal record created.'));
     }
 
-    public function show(Request $request, Farm $farm, Livestock $livestock, Animal $animal, AnimalHealthTimelineService $timeline): View
+    public function show(Request $request, Farm $farm, Livestock $livestock, Animal $animal, AnimalHealthTimelineService $timeline): View|RedirectResponse
     {
+        if ($redirect = $this->redirectToCanonicalNestedAnimalUrl($farm, $livestock, $animal, 'farmer.farms.livestock.animals.show')) {
+            return $redirect;
+        }
+
         $this->authorize('view', $animal);
-        abort_unless($livestock->farm_id === $farm->id && $animal->livestock_id === $livestock->id, 404);
 
         $healthTimeline = $timeline->forAnimal($animal);
 
         return view('farmer.animals.show', compact('farm', 'livestock', 'animal', 'healthTimeline'));
     }
 
-    public function edit(Request $request, Farm $farm, Livestock $livestock, Animal $animal): View
+    public function edit(Request $request, Farm $farm, Livestock $livestock, Animal $animal): View|RedirectResponse
     {
+        if ($redirect = $this->redirectToCanonicalNestedAnimalUrl($farm, $livestock, $animal, 'farmer.farms.livestock.animals.edit')) {
+            return $redirect;
+        }
+
         $this->authorize('update', $animal);
-        abort_unless($livestock->farm_id === $farm->id && $animal->livestock_id === $livestock->id, 404);
 
         return view('farmer.animals.edit', compact('farm', 'livestock', 'animal'));
     }
@@ -103,7 +121,9 @@ class AnimalController extends Controller
     public function update(UpdateAnimalRequest $request, Farm $farm, Livestock $livestock, Animal $animal): RedirectResponse
     {
         $this->authorize('update', $animal);
-        abort_unless($livestock->farm_id === $farm->id && $animal->livestock_id === $livestock->id, 404);
+        if ($redirect = $this->redirectToCanonicalNestedAnimalUrl($farm, $livestock, $animal, 'farmer.farms.livestock.animals.edit')) {
+            return $redirect->withInput()->with('status', __('The farm or group in the URL did not match this animal. Please save again.'));
+        }
 
         $data = $request->validated();
         unset($data['photo']);
@@ -124,7 +144,9 @@ class AnimalController extends Controller
     public function destroy(Request $request, Farm $farm, Livestock $livestock, Animal $animal): RedirectResponse
     {
         $this->authorize('delete', $animal);
-        abort_unless($livestock->farm_id === $farm->id && $animal->livestock_id === $livestock->id, 404);
+        if ($redirect = $this->redirectToCanonicalNestedAnimalUrl($farm, $livestock, $animal, 'farmer.farms.livestock.animals.show')) {
+            return $redirect->with('status', __('We could not delete from that link. Use delete from the page below if you still want to remove this animal.'));
+        }
 
         if ($animal->photo_path) {
             Storage::disk('public')->delete($animal->photo_path);
@@ -134,5 +156,33 @@ class AnimalController extends Controller
 
         return redirect()->route('farmer.farms.livestock.animals.index', [$farm, $livestock])
             ->with('status', __('Animal record removed.'));
+    }
+
+    /**
+     * Nested URLs use /farms/{farm}/livestock/{livestock}/… If {farm} is stale (e.g. after a move) or {livestock}
+     * does not match {animal}, send the user to the canonical URL instead of a silent 404.
+     */
+    private function redirectToCanonicalNestedAnimalUrl(Farm $farm, Livestock $livestock, ?Animal $animal, string $routeName): ?RedirectResponse
+    {
+        if ($animal !== null && (int) $animal->livestock_id !== (int) $livestock->id) {
+            $this->authorize('view', $animal);
+            $resolvedLivestock = $animal->livestock ?? $animal->livestock()->firstOrFail();
+            $resolvedFarm = $resolvedLivestock->farm ?? Farm::query()->findOrFail((int) $resolvedLivestock->farm_id);
+
+            return redirect()->route($routeName, [$resolvedFarm, $resolvedLivestock, $animal]);
+        }
+
+        if ((int) $livestock->farm_id !== (int) $farm->id) {
+            $this->authorize('view', $livestock);
+            $resolvedFarm = $livestock->farm ?? Farm::query()->findOrFail((int) $livestock->farm_id);
+            $params = [$resolvedFarm, $livestock];
+            if ($animal !== null) {
+                $params[] = $animal;
+            }
+
+            return redirect()->route($routeName, $params);
+        }
+
+        return null;
     }
 }
