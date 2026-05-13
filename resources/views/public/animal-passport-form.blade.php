@@ -3,18 +3,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ __('Animal passport PDF') }}</title>
+    <title>{{ __('Animal passport') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-slate-50 text-slate-800">
     <main class="mx-auto max-w-lg px-4 py-12">
         <header class="rounded-bucha border border-slate-200 bg-white p-6 shadow-sm">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Public lookup') }}</p>
-            <h1 class="mt-1 text-2xl font-semibold text-slate-900">{{ __('Download animal passport (PDF)') }}</h1>
-            <p class="mt-2 text-sm text-slate-600">{{ __('Enter the ear tag, farm animal code, or verification code. You will get a PDF with identity, farm origin, and traceability summary.') }}</p>
+            <h1 class="mt-1 text-2xl font-semibold text-slate-900">{{ __('Animal passport (PDF)') }}</h1>
+            <p class="mt-2 text-sm text-slate-600">{{ __('Enter the ear tag, farm animal code, or verification code. The passport opens in your browser; use your viewer’s save or print if you need a file.') }}</p>
         </header>
 
-        <form method="post" action="{{ route('animal.passport.pdf') }}" class="mt-6 rounded-bucha border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <form method="post" action="{{ route('animal.passport.pdf') }}" target="_blank" class="mt-6 rounded-bucha border border-slate-200 bg-white p-6 shadow-sm space-y-4">
             @csrf
             <div>
                 <x-input-label for="identifier" :value="__('Tag or animal code')" />
@@ -33,7 +33,7 @@
             </div>
 
             <button type="submit" class="inline-flex w-full justify-center rounded-bucha bg-bucha-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-bucha-primary focus:ring-offset-2">
-                {{ __('Get PDF passport') }}
+                {{ __('Open PDF passport') }}
             </button>
 
             <p class="text-xs text-slate-500">{{ __('Tip: you can also bookmark a direct link:') }} <code class="break-all rounded bg-slate-100 px-1 py-0.5 text-[11px]">{{ url('/animal-passport/pdf') }}?identifier=…</code></p>

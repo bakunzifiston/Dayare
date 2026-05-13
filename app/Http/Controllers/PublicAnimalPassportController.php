@@ -52,7 +52,7 @@ class PublicAnimalPassportController extends Controller
 
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="animal-passport-'.$safeName.'.pdf"',
+            'Content-Disposition' => 'inline; filename="'.$safeName.'.pdf"',
         ]);
     }
 }
