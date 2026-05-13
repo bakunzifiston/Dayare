@@ -100,7 +100,7 @@ Route::get('/trace/{slug}/pdf', [\App\Http\Controllers\TraceabilityController::c
 Route::get('/verify/{token}', \App\Http\Controllers\PublicAnimalVerificationController::class)->name('animal.verify');
 Route::middleware('throttle:30,1')->group(function () {
     Route::get('/animal-passport', [\App\Http\Controllers\PublicAnimalPassportController::class, 'create'])->name('animal.passport.lookup');
-    Route::post('/animal-passport/pdf', [\App\Http\Controllers\PublicAnimalPassportController::class, 'pdf'])->name('animal.passport.pdf');
+    Route::match(['get', 'post'], '/animal-passport/pdf', [\App\Http\Controllers\PublicAnimalPassportController::class, 'pdf'])->name('animal.passport.pdf');
 });
 Route::get('/movement/{token}', \App\Http\Controllers\PublicMovementVerificationController::class)->name('movement.verify');
 Route::get('/permit/{token}', fn (string $token) => redirect()->route('movement.verify', ['token' => $token]))->name('permit.verify');

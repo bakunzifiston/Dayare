@@ -31,10 +31,7 @@
                 />
                 <x-input-error :messages="$errors->get('identifier')" class="mt-2" />
             </div>
-            <button type="submit" class="inline-flex w-full justify-center rounded-bucha bg-bucha-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-95">
-                {{ __('Download PDF') }}
-            </button>
-        </form>
+            <p class="mt-3 text-xs text-slate-500">{{ __('Tip: you can also bookmark a direct link:') }} <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px]">{{ url('/animal-passport/pdf') }}?identifier=…</code></p>
 
         <p class="mt-6 text-center text-xs text-slate-500">
             <a href="{{ route('home') }}" class="text-bucha-primary hover:underline">{{ __('← Back to home') }}</a>
