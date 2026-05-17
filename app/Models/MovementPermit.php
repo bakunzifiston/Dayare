@@ -46,14 +46,26 @@ class MovementPermit extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    public const STATUS_ISSUED = 'issued';
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_USED = 'used';
+
+    public const STATUS_REVOKED = 'revoked';
+
     /** @var list<string> */
     public const STATUSES = [
         self::STATUS_DRAFT,
         self::STATUS_PENDING_APPROVAL,
         self::STATUS_APPROVED,
+        self::STATUS_ISSUED,
+        self::STATUS_ACTIVE,
+        self::STATUS_USED,
         self::STATUS_REJECTED,
         self::STATUS_EXPIRED,
         self::STATUS_CANCELLED,
+        self::STATUS_REVOKED,
     ];
 
     /** @var list<string> */
@@ -61,6 +73,15 @@ class MovementPermit extends Model
         self::STATUS_DRAFT,
         self::STATUS_PENDING_APPROVAL,
         self::STATUS_APPROVED,
+        self::STATUS_ISSUED,
+        self::STATUS_ACTIVE,
+    ];
+
+    /** @var list<string> */
+    public const VALID_FOR_MOVEMENT_STATUSES = [
+        self::STATUS_APPROVED,
+        self::STATUS_ISSUED,
+        self::STATUS_ACTIVE,
     ];
 
     public const VET_PENDING = 'pending_inspection';
@@ -93,13 +114,28 @@ class MovementPermit extends Model
     ];
 
     protected $fillable = [
+        'permit_request_id',
         'permit_number',
         'permit_type',
         'movement_reason',
+        'livestock_type',
+        'owner_name',
+        'owner_national_id',
+        'owner_identification_number',
+        'owner_phone',
+        'owner_address',
         'farmer_id',
         'source_farm_id',
         'origin_location',
+        'source_district',
+        'source_sector',
+        'source_cell',
+        'source_village',
         'destination_location',
+        'destination_district',
+        'destination_sector',
+        'destination_cell',
+        'destination_village',
         'destination_district_id',
         'destination_sector_id',
         'destination_cell_id',
@@ -114,17 +150,21 @@ class MovementPermit extends Model
         'issue_date',
         'expiry_date',
         'issued_by',
+        'issuing_authority',
         'permit_status',
         'veterinary_status',
         'movement_status',
         'qr_code',
+        'qr_code_path',
         'verification_token',
+        'verification_code',
         'approved_by',
         'notes',
         'attachment_path',
         'pdf_path',
         'file_path',
         'created_by',
+        'imported_from_pdf',
     ];
 
     protected function casts(): array
@@ -134,6 +174,7 @@ class MovementPermit extends Model
             'expiry_date' => 'date',
             'departure_date' => 'date',
             'expected_arrival_date' => 'date',
+            'imported_from_pdf' => 'boolean',
         ];
     }
 
@@ -207,6 +248,16 @@ class MovementPermit extends Model
         return $this->hasMany(LivestockEvent::class);
     }
 
+    public function permitRequest(): BelongsTo
+    {
+        return $this->belongsTo(PermitRequest::class);
+    }
+
+    public function movementHistories(): HasMany
+    {
+        return $this->hasMany(MovementHistory::class);
+    }
+
     public function verificationUrl(): ?string
     {
         if (! $this->verification_token) {
@@ -216,21 +267,76 @@ class MovementPermit extends Model
         return route('movement.verify', ['token' => $this->verification_token]);
     }
 
+    public function publicVerificationUrl(): string
+    {
+        return route('verify.permit.show', ['identifier' => $this->permit_number]);
+    }
+
+    public function ownerIdentification(): ?string
+    {
+        return $this->owner_identification_number ?: $this->owner_national_id;
+    }
+
+    public function sourceLocationLabel(): string
+    {
+        $parts = array_filter([
+            $this->source_village,
+            $this->source_cell,
+            $this->source_sector,
+            $this->source_district,
+        ]);
+
+        if ($parts !== []) {
+            return implode(', ', $parts);
+        }
+
+        return (string) ($this->origin_location ?: $this->sourceFarm?->name ?: '');
+    }
+
+    public function destinationLocationLabel(): string
+    {
+        $parts = array_filter([
+            $this->destination_village,
+            $this->destination_cell,
+            $this->destination_sector,
+            $this->destination_district,
+        ]);
+
+        if ($parts !== []) {
+            return implode(', ', $parts);
+        }
+
+        return (string) ($this->destination_location ?: '');
+    }
+
+    public function syncExpiryStatus(): void
+    {
+        if ($this->expiry_date && $this->expiry_date->isPast()
+            && ! in_array($this->permit_status, [self::STATUS_EXPIRED, self::STATUS_CANCELLED, self::STATUS_REVOKED], true)) {
+            $this->update(['permit_status' => self::STATUS_EXPIRED]);
+        }
+    }
+
     public function isValidOn(\Carbon\CarbonInterface $date): bool
     {
-        if ($this->permit_status === self::STATUS_EXPIRED || $this->permit_status === self::STATUS_CANCELLED) {
+        $this->syncExpiryStatus();
+
+        if (in_array($this->permit_status, [self::STATUS_EXPIRED, self::STATUS_CANCELLED, self::STATUS_REVOKED, self::STATUS_REJECTED], true)) {
             return false;
         }
 
         $start = $this->departure_date ?? $this->issue_date;
         $end = $this->expected_arrival_date ?? $this->expiry_date;
 
+        $statusOk = in_array($this->permit_status, self::VALID_FOR_MOVEMENT_STATUSES, true);
+        $vetOk = $this->imported_from_pdf || $this->veterinary_status === self::VET_CLEARED;
+
         return $start !== null
             && $end !== null
             && $start->lte($date)
             && $end->gte($date)
-            && $this->permit_status === self::STATUS_APPROVED
-            && $this->veterinary_status === self::VET_CLEARED;
+            && $statusOk
+            && $vetOk;
     }
 
     public function isEditable(): bool

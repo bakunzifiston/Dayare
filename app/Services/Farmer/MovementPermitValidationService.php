@@ -26,13 +26,13 @@ class MovementPermitValidationService
             ]);
         }
 
-        if ($permit->permit_status !== MovementPermit::STATUS_APPROVED) {
+        if (! in_array($permit->permit_status, MovementPermit::VALID_FOR_MOVEMENT_STATUSES, true)) {
             throw ValidationException::withMessages([
-                'movement_permit_id' => [__('Movement permit is not approved.')],
+                'movement_permit_id' => [__('Movement permit is not active or approved.')],
             ]);
         }
 
-        if ($permit->veterinary_status !== MovementPermit::VET_CLEARED) {
+        if (! $permit->imported_from_pdf && $permit->veterinary_status !== MovementPermit::VET_CLEARED) {
             throw ValidationException::withMessages([
                 'movement_permit_id' => [__('Movement permit does not have veterinary clearance.')],
             ]);

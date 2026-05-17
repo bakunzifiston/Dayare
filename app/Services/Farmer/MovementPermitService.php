@@ -18,6 +18,7 @@ class MovementPermitService
         private readonly MovementPermitCodeService $codes,
         private readonly MovementHistoryService $history,
         private readonly MovementPermitPdfService $pdfService,
+        private readonly AnimalMovementTraceService $trace,
     ) {}
 
     /** @param  array<string, mixed>  $data */
@@ -96,6 +97,8 @@ class MovementPermitService
             'approved_by' => $userId,
         ]);
         $this->pdfService->generate($permit);
+        $permit->update(['permit_status' => MovementPermit::STATUS_ACTIVE]);
+        $this->trace->recordOnActivation($permit->fresh(), $userId);
         $this->history->log($permit, MovementLog::ACTION_APPROVED, $userId, $ip);
 
         return $permit->fresh();
@@ -116,6 +119,7 @@ class MovementPermitService
         }
 
         $permit->update(['movement_status' => MovementPermit::MOVEMENT_IN_TRANSIT]);
+        $this->trace->markInTransit($permit, $userId);
         $this->history->log($permit, MovementLog::ACTION_MOVEMENT_STARTED, $userId, $ip);
 
         return $permit->fresh();
@@ -123,7 +127,7 @@ class MovementPermitService
 
     public function confirmArrival(MovementPermit $permit, int $userId, ?string $ip = null): MovementPermit
     {
-        $permit->update(['movement_status' => MovementPermit::MOVEMENT_ARRIVED]);
+        $this->trace->markCompleted($permit, $userId);
         $this->history->log($permit, MovementLog::ACTION_ARRIVED, $userId, $ip);
 
         return $permit->fresh();

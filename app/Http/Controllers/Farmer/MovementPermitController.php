@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Farmer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Farmer\Concerns\InteractsWithAccessibleAnimals;
+use App\Http\Requests\Farmer\ImportMovementPermitPdfRequest;
 use App\Http\Requests\Farmer\StoreMovementPermitRequest;
 use App\Http\Requests\Farmer\UpdateMovementPermitRequest;
 use App\Models\Farm;
 use App\Models\MovementPermit;
 use App\Services\Farmer\MovementHistoryService;
+use App\Services\Farmer\MovementPermitImportService;
 use App\Services\Farmer\MovementPermitPdfService;
 use App\Services\Farmer\MovementPermitService;
 use Carbon\Carbon;
@@ -64,10 +66,30 @@ class MovementPermitController extends Controller
         return redirect()->route('farmer.movement.permits.show', $permit)->with('status', __('Movement permit created.'));
     }
 
+    public function importFromPdf(
+        ImportMovementPermitPdfRequest $request,
+        MovementPermitImportService $importService,
+        MovementHistoryService $history,
+    ): RedirectResponse {
+        $this->authorize('create', MovementPermit::class);
+
+        $permit = $importService->import(
+            $request->file('permit_pdf'),
+            (int) $request->validated('source_farm_id'),
+            $request->user()->id,
+            $request->user()->accessibleFarmerBusinessIds(),
+            $history->requestIp($request),
+        );
+
+        return redirect()
+            ->route('farmer.movement.permits.show', $permit)
+            ->with('status', __('Movement permit imported from PDF. Review the extracted details below.'));
+    }
+
     public function show(Request $request, MovementPermit $movementPermit): View
     {
         $this->authorize('view', $movementPermit);
-        $movementPermit->load(['sourceFarm', 'animals.animal', 'animals.livestock', 'transport', 'veterinaryApproval', 'logs.actor', 'approver']);
+        $movementPermit->load(['sourceFarm', 'animals.animal.livestock', 'animals.livestock', 'transport', 'veterinaryApproval', 'logs.actor', 'approver']);
         $isValid = $movementPermit->isValidOn(Carbon::today());
 
         return view('farmer.movement.permits.show', ['permit' => $movementPermit, 'isValid' => $isValid]);

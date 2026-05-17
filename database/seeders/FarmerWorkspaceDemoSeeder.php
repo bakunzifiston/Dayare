@@ -9,6 +9,7 @@ use App\Models\AnimalCertificateTemplate;
 use App\Models\AnimalHealthRecord;
 use App\Models\AnimalOwnershipTransfer;
 use App\Models\Business;
+use App\Models\Buyer;
 use App\Models\DiseaseRecord;
 use App\Models\Farm;
 use App\Models\FeedingRecord;
@@ -19,11 +20,14 @@ use App\Models\FeedType;
 use App\Models\Livestock;
 use App\Models\LivestockEvent;
 use App\Models\MortalityRecord;
+use App\Models\MovementHistory;
 use App\Models\MovementLog;
 use App\Models\MovementPermit;
 use App\Models\MovementPermitAnimal;
 use App\Models\MovementTransport;
 use App\Models\MovementVeterinaryApproval;
+use App\Models\PermitRequest;
+use App\Models\PermitRequestAnimal;
 use App\Models\Sale;
 use App\Models\SaleAnimal;
 use App\Models\SaleLog;
@@ -32,7 +36,6 @@ use App\Models\Treatment;
 use App\Models\User;
 use App\Models\Vaccination;
 use App\Models\VeterinaryVisit;
-use App\Models\Buyer;
 use App\Support\FarmerAnimalType;
 use Carbon\Carbon;
 use Database\Seeders\Support\RwandaSeederHelper;
@@ -83,6 +86,18 @@ class FarmerWorkspaceDemoSeeder extends Seeder
         $this->farm = $this->ensureMainFarm();
 
         if ($this->farmAlreadyPopulated()) {
+            if ($this->movementModuleNeedsSeed()) {
+                $this->command?->info('Farmer workspace exists — seeding movement module (requests, permits, history)…');
+                $this->loadFarmAnimals();
+                DB::transaction(function (): void {
+                    $this->purgeMovementModuleData();
+                    $this->seedMovementModule();
+                });
+                $this->command?->info('Movement module demo data updated.');
+
+                return;
+            }
+
             $this->command?->warn('Farmer workspace demo already populated for '.self::FARM_REGISTRATION.'. Skipping.');
 
             return;
@@ -98,7 +113,7 @@ class FarmerWorkspaceDemoSeeder extends Seeder
             $this->seedHealthRecords();
             $this->seedFeeding();
             $this->seedCertificates();
-            $this->seedMovementPermits();
+            $this->seedMovementModule();
             $this->seedBuyersAndSales();
             $this->seedFarmHealthSnapshots();
             $this->seedOperationalEvents();
@@ -175,6 +190,42 @@ class FarmerWorkspaceDemoSeeder extends Seeder
             ->count() >= 30;
     }
 
+    private function movementModuleNeedsSeed(): bool
+    {
+        return PermitRequest::query()->where('farm_id', $this->farm->id)->doesntExist();
+    }
+
+    private function loadFarmAnimals(): void
+    {
+        $this->animals = Animal::query()
+            ->whereHas('livestock', fn (Builder $query) => $query->where('farm_id', $this->farm->id))
+            ->orderBy('id')
+            ->get();
+
+        if ($this->animals->count() < 30) {
+            throw new \RuntimeException(
+                'Expected at least 30 animals on '.self::FARM_REGISTRATION.' before seeding movement data.',
+            );
+        }
+    }
+
+    private function purgeMovementModuleData(): void
+    {
+        $farmId = $this->farm->id;
+        $permitIds = MovementPermit::withTrashed()->where('source_farm_id', $farmId)->pluck('id');
+
+        MovementHistory::query()->whereIn('movement_permit_id', $permitIds)->delete();
+        MovementLog::query()->whereIn('movement_permit_id', $permitIds)->delete();
+        MovementPermitAnimal::query()->whereIn('movement_permit_id', $permitIds)->delete();
+        MovementTransport::query()->whereIn('movement_permit_id', $permitIds)->delete();
+        MovementVeterinaryApproval::query()->whereIn('movement_permit_id', $permitIds)->delete();
+        MovementPermit::withTrashed()->whereIn('id', $permitIds)->forceDelete();
+
+        $requestIds = PermitRequest::withTrashed()->where('farm_id', $farmId)->pluck('id');
+        PermitRequestAnimal::query()->whereIn('permit_request_id', $requestIds)->delete();
+        PermitRequest::withTrashed()->whereIn('id', $requestIds)->forceDelete();
+    }
+
     private function purgeFarmModuleData(): void
     {
         $farmId = $this->farm->id;
@@ -192,11 +243,7 @@ class FarmerWorkspaceDemoSeeder extends Seeder
         SaleAnimal::query()->whereIn('sale_id', $saleIds)->delete();
         Sale::withTrashed()->whereIn('id', $saleIds)->forceDelete();
 
-        MovementLog::query()->whereIn('movement_permit_id', $permitIds)->delete();
-        MovementPermitAnimal::query()->whereIn('movement_permit_id', $permitIds)->delete();
-        MovementTransport::query()->whereIn('movement_permit_id', $permitIds)->delete();
-        MovementVeterinaryApproval::query()->whereIn('movement_permit_id', $permitIds)->delete();
-        MovementPermit::withTrashed()->whereIn('id', $permitIds)->forceDelete();
+        $this->purgeMovementModuleData();
 
         AnimalCertificateLog::query()->whereIn('animal_certificate_id', $certificateIds)->delete();
         AnimalCertificate::withTrashed()->whereIn('id', $certificateIds)->forceDelete();
@@ -377,7 +424,7 @@ class FarmerWorkspaceDemoSeeder extends Seeder
                     'health_status' => $health,
                     'production_status' => $production,
                     'lifecycle_status' => $lifecycle,
-                    'current_condition' => $health === Animal::HEALTH_HEALTHY ? 'Grazing normally' : 'Under observation',
+                    'current_condition' => $health === Animal::HEALTH_HEALTHY ? Animal::CURRENT_CONDITION_RIZIMA : Animal::CURRENT_CONDITION_RIRWAYE,
                     'notes' => 'Registered on Kagarama herd book.',
                     'created_by' => $this->owner->id,
                     'created_at' => RwandaSeederHelper::dateInRange($this->rangeStart, $this->rangeEnd, $index, 40),
@@ -700,80 +747,300 @@ class FarmerWorkspaceDemoSeeder extends Seeder
         ]);
     }
 
-    private function seedMovementPermits(): void
+    private function seedMovementModule(): void
+    {
+        $ownerName = $this->business->ownerIndividualDisplayName();
+        $ownerNid = '1198980187193037';
+
+        $requests = $this->seedPermitRequests($ownerName);
+        $this->seedMovementPermits($requests, $ownerName, $ownerNid);
+    }
+
+    /**
+     * @return array<string, PermitRequest>
+     */
+    private function seedPermitRequests(string $ownerName): array
+    {
+        $definitions = [
+            'completed_slaughter' => [
+                'number' => 'PR-KAG-2026-0001',
+                'status' => PermitRequest::STATUS_COMPLETED,
+                'purpose' => PermitRequest::PURPOSE_SLAUGHTER,
+                'destination_type' => PermitRequest::DESTINATION_ABATTOIR,
+                'destination_name' => 'Nyagatare Municipal Abattoir',
+                'destination_district' => 'Nyagatare',
+                'destination_sector' => 'Nyagatare',
+                'departure' => -14,
+                'arrival' => -12,
+                'animals' => [0, 1],
+                'reviewed' => true,
+            ],
+            'approved_market' => [
+                'number' => 'PR-KAG-2026-0002',
+                'status' => PermitRequest::STATUS_APPROVED,
+                'purpose' => PermitRequest::PURPOSE_SALE,
+                'destination_type' => PermitRequest::DESTINATION_MARKET,
+                'destination_name' => 'Nyagatare Livestock Market',
+                'destination_district' => 'Nyagatare',
+                'destination_sector' => 'Rwimiyaga',
+                'departure' => 3,
+                'arrival' => 4,
+                'animals' => [12, 13],
+                'reviewed' => true,
+            ],
+            'submitted_transfer' => [
+                'number' => 'PR-KAG-2026-0003',
+                'status' => PermitRequest::STATUS_SUBMITTED,
+                'purpose' => PermitRequest::PURPOSE_TRANSFER,
+                'destination_type' => PermitRequest::DESTINATION_FARM,
+                'destination_name' => 'Gatsibo Cooperative Farm',
+                'destination_district' => 'Gatsibo',
+                'destination_sector' => 'Kageyo',
+                'departure' => 7,
+                'arrival' => 8,
+                'animals' => [20, 21],
+                'reviewed' => false,
+            ],
+            'under_review_vet' => [
+                'number' => 'PR-KAG-2026-0004',
+                'status' => PermitRequest::STATUS_UNDER_REVIEW,
+                'purpose' => PermitRequest::PURPOSE_VACCINATION,
+                'destination_type' => PermitRequest::DESTINATION_FARM,
+                'destination_name' => 'Kagarama Veterinary Clinic',
+                'destination_district' => 'Nyagatare',
+                'destination_sector' => 'Kagarama',
+                'departure' => -2,
+                'arrival' => 0,
+                'animals' => [6],
+                'reviewed' => true,
+            ],
+            'draft_breeding' => [
+                'number' => 'PR-KAG-2026-0005',
+                'status' => PermitRequest::STATUS_DRAFT,
+                'purpose' => PermitRequest::PURPOSE_BREEDING,
+                'destination_type' => PermitRequest::DESTINATION_FARM,
+                'destination_name' => 'Musanze Breeding Centre',
+                'destination_district' => 'Musanze',
+                'destination_sector' => 'Muhoza',
+                'departure' => 14,
+                'arrival' => 15,
+                'animals' => [8, 9],
+                'reviewed' => false,
+            ],
+            'rejected_exhibition' => [
+                'number' => 'PR-KAG-2026-0006',
+                'status' => PermitRequest::STATUS_REJECTED,
+                'purpose' => PermitRequest::PURPOSE_EXHIBITION,
+                'destination_type' => PermitRequest::DESTINATION_MARKET,
+                'destination_name' => 'Kigali Agriculture Show',
+                'destination_district' => 'Gasabo',
+                'destination_sector' => 'Kimironko',
+                'departure' => 20,
+                'arrival' => 22,
+                'animals' => [15],
+                'reviewed' => true,
+                'rejection_reason' => 'Vaccination records incomplete for exhibition movement.',
+            ],
+        ];
+
+        $created = [];
+        $eligibility = app(\App\Services\Farmer\PermitRequestEligibilityService::class);
+
+        foreach ($definitions as $key => $row) {
+            $request = PermitRequest::query()->create([
+                'request_number' => $row['number'],
+                'request_date' => Carbon::now()->subDays(max(1, abs($row['departure']) + 3)),
+                'applicant_id' => $this->owner->id,
+                'farm_id' => $this->farm->id,
+                'farmer_id' => $this->business->id,
+                'movement_purpose' => $row['purpose'],
+                'destination_type' => $row['destination_type'],
+                'destination_name' => $row['destination_name'],
+                'destination_district' => $row['destination_district'],
+                'destination_sector' => $row['destination_sector'],
+                'destination_cell' => $row['destination_sector'] ?? null,
+                'destination_village' => null,
+                'transport_method' => PermitRequest::TRANSPORT_VEHICLE,
+                'vehicle_plate_number' => match ($key) {
+                    'completed_slaughter' => 'RAC481Z',
+                    'approved_market' => 'RAC502Z',
+                    'submitted_transfer' => 'RAC515Z',
+                    'under_review_vet' => 'RAC474Z',
+                    'draft_breeding' => 'RAC520Z',
+                    default => 'RAC499Z',
+                },
+                'proposed_departure_date' => Carbon::now()->addDays($row['departure']),
+                'expected_arrival_date' => Carbon::now()->addDays($row['arrival']),
+                'remarks' => __('Demo permit request for :owner.', ['owner' => $ownerName]),
+                'status' => $row['status'],
+                'reviewed_by' => ($row['reviewed'] ?? false) ? $this->owner->id : null,
+                'review_date' => ($row['reviewed'] ?? false) ? Carbon::now()->subDays(2) : null,
+                'rejection_reason' => $row['rejection_reason'] ?? null,
+            ]);
+
+            foreach ($row['animals'] as $animalIndex) {
+                $animal = $this->animals[$animalIndex];
+                $check = $eligibility->evaluate($animal);
+                PermitRequestAnimal::query()->create([
+                    'permit_request_id' => $request->id,
+                    'animal_id' => $animal->id,
+                    'livestock_id' => $animal->livestock_id,
+                    'animal_identifier' => $animal->displayIdentifier(),
+                    'quantity' => 1,
+                    'eligibility_passed' => $check['passed'],
+                    'eligibility_issues' => $check['issues'],
+                ]);
+            }
+
+            $created[$key] = $request;
+        }
+
+        return $created;
+    }
+
+    /**
+     * @param  array<string, PermitRequest>  $requests
+     */
+    private function seedMovementPermits(array $requests, string $ownerName, string $ownerNid): void
     {
         $permits = [
             [
+                'request_key' => 'completed_slaughter',
                 'number' => 'MP-KAG-2026-001',
+                'rab' => false,
                 'type' => MovementPermit::TYPE_SLAUGHTER_TRANSPORT,
-                'status' => MovementPermit::STATUS_APPROVED,
+                'status' => MovementPermit::STATUS_USED,
                 'movement' => MovementPermit::MOVEMENT_ARRIVED,
                 'vet' => MovementPermit::VET_CLEARED,
+                'movement_reason' => 'Slaughter transport — abattoir delivery',
                 'departure' => -12,
                 'arrival' => -11,
-                'expiry' => 30,
+                'issue' => -14,
+                'expiry' => -10,
                 'animals' => [0, 1],
+                'destination' => 'Nyagatare Municipal Abattoir',
+                'dest_district' => 'Nyagatare',
+                'dest_sector' => 'Nyagatare',
+                'history' => MovementHistory::STATUS_COMPLETED,
             ],
             [
-                'number' => 'MP-KAG-2026-002',
-                'type' => MovementPermit::TYPE_MARKET_TRANSPORT,
-                'status' => MovementPermit::STATUS_PENDING_APPROVAL,
-                'movement' => MovementPermit::MOVEMENT_PENDING,
-                'vet' => MovementPermit::VET_PENDING,
-                'departure' => 3,
-                'arrival' => 4,
-                'expiry' => 45,
-                'animals' => [12, 13],
+                'request_key' => 'under_review_vet',
+                'number' => 'MP-KAG-2026-003',
+                'rab' => false,
+                'type' => MovementPermit::TYPE_VETERINARY_REFERRAL,
+                'status' => MovementPermit::STATUS_ACTIVE,
+                'movement' => MovementPermit::MOVEMENT_IN_TRANSIT,
+                'vet' => MovementPermit::VET_CLEARED,
+                'movement_reason' => 'Veterinary referral — clinical follow-up',
+                'departure' => -1,
+                'arrival' => 1,
+                'issue' => -2,
+                'expiry' => 20,
+                'animals' => [6],
+                'destination' => 'Kagarama Veterinary Clinic',
+                'dest_district' => 'Nyagatare',
+                'dest_sector' => 'Kagarama',
+                'history' => MovementHistory::STATUS_IN_TRANSIT,
             ],
             [
+                'request_key' => null,
                 'number' => 'MP-KAG-2025-014',
+                'rab' => false,
                 'type' => MovementPermit::TYPE_FARM_TRANSFER,
                 'status' => MovementPermit::STATUS_EXPIRED,
                 'movement' => MovementPermit::MOVEMENT_CANCELLED,
                 'vet' => MovementPermit::VET_CLEARED,
+                'movement_reason' => 'Farm-to-farm transfer (expired)',
                 'departure' => -120,
                 'arrival' => -119,
+                'issue' => -125,
                 'expiry' => -90,
                 'animals' => [20],
+                'destination' => 'Gatsibo Cooperative Farm',
+                'dest_district' => 'Gatsibo',
+                'dest_sector' => 'Kageyo',
+                'history' => null,
             ],
             [
-                'number' => 'MP-KAG-2026-003',
-                'type' => MovementPermit::TYPE_VETERINARY_REFERRAL,
-                'status' => MovementPermit::STATUS_APPROVED,
-                'movement' => MovementPermit::MOVEMENT_IN_TRANSIT,
+                'request_key' => null,
+                'number' => 'B260210141531XLJK',
+                'rab' => true,
+                'type' => MovementPermit::TYPE_BREEDING_TRANSFER,
+                'status' => MovementPermit::STATUS_ISSUED,
+                'movement' => MovementPermit::MOVEMENT_PENDING,
                 'vet' => MovementPermit::VET_CLEARED,
-                'departure' => -1,
-                'arrival' => 1,
-                'expiry' => 20,
-                'animals' => [6],
+                'movement_reason' => 'Ubworozi bw\'inka',
+                'departure' => -5,
+                'arrival' => -2,
+                'issue' => -5,
+                'expiry' => -2,
+                'animals' => [8, 9],
+                'destination' => 'Rusororo, Kabuga',
+                'dest_district' => 'Gasabo',
+                'dest_sector' => 'Kabuga',
+                'dest_village' => 'Rusororo',
+                'history' => MovementHistory::STATUS_PLANNED,
+                'issued_by' => 'GASHIRABAKE Isidore',
+                'vehicle' => 'RAC474Z',
             ],
         ];
 
         foreach ($permits as $row) {
+            $linkedRequest = $row['request_key'] ? ($requests[$row['request_key']] ?? null) : null;
             $token = 'move-kag-'.Str::lower(Str::random(14));
+            $verificationCode = Str::upper(Str::random(8));
+            $issueDate = Carbon::now()->addDays($row['issue']);
+            $expiryDate = Carbon::now()->addDays($row['expiry']);
+
             $permit = MovementPermit::query()->create([
+                'permit_request_id' => $linkedRequest?->id,
                 'permit_number' => $row['number'],
                 'permit_type' => $row['type'],
-                'movement_reason' => 'Operational livestock movement — demo seed',
+                'movement_reason' => $row['movement_reason'],
+                'livestock_type' => 'Inka',
+                'owner_name' => $ownerName,
+                'owner_national_id' => $ownerNid,
+                'owner_identification_number' => $ownerNid,
+                'owner_address' => 'Ryamatebura, Shangasha, Gicumbi',
                 'farmer_id' => $this->business->id,
                 'source_farm_id' => $this->farm->id,
                 'origin_location' => 'Kagarama Prime Livestock Farm, Nyagatare',
-                'destination_location' => $row['type'] === MovementPermit::TYPE_VETERINARY_REFERRAL
-                    ? 'Kagarama Veterinary Clinic'
-                    : 'Nyagatare Livestock Market',
+                'source_district' => 'Gicumbi',
+                'source_sector' => 'Shangasha',
+                'source_cell' => 'Shangasha',
+                'source_village' => 'Ryamatebura',
+                'destination_location' => $row['destination'],
+                'destination_district' => $row['dest_district'] ?? null,
+                'destination_sector' => $row['dest_sector'] ?? null,
+                'destination_cell' => $row['dest_cell'] ?? null,
+                'destination_village' => $row['dest_village'] ?? null,
                 'departure_date' => Carbon::now()->addDays($row['departure']),
                 'expected_arrival_date' => Carbon::now()->addDays($row['arrival']),
-                'issue_date' => Carbon::now()->subDays(5),
-                'expiry_date' => Carbon::now()->addDays($row['expiry']),
-                'issued_by' => $this->owner->name,
+                'issue_date' => $issueDate,
+                'expiry_date' => $expiryDate,
+                'transport_mode' => ($row['rab'] ?? false) ? 'Imodoka' : 'Cattle truck',
+                'vehicle_plate' => $row['vehicle'] ?? 'RAB 482 K',
+                'issued_by' => $row['issued_by'] ?? $this->owner->name,
+                'issuing_authority' => 'RAB — Rwanda Agriculture and Animal Resources Development Board',
                 'permit_status' => $row['status'],
                 'veterinary_status' => $row['vet'],
                 'movement_status' => $row['movement'],
                 'verification_token' => $token,
+                'verification_code' => $verificationCode,
                 'qr_code' => route('movement.verify', ['token' => $token]),
                 'file_path' => 'movement-permits/demo/'.$row['number'].'.pdf',
+                'pdf_path' => 'movement-permits/demo/'.$row['number'].'.pdf',
+                'imported_from_pdf' => (bool) ($row['rab'] ?? false),
                 'created_by' => $this->owner->id,
             ]);
+
+            if ($linkedRequest) {
+                $linkedRequest->update([
+                    'status' => $row['history'] === MovementHistory::STATUS_COMPLETED
+                        ? PermitRequest::STATUS_COMPLETED
+                        : PermitRequest::STATUS_PERMIT_ISSUED,
+                ]);
+            }
 
             foreach ($row['animals'] as $animalIndex) {
                 $animal = $this->animals[$animalIndex];
@@ -781,33 +1048,39 @@ class FarmerWorkspaceDemoSeeder extends Seeder
                     'movement_permit_id' => $permit->id,
                     'animal_id' => $animal->id,
                     'livestock_id' => $animal->livestock_id,
-                    'animal_identifier' => $animal->displayIdentifier(),
+                    'animal_identifier' => $animal->tag_number ?: $animal->animal_code,
+                    'species' => 'Inka',
+                    'breed' => 'CROSS',
+                    'sex' => $animal->gender === Animal::GENDER_MALE ? 'male' : 'female',
+                    'age_description' => '1',
                     'quantity' => 1,
-                    'movement_condition' => 'healthy',
-                    'inspection_notes' => 'Fit for transport at loading.',
+                    'movement_condition' => MovementPermitAnimal::CONDITION_HEALTHY,
+                    'inspection_notes' => $row['rab'] ?? false ? 'UMUSENGO · KORORA' : 'Fit for transport at loading.',
                 ]);
             }
 
             MovementTransport::query()->create([
                 'movement_permit_id' => $permit->id,
-                'vehicle_type' => 'Cattle truck',
-                'vehicle_number' => 'RAB 482 K',
+                'vehicle_type' => $row['rab'] ?? false ? 'Imodoka' : 'Cattle truck',
+                'vehicle_number' => $row['vehicle'] ?? 'RAB 482 K',
                 'driver_name' => RwandaSeederHelper::fullName(77),
                 'driver_phone' => RwandaSeederHelper::phone(77),
                 'transporter_company' => 'Kagarama Haulage',
-                'route_information' => 'Kagarama → Nyagatare main road',
+                'route_information' => $permit->sourceLocationLabel().' → '.$permit->destination_location,
             ]);
 
-            MovementVeterinaryApproval::query()->create([
-                'movement_permit_id' => $permit->id,
-                'veterinarian_name' => 'Dr. Claudine Mukamana',
-                'inspection_date' => Carbon::now()->subDays(2),
-                'inspection_result' => $row['vet'] === MovementPermit::VET_CLEARED ? 'cleared' : 'pending',
-                'health_clearance' => $row['vet'] === MovementPermit::VET_CLEARED,
-                'disease_check' => true,
-                'quarantine_check' => true,
-                'approval_status' => $row['vet'] === MovementPermit::VET_CLEARED ? 'approved' : 'pending',
-            ]);
+            if (! ($row['rab'] ?? false)) {
+                MovementVeterinaryApproval::query()->create([
+                    'movement_permit_id' => $permit->id,
+                    'veterinarian_name' => 'Dr. Claudine Mukamana',
+                    'inspection_date' => Carbon::now()->subDays(2),
+                    'inspection_result' => $row['vet'] === MovementPermit::VET_CLEARED ? 'cleared' : 'pending',
+                    'health_clearance' => $row['vet'] === MovementPermit::VET_CLEARED,
+                    'disease_check' => true,
+                    'quarantine_check' => true,
+                    'approval_status' => $row['vet'] === MovementPermit::VET_CLEARED ? 'approved' : 'pending',
+                ]);
+            }
 
             foreach ([MovementLog::ACTION_CREATED, MovementLog::ACTION_APPROVED] as $action) {
                 MovementLog::query()->create([
@@ -816,9 +1089,41 @@ class FarmerWorkspaceDemoSeeder extends Seeder
                     'action_by' => $this->owner->id,
                     'action_date' => Carbon::now()->subDays(4),
                     'ip_address' => '196.19.0.20',
-                    'notes' => 'Demo movement workflow event.',
+                    'notes' => ($row['rab'] ?? false)
+                        ? __('Imported from Rwanda movement permit PDF (demo).')
+                        : __('Demo movement workflow event.'),
                 ]);
             }
+
+            if ($row['history'] !== null) {
+                $this->seedMovementHistoriesForPermit($permit, $row['history'], $row['movement_reason']);
+            }
+        }
+    }
+
+    private function seedMovementHistoriesForPermit(MovementPermit $permit, string $status, string $purpose): void
+    {
+        $permit->load('animals');
+
+        foreach ($permit->animals as $line) {
+            if (! $line->animal_id) {
+                continue;
+            }
+
+            MovementHistory::query()->create([
+                'animal_id' => $line->animal_id,
+                'movement_permit_id' => $permit->id,
+                'movement_date' => $permit->departure_date ?? $permit->issue_date ?? now(),
+                'source_farm_id' => $permit->source_farm_id,
+                'source_location' => $permit->sourceLocationLabel(),
+                'destination_location' => $permit->destinationLocationLabel() ?: $permit->destination_location,
+                'movement_purpose' => $purpose,
+                'transport_method' => $permit->transport_mode,
+                'vehicle_plate_number' => $permit->vehicle_plate,
+                'status' => $status,
+                'recorded_by' => $this->owner->id,
+                'remarks' => __('Seeded movement history record.'),
+            ]);
         }
     }
 

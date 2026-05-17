@@ -2,7 +2,6 @@
     $items = [
         ['label' => __('Overview'), 'route' => 'farmer.certificates.hub', 'active' => request()->routeIs('farmer.certificates.hub')],
         ['label' => __('Animal certificates'), 'route' => 'farmer.certificates.animal-certificates.index', 'active' => request()->routeIs('farmer.certificates.animal-certificates.*')],
-        ['label' => __('Templates'), 'route' => 'farmer.certificates.templates.index', 'active' => request()->routeIs('farmer.certificates.templates.*')],
         ['label' => __('Ownership transfers'), 'route' => 'farmer.certificates.ownership-transfers.index', 'active' => request()->routeIs('farmer.certificates.ownership-transfers.*')],
         ['label' => __('History & logs'), 'route' => 'farmer.certificates.logs.index', 'active' => request()->routeIs('farmer.certificates.logs.*')],
     ];

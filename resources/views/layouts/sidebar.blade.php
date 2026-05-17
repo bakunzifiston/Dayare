@@ -97,8 +97,8 @@
                 ['label' => __('Health'), 'route' => 'farmer.health.hub', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['farmer.health.*', 'farmer.farms.health-records.*']],
                 ['label' => __('Feeding'), 'route' => 'farmer.feeding.hub', 'icon' => 'box', 'permission' => null, 'routeIs' => ['farmer.feeding.*']],
                 ['label' => __('Certificates'), 'route' => 'farmer.certificates.hub', 'icon' => 'certificate', 'permission' => null, 'routeIs' => ['farmer.certificates.*']],
-                ['label' => __('Sales'), 'route' => 'farmer.sales.hub', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.sales.*']],
                 ['label' => __('Movement'), 'route' => 'farmer.movement.hub', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.movement.*', 'farmer.movement-permits.*']],
+                ['label' => __('Sales'), 'route' => 'farmer.sales.hub', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.sales.*']],
                 ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => null, 'routeIs' => ['settings.edit']],
             ];
         } else {

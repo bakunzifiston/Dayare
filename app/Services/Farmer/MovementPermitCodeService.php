@@ -24,4 +24,13 @@ class MovementPermitCodeService
 
         return $token;
     }
+
+    public function generateVerificationCode(): string
+    {
+        do {
+            $code = Str::upper(Str::random(8));
+        } while (MovementPermit::withTrashed()->where('verification_code', $code)->exists());
+
+        return $code;
+    }
 }

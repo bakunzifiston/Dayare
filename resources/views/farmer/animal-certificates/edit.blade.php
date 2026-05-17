@@ -5,7 +5,7 @@
         <form method="post" action="{{ route('farmer.certificates.animal-certificates.update', $certificate) }}" class="space-y-6">
             @csrf
             @method('PUT')
-            @include('farmer.animal-certificates.partials.form', compact('certificate', 'animals', 'templates'))
+            @include('farmer.animal-certificates.partials.form', compact('certificate', 'animals'))
             <x-primary-button>{{ __('Save changes') }}</x-primary-button>
         </form>
     </div>

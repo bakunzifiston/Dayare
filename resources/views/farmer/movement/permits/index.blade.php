@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-slot name="header"><div class="flex flex-wrap items-center justify-between gap-4 w-full"><h2 class="font-semibold text-xl text-slate-800">{{ __('Movement permits') }}</h2><a href="{{ route('farmer.movement.permits.create') }}" class="inline-flex items-center rounded-bucha bg-bucha-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white">{{ __('Create permit') }}</a></div></x-slot>
+    <x-slot name="header"><div class="flex flex-wrap items-center justify-between gap-4 w-full"><h2 class="font-semibold text-xl text-slate-800">{{ __('Movement permits') }}</h2><a href="{{ route('farmer.movement.permits.create') }}" class="inline-flex items-center rounded-bucha bg-bucha-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white">{{ __('Import / create permit') }}</a></div></x-slot>
     <div class="max-w-7xl space-y-6">
         @include('farmer.movement.partials.nav')
         <form method="GET" class="grid gap-3 rounded-bucha border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5">

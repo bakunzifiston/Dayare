@@ -23,6 +23,9 @@ Route::prefix('v1')->group(function () {
         ], __('Butchapro mobile API.'));
     });
 
+    Route::get('verify/permit/{identifier}', [\App\Http\Controllers\PublicPermitVerificationController::class, 'api'])
+        ->middleware('throttle:60,1');
+
     Route::post('auth/login', [MobileAuthController::class, 'login'])
         ->middleware('throttle:5,1');
 

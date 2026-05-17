@@ -1,9 +1,10 @@
 @php
     $items = [
         ['label' => __('Overview'), 'route' => 'farmer.movement.hub', 'active' => request()->routeIs('farmer.movement.hub')],
+        ['label' => __('Permit requests'), 'route' => 'farmer.movement.requests.index', 'active' => request()->routeIs('farmer.movement.requests.*')],
         ['label' => __('Permits'), 'route' => 'farmer.movement.permits.index', 'active' => request()->routeIs('farmer.movement.permits.*')],
-        ['label' => __('Movement animals'), 'route' => 'farmer.movement.animals.index', 'active' => request()->routeIs('farmer.movement.animals.*')],
-        ['label' => __('History & logs'), 'route' => 'farmer.movement.logs.index', 'active' => request()->routeIs('farmer.movement.logs.*')],
+        ['label' => __('Movement history'), 'route' => 'farmer.movement.history.index', 'active' => request()->routeIs('farmer.movement.history.*')],
+        ['label' => __('Public verification'), 'route' => 'farmer.movement.verification', 'active' => request()->routeIs('verify.permit.*') || request()->routeIs('farmer.movement.verification')],
     ];
 @endphp
 

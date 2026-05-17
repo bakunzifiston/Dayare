@@ -2,17 +2,7 @@
 
 namespace App\Http\Requests\Farmer;
 
-use Illuminate\Foundation\Http\FormRequest;
-
-class UpdateAnimalRequest extends FormRequest
+class UpdateAnimalRequest extends StoreAnimalRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    public function rules(): array
-    {
-        return (new StoreAnimalRequest)->rules();
-    }
+    // Uses StoreAnimalRequest::prepareForValidation(), rules(), and authorize().
 }

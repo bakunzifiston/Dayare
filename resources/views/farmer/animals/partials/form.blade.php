@@ -57,7 +57,16 @@
         <div class="grid gap-4 sm:grid-cols-2">
             <div>
                 <x-input-label for="acquisition_type" :value="__('Acquisition type')" />
-                <x-text-input id="acquisition_type" name="acquisition_type" type="text" class="mt-1 block w-full" :value="old('acquisition_type', $animal?->acquisition_type)" />
+                <select id="acquisition_type" name="acquisition_type" class="mt-1 block w-full rounded-lg border-gray-300">
+                    <option value="">{{ __('Not set') }}</option>
+                    @if ($animal?->acquisition_type && ! in_array($animal->acquisition_type, \App\Models\Animal::ACQUISITION_TYPES, true))
+                        <option value="{{ $animal->acquisition_type }}" @selected(old('acquisition_type', $animal->acquisition_type) === $animal->acquisition_type)>{{ \App\Models\Animal::acquisitionTypeLabel($animal->acquisition_type) }}</option>
+                    @endif
+                    @foreach (\App\Models\Animal::ACQUISITION_TYPES as $type)
+                        <option value="{{ $type }}" @selected(old('acquisition_type', $animal?->acquisition_type) === $type)>{{ \App\Models\Animal::acquisitionTypeLabel($type) }}</option>
+                    @endforeach
+                </select>
+                <x-input-error :messages="$errors->get('acquisition_type')" class="mt-2" />
             </div>
             <div>
                 <x-input-label for="acquisition_date" :value="__('Acquisition date')" />
@@ -109,7 +118,16 @@
         </div>
         <div>
             <x-input-label for="current_condition" :value="__('Current condition')" />
-            <x-text-input id="current_condition" name="current_condition" type="text" class="mt-1 block w-full" :value="old('current_condition', $animal?->current_condition)" />
+            <select id="current_condition" name="current_condition" class="mt-1 block w-full rounded-lg border-gray-300">
+                <option value="">{{ __('Not set') }}</option>
+                @if ($animal?->current_condition && ! in_array($animal->current_condition, \App\Models\Animal::CURRENT_CONDITIONS, true))
+                    <option value="{{ $animal->current_condition }}" @selected(old('current_condition', $animal->current_condition) === $animal->current_condition)>{{ $animal->current_condition }} ({{ __('legacy') }})</option>
+                @endif
+                @foreach (\App\Models\Animal::CURRENT_CONDITIONS as $condition)
+                    <option value="{{ $condition }}" @selected(old('current_condition', $animal?->current_condition) === $condition)>{{ \App\Models\Animal::currentConditionLabel($condition) }}</option>
+                @endforeach
+            </select>
+            <x-input-error :messages="$errors->get('current_condition')" class="mt-2" />
         </div>
         <div>
             <x-input-label for="notes" :value="__('Notes')" />

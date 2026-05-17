@@ -97,6 +97,8 @@ Route::post('/locale', [LocaleController::class, 'update'])->name('locale.update
 
 Route::get('/trace/{slug}', [\App\Http\Controllers\TraceabilityController::class, 'show'])->name('traceability.show');
 Route::get('/trace/{slug}/pdf', [\App\Http\Controllers\TraceabilityController::class, 'exportPdf'])->name('traceability.pdf');
+Route::get('/verify/permit', [\App\Http\Controllers\PublicPermitVerificationController::class, 'lookup'])->name('verify.permit.lookup');
+Route::get('/verify/permit/{identifier}', [\App\Http\Controllers\PublicPermitVerificationController::class, 'show'])->name('verify.permit.show');
 Route::get('/verify/{token}', \App\Http\Controllers\PublicAnimalVerificationController::class)->name('animal.verify');
 Route::middleware('throttle:30,1')->group(function () {
     Route::get('/animal-passport', [\App\Http\Controllers\PublicAnimalPassportController::class, 'create'])->name('animal.passport.lookup');
@@ -373,7 +375,16 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:farmer', 'tenant.per
     Route::get('health-certificates/{health_certificate}/download', [FarmerHealthCertificateController::class, 'download'])->name('health-certificates.download');
     Route::prefix('movement')->name('movement.')->group(function () {
         Route::get('/', [FarmerMovementHubController::class, 'index'])->name('hub');
+        Route::resource('requests', \App\Http\Controllers\Farmer\PermitRequestController::class)->parameters(['requests' => 'permit_request']);
+        Route::post('requests/{permit_request}/submit', [\App\Http\Controllers\Farmer\PermitRequestController::class, 'submit'])->name('requests.submit');
+        Route::post('requests/{permit_request}/approve', [\App\Http\Controllers\Farmer\PermitRequestController::class, 'approve'])->name('requests.approve');
+        Route::post('requests/{permit_request}/reject', [\App\Http\Controllers\Farmer\PermitRequestController::class, 'reject'])->name('requests.reject');
+        Route::get('requests/{permit_request}/issue-permit', [\App\Http\Controllers\Farmer\PermitRequestController::class, 'issuePermit'])->name('requests.issue-permit');
+        Route::get('history', [\App\Http\Controllers\Farmer\MovementHistoryController::class, 'index'])->name('history.index');
+        Route::get('history/{movementHistory}', [\App\Http\Controllers\Farmer\MovementHistoryController::class, 'show'])->name('history.show');
+        Route::get('verification', fn () => redirect()->route('verify.permit.lookup'))->name('verification');
         Route::get('permits/{movement_permit}/download', [MovementPermitController::class, 'download'])->name('permits.download');
+        Route::post('permits/import-pdf', [MovementPermitController::class, 'importFromPdf'])->name('permits.import-pdf');
         Route::resource('permits', MovementPermitController::class)->parameters(['permits' => 'movement_permit']);
         Route::post('permits/{movement_permit}/submit', [MovementPermitController::class, 'submit'])->name('permits.submit');
         Route::post('permits/{movement_permit}/approve', [MovementPermitController::class, 'approve'])->name('permits.approve');
@@ -387,6 +398,7 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:farmer', 'tenant.per
     Route::redirect('movement-permits', '/farmer/movement/permits')->name('movement-permits.index');
     Route::redirect('movement-permits/create', '/farmer/movement/permits/create')->name('movement-permits.create');
     Route::post('movement-permits', [MovementPermitController::class, 'store'])->name('movement-permits.store');
+    Route::post('movement-permits/import-pdf', [MovementPermitController::class, 'importFromPdf'])->name('movement-permits.import-pdf');
     Route::get('movement-permits/{movement_permit}', fn (\App\Models\MovementPermit $movementPermit) => redirect()->route('farmer.movement.permits.show', $movementPermit))->name('movement-permits.show');
     Route::get('movement-permits/{movement_permit}/download', [MovementPermitController::class, 'download'])->name('movement-permits.download');
     Route::resource('farms', FarmController::class);

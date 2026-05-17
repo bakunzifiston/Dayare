@@ -55,15 +55,9 @@ class AnimalCertificateController extends Controller
         $this->authorize('create', AnimalCertificate::class);
 
         $animals = $this->accessibleAnimalsQuery($request)->orderBy('animal_code')->get();
-        $templates = \App\Models\AnimalCertificateTemplate::query()
-            ->whereIn('business_id', $this->accessibleBusinessIds($request))
-            ->where('status', 'active')
-            ->orderBy('template_name')
-            ->get();
 
         return view('farmer.animal-certificates.create', [
             'animals' => $animals,
-            'templates' => $templates,
             'selectedAnimalId' => (int) $request->query('animal_id'),
         ]);
     }
@@ -77,7 +71,7 @@ class AnimalCertificateController extends Controller
 
         $businessId = (int) $animal->livestock?->farm?->business_id;
         $type = $request->validated('certificate_type');
-        $template = $service->resolveTemplate($request->validated('template_id'), $businessId, $type);
+        $template = $service->resolveTemplate(null, $businessId, $type);
 
         $certificate = AnimalCertificate::query()->create([
             'animal_id' => $animal->id,
@@ -119,13 +113,8 @@ class AnimalCertificateController extends Controller
         $this->authorize('update', $certificate);
 
         $animals = $this->accessibleAnimalsQuery($request)->orderBy('animal_code')->get();
-        $templates = \App\Models\AnimalCertificateTemplate::query()
-            ->whereIn('business_id', $this->accessibleBusinessIds($request))
-            ->where('status', 'active')
-            ->orderBy('template_name')
-            ->get();
 
-        return view('farmer.animal-certificates.edit', compact('certificate', 'animals', 'templates'));
+        return view('farmer.animal-certificates.edit', compact('certificate', 'animals'));
     }
 
     public function update(UpdateAnimalCertificateRequest $request, AnimalCertificate $certificate, AnimalCertificateService $service): RedirectResponse

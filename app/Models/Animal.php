@@ -83,6 +83,62 @@ class Animal extends Model
         self::GENDER_UNKNOWN,
     ];
 
+    public const ACQUISITION_TYPE_BIRTH = 'birth';
+
+    public const ACQUISITION_TYPE_PURCHASE = 'purchase';
+
+    public const ACQUISITION_TYPE_GIFT = 'gift';
+
+    public const ACQUISITION_TYPE_TRANSFER_IN = 'transfer_in';
+
+    public const ACQUISITION_TYPE_DONATION = 'donation';
+
+    public const ACQUISITION_TYPE_INHERITANCE = 'inheritance';
+
+    public const ACQUISITION_TYPE_IMPORT = 'import';
+
+    public const ACQUISITION_TYPE_OTHER = 'other';
+
+    /** @var list<string> */
+    public const ACQUISITION_TYPES = [
+        self::ACQUISITION_TYPE_BIRTH,
+        self::ACQUISITION_TYPE_PURCHASE,
+        self::ACQUISITION_TYPE_GIFT,
+        self::ACQUISITION_TYPE_TRANSFER_IN,
+        self::ACQUISITION_TYPE_DONATION,
+        self::ACQUISITION_TYPE_INHERITANCE,
+        self::ACQUISITION_TYPE_IMPORT,
+        self::ACQUISITION_TYPE_OTHER,
+    ];
+
+    /** @var list<string> Legacy values still accepted when editing existing records. */
+    public const ACQUISITION_TYPES_LEGACY = [
+        'breeding_stock',
+        'farm_raised',
+    ];
+
+    public const CURRENT_CONDITION_RIZIMA = 'rizima';
+
+    public const CURRENT_CONDITION_RIRWAYE = 'rirwaye';
+
+    public const CURRENT_CONDITION_RYAKOMEREKEJWE = 'ryakomerekejwe';
+
+    public const CURRENT_CONDITION_RITWITE = 'ritwite';
+
+    public const CURRENT_CONDITION_RIRI_MU_MASHEREKA = 'riri_mu_mashereka';
+
+    public const CURRENT_CONDITION_RIRI_KUVURWA = 'riri_kuvurwa';
+
+    /** @var list<string> */
+    public const CURRENT_CONDITIONS = [
+        self::CURRENT_CONDITION_RIZIMA,
+        self::CURRENT_CONDITION_RIRWAYE,
+        self::CURRENT_CONDITION_RYAKOMEREKEJWE,
+        self::CURRENT_CONDITION_RITWITE,
+        self::CURRENT_CONDITION_RIRI_MU_MASHEREKA,
+        self::CURRENT_CONDITION_RIRI_KUVURWA,
+    ];
+
     protected $fillable = [
         'livestock_id',
         'animal_code',
@@ -226,6 +282,52 @@ class Animal extends Model
         }
 
         return implode(' · ', array_values(array_unique(array_filter($parts))));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function acquisitionTypesForValidation(): array
+    {
+        return array_values(array_unique(array_merge(self::ACQUISITION_TYPES, self::ACQUISITION_TYPES_LEGACY)));
+    }
+
+    public static function acquisitionTypeLabel(?string $type): string
+    {
+        if ($type === null || $type === '') {
+            return '';
+        }
+
+        return match ($type) {
+            self::ACQUISITION_TYPE_BIRTH => __('Birth'),
+            self::ACQUISITION_TYPE_PURCHASE => __('Purchase'),
+            self::ACQUISITION_TYPE_GIFT => __('Gift'),
+            self::ACQUISITION_TYPE_TRANSFER_IN => __('Transfer In'),
+            self::ACQUISITION_TYPE_DONATION => __('Donation'),
+            self::ACQUISITION_TYPE_INHERITANCE => __('Inheritance'),
+            self::ACQUISITION_TYPE_IMPORT => __('Import'),
+            self::ACQUISITION_TYPE_OTHER => __('Other'),
+            'breeding_stock' => __('Breeding stock (legacy)'),
+            'farm_raised' => __('Farm raised (legacy)'),
+            default => ucfirst(str_replace('_', ' ', $type)),
+        };
+    }
+
+    public static function currentConditionLabel(?string $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return match ($value) {
+            self::CURRENT_CONDITION_RIZIMA => __('Rizima (Healthy)'),
+            self::CURRENT_CONDITION_RIRWAYE => __('Rirwaye (Sick)'),
+            self::CURRENT_CONDITION_RYAKOMEREKEJWE => __('Ryakomerekejwe (Injured)'),
+            self::CURRENT_CONDITION_RITWITE => __('Ritwite (Pregnant)'),
+            self::CURRENT_CONDITION_RIRI_MU_MASHEREKA => __('Riri mu mashereka (Lactating)'),
+            self::CURRENT_CONDITION_RIRI_KUVURWA => __('Riri kuvurwa (Under Treatment)'),
+            default => (string) $value,
+        };
     }
 
     /**

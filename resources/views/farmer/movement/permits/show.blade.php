@@ -3,13 +3,18 @@
         <div class="flex flex-wrap items-center justify-between gap-4 w-full">
             <div>
                 <h2 class="font-semibold text-xl text-slate-800">{{ $permit->permit_number }}</h2>
-                <p class="text-sm text-slate-500">{{ $permit->sourceFarm?->name }} · {{ str_replace('_', ' ', $permit->permit_type) }}</p>
+                <p class="text-sm text-slate-500">
+                    {{ $permit->sourceFarm?->name }} · {{ str_replace('_', ' ', $permit->permit_type) }}
+                    @if ($permit->imported_from_pdf)
+                        · <span class="text-emerald-700">{{ __('Imported from RAB PDF') }}</span>
+                    @endif
+                </p>
             </div>
             <div class="flex flex-wrap gap-2">
                 @if ($permit->isEditable())
                     <a href="{{ route('farmer.movement.permits.edit', $permit) }}" class="rounded-lg border border-slate-200 px-3 py-2 text-sm">{{ __('Edit') }}</a>
                 @endif
-                <a href="{{ route('farmer.movement.permits.download', $permit) }}" class="rounded-lg border border-slate-200 px-3 py-2 text-sm">{{ __('Download PDF') }}</a>
+                <a href="{{ route('farmer.movement.permits.download', $permit) }}" class="rounded-lg border border-slate-200 px-3 py-2 text-sm">{{ __('Download original PDF') }}</a>
             </div>
         </div>
     </x-slot>
@@ -21,6 +26,9 @@
             <div><p class="text-xs uppercase text-slate-500">{{ __('Veterinary clearance') }}</p><p class="mt-1 text-sm font-medium capitalize">{{ str_replace('_', ' ', $permit->veterinary_status) }}</p></div>
             <div><p class="text-xs uppercase text-slate-500">{{ __('Validity today') }}</p><p class="mt-1 text-sm font-medium">{{ $isValid ? __('Valid') : __('Not valid') }}</p></div>
         </section>
+
+        @include('farmer.movement.permits.partials.show-details', ['permit' => $permit])
+
         <div class="grid gap-6 lg:grid-cols-2">
             <section class="rounded-bucha border border-slate-200 bg-white p-6 shadow-sm text-sm">
                 <h3 class="text-sm font-semibold text-slate-900">{{ __('Route & schedule') }}</h3>
@@ -42,18 +50,44 @@
             </section>
         </div>
         <section class="rounded-bucha border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 class="text-sm font-semibold text-slate-900">{{ __('Animals on this permit') }}</h3>
+            <h3 class="text-sm font-semibold text-slate-900">{{ __('Animals on this permit') }} <span class="font-normal text-slate-500">({{ $permit->animals->count() }})</span></h3>
             <div class="mt-4 overflow-x-auto">
                 <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-left text-slate-600"><tr><th class="px-3 py-2">{{ __('Animal') }}</th><th class="px-3 py-2">{{ __('Identifier') }}</th><th class="px-3 py-2">{{ __('Condition') }}</th><th class="px-3 py-2">{{ __('Loading') }}</th><th class="px-3 py-2">{{ __('Arrival') }}</th></tr></thead>
+                    <thead class="bg-slate-50 text-left text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2">{{ __('Ear tag') }}</th>
+                            <th class="px-3 py-2">{{ __('Matched animal') }}</th>
+                            <th class="px-3 py-2">{{ __('Species') }}</th>
+                            <th class="px-3 py-2">{{ __('Sex') }}</th>
+                            <th class="px-3 py-2">{{ __('Breed') }}</th>
+                            <th class="px-3 py-2">{{ __('Qty') }}</th>
+                            <th class="px-3 py-2">{{ __('Mark / notes') }}</th>
+                            @unless ($permit->imported_from_pdf)
+                                <th class="px-3 py-2">{{ __('Condition') }}</th>
+                                <th class="px-3 py-2">{{ __('Loading') }}</th>
+                            @endunless
+                        </tr>
+                    </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($permit->animals as $line)
                             <tr>
-                                <td class="px-3 py-2">{{ $line->animal?->animal_code ?: $line->animal_identifier ?: '—' }}</td>
-                                <td class="px-3 py-2">{{ $line->animal_identifier ?: $line->animal?->tag_number ?: '—' }}</td>
-                                <td class="px-3 py-2 capitalize">{{ str_replace('_', ' ', $line->movement_condition) }}</td>
-                                <td class="px-3 py-2 capitalize">{{ str_replace('_', ' ', $line->loading_status) }}</td>
-                                <td class="px-3 py-2 capitalize">{{ $line->arrival_status ? str_replace('_', ' ', $line->arrival_status) : '—' }}</td>
+                                <td class="px-3 py-2 font-mono text-xs">{{ $line->animal_identifier ?: '—' }}</td>
+                                <td class="px-3 py-2">
+                                    @if ($line->animal)
+                                        <a href="{{ route('farmer.farms.livestock.animals.show', [$line->animal->livestock->farm_id, $line->animal->livestock_id, $line->animal_id]) }}" class="text-bucha-primary hover:underline">{{ $line->animal->selectionLabel() }}</a>
+                                    @else
+                                        <span class="text-amber-700">{{ __('Not linked') }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-2">{{ $line->species ?: '—' }}</td>
+                                <td class="px-3 py-2 capitalize">{{ $line->sex ?: '—' }}</td>
+                                <td class="px-3 py-2">{{ $line->breed ?: '—' }}</td>
+                                <td class="px-3 py-2">{{ $line->quantity ?: 1 }}</td>
+                                <td class="px-3 py-2 text-slate-600">{{ $line->inspection_notes ?: $line->notes ?: '—' }}</td>
+                                @unless ($permit->imported_from_pdf)
+                                    <td class="px-3 py-2 capitalize">{{ str_replace('_', ' ', $line->movement_condition) }}</td>
+                                    <td class="px-3 py-2 capitalize">{{ str_replace('_', ' ', $line->loading_status) }}</td>
+                                @endunless
                             </tr>
                         @endforeach
                     </tbody>

@@ -18,7 +18,6 @@ class StoreAnimalCertificateRequest extends FormRequest
     {
         return [
             'animal_id' => ['required', 'integer', 'exists:animals,id'],
-            'template_id' => ['nullable', 'integer', 'exists:animal_certificate_templates,id'],
             'certificate_type' => ['required', 'string', Rule::in(AnimalCertificate::TYPES)],
             'certificate_title' => ['nullable', 'string', 'max:255'],
             'issue_date' => ['required', 'date', 'before_or_equal:today'],
