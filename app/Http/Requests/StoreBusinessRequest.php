@@ -23,7 +23,7 @@ class StoreBusinessRequest extends FormRequest
             'type' => ['nullable', 'string', Rule::in(Business::TYPES)],
             // Business info
             'business_name' => [
-                'required',
+                'nullable',
                 'string',
                 'max:255',
                 function (string $attribute, mixed $value, \Closure $fail): void {
@@ -33,14 +33,14 @@ class StoreBusinessRequest extends FormRequest
                     }
                 },
             ],
-            'registration_number' => ['required', 'string', 'max:100', 'unique:businesses,registration_number'],
+            'registration_number' => ['nullable', 'string', 'max:100', 'unique:businesses,registration_number'],
             'tax_id' => ['nullable', 'string', 'max:100'],
-            'contact_phone' => ['required', 'string', 'max:50'],
-            'email' => ['required', 'email', 'max:255'],
-            'status' => ['required', 'string', Rule::in(Business::STATUSES)],
+            'contact_phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'status' => ['nullable', 'string', Rule::in(Business::STATUSES)],
             // Ownership info
-            'owner_first_name' => ['required', 'string', 'max:255'],
-            'owner_last_name' => ['required', 'string', 'max:255'],
+            'owner_first_name' => ['nullable', 'string', 'max:255'],
+            'owner_last_name' => ['nullable', 'string', 'max:255'],
             'owner_dob' => ['nullable', 'date', 'before:today'],
             'owner_gender' => ['nullable', 'string', Rule::in(Business::OWNER_GENDERS)],
             'owner_pwd_status' => ['nullable', 'string', Rule::in(Business::OWNER_PWD_STATUSES)],
@@ -98,6 +98,26 @@ class StoreBusinessRequest extends FormRequest
 
         if ($this->input('baseline_revenue') === '') {
             $this->merge(['baseline_revenue' => null]);
+        }
+
+        if (blank($this->input('business_name'))) {
+            $this->merge(['business_name' => __('Draft business').' '.strtoupper(Str::ulid())]);
+        }
+
+        if (blank($this->input('registration_number'))) {
+            $this->merge(['registration_number' => 'PENDING-'.strtoupper(Str::ulid())]);
+        }
+
+        if (blank($this->input('contact_phone'))) {
+            $this->merge(['contact_phone' => '—']);
+        }
+
+        if (blank($this->input('email'))) {
+            $this->merge(['email' => $this->user()?->email ?? 'pending@example.invalid']);
+        }
+
+        if (blank($this->input('status'))) {
+            $this->merge(['status' => Business::STATUS_ACTIVE]);
         }
     }
 

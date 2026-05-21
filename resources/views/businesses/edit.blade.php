@@ -26,13 +26,13 @@
                     <div class="p-6 space-y-4">
                         <div>
                             <x-input-label for="business_name" :value="__('Business name')" />
-                            <x-text-input id="business_name" name="business_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('business_name', $business->business_name)" required />
+                            <x-text-input id="business_name" name="business_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('business_name', $business->business_name)" />
                             <x-input-error class="mt-2" :messages="$errors->get('business_name')" />
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <x-input-label for="registration_number" :value="__('RDB registration number')" />
-                                <x-text-input id="registration_number" name="registration_number" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('registration_number', $business->registration_number)" required />
+                                <x-text-input id="registration_number" name="registration_number" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('registration_number', $business->registration_number)" />
                                 <x-input-error class="mt-2" :messages="$errors->get('registration_number')" />
                             </div>
                             <div>
@@ -44,12 +44,12 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <x-input-label for="contact_phone" :value="__('Contact phone')" />
-                                <x-text-input id="contact_phone" name="contact_phone" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('contact_phone', $business->contact_phone)" required />
+                                <x-text-input id="contact_phone" name="contact_phone" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('contact_phone', $business->contact_phone)" />
                                 <x-input-error class="mt-2" :messages="$errors->get('contact_phone')" />
                             </div>
                             <div>
                                 <x-input-label for="email" :value="__('Email')" />
-                                <x-text-input id="email" name="email" type="email" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('email', $business->email)" required />
+                                <x-text-input id="email" name="email" type="email" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('email', $business->email)" />
                                 <x-input-error class="mt-2" :messages="$errors->get('email')" />
                             </div>
                         </div>
@@ -94,12 +94,12 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <x-input-label for="owner_first_name" :value="__('First name')" />
-                                <x-text-input id="owner_first_name" name="owner_first_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_first_name', $business->owner_first_name ?? $business->owner_name)" required />
+                                <x-text-input id="owner_first_name" name="owner_first_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_first_name', $business->owner_first_name ?? $business->owner_name)" />
                                 <x-input-error class="mt-2" :messages="$errors->get('owner_first_name')" />
                             </div>
                             <div>
                                 <x-input-label for="owner_last_name" :value="__('Last name')" />
-                                <x-text-input id="owner_last_name" name="owner_last_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_last_name', $business->owner_last_name)" required />
+                                <x-text-input id="owner_last_name" name="owner_last_name" type="text" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary" :value="old('owner_last_name', $business->owner_last_name)" />
                                 <x-input-error class="mt-2" :messages="$errors->get('owner_last_name')" />
                             </div>
                         </div>
@@ -319,7 +319,7 @@
                     <div class="p-6 space-y-4">
                         <div>
                             <x-input-label for="country_id" :value="__('Country')" />
-                            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm" required>
+                            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
                                 <option value="">{{ __('Select country') }}</option>
                                 <template x-for="d in countries" :key="d.id">
                                     <option :value="d.id" x-text="d.name"></option>

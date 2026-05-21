@@ -175,11 +175,19 @@ class InspectorController extends Controller
     private function syncInspectorLocationFromDivisions(array $data, ?Inspector $inspector = null): array
     {
         if (! empty($data['country_id'])) {
-            $data['country'] = AdministrativeDivision::find($data['country_id'])?->name ?? $data['country'] ?? '';
-            $data['district'] = isset($data['district_id']) ? (AdministrativeDivision::find($data['district_id'])?->name ?? $data['district'] ?? '') : ($data['district'] ?? '');
-            $data['sector'] = isset($data['sector_id']) ? (AdministrativeDivision::find($data['sector_id'])?->name ?? $data['sector'] ?? '') : ($data['sector'] ?? '');
-            $data['cell'] = isset($data['cell_id']) ? (AdministrativeDivision::find($data['cell_id'])?->name ?? $data['cell'] ?? null) : ($data['cell'] ?? null);
-            $data['village'] = isset($data['village_id']) ? (AdministrativeDivision::find($data['village_id'])?->name ?? $data['village'] ?? null) : ($data['village'] ?? null);
+            $data['country'] = $this->divisionName($data['country_id']) ?? ($data['country'] ?? '');
+            $data['district'] = ! empty($data['district_id'])
+                ? ($this->divisionName($data['district_id']) ?? ($data['district'] ?? ''))
+                : ($data['district'] ?? '');
+            $data['sector'] = ! empty($data['sector_id'])
+                ? ($this->divisionName($data['sector_id']) ?? ($data['sector'] ?? ''))
+                : ($data['sector'] ?? '');
+            $data['cell'] = ! empty($data['cell_id'])
+                ? ($this->divisionName($data['cell_id']) ?? ($data['cell'] ?? null))
+                : ($data['cell'] ?? null);
+            $data['village'] = ! empty($data['village_id'])
+                ? ($this->divisionName($data['village_id']) ?? ($data['village'] ?? null))
+                : ($data['village'] ?? null);
         } elseif ($inspector) {
             $data['country'] = $data['country'] ?? $inspector->country;
             $data['district'] = $data['district'] ?? $inspector->district;
@@ -188,7 +196,34 @@ class InspectorController extends Controller
             $data['village'] = $data['village'] ?? $inspector->village;
         }
 
+        // Legacy text columns are NOT NULL — ensure defaults when location is omitted on the form.
+        $country = trim((string) ($data['country'] ?? $inspector?->country ?? ''));
+        if ($country === '' && ! empty($data['nationality'])) {
+            $country = trim((string) $data['nationality']);
+        }
+        $data['country'] = $country;
+        $data['district'] = trim((string) ($data['district'] ?? $inspector?->district ?? ''));
+        $data['sector'] = trim((string) ($data['sector'] ?? $inspector?->sector ?? ''));
+
+        foreach (['cell', 'village'] as $field) {
+            if (! array_key_exists($field, $data)) {
+                $data[$field] = $inspector?->{$field};
+                continue;
+            }
+            $value = $data[$field];
+            $data[$field] = ($value === null || $value === '') ? null : (string) $value;
+        }
+
         return $data;
+    }
+
+    private function divisionName(?int $divisionId): ?string
+    {
+        if (! $divisionId) {
+            return null;
+        }
+
+        return AdministrativeDivision::query()->whereKey($divisionId)->value('name');
     }
 
     private function speciesAllowedToString(mixed $value): string

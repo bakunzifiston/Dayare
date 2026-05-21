@@ -65,7 +65,6 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\LogisticsDashboardController;
 use App\Http\Controllers\LogisticsModuleController;
 use App\Http\Controllers\PostMortemInspectionController;
-use App\Http\Controllers\Processor\ProcessorSupplyRequestController;
 use App\Http\Controllers\ProcessorBusinessContextController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipientController;
@@ -533,9 +532,8 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::resource('tenant-users', TenantUserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->names('tenant-users');
 
     Route::prefix('processor')->name('processor.')->group(function () {
-        Route::get('supply-requests', [ProcessorSupplyRequestController::class, 'index'])->name('supply-requests.index');
-        Route::get('supply-requests/create', [ProcessorSupplyRequestController::class, 'create'])->name('supply-requests.create');
-        Route::post('supply-requests', [ProcessorSupplyRequestController::class, 'store'])->name('supply-requests.store');
+        Route::redirect('supply-requests', '/dashboard')->name('supply-requests.index');
+        Route::redirect('supply-requests/create', '/dashboard')->name('supply-requests.create');
         Route::post('business-context', [ProcessorBusinessContextController::class, 'update'])->name('business-context.update');
     });
 

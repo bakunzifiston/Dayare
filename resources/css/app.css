@@ -16,4 +16,121 @@
         @apply antialiased text-slate-900;
         background-color: var(--bucha-canvas);
     }
+
+    [x-cloak] {
+        display: none !important;
+    }
+}
+
+@layer components {
+    .bucha-wizard-sidebar {
+        background: linear-gradient(
+            165deg,
+            var(--bucha-primary) 0%,
+            var(--bucha-burgundy) 52%,
+            var(--bucha-charcoal) 100%
+        );
+        color: #fff;
+    }
+
+    .bucha-wizard-panel {
+        @apply rounded-bucha border border-slate-200/90 bg-white p-6 sm:p-8 shadow-bucha-md;
+    }
+
+    .bucha-wizard-form {
+        @apply space-y-6;
+    }
+
+    .bucha-wizard-section {
+        @apply rounded-bucha border border-slate-200/70 bg-white p-5 sm:p-6 shadow-bucha;
+    }
+
+    .bucha-wizard-section__head {
+        @apply mb-5 border-b border-slate-200/80 pb-4;
+    }
+
+    .bucha-wizard-section__title {
+        @apply text-sm font-semibold tracking-tight text-slate-800;
+    }
+
+    .bucha-wizard-section__subtitle {
+        @apply mt-2 text-sm leading-relaxed text-slate-500;
+    }
+
+    .bucha-wizard-section__body {
+        @apply space-y-5;
+    }
+
+    .bucha-wizard-field + .bucha-wizard-field {
+        @apply mt-0;
+    }
+
+    .bucha-wizard-label {
+        @apply mb-2 block text-sm font-semibold text-slate-800;
+    }
+
+    .bucha-wizard-hint {
+        @apply -mt-0.5 mb-2.5 text-xs leading-relaxed text-slate-500;
+    }
+
+    .bucha-wizard-grid {
+        @apply grid grid-cols-1 gap-5 sm:grid-cols-2;
+    }
+
+    .bucha-wizard-grid--3 {
+        @apply grid grid-cols-1 gap-5 sm:grid-cols-3;
+    }
+
+    .bucha-wizard-input,
+    .bucha-wizard-form input[type='text'],
+    .bucha-wizard-form input[type='email'],
+    .bucha-wizard-form input[type='tel'],
+    .bucha-wizard-form input[type='number'],
+    .bucha-wizard-form input[type='date'],
+    .bucha-wizard-form textarea {
+        @apply block w-full min-h-[2.75rem] rounded-bucha border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm transition;
+        @apply placeholder:text-slate-400;
+        @apply focus:border-bucha-primary focus:outline-none focus:ring-2 focus:ring-bucha-primary/25;
+    }
+
+    .bucha-wizard-form textarea {
+        @apply min-h-[6rem] resize-y;
+    }
+
+    .bucha-wizard-select,
+    .bucha-wizard-form select {
+        @apply block w-full min-h-[2.75rem] cursor-pointer rounded-bucha border border-slate-200 bg-white py-2.5 pl-3.5 pr-10 text-sm text-slate-900 shadow-sm transition;
+        @apply focus:border-bucha-primary focus:outline-none focus:ring-2 focus:ring-bucha-primary/25;
+        @apply disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23718096'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1.125rem;
+    }
+
+    .bucha-wizard-form input.tabular-nums {
+        @apply text-right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .bucha-wizard-checkbox-row {
+        @apply flex items-start gap-3 rounded-bucha border border-slate-200/80 bg-slate-50/50 px-4 py-3.5;
+    }
+
+    .bucha-wizard-checkbox-row input[type='checkbox'] {
+        @apply mt-0.5 h-4 w-4 rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary/30;
+    }
+
+    .bucha-wizard-checkbox-row span {
+        @apply text-sm leading-relaxed text-slate-700;
+    }
+
+    .bucha-wizard-member-card {
+        @apply space-y-4 rounded-bucha border border-slate-200 bg-slate-50/60 p-4 sm:p-5 shadow-sm;
+    }
+
+    .bucha-wizard-add-btn {
+        @apply inline-flex items-center rounded-bucha border border-dashed border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-bucha-primary/40 hover:bg-bucha-canvas hover:text-bucha-primary;
+    }
 }

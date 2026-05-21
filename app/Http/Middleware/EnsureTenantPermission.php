@@ -26,7 +26,6 @@ class EnsureTenantPermission
             'update' => BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE,
             'delete' => BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE,
         ],
-        'processor.supply-requests' => ['view' => BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE],
         'slaughter-plans' => [
             'view' => BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER,
             'create' => BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER,
