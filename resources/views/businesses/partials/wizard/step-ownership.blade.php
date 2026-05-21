@@ -1,18 +1,19 @@
+@php $business = $business ?? null; @endphp
 <div class="bucha-wizard-form">
     <x-wizard-section :title="__('Owner details')" :subtitle="__('Legal owner or primary representative for this business.')">
         <div class="bucha-wizard-grid">
             <x-wizard-field for="owner_first_name" :label="__('First name')">
-                <input id="owner_first_name" name="owner_first_name" type="text" class="bucha-wizard-input" value="{{ old('owner_first_name') }}" data-wizard-track />
+                <input id="owner_first_name" name="owner_first_name" type="text" class="bucha-wizard-input" value="{{ old('owner_first_name', $business?->owner_first_name ?? $business?->owner_name) }}" data-wizard-track />
                 <x-input-error class="mt-2" :messages="$errors->get('owner_first_name')" />
             </x-wizard-field>
             <x-wizard-field for="owner_last_name" :label="__('Last name')">
-                <input id="owner_last_name" name="owner_last_name" type="text" class="bucha-wizard-input" value="{{ old('owner_last_name') }}" data-wizard-track />
+                <input id="owner_last_name" name="owner_last_name" type="text" class="bucha-wizard-input" value="{{ old('owner_last_name', $business?->owner_last_name) }}" data-wizard-track />
                 <x-input-error class="mt-2" :messages="$errors->get('owner_last_name')" />
             </x-wizard-field>
         </div>
 
         <x-wizard-field for="owner_dob" :label="__('Date of birth')" :hint="__('Optional — used for demographic reporting.')">
-            <input id="owner_dob" name="owner_dob" type="date" class="bucha-wizard-input" data-wizard-track value="{{ old('owner_dob') }}" max="{{ date('Y-m-d') }}" />
+            <input id="owner_dob" name="owner_dob" type="date" class="bucha-wizard-input" data-wizard-track value="{{ old('owner_dob', $business?->owner_dob?->format('Y-m-d')) }}" max="{{ date('Y-m-d') }}" />
             <x-input-error class="mt-2" :messages="$errors->get('owner_dob')" />
         </x-wizard-field>
 
@@ -21,7 +22,7 @@
                 <select id="owner_gender" name="owner_gender" class="bucha-wizard-select" data-wizard-track>
                     <option value="">{{ __('Select gender') }}</option>
                     @foreach (\App\Models\Business::OWNER_GENDERS as $gender)
-                        <option value="{{ $gender }}" @selected(old('owner_gender') === $gender)>{{ __(ucfirst($gender)) }}</option>
+                        <option value="{{ $gender }}" @selected(old('owner_gender', $business?->owner_gender) === $gender)>{{ __(ucfirst($gender)) }}</option>
                     @endforeach
                 </select>
                 <x-input-error class="mt-2" :messages="$errors->get('owner_gender')" />
@@ -30,7 +31,7 @@
                 <select id="owner_pwd_status" name="owner_pwd_status" class="bucha-wizard-select" data-wizard-track>
                     <option value="">{{ __('Select status') }}</option>
                     @foreach (\App\Models\Business::OWNER_PWD_STATUSES as $pwdStatus)
-                        <option value="{{ $pwdStatus }}" @selected(old('owner_pwd_status') === $pwdStatus)>{{ __(ucfirst($pwdStatus)) }}</option>
+                        <option value="{{ $pwdStatus }}" @selected(old('owner_pwd_status', $business?->owner_pwd_status) === $pwdStatus)>{{ __(ucfirst($pwdStatus)) }}</option>
                     @endforeach
                 </select>
                 <x-input-error class="mt-2" :messages="$errors->get('owner_pwd_status')" />
@@ -39,11 +40,11 @@
 
         <div class="bucha-wizard-grid">
             <x-wizard-field for="owner_phone" :label="__('Owner phone')">
-                <input id="owner_phone" name="owner_phone" type="tel" class="bucha-wizard-input" data-wizard-track value="{{ old('owner_phone') }}" />
+                <input id="owner_phone" name="owner_phone" type="tel" class="bucha-wizard-input" data-wizard-track value="{{ old('owner_phone', $business?->owner_phone) }}" />
                 <x-input-error class="mt-2" :messages="$errors->get('owner_phone')" />
             </x-wizard-field>
             <x-wizard-field for="owner_email" :label="__('Owner email')">
-                <input id="owner_email" name="owner_email" type="email" class="bucha-wizard-input" data-wizard-track value="{{ old('owner_email') }}" />
+                <input id="owner_email" name="owner_email" type="email" class="bucha-wizard-input" data-wizard-track value="{{ old('owner_email', $business?->owner_email) }}" />
                 <x-input-error class="mt-2" :messages="$errors->get('owner_email')" />
             </x-wizard-field>
         </div>
@@ -54,7 +55,7 @@
             <select id="ownership_type" name="ownership_type" x-model="ownershipType" @change="if ((ownershipType === 'partnership' || ownershipType === 'cooperative' || ownershipType === 'company') && members.length === 0) addMember()" class="bucha-wizard-select" data-wizard-track>
                 <option value="">{{ __('Select type') }}</option>
                 @foreach (\App\Models\Business::OWNERSHIP_TYPES as $t)
-                    <option value="{{ $t }}" @selected(old('ownership_type') === $t)>{{ __(ucfirst(str_replace('_', ' ', $t))) }}</option>
+                    <option value="{{ $t }}" @selected(old('ownership_type', $business?->ownership_type) === $t)>{{ __(ucfirst(str_replace('_', ' ', $t))) }}</option>
                 @endforeach
             </select>
             <x-input-error class="mt-2" :messages="$errors->get('ownership_type')" />

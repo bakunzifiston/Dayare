@@ -1,4 +1,18 @@
 @php
+    $business = $business ?? null;
+    $formId = $formId ?? 'business-create-form';
+    $formAction = $formAction ?? route('businesses.store');
+    $formMethod = $formMethod ?? 'post';
+    $draftKey = $draftKey ?? 'bucha-processor-business-onboarding-draft';
+    $sidebarBadge = $sidebarBadge ?? __('New business setup');
+    $sidebarTitle = $sidebarTitle ?? __('Business Onboarding Wizard');
+    $sidebarDescription = $sidebarDescription ?? __('Capture operator survey details covering identity, workforce, operations, and digital readiness.');
+    $headerTitle = $headerTitle ?? __('Complete the setup');
+    $submitLabel = $submitLabel ?? __('Register business');
+    $backUrl = $backUrl ?? route('businesses.hub');
+    $backLabel = $backLabel ?? __('← Back to businesses');
+    $cancelUrl = $cancelUrl ?? route('businesses.hub');
+
     $wizardSteps = [
         1 => ['short' => __('Business info'), 'title' => __('Business info'), 'subtitle' => __('Official business details and contact.')],
         2 => ['short' => __('Ownership'), 'title' => __('Ownership info'), 'subtitle' => __('Owner or legal representative details.')],
@@ -6,7 +20,32 @@
         4 => ['short' => __('VIBE'), 'title' => __('VIBE metadata'), 'subtitle' => __('Tracking fields used by the VIBE pathway.')],
         5 => ['short' => __('Location'), 'title' => __('Location'), 'subtitle' => __('Business address and administrative location.')],
     ];
-    $createInitialMembers = array_values(old('members', [['first_name' => '', 'last_name' => '', 'phone' => '', 'email' => '', 'date_of_birth' => '', 'gender' => '', 'pwd_status' => '']]));
+
+    $wizardInitialMembers = old('members');
+    if ($wizardInitialMembers === null && $business) {
+        $wizardInitialMembers = $business->ownershipMembers->map(fn ($m) => [
+            'first_name' => $m->first_name,
+            'last_name' => $m->last_name,
+            'phone' => $m->phone ?? '',
+            'email' => $m->email ?? '',
+            'date_of_birth' => $m->date_of_birth?->format('Y-m-d') ?? '',
+            'gender' => $m->gender ?? '',
+            'pwd_status' => $m->pwd_status ?? '',
+        ])->values()->all();
+        if (empty($wizardInitialMembers)) {
+            $wizardInitialMembers = [['first_name' => '', 'last_name' => '', 'phone' => '', 'email' => '', 'date_of_birth' => '', 'gender' => '', 'pwd_status' => '']];
+        }
+    } else {
+        $wizardInitialMembers = array_values($wizardInitialMembers ?? [['first_name' => '', 'last_name' => '', 'phone' => '', 'email' => '', 'date_of_birth' => '', 'gender' => '', 'pwd_status' => '']]);
+    }
+
+    $wizardOwnershipType = old('ownership_type', $business?->ownership_type ?? '');
+    $wizardCountryId = old('country_id', $business?->country_id ?? '');
+    $wizardProvinceId = old('province_id', $business?->province_id ?? '');
+    $wizardDistrictId = old('district_id', $business?->district_id ?? '');
+    $wizardSectorId = old('sector_id', $business?->sector_id ?? '');
+    $wizardCellId = old('cell_id', $business?->cell_id ?? '');
+    $wizardVillageId = old('village_id', $business?->village_id ?? '');
 
     $wizardErrorStep = (int) old('wizard_step', 0);
     if ($wizardErrorStep < 1 && $errors->any()) {
@@ -36,28 +75,32 @@
     x-data="businessOnboardingWizard({
         totalSteps: {{ count($wizardSteps) }},
         initialStep: {{ min(count($wizardSteps), max(1, $wizardErrorStep > 0 ? $wizardErrorStep : (int) old('wizard_step', 1))) }},
-        members: @js($createInitialMembers),
-        ownershipType: @js(old('ownership_type', '')),
-        countryId: @js(old('country_id', '')),
-        provinceId: @js(old('province_id', '')),
-        districtId: @js(old('district_id', '')),
-        sectorId: @js(old('sector_id', '')),
-        cellId: @js(old('cell_id', '')),
-        villageId: @js(old('village_id', '')),
+        formId: @js($formId),
+        members: @js($wizardInitialMembers),
+        ownershipType: @js($wizardOwnershipType),
+        countryId: @js($wizardCountryId),
+        provinceId: @js($wizardProvinceId),
+        districtId: @js($wizardDistrictId),
+        sectorId: @js($wizardSectorId),
+        cellId: @js($wizardCellId),
+        villageId: @js($wizardVillageId),
         divisionsUrl: @js(route('divisions.index')),
-        draftKey: 'bucha-processor-business-onboarding-draft',
+        draftKey: @js($draftKey),
     })"
     x-init="init()"
 >
     <form
-        id="business-create-form"
+        id="{{ $formId }}"
         method="post"
-        action="{{ route('businesses.store') }}"
+        action="{{ $formAction }}"
         class="min-h-[calc(100vh-3.5rem)]"
         novalidate
         @submit.prevent="submitForm"
     >
         @csrf
+        @if ($formMethod === 'patch')
+            @method('patch')
+        @endif
         <input type="hidden" name="wizard_step" :value="step">
 
         <div class="flex flex-col lg:flex-row min-h-[calc(100vh-3.5rem)]">
@@ -65,11 +108,11 @@
             <aside class="bucha-wizard-sidebar lg:w-[340px] xl:w-[380px] shrink-0 p-6 sm:p-8 lg:p-10 flex flex-col shadow-bucha-md">
                 <div class="inline-flex items-center gap-2 rounded-bucha bg-white/15 border border-white/20 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white w-fit">
                     <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    {{ __('New business setup') }}
+                    {{ $sidebarBadge }}
                 </div>
-                <h1 class="mt-6 text-2xl sm:text-3xl font-bold leading-tight">{{ __('Business Onboarding Wizard') }}</h1>
+                <h1 class="mt-6 text-2xl sm:text-3xl font-bold leading-tight">{{ $sidebarTitle }}</h1>
                 <p class="mt-3 text-sm text-white/75 leading-relaxed">
-                    {{ __('Capture operator survey details covering identity, workforce, operations, and digital readiness.') }}
+                    {{ $sidebarDescription }}
                 </p>
                 <div class="mt-8 space-y-4 flex-1">
                     <div class="rounded-bucha bg-black/15 border border-white/15 p-4 backdrop-blur-sm">
@@ -85,7 +128,7 @@
                         <p class="mt-2 text-sm text-white/90">{{ __('Location is optional but recommended for full traceability.') }}</p>
                     </div>
                 </div>
-                <a href="{{ route('businesses.hub') }}" class="mt-6 text-sm text-white/80 hover:text-white underline decoration-white/40 hover:decoration-white">{{ __('← Back to businesses') }}</a>
+                <a href="{{ $backUrl }}" class="mt-6 text-sm text-white/80 hover:text-white underline decoration-white/40 hover:decoration-white">{{ $backLabel }}</a>
             </aside>
 
             {{-- Main panel --}}
@@ -94,7 +137,7 @@
                     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ __('Wizard') }}</p>
-                            <h2 class="mt-1 text-2xl font-bold text-slate-900">{{ __('Complete the setup') }}</h2>
+                            <h2 class="mt-1 text-2xl font-bold text-slate-900">{{ $headerTitle }}</h2>
                         </div>
                         <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shrink-0">
                             <p class="font-semibold text-slate-800" x-text="'{{ __('Step') }} ' + step + ' {{ __('of') }} ' + totalSteps"></p>
@@ -177,7 +220,7 @@
                         {{ __('Prev section') }}
                     </button>
                     <div class="flex gap-3">
-                        <a href="{{ route('businesses.hub') }}" class="inline-flex items-center min-h-[2.75rem] px-4 py-2 rounded-bucha border border-slate-300 bg-white text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                        <a href="{{ $cancelUrl }}" class="inline-flex items-center min-h-[2.75rem] px-4 py-2 rounded-bucha border border-slate-300 bg-white text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                             {{ __('Cancel') }}
                         </a>
                         <button
@@ -193,7 +236,7 @@
                             x-show="step === totalSteps"
                             class="inline-flex items-center min-h-[2.75rem] px-5 py-2 rounded-bucha bg-bucha-primary text-sm font-semibold text-white shadow-sm hover:bg-bucha-burgundy focus:outline-none focus:ring-2 focus:ring-bucha-primary/40"
                         >
-                            {{ __('Register business') }}
+                            {{ $submitLabel }}
                         </button>
                     </div>
                 </div>
@@ -230,6 +273,7 @@ function businessOnboardingWizard(config) {
         villageId: String(config.villageId || ''),
         divisionsUrl: config.divisionsUrl,
         draftKey: config.draftKey,
+        formId: config.formId || 'business-create-form',
 
         init() {
             this.loadCountries();
@@ -240,7 +284,7 @@ function businessOnboardingWizard(config) {
             this.$watch('sectorId', () => this.updateProgress());
             this.$watch('cellId', () => this.updateProgress());
             this.$watch('villageId', () => this.updateProgress());
-            const form = document.getElementById('business-create-form');
+            const form = document.getElementById(this.formId);
             if (form) {
                 this.totalTrackable = form.querySelectorAll('[data-wizard-track]').length;
                 form.querySelectorAll('input, select, textarea').forEach((el) => {
@@ -259,7 +303,7 @@ function businessOnboardingWizard(config) {
         },
 
         updateProgress() {
-            const form = document.getElementById('business-create-form');
+            const form = document.getElementById(this.formId);
             if (!form) return;
             let filled = 0;
             form.querySelectorAll('[data-wizard-track]').forEach((el) => {
@@ -379,7 +423,7 @@ function businessOnboardingWizard(config) {
 
         saveDraft() {
             try {
-                const form = document.getElementById('business-create-form');
+                const form = document.getElementById(this.formId);
                 if (!form) return;
                 const data = new FormData(form);
                 const payload = { step: this.step, fields: {} };
@@ -421,7 +465,7 @@ function businessOnboardingWizard(config) {
                 ['countryId','provinceId','districtId','sectorId','cellId','villageId'].forEach((k) => {
                     if (payload[k]) this[k] = String(payload[k]);
                 });
-                const form = document.getElementById('business-create-form');
+                const form = document.getElementById(this.formId);
                 if (!form || !payload.fields) return;
                 Object.entries(payload.fields).forEach(([key, value]) => {
                     if (Array.isArray(value)) {
@@ -448,7 +492,7 @@ function businessOnboardingWizard(config) {
 
         submitForm() {
             this.clearDraft();
-            document.getElementById('business-create-form').submit();
+            document.getElementById(this.formId).submit();
         },
     };
 }

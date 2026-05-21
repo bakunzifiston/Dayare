@@ -34,6 +34,15 @@ class BusinessUser extends Pivot
         self::ROLE_ACCOUNTANT,
     ];
 
+    /** Member roles that must not see the Finance sidebar group (org admin and business owners still can). */
+    public const ROLES_WITHOUT_FINANCE_SIDEBAR = [
+        self::ROLE_OPERATIONS_MANAGER,
+        self::ROLE_COMPLIANCE_OFFICER,
+        self::ROLE_INSPECTOR,
+        self::ROLE_TRANSPORT_MANAGER,
+        self::ROLE_ACCOUNTANT,
+    ];
+
     public const PERMISSION_VIEW_ALL_MODULES = 'view_all_modules';
 
     public const PERMISSION_MANAGE_BUSINESS_USERS = 'manage_business_users';
@@ -140,7 +149,6 @@ class BusinessUser extends Pivot
             self::PERMISSION_ASSIGN_BATCH_TO_INSPECTOR,
             self::PERMISSION_VIEW_INSPECTIONS,
             self::PERMISSION_VIEW_CERTIFICATES,
-            self::PERMISSION_VIEW_FINANCE_DASHBOARD,
         ],
         self::ROLE_COMPLIANCE_OFFICER => [
             self::PERMISSION_SUBMIT_CHECKLIST,
@@ -166,7 +174,6 @@ class BusinessUser extends Pivot
             self::PERMISSION_CONFIRM_DELIVERY,
             self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
             self::PERMISSION_VIEW_CERTIFICATES,
-            self::PERMISSION_VIEW_FINANCE_DASHBOARD,
         ],
         self::ROLE_ACCOUNTANT => [
             self::PERMISSION_VIEW_FINANCE_DASHBOARD,
@@ -179,6 +186,19 @@ class BusinessUser extends Pivot
     public static function permissionsForRole(?string $role): array
     {
         return self::ROLE_PERMISSION_MAP[$role ?? ''] ?? [];
+    }
+
+    public static function showsFinanceSidebarForMembership(?string $role, bool $ownsActiveBusiness): bool
+    {
+        if ($ownsActiveBusiness) {
+            return true;
+        }
+
+        if ($role === self::ROLE_ORG_ADMIN) {
+            return true;
+        }
+
+        return ! in_array($role, self::ROLES_WITHOUT_FINANCE_SIDEBAR, true);
     }
 
     public static function roleHasPermission(?string $role, string $permission): bool

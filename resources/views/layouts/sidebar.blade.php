@@ -37,6 +37,7 @@
         ],
         [
             'group' => __('Finance'),
+            'navKey' => 'finance',
             'icon' => 'dashboard',
             'children' => [
                 ['label' => __('Dashboard'), 'route' => 'finance.dashboard', 'icon' => 'dashboard', 'permission' => 'view_finance_dashboard', 'routeIs' => ['finance.dashboard']],
@@ -50,6 +51,11 @@
     $tenantNav[] = ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => 'view_all_modules', 'routeIs' => ['settings.edit', 'cold-room-standards.*']];
 
     if (! $isSuperAdmin && $user) {
+        $activeProcessorBusinessId = $user->activeProcessorBusinessId();
+        $processorRole = $user->processorRoleForBusiness($activeProcessorBusinessId);
+        $ownsActiveProcessorBusiness = $activeProcessorBusinessId !== null && $user->ownsBusiness($activeProcessorBusinessId);
+        $showFinanceSidebar = \App\Models\BusinessUser::showsFinanceSidebarForMembership($processorRole, $ownsActiveProcessorBusiness);
+
         $canAccessNavItem = function (array $item) use ($user): bool {
             $permission = $item['permission'] ?? null;
             if (empty($permission)) {
@@ -70,6 +76,9 @@
 
         $filtered = [];
         foreach ($tenantNav as $item) {
+            if (isset($item['group']) && ($item['navKey'] ?? '') === 'finance' && ! $showFinanceSidebar) {
+                continue;
+            }
             if (isset($item['group'])) {
                 $children = array_values(array_filter($item['children'] ?? [], fn ($c) => $canAccessNavItem($c)));
                 if (count($children) > 0) {

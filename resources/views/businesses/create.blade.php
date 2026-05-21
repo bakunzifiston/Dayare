@@ -8,5 +8,5 @@
         </div>
     </x-slot>
 
-    @include('businesses.partials.onboarding-wizard-create')
+    @include('businesses.partials.onboarding-wizard')
 </x-app-layout>
