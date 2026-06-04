@@ -61,6 +61,27 @@
             <x-input-error class="mt-2" :messages="$errors->get('ownership_type')" />
         </x-wizard-field>
 
+        <div x-show="ownershipType === 'cooperative'" x-cloak class="space-y-4 pt-4 border-t border-slate-200">
+            <p class="text-sm font-semibold text-slate-700">{{ __('Cooperative membership statistics') }}</p>
+            <div class="bucha-wizard-grid">
+                <x-wizard-field for="total_members" :label="__('Total members/shareholders')">
+                    <input id="total_members" name="total_members" type="number" min="0" class="bucha-wizard-input" value="{{ old('total_members', $business?->total_members) }}" data-wizard-track />
+                    <x-input-error class="mt-2" :messages="$errors->get('total_members')" />
+                </x-wizard-field>
+                <x-wizard-field for="female_members" :label="__('Female members')">
+                    <input id="female_members" name="female_members" type="number" min="0" class="bucha-wizard-input" value="{{ old('female_members', $business?->female_members) }}" data-wizard-track />
+                </x-wizard-field>
+            </div>
+            <div class="bucha-wizard-grid">
+                <x-wizard-field for="members_18_35" :label="__('Members aged 18–35')">
+                    <input id="members_18_35" name="members_18_35" type="number" min="0" class="bucha-wizard-input" value="{{ old('members_18_35', $business?->members_18_35) }}" data-wizard-track />
+                </x-wizard-field>
+                <x-wizard-field for="young_women_members" :label="__('Young women members (18–35)')">
+                    <input id="young_women_members" name="young_women_members" type="number" min="0" class="bucha-wizard-input" value="{{ old('young_women_members', $business?->young_women_members) }}" data-wizard-track />
+                </x-wizard-field>
+            </div>
+        </div>
+
         <div x-show="ownershipType === 'partnership' || ownershipType === 'cooperative' || ownershipType === 'company'" x-cloak class="space-y-4">
             <p class="text-sm font-semibold text-slate-700" x-text="memberSectionTitle()"></p>
             <template x-for="(member, index) in members" :key="index">

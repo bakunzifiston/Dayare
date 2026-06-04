@@ -55,6 +55,58 @@ class Business extends Model
         'state_region',
         'postal_code',
         'country',
+        // Slaughterhouse survey
+        'total_members',
+        'female_members',
+        'members_18_35',
+        'young_women_members',
+        'animals_processed',
+        'animals_processed_other',
+        'daily_processing',
+        'products_sold',
+        'products_sold_other',
+        'customer_segments',
+        'customer_segments_other',
+        'daily_sales_kg',
+        'buyer_count',
+        'contract_type',
+        'contracted_buyers',
+        'digital_marketplace',
+        'digital_marketplace_name',
+        'baseline_revenue_rwf',
+        'has_receiving_area',
+        'road_condition',
+        'has_potable_water',
+        'waste_system',
+        'has_cold_storage',
+        'cold_storage_capacity_kg',
+        'sanitary_certificate',
+        'sanitary_certificate_expiry',
+        'waste_disposal_plan',
+        'has_sops',
+        'workers_trained',
+        'total_employees',
+        'female_employees',
+        'employees_18_35',
+        'female_employees_18_35',
+        'pwd_employees',
+        'refugee_employees',
+        'seasonal_workers',
+        'has_dedicated_manager',
+        'manager_first_name',
+        'manager_gender',
+        'manager_age',
+        'bank_account',
+        'uses_mobile_money',
+        'digital_payment_willingness',
+        'uses_digital_records',
+        'digital_system_name',
+        'digital_devices',
+        'network_connectivity',
+        'digital_ledger_willingness',
+        'supporting_documents',
+        'supporting_documents_other',
+        'supporting_document_files',
     ];
 
     public const TYPE_FARMER = 'farmer';
@@ -99,9 +151,237 @@ class Business extends Model
 
     public const PATHWAY_STATUSES = ['active', 'verification', 'inactive', 'graduated'];
 
+    public const ANIMAL_CATTLE = 'cattle';
+
+    public const ANIMAL_GOATS = 'goats';
+
+    public const ANIMAL_SHEEP = 'sheep';
+
+    public const ANIMAL_PIGS = 'pigs';
+
+    public const ANIMAL_POULTRY = 'poultry';
+
+    public const ANIMAL_OTHER = 'other';
+
+    /** @var list<string> */
+    public const ANIMALS_PROCESSED = [
+        self::ANIMAL_CATTLE,
+        self::ANIMAL_GOATS,
+        self::ANIMAL_SHEEP,
+        self::ANIMAL_PIGS,
+        self::ANIMAL_POULTRY,
+        self::ANIMAL_OTHER,
+    ];
+
+    public const PRODUCT_FRESH_MEAT = 'fresh_meat';
+
+    public const PRODUCT_PROCESSED_MEAT = 'processed_meat';
+
+    public const PRODUCT_BY_PRODUCTS = 'by_products';
+
+    public const PRODUCT_OTHER = 'other';
+
+    /** @var list<string> */
+    public const PRODUCTS_SOLD = [
+        self::PRODUCT_FRESH_MEAT,
+        self::PRODUCT_PROCESSED_MEAT,
+        self::PRODUCT_BY_PRODUCTS,
+        self::PRODUCT_OTHER,
+    ];
+
+    public const SEGMENT_BUTCHERIES = 'butcheries';
+
+    public const SEGMENT_SUPERMARKETS = 'supermarkets';
+
+    public const SEGMENT_HORECA = 'hotels_restaurants';
+
+    public const SEGMENT_INSTITUTIONS = 'schools_institutions';
+
+    public const SEGMENT_HOUSEHOLDS = 'individual_households';
+
+    public const SEGMENT_EXPORT = 'export_buyers';
+
+    public const SEGMENT_OTHER = 'other';
+
+    /** @var list<string> */
+    public const CUSTOMER_SEGMENTS = [
+        self::SEGMENT_BUTCHERIES,
+        self::SEGMENT_SUPERMARKETS,
+        self::SEGMENT_HORECA,
+        self::SEGMENT_INSTITUTIONS,
+        self::SEGMENT_HOUSEHOLDS,
+        self::SEGMENT_EXPORT,
+        self::SEGMENT_OTHER,
+    ];
+
+    public const CONTRACT_WRITTEN = 'written_contracts';
+
+    public const CONTRACT_VERBAL = 'verbal_agreements';
+
+    public const CONTRACT_NONE = 'no_formal_contracts';
+
+    /** @var list<string> */
+    public const CONTRACT_TYPES = [
+        self::CONTRACT_WRITTEN,
+        self::CONTRACT_VERBAL,
+        self::CONTRACT_NONE,
+    ];
+
+    public const ROAD_GOOD = 'good';
+
+    public const ROAD_FAIR = 'fair';
+
+    public const ROAD_POOR = 'poor';
+
+    /** @var list<string> */
+    public const ROAD_CONDITIONS = [self::ROAD_GOOD, self::ROAD_FAIR, self::ROAD_POOR];
+
+    public const WASTE_FUNCTIONAL = 'functional';
+
+    public const WASTE_NEEDS_IMPROVEMENT = 'needs_improvement';
+
+    public const WASTE_NONE = 'none';
+
+    /** @var list<string> */
+    public const WASTE_SYSTEMS = [self::WASTE_FUNCTIONAL, self::WASTE_NEEDS_IMPROVEMENT, self::WASTE_NONE];
+
+    public const MANAGER_FULL_TIME = 'full_time';
+
+    public const MANAGER_SELF = 'self_managed';
+
+    public const MANAGER_NONE = 'no_manager';
+
+    /** @var list<string> */
+    public const DEDICATED_MANAGER_OPTIONS = [
+        self::MANAGER_FULL_TIME,
+        self::MANAGER_SELF,
+        self::MANAGER_NONE,
+    ];
+
+    public const BANK_BUSINESS = 'business_account';
+
+    public const BANK_PERSONAL = 'personal_account';
+
+    public const BANK_NONE = 'no_account';
+
+    /** @var list<string> */
+    public const BANK_ACCOUNT_TYPES = [self::BANK_BUSINESS, self::BANK_PERSONAL, self::BANK_NONE];
+
+    public const MOBILE_YES = 'yes';
+
+    public const MOBILE_SOMETIMES = 'sometimes';
+
+    public const MOBILE_NO = 'no';
+
+    /** @var list<string> */
+    public const MOBILE_MONEY_USAGE = [self::MOBILE_YES, self::MOBILE_SOMETIMES, self::MOBILE_NO];
+
+    public const PAY_PREFER_DIGITAL = 'prefer_digital';
+
+    public const PAY_WILLING_TRY = 'willing_try';
+
+    public const PAY_UNSURE = 'unsure';
+
+    public const PAY_PREFER_CASH = 'prefer_cash';
+
+    /** @var list<string> */
+    public const DIGITAL_PAYMENT_WILLINGNESS = [
+        self::PAY_PREFER_DIGITAL,
+        self::PAY_WILLING_TRY,
+        self::PAY_UNSURE,
+        self::PAY_PREFER_CASH,
+    ];
+
+    public const DEVICE_DESKTOP = 'desktop_laptop';
+
+    public const DEVICE_TABLET = 'tablet';
+
+    public const DEVICE_SMARTPHONE = 'smartphone';
+
+    public const DEVICE_BASIC_PHONE = 'basic_phone';
+
+    public const DEVICE_NONE = 'none';
+
+    /** @var list<string> */
+    public const DIGITAL_DEVICES = [
+        self::DEVICE_DESKTOP,
+        self::DEVICE_TABLET,
+        self::DEVICE_SMARTPHONE,
+        self::DEVICE_BASIC_PHONE,
+        self::DEVICE_NONE,
+    ];
+
+    public const NET_STRONG = 'strong_4g';
+
+    public const NET_MODERATE = 'moderate_3g';
+
+    public const NET_WEAK = 'weak_intermittent';
+
+    public const NET_OFFLINE = 'no_signal';
+
+    /** @var list<string> */
+    public const NETWORK_CONNECTIVITY = [self::NET_STRONG, self::NET_MODERATE, self::NET_WEAK, self::NET_OFFLINE];
+
+    public const LEDGER_FULLY = 'fully_willing';
+
+    public const LEDGER_TRAINING = 'needs_training';
+
+    public const LEDGER_UNSURE = 'unsure';
+
+    public const LEDGER_PREFER_CURRENT = 'prefer_current';
+
+    /** @var list<string> */
+    public const DIGITAL_LEDGER_WILLINGNESS = [
+        self::LEDGER_FULLY,
+        self::LEDGER_TRAINING,
+        self::LEDGER_UNSURE,
+        self::LEDGER_PREFER_CURRENT,
+    ];
+
+    public const DOC_LICENSE = 'license_registration';
+
+    public const DOC_HEALTH = 'health_sanitary_certificate';
+
+    public const DOC_SOPS = 'sops_document';
+
+    public const DOC_FLOOR_PLAN = 'floor_plan';
+
+    public const DOC_WASTE_PLAN = 'waste_management_plan';
+
+    public const DOC_OTHER = 'other';
+
+    /** @var list<string> */
+    public const SUPPORTING_DOCUMENTS = [
+        self::DOC_LICENSE,
+        self::DOC_HEALTH,
+        self::DOC_SOPS,
+        self::DOC_FLOOR_PLAN,
+        self::DOC_WASTE_PLAN,
+        self::DOC_OTHER,
+    ];
+
     protected $casts = [
         'owner_dob' => 'date',
         'vibe_commencement_date' => 'date',
+        'sanitary_certificate_expiry' => 'date',
+        'animals_processed' => 'array',
+        'daily_processing' => 'array',
+        'products_sold' => 'array',
+        'customer_segments' => 'array',
+        'daily_sales_kg' => 'array',
+        'digital_devices' => 'array',
+        'supporting_documents' => 'array',
+        'supporting_document_files' => 'array',
+        'digital_marketplace' => 'boolean',
+        'has_receiving_area' => 'boolean',
+        'has_potable_water' => 'boolean',
+        'has_cold_storage' => 'boolean',
+        'sanitary_certificate' => 'boolean',
+        'waste_disposal_plan' => 'boolean',
+        'has_sops' => 'boolean',
+        'workers_trained' => 'boolean',
+        'uses_digital_records' => 'boolean',
+        'baseline_revenue_rwf' => 'decimal:2',
     ];
 
     public const STATUS_ACTIVE = 'active';
@@ -327,5 +607,68 @@ class Business extends Model
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
+    }
+
+    /** @return array<string, string> */
+    public static function animalsProcessedLabelMap(): array
+    {
+        return [
+            self::ANIMAL_CATTLE => __('Cattle'),
+            self::ANIMAL_GOATS => __('Goats'),
+            self::ANIMAL_SHEEP => __('Sheep'),
+            self::ANIMAL_PIGS => __('Pigs'),
+            self::ANIMAL_POULTRY => __('Poultry'),
+            self::ANIMAL_OTHER => __('Other'),
+        ];
+    }
+
+    /** @return array<string, string> */
+    public static function productsSoldLabelMap(): array
+    {
+        return [
+            self::PRODUCT_FRESH_MEAT => __('Fresh meat (unprocessed)'),
+            self::PRODUCT_PROCESSED_MEAT => __('Processed meat (sausages/mince etc.)'),
+            self::PRODUCT_BY_PRODUCTS => __('By-products (hides/skins/offal/bones/blood)'),
+            self::PRODUCT_OTHER => __('Other'),
+        ];
+    }
+
+    /** @return array<string, string> */
+    public static function customerSegmentsLabelMap(): array
+    {
+        return [
+            self::SEGMENT_BUTCHERIES => __('Butcheries'),
+            self::SEGMENT_SUPERMARKETS => __('Supermarkets'),
+            self::SEGMENT_HORECA => __('Hotels & Restaurants'),
+            self::SEGMENT_INSTITUTIONS => __('Schools/Institutions'),
+            self::SEGMENT_HOUSEHOLDS => __('Individual households'),
+            self::SEGMENT_EXPORT => __('Export buyers'),
+            self::SEGMENT_OTHER => __('Other'),
+        ];
+    }
+
+    /** @return array<string, string> */
+    public static function digitalDevicesLabelMap(): array
+    {
+        return [
+            self::DEVICE_DESKTOP => __('Desktop/Laptop'),
+            self::DEVICE_TABLET => __('Tablet'),
+            self::DEVICE_SMARTPHONE => __('Smartphone'),
+            self::DEVICE_BASIC_PHONE => __('Basic phone only'),
+            self::DEVICE_NONE => __('None of the above'),
+        ];
+    }
+
+    /** @return array<string, string> */
+    public static function supportingDocumentsLabelMap(): array
+    {
+        return [
+            self::DOC_LICENSE => __('Copy of License/Registration'),
+            self::DOC_HEALTH => __('Health/Sanitary Certificate'),
+            self::DOC_SOPS => __('SOPs Document'),
+            self::DOC_FLOOR_PLAN => __('Floor Plan/Facility Map'),
+            self::DOC_WASTE_PLAN => __('Waste Management Plan'),
+            self::DOC_OTHER => __('Other'),
+        ];
     }
 }

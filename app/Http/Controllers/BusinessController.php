@@ -10,9 +10,11 @@ use App\Models\Facility;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BusinessController extends Controller
 {
@@ -69,6 +71,9 @@ class BusinessController extends Controller
         } catch (QueryException $exception) {
             $this->throwBusinessValidationFromQueryException($exception);
         }
+
+        $this->storeBusinessDocumentUploads($request, $business);
+
         BusinessUser::query()->updateOrCreate(
             ['business_id' => $business->id, 'user_id' => $request->user()->id],
             ['role' => BusinessUser::ROLE_ORG_ADMIN]
@@ -135,6 +140,8 @@ class BusinessController extends Controller
             $this->throwBusinessValidationFromQueryException($exception);
         }
 
+        $this->storeBusinessDocumentUploads($request, $business);
+
         $business->ownershipMembers()->delete();
         foreach (array_values($members) as $i => $m) {
             $firstName = trim((string) ($m['first_name'] ?? ''));
@@ -167,6 +174,54 @@ class BusinessController extends Controller
 
         return redirect()->route('businesses.hub')
             ->with('status', __('Business removed.'));
+    }
+
+    public function downloadDocument(Request $request, Business $business, string $type, string $filename): StreamedResponse
+    {
+        if ((int) $business->user_id !== (int) $request->user()->id) {
+            abort(404);
+        }
+
+        if (! in_array($type, Business::SUPPORTING_DOCUMENTS, true)) {
+            abort(404);
+        }
+
+        $uploads = $business->supporting_document_files ?? [];
+        $path = $uploads[$type] ?? null;
+        if (! $path || basename($path) !== $filename || ! Storage::disk('local')->exists($path)) {
+            abort(404);
+        }
+
+        return Storage::disk('local')->download($path, $filename);
+    }
+
+    private function storeBusinessDocumentUploads(Request $request, Business $business): void
+    {
+        if (! $request->hasFile('document_uploads')) {
+            return;
+        }
+
+        $uploads = $business->supporting_document_files ?? [];
+        $baseDir = 'businesses/'.$business->id.'/documents';
+        $changed = false;
+
+        foreach ($request->file('document_uploads') as $type => $file) {
+            if (! in_array($type, Business::SUPPORTING_DOCUMENTS, true)) {
+                continue;
+            }
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+            if (! empty($uploads[$type])) {
+                Storage::disk('local')->delete($uploads[$type]);
+            }
+            $uploads[$type] = $file->store($baseDir.'/'.$type, 'local');
+            $changed = true;
+        }
+
+        if ($changed) {
+            $business->update(['supporting_document_files' => $uploads]);
+        }
     }
 
     /**

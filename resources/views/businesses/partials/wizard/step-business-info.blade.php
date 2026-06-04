@@ -30,7 +30,7 @@
             </x-wizard-field>
         </div>
         <x-wizard-field for="status" :label="__('Status')">
-            <select id="status" name="status" class="bucha-wizard-select" data-wizard-track>
+            <select id="status" name="status" class="bucha-wizard-select">
                 @foreach (\App\Models\Business::STATUSES as $s)
                     <option value="{{ $s }}" @selected(old('status', $business?->status ?? 'active') === $s)>{{ ucfirst($s) }}</option>
                 @endforeach

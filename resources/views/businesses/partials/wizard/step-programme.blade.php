@@ -12,7 +12,7 @@
                 <x-input-error class="mt-2" :messages="$errors->get('vibe_commencement_date')" />
             </x-wizard-field>
             <x-wizard-field for="pathway_status" :label="__('Pathway status')">
-                <select id="pathway_status" name="pathway_status" class="bucha-wizard-select" data-wizard-track>
+                <select id="pathway_status" name="pathway_status" class="bucha-wizard-select">
                     @foreach (\App\Models\Business::PATHWAY_STATUSES as $pathwayStatus)
                         <option value="{{ $pathwayStatus }}" @selected(old('pathway_status', $business?->pathway_status ?? 'active') === $pathwayStatus)>{{ __(ucfirst($pathwayStatus)) }}</option>
                     @endforeach

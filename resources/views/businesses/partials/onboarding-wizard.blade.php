@@ -16,9 +16,36 @@
     $wizardSteps = [
         1 => ['short' => __('Business info'), 'title' => __('Business info'), 'subtitle' => __('Official business details and contact.')],
         2 => ['short' => __('Ownership'), 'title' => __('Ownership info'), 'subtitle' => __('Owner or legal representative details.')],
-        3 => ['short' => __('Details'), 'title' => __('Business details'), 'subtitle' => __('Additional profile information for processor onboarding.')],
-        4 => ['short' => __('VIBE'), 'title' => __('VIBE metadata'), 'subtitle' => __('Tracking fields used by the VIBE pathway.')],
-        5 => ['short' => __('Location'), 'title' => __('Location'), 'subtitle' => __('Business address and administrative location.')],
+        3 => ['short' => __('Operations'), 'title' => __('Business details'), 'subtitle' => __('Slaughterhouse operations, infrastructure, and compliance.')],
+        4 => ['short' => __('Workforce'), 'title' => __('Workforce'), 'subtitle' => __('Employee headcount for VIBE reporting.')],
+        5 => ['short' => __('Digital'), 'title' => __('Digital & financial readiness'), 'subtitle' => __('Banking, payments, and digital systems.')],
+        6 => ['short' => __('VIBE'), 'title' => __('VIBE metadata'), 'subtitle' => __('Tracking fields used by the VIBE pathway.')],
+        7 => ['short' => __('Location'), 'title' => __('Location'), 'subtitle' => __('Business address and administrative location.')],
+        8 => ['short' => __('Documents'), 'title' => __('Supporting documentation'), 'subtitle' => __('Documents you can provide for onboarding.')],
+    ];
+
+    $boolToSelect = static function ($value): string {
+        if ($value === null) {
+            return '';
+        }
+
+        return $value ? '1' : '0';
+    };
+
+    $wizardSurveyConfig = [
+        'animalsProcessed' => array_values(old('animals_processed', $business?->animals_processed ?? [])),
+        'dailyProcessing' => array_values(old('daily_processing', $business?->daily_processing ?? [])),
+        'dailySalesKg' => array_values(old('daily_sales_kg', $business?->daily_sales_kg ?? [])),
+        'contractType' => old('contract_type', $business?->contract_type ?? ''),
+        'digitalMarketplace' => old('digital_marketplace', $boolToSelect($business?->digital_marketplace ?? null)),
+        'hasColdStorage' => old('has_cold_storage', $boolToSelect($business?->has_cold_storage ?? null)),
+        'sanitaryCertificate' => old('sanitary_certificate', $boolToSelect($business?->sanitary_certificate ?? null)),
+        'hasDedicatedManager' => old('has_dedicated_manager', $business?->has_dedicated_manager ?? ''),
+        'usesDigitalRecords' => old('uses_digital_records', $boolToSelect($business?->uses_digital_records ?? null)),
+        'maleEmployeesCalc' => '',
+        'maleEmployees1835Calc' => '',
+        'employees36PlusCalc' => '',
+        'speciesLabels' => \App\Models\Business::animalsProcessedLabelMap(),
     ];
 
     $wizardInitialMembers = old('members');
@@ -51,10 +78,13 @@
     if ($wizardErrorStep < 1 && $errors->any()) {
         $stepFieldMap = [
             1 => ['business_name', 'registration_number', 'tax_id', 'contact_phone', 'email', 'status'],
-            2 => ['owner_first_name', 'owner_last_name', 'owner_dob', 'owner_gender', 'owner_pwd_status', 'owner_phone', 'owner_email', 'ownership_type', 'members'],
-            3 => ['business_size', 'baseline_revenue'],
-            4 => ['vibe_unique_id', 'vibe_commencement_date', 'pathway_status', 'vibe_comments'],
-            5 => ['country_id', 'province_id', 'district_id', 'sector_id', 'cell_id', 'village_id', 'city', 'state_region', 'postal_code', 'country'],
+            2 => ['owner_first_name', 'owner_last_name', 'owner_dob', 'owner_gender', 'owner_pwd_status', 'owner_phone', 'owner_email', 'ownership_type', 'members', 'total_members', 'female_members', 'members_18_35', 'young_women_members'],
+            3 => ['business_size', 'baseline_revenue', 'baseline_revenue_rwf', 'animals_processed', 'daily_processing', 'products_sold', 'customer_segments', 'daily_sales_kg', 'buyer_count', 'contract_type', 'contracted_buyers', 'digital_marketplace', 'has_receiving_area', 'road_condition', 'has_potable_water', 'waste_system', 'has_cold_storage', 'sanitary_certificate', 'waste_disposal_plan', 'has_sops', 'workers_trained'],
+            4 => ['total_employees', 'female_employees', 'employees_18_35', 'female_employees_18_35', 'pwd_employees', 'refugee_employees', 'seasonal_workers', 'has_dedicated_manager', 'manager_first_name', 'manager_gender', 'manager_age'],
+            5 => ['bank_account', 'uses_mobile_money', 'digital_payment_willingness', 'uses_digital_records', 'digital_devices', 'network_connectivity', 'digital_ledger_willingness'],
+            6 => ['vibe_unique_id', 'vibe_commencement_date', 'pathway_status', 'vibe_comments'],
+            7 => ['country_id', 'province_id', 'district_id', 'sector_id', 'cell_id', 'village_id', 'city', 'state_region', 'postal_code', 'country'],
+            8 => ['supporting_documents', 'document_uploads'],
         ];
         foreach ($stepFieldMap as $num => $fields) {
             foreach ($fields as $field) {
@@ -86,6 +116,7 @@
         villageId: @js($wizardVillageId),
         divisionsUrl: @js(route('divisions.index')),
         draftKey: @js($draftKey),
+        survey: @js($wizardSurveyConfig),
     })"
     x-init="init()"
 >
@@ -94,6 +125,7 @@
         method="post"
         action="{{ $formAction }}"
         class="min-h-[calc(100vh-3.5rem)]"
+        enctype="multipart/form-data"
         novalidate
         @submit.prevent="submitForm"
     >
@@ -141,11 +173,11 @@
                         </div>
                         <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shrink-0">
                             <p class="font-semibold text-slate-800" x-text="'{{ __('Step') }} ' + step + ' {{ __('of') }} ' + totalSteps"></p>
-                            <p class="text-slate-500 mt-0.5" x-text="percentComplete + '% {{ __('completed') }}'"></p>
+                            <p class="text-slate-500 mt-0.5" x-text="percentComplete + '% {{ __('overall complete') }}'"></p>
                         </div>
                     </div>
                     <div class="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-slate-600">
-                        <p x-text="'{{ __('Progress') }}: ' + filledTrackable + '/' + totalTrackable + ' {{ __('answers provided') }}'"></p>
+                        <p x-text="'{{ __('Overall') }}: ' + filledTrackable + '/' + totalTrackable + ' {{ __('optional fields answered') }} ({{ __('all steps') }})'"></p>
                         <p class="text-slate-500">
                             {{ __('Draft is auto-saved in this browser.') }}
                             <button type="button" @click="clearDraft()" class="text-bucha-primary hover:text-bucha-burgundy font-medium ml-1">{{ __('Clear saved draft') }}</button>
@@ -200,8 +232,11 @@
                                     1 => 'business-info',
                                     2 => 'ownership',
                                     3 => 'business-details',
-                                    4 => 'programme',
-                                    5 => 'location',
+                                    4 => 'workforce',
+                                    5 => 'digital-readiness',
+                                    6 => 'programme',
+                                    7 => 'location',
+                                    8 => 'documentation',
                                     default => 'business-info',
                                 })
                             </div>
@@ -274,8 +309,23 @@ function businessOnboardingWizard(config) {
         divisionsUrl: config.divisionsUrl,
         draftKey: config.draftKey,
         formId: config.formId || 'business-create-form',
+        animalsProcessed: config.survey?.animalsProcessed || [],
+        dailyProcessing: config.survey?.dailyProcessing || [],
+        dailySalesKg: config.survey?.dailySalesKg || [],
+        contractType: config.survey?.contractType || '',
+        digitalMarketplace: config.survey?.digitalMarketplace || '',
+        hasColdStorage: config.survey?.hasColdStorage || '',
+        sanitaryCertificate: config.survey?.sanitaryCertificate || '',
+        hasDedicatedManager: config.survey?.hasDedicatedManager || '',
+        usesDigitalRecords: config.survey?.usesDigitalRecords || '',
+        maleEmployeesCalc: config.survey?.maleEmployeesCalc || '',
+        maleEmployees1835Calc: config.survey?.maleEmployees1835Calc || '',
+        employees36PlusCalc: config.survey?.employees36PlusCalc || '',
+        speciesLabels: config.survey?.speciesLabels || {},
 
         init() {
+            this.syncSpeciesRows();
+            this.calcWorkforceSplits();
             this.loadCountries();
             this.$watch('step', () => this.updateProgress());
             this.$watch('countryId', () => this.updateProgress());
@@ -286,7 +336,6 @@ function businessOnboardingWizard(config) {
             this.$watch('villageId', () => this.updateProgress());
             const form = document.getElementById(this.formId);
             if (form) {
-                this.totalTrackable = form.querySelectorAll('[data-wizard-track]').length;
                 form.querySelectorAll('input, select, textarea').forEach((el) => {
                     el.addEventListener('input', () => {
                         this.updateProgress();
@@ -302,13 +351,22 @@ function businessOnboardingWizard(config) {
             this.updateProgress();
         },
 
+        isTrackableFilled(el) {
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                return el.checked;
+            }
+            return String(el.value || '').trim() !== '';
+        },
+
         updateProgress() {
             const form = document.getElementById(this.formId);
             if (!form) return;
+            const trackables = form.querySelectorAll('[data-wizard-track]');
             let filled = 0;
-            form.querySelectorAll('[data-wizard-track]').forEach((el) => {
-                if (String(el.value || '').trim() !== '') filled++;
+            trackables.forEach((el) => {
+                if (this.isTrackableFilled(el)) filled++;
             });
+            this.totalTrackable = trackables.length;
             this.filledTrackable = filled;
             if (this.totalTrackable === 0) {
                 this.percentComplete = 0;
@@ -352,6 +410,47 @@ function businessOnboardingWizard(config) {
             if (this.ownershipType === 'partnership') return @js(__('Partnership members'));
             if (this.ownershipType === 'cooperative') return @js(__('Cooperative members'));
             return @js(__('Company members'));
+        },
+
+        speciesLabel(species) {
+            return this.speciesLabels[species] || species;
+        },
+
+        syncSpeciesRows() {
+            const selected = Array.isArray(this.animalsProcessed) ? this.animalsProcessed : [];
+            const bySpecies = (rows) => {
+                const map = {};
+                (rows || []).forEach((row) => {
+                    if (row && row.species) map[row.species] = row;
+                });
+                return map;
+            };
+            const procMap = bySpecies(this.dailyProcessing);
+            const salesMap = bySpecies(this.dailySalesKg);
+            this.dailyProcessing = selected.map((species) => ({
+                species,
+                number: procMap[species]?.number ?? '',
+                quantity_kg: procMap[species]?.quantity_kg ?? '',
+            }));
+            this.dailySalesKg = selected.map((species) => ({
+                species,
+                quantity_kg: salesMap[species]?.quantity_kg ?? '',
+            }));
+            this.$nextTick(() => this.updateProgress());
+        },
+
+        calcWorkforceSplits() {
+            const form = document.getElementById(this.formId);
+            if (!form) return;
+            const total = parseInt(form.querySelector('[name="total_employees"]')?.value || '0', 10) || 0;
+            const female = parseInt(form.querySelector('[name="female_employees"]')?.value || '0', 10) || 0;
+            const young = parseInt(form.querySelector('[name="employees_18_35"]')?.value || '0', 10) || 0;
+            const youngFemale = parseInt(form.querySelector('[name="female_employees_18_35"]')?.value || '0', 10) || 0;
+            const male = Math.max(0, total - female);
+            const maleYoung = Math.max(0, young - youngFemale);
+            this.maleEmployeesCalc = String(male);
+            this.maleEmployees1835Calc = String(maleYoung);
+            this.employees36PlusCalc = String(Math.max(0, total - young));
         },
 
         async fetchChildren(parentId) {
@@ -439,6 +538,10 @@ function businessOnboardingWizard(config) {
                 });
                 payload.ownershipType = this.ownershipType;
                 payload.members = this.members;
+                payload.animalsProcessed = this.animalsProcessed;
+                payload.dailyProcessing = this.dailyProcessing;
+                payload.dailySalesKg = this.dailySalesKg;
+                payload.contractType = this.contractType;
                 payload.countryId = this.countryId;
                 payload.provinceId = this.provinceId;
                 payload.districtId = this.districtId;
@@ -462,6 +565,10 @@ function businessOnboardingWizard(config) {
                 }
                 if (payload.ownershipType) this.ownershipType = payload.ownershipType;
                 if (payload.members) this.members = payload.members;
+                if (payload.animalsProcessed) this.animalsProcessed = payload.animalsProcessed;
+                if (payload.dailyProcessing) this.dailyProcessing = payload.dailyProcessing;
+                if (payload.dailySalesKg) this.dailySalesKg = payload.dailySalesKg;
+                if (payload.contractType) this.contractType = payload.contractType;
                 ['countryId','provinceId','districtId','sectorId','cellId','villageId'].forEach((k) => {
                     if (payload[k]) this[k] = String(payload[k]);
                 });
@@ -483,6 +590,8 @@ function businessOnboardingWizard(config) {
                         }
                     }
                 });
+                this.syncSpeciesRows();
+                this.calcWorkforceSplits();
             } catch (e) {}
         },
 

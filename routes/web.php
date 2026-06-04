@@ -460,6 +460,8 @@ Route::middleware(['auth', 'tenant'])->group(function () {
 
 Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission'])->group(function () {
     Route::get('businesses/overview', [BusinessController::class, 'hub'])->name('businesses.hub');
+    Route::get('businesses/{business}/documents/{type}/{filename}', [BusinessController::class, 'downloadDocument'])
+        ->name('businesses.document.download');
     Route::resource('businesses', BusinessController::class);
     // Explicit facilities routes (nested under business) – avoids 404 on some cPanel setups
     Route::get('businesses/{business}/facilities', [FacilityController::class, 'index'])->name('businesses.facilities.index');

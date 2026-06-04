@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesBusinessSlaughterhouseSurvey;
 use App\Models\Business;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -9,6 +10,7 @@ use Illuminate\Validation\Rule;
 
 class StoreBusinessRequest extends FormRequest
 {
+    use ValidatesBusinessSlaughterhouseSurvey;
     public function authorize(): bool
     {
         return true;
@@ -75,11 +77,13 @@ class StoreBusinessRequest extends FormRequest
             'state_region' => ['nullable', 'string', 'max:100'],
             'postal_code' => ['nullable', 'string', 'max:20'],
             'country' => ['nullable', 'string', 'max:100'],
+            ...$this->slaughterhouseSurveyRules(),
         ];
     }
 
     protected function prepareForValidation(): void
     {
+        $this->prepareSlaughterhouseSurveyForValidation();
         $businessName = $this->input('business_name');
         if ($businessName !== null) {
             $collapsed = preg_replace('/\s+/', ' ', trim((string) $businessName)) ?? '';
