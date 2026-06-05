@@ -22,20 +22,21 @@ class RemovesLegacyBusinessNameUniqueIndexes
             return;
         }
 
-        foreach (self::KNOWN_INDEXES as $indexName) {
-            self::dropIndexIfExists('businesses', $indexName);
-        }
-
         $connection = Schema::getConnection();
         $driver = $connection->getDriverName();
+        $table = self::tableName();
+
+        foreach (self::KNOWN_INDEXES as $indexName) {
+            self::dropIndexIfExists($table, $indexName);
+        }
 
         if ($driver === 'sqlite') {
-            self::removeSqliteBusinessNameUniqueIndexes('businesses');
+            self::removeSqliteBusinessNameUniqueIndexes($table);
 
             return;
         }
 
-        if ($driver !== 'mysql') {
+        if (! self::isMysqlFamily($driver)) {
             return;
         }
 
@@ -45,7 +46,7 @@ class RemovesLegacyBusinessNameUniqueIndexes
              FROM information_schema.statistics
              WHERE table_schema = ? AND table_name = ? AND non_unique = 0
              GROUP BY index_name',
-            [$database, 'businesses']
+            [$database, $table]
         );
 
         foreach ($indexes as $index) {
@@ -56,10 +57,32 @@ class RemovesLegacyBusinessNameUniqueIndexes
                 continue;
             }
 
-            if ($columns === 'business_name' || $columns === 'business_name_normalized') {
-                self::dropIndexIfExists('businesses', $indexName);
+            if (self::isBusinessNameIndexColumns($columns)) {
+                self::dropIndexIfExists($table, $indexName);
             }
         }
+    }
+
+    private static function tableName(): string
+    {
+        return Schema::getConnection()->getTablePrefix().'businesses';
+    }
+
+    private static function isMysqlFamily(string $driver): bool
+    {
+        return in_array($driver, ['mysql', 'mariadb'], true);
+    }
+
+    private static function isBusinessNameIndexColumns(string $columns): bool
+    {
+        if ($columns === 'business_name' || $columns === 'business_name_normalized') {
+            return true;
+        }
+
+        $parts = array_map('trim', explode(',', $columns));
+
+        return $parts !== []
+            && count(array_diff($parts, ['business_name', 'business_name_normalized'])) === 0;
     }
 
     private static function dropIndexIfExists(string $table, string $indexName): void
@@ -70,18 +93,38 @@ class RemovesLegacyBusinessNameUniqueIndexes
 
         $connection = Schema::getConnection();
 
+        if (self::isMysqlFamily($connection->getDriverName())) {
+            self::dropMysqlIndex($table, $indexName);
+
+            return;
+        }
+
         try {
-            if ($connection->getDriverName() === 'mysql') {
-                DB::statement(sprintf('ALTER TABLE `%s` DROP INDEX `%s`', $table, $indexName));
-
-                return;
-            }
-
             Schema::table($table, function ($blueprint) use ($indexName): void {
                 $blueprint->dropIndex($indexName);
             });
         } catch (QueryException) {
             // Another request may have dropped the index already.
+        }
+    }
+
+    private static function dropMysqlIndex(string $table, string $indexName): void
+    {
+        $statements = [
+            sprintf('ALTER TABLE `%s` DROP INDEX `%s`', $table, $indexName),
+            sprintf('ALTER TABLE `%s` DROP INDEX IF EXISTS `%s`', $table, $indexName),
+        ];
+
+        foreach ($statements as $statement) {
+            try {
+                DB::statement($statement);
+
+                if (! self::indexExists($table, $indexName)) {
+                    return;
+                }
+            } catch (QueryException) {
+                // Try the next drop syntax (older MySQL/MariaDB versions differ).
+            }
         }
     }
 
@@ -104,7 +147,7 @@ class RemovesLegacyBusinessNameUniqueIndexes
                 $info
             )));
 
-            if ($columns === ['business_name'] || $columns === ['business_name_normalized']) {
+            if (self::isBusinessNameIndexColumns(implode(',', $columns))) {
                 self::dropIndexIfExists($table, $indexName);
             }
         }
@@ -126,7 +169,7 @@ class RemovesLegacyBusinessNameUniqueIndexes
             return false;
         }
 
-        if ($driver === 'mysql') {
+        if (self::isMysqlFamily($driver)) {
             $database = $connection->getDatabaseName();
             $rows = $connection->select(
                 'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',

@@ -80,6 +80,8 @@ class BusinessController extends Controller
         $validated['pathway_status'] = $validated['pathway_status'] ?? 'active';
 
         $user = $request->user();
+        RemovesLegacyBusinessNameUniqueIndexes::remove();
+
         $existingOwned = $this->findOwnedBusinessByName($user, (string) ($validated['business_name'] ?? ''));
         $updatedExisting = $existingOwned !== null;
 
@@ -231,6 +233,8 @@ class BusinessController extends Controller
             return $existingOwned->fresh();
         }
 
+        RemovesLegacyBusinessNameUniqueIndexes::remove();
+
         try {
             return $user->businesses()->create($validated);
         } catch (QueryException $exception) {
@@ -240,8 +244,37 @@ class BusinessController extends Controller
 
             RemovesLegacyBusinessNameUniqueIndexes::remove();
 
-            return $user->businesses()->create($validated);
+            try {
+                return $user->businesses()->create($validated);
+            } catch (QueryException $retryException) {
+                if (! $this->isDuplicateBusinessNameException($retryException)) {
+                    throw $retryException;
+                }
+
+                $validated['business_name'] = $this->disambiguateBusinessNameForAccount(
+                    (string) ($validated['business_name'] ?? ''),
+                    $user
+                );
+
+                return $user->businesses()->create($validated);
+            }
         }
+    }
+
+    private function disambiguateBusinessNameForAccount(string $businessName, User $user): string
+    {
+        $trimmed = trim($businessName);
+        $suffix = ' #'.$user->id;
+
+        if ($trimmed === '') {
+            return __('Draft business').$suffix;
+        }
+
+        if (str_ends_with($trimmed, $suffix)) {
+            return $trimmed;
+        }
+
+        return $trimmed.$suffix;
     }
 
     private function findOwnedBusinessByName(User $user, string $businessName): ?Business
@@ -268,10 +301,12 @@ class BusinessController extends Controller
     {
         $errorMessage = Str::lower($exception->getMessage());
 
-        return str_contains($errorMessage, 'businesses_business_name_unique')
-            || str_contains($errorMessage, 'businesses_business_name_normalized_unique')
-            || str_contains($errorMessage, 'businesses.business_name')
-            || (str_contains($errorMessage, 'duplicate entry') && str_contains($errorMessage, 'business_name'));
+        if (! str_contains($errorMessage, 'duplicate')) {
+            return false;
+        }
+
+        return str_contains($errorMessage, 'business_name')
+            || str_contains($errorMessage, 'businesses_business_name');
     }
 
     /**
@@ -308,10 +343,9 @@ class BusinessController extends Controller
     {
         $errorMessage = Str::lower($exception->getMessage());
 
-        if ($this->isDuplicateBusinessNameException($exception)
-            || str_contains($errorMessage, 'business_name_normalized')) {
+        if ($this->isDuplicateBusinessNameException($exception)) {
             throw ValidationException::withMessages([
-                'business_name' => [__('We could not save this business name due to a database constraint. Please try again, or contact support if the problem continues.')],
+                'business_name' => [__('This business name matches an existing record and could not be saved. Try a slightly different name, or contact support.')],
             ]);
         }
 

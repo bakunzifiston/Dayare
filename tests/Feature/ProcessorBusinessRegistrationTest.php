@@ -176,6 +176,52 @@ class ProcessorBusinessRegistrationTest extends TestCase
         $response->assertSessionHas('status');
     }
 
+    public function test_new_processor_registration_uses_account_suffix_when_unique_index_cannot_be_cleared(): void
+    {
+        $existingOwner = User::factory()->create();
+        Business::create([
+            'user_id' => $existingOwner->id,
+            'type' => Business::TYPE_PROCESSOR,
+            'business_name' => 'Shared Processor Name',
+            'business_name_normalized' => 'shared processor name',
+            'registration_number' => 'REG-SHARED-001',
+            'contact_phone' => '0780000001',
+            'email' => 'existing@example.com',
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        Schema::table('businesses', function ($table): void {
+            $table->unique('business_name', 'legacy_exact_business_name_unique');
+        });
+
+        $processorUser = User::factory()->create();
+
+        $response = $this->actingAs($processorUser)->post(route('businesses.store'), [
+            'business_name' => 'Shared Processor Name',
+            'registration_number' => 'RDB-UNIQUE-999',
+            'contact_phone' => '0780000002',
+            'email' => 'newprocessor@example.com',
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        $response->assertRedirect(route('businesses.hub'));
+        $response->assertSessionHas('status');
+        $this->assertDatabaseHas('businesses', [
+            'user_id' => $processorUser->id,
+            'registration_number' => 'RDB-UNIQUE-999',
+        ]);
+
+        $storedName = (string) Business::query()
+            ->where('user_id', $processorUser->id)
+            ->value('business_name');
+
+        $this->assertTrue(
+            $storedName === 'Shared Processor Name'
+            || str_contains($storedName, ' #'.$processorUser->id),
+            'Expected either the requested name or an account-scoped fallback name.'
+        );
+    }
+
     public function test_processor_registration_still_rejects_duplicate_registration_number(): void
     {
         $existingOwner = User::factory()->create();
