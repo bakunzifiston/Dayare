@@ -181,6 +181,20 @@ return new class extends Migration
     private function indexExists(string $table, string $index): bool
     {
         $connection = Schema::getConnection();
+        $driver = $connection->getDriverName();
+
+        if ($driver === 'sqlite') {
+            $rows = $connection->select('PRAGMA index_list('.DB::getPdo()->quote($table).')');
+
+            foreach ($rows as $row) {
+                if (($row->name ?? null) === $index) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         $database = $connection->getDatabaseName();
 
         $result = $connection->select(

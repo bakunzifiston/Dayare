@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ReceivedUnit;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreDeliveryConfirmationRequest extends FormRequest
 {
@@ -22,6 +24,7 @@ class StoreDeliveryConfirmationRequest extends FormRequest
             'client_id' => ['nullable', 'exists:clients,id'],
             'contract_id' => ['nullable', 'exists:contracts,id'],
             'received_quantity' => ['required', 'integer', 'min:0'],
+            'received_unit' => ['nullable', 'string', Rule::in(ReceivedUnit::values())],
             'received_date' => ['required', 'date'],
             'receiver_name' => ['required', 'string', 'max:255'],
             'receiver_country' => ['nullable', 'string', 'max:100'],

@@ -62,7 +62,9 @@ Route::prefix('v1')->group(function () {
         Route::post('post-mortem-inspections', [MobileCollectionController::class, 'postMortemStore']);
         Route::post('certificates', [MobileCollectionController::class, 'certificatesStore']);
         Route::post('transport-trips', [MobileCollectionController::class, 'transportTripsStore']);
+        Route::get('transport-trips/export', [MobileCollectionController::class, 'transportTripsExport']);
         Route::post('delivery-confirmations', [MobileCollectionController::class, 'deliveryConfirmationsStore']);
+        Route::get('delivery-confirmations/export', [MobileCollectionController::class, 'deliveryConfirmationsExport']);
         Route::post('warehouse-storages', [MobileCollectionController::class, 'warehouseStoragesStore']);
     });
 });

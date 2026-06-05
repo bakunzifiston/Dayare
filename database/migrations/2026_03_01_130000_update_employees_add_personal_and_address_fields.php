@@ -2,16 +2,32 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            if (Schema::hasColumn('employees', 'employee_code')) {
-                $table->dropColumn('employee_code');
+        if (Schema::hasColumn('employees', 'employee_code')) {
+            try {
+                Schema::table('employees', function (Blueprint $table) {
+                    $table->dropUnique(['employee_code']);
+                });
+            } catch (\Throwable) {
+                // Index may already be missing on some databases.
             }
+
+            if (Schema::getConnection()->getDriverName() === 'sqlite') {
+                DB::statement('DROP INDEX IF EXISTS employees_employee_code_unique');
+            }
+
+            Schema::table('employees', function (Blueprint $table) {
+                $table->dropColumn('employee_code');
+            });
+        }
+
+        Schema::table('employees', function (Blueprint $table) {
 
             if (! Schema::hasColumn('employees', 'date_of_birth')) {
                 $table->date('date_of_birth')->nullable()->after('last_name');

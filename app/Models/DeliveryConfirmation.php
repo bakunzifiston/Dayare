@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\MeatExportDocumentType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -21,6 +23,7 @@ class DeliveryConfirmation extends Model
         'client_id',
         'contract_id',
         'received_quantity',
+        'received_unit',
         'received_date',
         'receiver_name',
         'receiver_country',
@@ -69,6 +72,33 @@ class DeliveryConfirmation extends Model
     public function fulfillingDemand(): HasOne
     {
         return $this->hasOne(Demand::class, 'fulfilled_by_delivery_id');
+    }
+
+    public function exportDocuments(): HasMany
+    {
+        return $this->hasMany(MeatExportDocument::class);
+    }
+
+    public function isInternationalExport(): bool
+    {
+        $domestic = config('processor.domestic_country', 'RW');
+
+        return filled($this->receiver_country)
+            && strtoupper((string) $this->receiver_country) !== strtoupper((string) $domestic);
+    }
+
+    public function allExportDocumentsIssued(): bool
+    {
+        if (! $this->isInternationalExport()) {
+            return true;
+        }
+
+        $required = MeatExportDocumentType::REQUIRED_TYPES;
+        $issued = $this->relationLoaded('exportDocuments')
+            ? $this->exportDocuments->where('status', MeatExportDocument::STATUS_ISSUED)->pluck('document_type')->all()
+            : $this->exportDocuments()->where('status', MeatExportDocument::STATUS_ISSUED)->pluck('document_type')->all();
+
+        return empty(array_diff($required, $issued));
     }
 
     /** True when delivery was to a non-registered facility (e.g. external / international). */

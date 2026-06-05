@@ -10,8 +10,13 @@ use App\Http\Requests\StoreDeliveryConfirmationRequest;
 use App\Http\Requests\StorePostMortemInspectionRequest;
 use App\Http\Requests\StoreSlaughterExecutionRequest;
 use App\Http\Requests\StoreSlaughterPlanRequest;
+use App\Http\Requests\ExportDeliveryConfirmationsRequest;
+use App\Http\Requests\ExportTransportTripsRequest;
 use App\Http\Requests\StoreTransportTripRequest;
 use App\Http\Requests\StoreWarehouseStorageRequest;
+use App\Http\Controllers\Concerns\ExportsProcessorRecords;
+use App\Http\Controllers\Concerns\ScopesProcessorData;
+use App\Models\BusinessUser;
 use App\Http\Requests\UpdateAnimalIntakeRequest;
 use App\Http\Requests\UpdateSlaughterExecutionRequest;
 use App\Http\Requests\UpdateSlaughterPlanRequest;
@@ -42,6 +47,9 @@ use Illuminate\Support\Facades\DB;
 
 class MobileCollectionController extends Controller
 {
+    use ExportsProcessorRecords;
+    use ScopesProcessorData;
+
     private function facilityIds(Request $request)
     {
         return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())->pluck('id');
@@ -690,15 +698,18 @@ class MobileCollectionController extends Controller
 
     public function transportTripsStore(StoreTransportTripRequest $request): JsonResponse
     {
-        $data = $request->validated();
+        $data = TransportTrip::normalizeDestinationAttributes($request->validated());
         $certificateId = (int) $data['certificate_id'];
 
         if (! $this->certificateIds($request)->contains($certificateId)) {
             return ApiJson::failure(__('Not found.'), [], 404);
         }
         $facilityIds = $this->facilityIds($request);
-        if (! $facilityIds->contains((int) $data['origin_facility_id']) ||
-            ! $facilityIds->contains((int) $data['destination_facility_id'])) {
+        if (! $facilityIds->contains((int) $data['origin_facility_id'])) {
+            return ApiJson::failure(__('Not found.'), [], 404);
+        }
+        if (! empty($data['destination_facility_id'])
+            && ! $facilityIds->contains((int) $data['destination_facility_id'])) {
             return ApiJson::failure(__('Not found.'), [], 404);
         }
 
@@ -769,6 +780,78 @@ class MobileCollectionController extends Controller
             __('Created.'),
             201
         );
+    }
+
+    public function transportTripsExport(ExportTransportTripsRequest $request): JsonResponse
+    {
+        if (! $request->user()->canProcessorPermission(BusinessUser::PERMISSION_EXPORT_RECORDS)) {
+            return ApiJson::failure(__('Forbidden.'), [], 403);
+        }
+
+        $trips = $this->applyMobileTripFilters($request)->orderByDesc('departure_date')->get();
+
+        return ApiJson::success($trips->toArray());
+    }
+
+    public function deliveryConfirmationsExport(ExportDeliveryConfirmationsRequest $request): JsonResponse
+    {
+        if (! $request->user()->canProcessorPermission(BusinessUser::PERMISSION_EXPORT_RECORDS)) {
+            return ApiJson::failure(__('Forbidden.'), [], 403);
+        }
+
+        $facilityIds = $this->accessibleFacilityIds($request);
+        $confirmations = $this->applyMobileConfirmationFilters(
+            $this->scopedConfirmationsQuery($request)->with([
+                'transportTrip.certificate',
+                'receivingFacility',
+                'client',
+                'contract',
+                'fulfillingDemand',
+            ]),
+            $request,
+            $facilityIds
+        )->orderByDesc('received_date')->get();
+
+        return ApiJson::success($confirmations->toArray());
+    }
+
+    protected function applyMobileTripFilters(Request $request): \Illuminate\Database\Eloquent\Builder
+    {
+        $facilityIds = $this->accessibleFacilityIds($request);
+
+        return $this->scopedTripsQuery($request)
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('departure_date', '>=', $request->date('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('departure_date', '<=', $request->date('to')))
+            ->when(
+                $request->filled('origin_facility_id') && $facilityIds->contains((int) $request->origin_facility_id),
+                fn ($q) => $q->where('origin_facility_id', $request->integer('origin_facility_id'))
+            )
+            ->when(
+                $request->filled('destination_facility_id') && $facilityIds->contains((int) $request->destination_facility_id),
+                fn ($q) => $q->where('destination_facility_id', $request->integer('destination_facility_id'))
+            );
+    }
+
+    protected function applyMobileConfirmationFilters(
+        \Illuminate\Database\Eloquent\Builder $query,
+        Request $request,
+        \Illuminate\Support\Collection $facilityIds
+    ): \Illuminate\Database\Eloquent\Builder {
+        $clientIds = $this->accessibleClientIds($request);
+
+        return $query
+            ->when($request->filled('confirmation_status'), fn ($q) => $q->where('confirmation_status', $request->string('confirmation_status')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('received_date', '>=', $request->date('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('received_date', '<=', $request->date('to')))
+            ->when(
+                $request->filled('receiving_facility_id') && $facilityIds->contains((int) $request->receiving_facility_id),
+                fn ($q) => $q->where('receiving_facility_id', $request->integer('receiving_facility_id'))
+            )
+            ->when(
+                $request->filled('client_id') && $clientIds->contains((int) $request->client_id),
+                fn ($q) => $q->where('client_id', $request->integer('client_id'))
+            );
     }
 
     public function warehouseStoragesStore(StoreWarehouseStorageRequest $request): JsonResponse

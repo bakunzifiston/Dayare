@@ -18,37 +18,13 @@
                     @csrf
                     @method('put')
 
-                    <div>
-                        <x-input-label for="certificate_id" :value="__('Certificate')" />
-                        <select id="certificate_id" name="certificate_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach ($certificates as $c)
-                                <option value="{{ $c['id'] }}" @selected(old('certificate_id', $trip->certificate_id) == $c['id'])>{{ $c['label'] }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('certificate_id')" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="batch_id" :value="__('Batch (optional)')" />
-                        <select id="batch_id" name="batch_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
-                            <option value="">{{ __('None') }}</option>
-                            @foreach ($batches as $b)
-                                <option value="{{ $b['id'] }}" @selected(old('batch_id', $trip->batch_id) == $b['id'])>{{ $b['label'] }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('batch_id')" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="warehouse_storage_id" :value="__('Cold Room storage (released, optional)')" />
-                        <select id="warehouse_storage_id" name="warehouse_storage_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
-                            <option value="">{{ __('None') }}</option>
-                            @foreach ($releasedStorages ?? [] as $ws)
-                                <option value="{{ $ws['id'] }}" @selected(old('warehouse_storage_id', $trip->warehouse_storage_id) == $ws['id'])>{{ $ws['label'] }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('warehouse_storage_id')" />
-                    </div>
+                    @include('transport-trips.partials.storage-source-fields', [
+                        'trip' => $trip,
+                        'releasedStorages' => $releasedStorages ?? [],
+                        'certificates' => $certificates,
+                        'batches' => $batches,
+                        'hasReleasedStorages' => $hasReleasedStorages ?? false,
+                    ])
 
                     <div>
                         <x-input-label for="origin_facility_id" :value="__('Origin facility')" />
@@ -60,15 +36,7 @@
                         <x-input-error class="mt-2" :messages="$errors->get('origin_facility_id')" />
                     </div>
 
-                    <div>
-                        <x-input-label for="destination_facility_id" :value="__('Destination facility')" />
-                        <select id="destination_facility_id" name="destination_facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach ($facilities as $f)
-                                <option value="{{ $f['id'] }}" @selected(old('destination_facility_id', $trip->destination_facility_id) == $f['id'])>{{ $f['label'] }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('destination_facility_id')" />
-                    </div>
+                    @include('transport-trips.partials.destination-fields', ['trip' => $trip, 'facilities' => $facilities])
 
                     <div>
                         <x-input-label for="vehicle_plate_number" :value="__('Vehicle plate number')" />

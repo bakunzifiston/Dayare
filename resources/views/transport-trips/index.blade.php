@@ -7,14 +7,22 @@
                     {{ __('All trips') }}
                 </h2>
             </div>
-            <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
-                {{ __('Record trip') }}
-            </a>
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                @include('processor.partials.export-dropdown', [
+                    'exportRoute' => 'transport-trips.export',
+                    'traceabilityRoute' => 'transport-trips.export.traceability',
+                    'query' => request()->query(),
+                ])
+                <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                    {{ __('Record trip') }}
+                </a>
+            </div>
         </div>
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            @include('processor.partials.transport-filters', ['facilities' => $facilities ?? [], 'filters' => $filters ?? []])
             <div class="flex flex-nowrap items-center gap-3 mb-6 overflow-x-auto pb-1 rounded-xl border border-slate-200/60 bg-white px-4 py-3 shadow-sm">
                 <x-kpi-card inline title="{{ __('Total trips') }}" :value="$kpis['total']" color="blue" />
                 <x-kpi-card inline title="{{ __('Arrived') }}" :value="$kpis['arrived']" color="green" />
@@ -41,7 +49,7 @@
                                         {{ $trip->vehicle_plate_number }} — {{ $trip->driver_name }}
                                     </a>
                                     <p class="text-sm text-slate-500">
-                                        {{ $trip->originFacility->facility_name ?? '' }} → {{ $trip->destinationFacility->facility_name ?? '' }}
+                                        {{ $trip->originFacility->facility_name ?? '' }} → {{ $trip->destination_display }}
                                         · {{ $trip->departure_date->format('d M Y') }} · {{ ucfirst(str_replace('_', ' ', $trip->status)) }}
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1">

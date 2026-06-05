@@ -21,6 +21,9 @@ class TransportTrip extends Model
         'batch_id',
         'origin_facility_id',
         'destination_facility_id',
+        'destination_name',
+        'destination_country',
+        'destination_address',
         'vehicle_plate_number',
         'driver_name',
         'driver_phone',
@@ -72,6 +75,41 @@ class TransportTrip extends Model
     public function destinationFacility(): BelongsTo
     {
         return $this->belongsTo(Facility::class, 'destination_facility_id');
+    }
+
+    public function isExternalDestination(): bool
+    {
+        return $this->destination_facility_id === null;
+    }
+
+    public function getDestinationDisplayAttribute(): string
+    {
+        if ($this->destinationFacility) {
+            return $this->destinationFacility->facility_name;
+        }
+
+        $parts = array_filter([$this->destination_name, $this->destination_country]);
+
+        return implode(' — ', $parts) ?: ($this->destination_name ?? __('External destination'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    public static function normalizeDestinationAttributes(array $attributes): array
+    {
+        $facilityId = $attributes['destination_facility_id'] ?? null;
+        if ($facilityId !== null && $facilityId !== '') {
+            $attributes['destination_facility_id'] = (int) $facilityId;
+            $attributes['destination_name'] = null;
+            $attributes['destination_country'] = null;
+            $attributes['destination_address'] = null;
+        } else {
+            $attributes['destination_facility_id'] = null;
+        }
+
+        return $attributes;
     }
 
     /** TransportTrip (1) → One Delivery Confirmation */

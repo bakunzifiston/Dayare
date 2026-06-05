@@ -15,6 +15,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'transport_trip_id', type: 'integer', example: 500),
         new OA\Property(property: 'receiving_facility_id', type: 'integer', nullable: true),
         new OA\Property(property: 'received_quantity', type: 'number', format: 'float', nullable: true),
+        new OA\Property(property: 'received_unit', type: 'string', enum: ['units', 'kg', 'g', 'tonnes', 'carcasses', 'boxes'], example: 'kg'),
         new OA\Property(property: 'received_date', type: 'string', format: 'date', nullable: true),
         new OA\Property(property: 'confirmation_status', type: 'string', enum: ['pending', 'confirmed', 'disputed']),
     ],

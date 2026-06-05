@@ -32,6 +32,12 @@ return new class extends Migration
             ]);
         }
 
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return;
+        }
+
         Schema::table('logistics_orders', function (Blueprint $table) {
             $table->dropForeign(['client_id']);
         });
@@ -51,7 +57,6 @@ return new class extends Migration
             $table->unique('order_number');
         });
 
-        $driver = Schema::getConnection()->getDriverName();
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
             DB::statement('ALTER TABLE logistics_orders MODIFY order_number VARCHAR(40) NOT NULL');
             DB::statement("ALTER TABLE logistics_orders MODIFY service_type VARCHAR(20) NOT NULL DEFAULT 'local'");

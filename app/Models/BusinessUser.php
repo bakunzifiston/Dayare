@@ -85,6 +85,14 @@ class BusinessUser extends Pivot
 
     public const PERMISSION_CONFIRM_DELIVERY = 'confirm_delivery';
 
+    public const PERMISSION_EXPORT_RECORDS = 'export_records';
+
+    public const PERMISSION_EXPORT_TRACEABILITY = 'export_traceability';
+
+    public const PERMISSION_MANAGE_EXPORT_DOCUMENTS = 'manage_export_documents';
+
+    public const PERMISSION_VIEW_EXPORT_DOCUMENTS = 'view_export_documents';
+
     public const PERMISSION_MONITOR_TEMPERATURE_LOGS = 'monitor_temperature_logs';
 
     public const PERMISSION_VIEW_ASSIGNED_BATCHES = 'view_assigned_batches';
@@ -119,6 +127,10 @@ class BusinessUser extends Pivot
         self::PERMISSION_DISPATCH_DELIVERY,
         self::PERMISSION_TRACK_DELIVERY_STATUS,
         self::PERMISSION_CONFIRM_DELIVERY,
+        self::PERMISSION_EXPORT_RECORDS,
+        self::PERMISSION_EXPORT_TRACEABILITY,
+        self::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
+        self::PERMISSION_VIEW_EXPORT_DOCUMENTS,
         self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
         self::PERMISSION_VIEW_ASSIGNED_BATCHES,
         self::PERMISSION_VIEW_FINANCE_DASHBOARD,
@@ -136,6 +148,8 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_CERTIFICATES,
             self::PERMISSION_MONITOR_COMPLIANCE_METRICS,
             self::PERMISSION_TRACK_DELIVERY_STATUS,
+            self::PERMISSION_EXPORT_RECORDS,
+            self::PERMISSION_VIEW_EXPORT_DOCUMENTS,
             self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
             self::PERMISSION_VIEW_FINANCE_DASHBOARD,
             self::PERMISSION_MANAGE_AR_INVOICES,
@@ -155,6 +169,8 @@ class BusinessUser extends Pivot
             self::PERMISSION_LOG_NON_COMPLIANCE,
             self::PERMISSION_UPLOAD_COMPLIANCE_EVIDENCE,
             self::PERMISSION_MONITOR_COMPLIANCE_METRICS,
+            self::PERMISSION_EXPORT_TRACEABILITY,
+            self::PERMISSION_VIEW_EXPORT_DOCUMENTS,
             self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
             self::PERMISSION_VIEW_CERTIFICATES,
         ],
@@ -172,6 +188,10 @@ class BusinessUser extends Pivot
             self::PERMISSION_DISPATCH_DELIVERY,
             self::PERMISSION_TRACK_DELIVERY_STATUS,
             self::PERMISSION_CONFIRM_DELIVERY,
+            self::PERMISSION_EXPORT_RECORDS,
+            self::PERMISSION_EXPORT_TRACEABILITY,
+            self::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
+            self::PERMISSION_VIEW_EXPORT_DOCUMENTS,
             self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
             self::PERMISSION_VIEW_CERTIFICATES,
         ],

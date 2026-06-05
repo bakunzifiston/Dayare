@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('delivery_confirmations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('transport_trip_id')->unique()->constrained()->cascadeOnDelete();
-            $table->foreignId('receiving_facility_id')->constrained('facilities')->cascadeOnDelete();
+            $table->foreignId('receiving_facility_id')->nullable()->constrained('facilities')->nullOnDelete();
             $table->unsignedInteger('received_quantity')->default(0);
             $table->date('received_date');
             $table->string('receiver_name', 255);

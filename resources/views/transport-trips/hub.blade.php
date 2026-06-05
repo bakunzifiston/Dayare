@@ -20,6 +20,11 @@
                     {{ __('Each trip links a certificate to origin and destination sites, vehicle and driver details, and optional released cold storage. Confirm delivery when the load arrives.') }}
                 </p>
                 <div class="mt-8 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+                    @include('processor.partials.export-dropdown', [
+                        'exportRoute' => 'transport-trips.export',
+                        'traceabilityRoute' => 'transport-trips.export.traceability',
+                        'query' => $filters ?? [],
+                    ])
                     <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-bucha-primary text-white text-base font-bold shadow-lg shadow-bucha-primary/25 hover:bg-bucha-burgundy transition-colors ring-2 ring-bucha-primary/20">
                         <svg class="h-6 w-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         {{ __('Record trip') }}

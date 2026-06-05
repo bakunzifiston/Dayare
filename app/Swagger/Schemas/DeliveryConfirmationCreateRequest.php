@@ -16,6 +16,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'client_id', type: 'integer', nullable: true, example: 21),
         new OA\Property(property: 'contract_id', type: 'integer', nullable: true, example: 16),
         new OA\Property(property: 'received_quantity', type: 'integer', minimum: 0, example: 24),
+        new OA\Property(property: 'received_unit', type: 'string', enum: ['units', 'kg', 'g', 'tonnes', 'carcasses', 'boxes'], example: 'kg'),
         new OA\Property(property: 'received_date', type: 'string', format: 'date', example: '2026-04-23'),
         new OA\Property(property: 'receiver_name', type: 'string', maxLength: 255, example: 'Warehouse Receiver'),
         new OA\Property(property: 'receiver_country', type: 'string', nullable: true, maxLength: 100, example: 'Rwanda'),

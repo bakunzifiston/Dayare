@@ -213,7 +213,7 @@
                         @foreach ($certificate->transportTrips as $tr)
                             <li class="py-2">
                                 <a href="{{ route('transport-trips.show', $tr) }}" class="font-medium text-bucha-primary hover:underline">{{ $tr->vehicle_plate_number }}</a>
-                                <span class="text-sm text-gray-500"> {{ $tr->driver_name }} · {{ $tr->originFacility->facility_name ?? '' }} → {{ $tr->destinationFacility->facility_name ?? '' }} · {{ $tr->departure_date->format('d M Y') }}</span>
+                                <span class="text-sm text-gray-500"> {{ $tr->driver_name }} · {{ $tr->originFacility->facility_name ?? '' }} → {{ $tr->destination_display }} · {{ $tr->departure_date->format('d M Y') }}</span>
                             </li>
                         @endforeach
                     </ul>

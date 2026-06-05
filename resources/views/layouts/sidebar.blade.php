@@ -18,8 +18,8 @@
                 ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.index', 'icon' => 'clipboard', 'permission' => 'record_post_mortem'],
                 ['label' => __('Certificates'), 'route' => 'certificates.hub', 'icon' => 'certificate', 'permission' => 'view_certificates', 'routeIs' => ['certificates.hub', 'certificates.index', 'certificates.create', 'certificates.edit', 'certificates.show', 'certificates.qr']],
                 ['label' => __('Cold Room'), 'route' => 'cold-rooms.hub', 'icon' => 'box', 'permission' => 'monitor_temperature_logs', 'routeIs' => ['cold-rooms.hub', 'cold-rooms.manage.*', 'warehouse-storages.*']],
-                ['label' => __('Transport'), 'route' => 'transport-trips.hub', 'icon' => 'truck', 'permission' => 'create_transport_trip', 'routeIs' => ['transport-trips.hub', 'transport-trips.index', 'transport-trips.create', 'transport-trips.edit', 'transport-trips.show']],
-                ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check', 'permission' => 'confirm_delivery'],
+                ['label' => __('Transport'), 'route' => 'transport-trips.hub', 'icon' => 'truck', 'permission' => 'create_transport_trip', 'permissions' => ['create_transport_trip', 'track_delivery_status'], 'routeIs' => ['transport-trips.hub', 'transport-trips.index', 'transport-trips.create', 'transport-trips.edit', 'transport-trips.show', 'transport-trips.export', 'transport-trips.export.traceability']],
+                ['label' => __('Delivery confirmation'), 'route' => 'delivery-confirmations.index', 'icon' => 'check', 'permission' => 'confirm_delivery', 'permissions' => ['confirm_delivery', 'track_delivery_status'], 'routeIs' => ['delivery-confirmations.index', 'delivery-confirmations.create', 'delivery-confirmations.edit', 'delivery-confirmations.show', 'delivery-confirmations.export']],
                 ['label' => __('Compliance'), 'route' => 'compliance.index', 'icon' => 'shield', 'permission' => 'monitor_compliance_metrics'],
             ],
         ],
@@ -56,9 +56,14 @@
         $ownsActiveProcessorBusiness = $activeProcessorBusinessId !== null && $user->ownsBusiness($activeProcessorBusinessId);
         $showFinanceSidebar = \App\Models\BusinessUser::showsFinanceSidebarForMembership($processorRole, $ownsActiveProcessorBusiness);
 
-        $canAccessNavItem = function (array $item) use ($user): bool {
+        $canAccessNavItem = function (array $item) use ($user, $activeProcessorBusinessId, $ownsActiveProcessorBusiness): bool {
+            if ($ownsActiveProcessorBusiness) {
+                return true;
+            }
+
             $permission = $item['permission'] ?? null;
-            if (empty($permission)) {
+            $permissions = $item['permissions'] ?? null;
+            if (empty($permission) && empty($permissions)) {
                 return true;
             }
 
@@ -70,8 +75,17 @@
                 return true;
             }
 
-            return $user->canProcessorPermission($permission)
-                || $user->canProcessorPermission('view_all_modules');
+            if (is_array($permissions)) {
+                foreach ($permissions as $perm) {
+                    if ($user->canProcessorPermission($perm)) {
+                        return true;
+                    }
+                }
+            } elseif ($permission && $user->canProcessorPermission($permission)) {
+                return true;
+            }
+
+            return $user->canProcessorPermission('view_all_modules');
         };
 
         $filtered = [];

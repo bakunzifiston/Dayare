@@ -160,7 +160,7 @@ class EnsureTenantPermission
         if ($user->canProcessorPermission($requiredPermission, $activeBusinessId)) {
             return $next($request);
         }
-        if ($action === 'view'
+        if ($this->allowsViewAllModulesBypass($routeName, $action)
             && $user->canProcessorPermission(BusinessUser::PERMISSION_VIEW_ALL_MODULES, $activeBusinessId)) {
             return $next($request);
         }
@@ -168,8 +168,27 @@ class EnsureTenantPermission
         abort(403, __('You do not have permission to access this section.'));
     }
 
+    private const ROUTE_PERMISSION_OVERRIDES = [
+        'transport-trips.export' => BusinessUser::PERMISSION_EXPORT_RECORDS,
+        'transport-trips.export.traceability' => BusinessUser::PERMISSION_EXPORT_TRACEABILITY,
+        'delivery-confirmations.export' => BusinessUser::PERMISSION_EXPORT_RECORDS,
+        'delivery-confirmations.contracts' => BusinessUser::PERMISSION_CONFIRM_DELIVERY,
+        'export-documents.index' => BusinessUser::PERMISSION_VIEW_EXPORT_DOCUMENTS,
+        'export-documents.show' => BusinessUser::PERMISSION_VIEW_EXPORT_DOCUMENTS,
+        'export-documents.download' => BusinessUser::PERMISSION_VIEW_EXPORT_DOCUMENTS,
+        'export-documents.create' => BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
+        'export-documents.store' => BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
+        'export-documents.edit' => BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
+        'export-documents.update' => BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
+        'export-documents.destroy' => BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
+    ];
+
     private function permissionForRoute(string $routeName, string $action): ?string
     {
+        if (isset(self::ROUTE_PERMISSION_OVERRIDES[$routeName])) {
+            return self::ROUTE_PERMISSION_OVERRIDES[$routeName];
+        }
+
         foreach (self::MODULE_PERMISSION_MAP as $prefix => $policies) {
             if ($routeName === $prefix || str_starts_with($routeName, $prefix.'.')) {
                 return $policies[$action] ?? $policies['view'] ?? null;
@@ -192,6 +211,19 @@ class EnsureTenantPermission
         }
 
         return 'view';
+    }
+
+    private function allowsViewAllModulesBypass(string $routeName, string $action): bool
+    {
+        if ($action !== 'view') {
+            return false;
+        }
+
+        if (isset(self::ROUTE_PERMISSION_OVERRIDES[$routeName])) {
+            return false;
+        }
+
+        return ! str_contains($routeName, '.export');
     }
 
     private function isExcludedRoute(Request $request): bool

@@ -12,16 +12,24 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('delivery_confirmations', function (Blueprint $table) {
-            $table->dropForeign(['receiving_facility_id']);
-        });
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            Schema::table('delivery_confirmations', function (Blueprint $table) {
+                $table->dropForeign(['receiving_facility_id']);
+            });
 
-        DB::statement('ALTER TABLE delivery_confirmations MODIFY receiving_facility_id BIGINT UNSIGNED NULL');
+            DB::statement('ALTER TABLE delivery_confirmations MODIFY receiving_facility_id BIGINT UNSIGNED NULL');
+        }
 
         Schema::table('delivery_confirmations', function (Blueprint $table) {
-            $table->foreign('receiving_facility_id')->references('id')->on('facilities')->nullOnDelete();
-            $table->string('receiver_country', 100)->nullable()->after('receiver_name');
-            $table->text('receiver_address')->nullable()->after('receiver_country');
+            if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+                $table->foreign('receiving_facility_id')->references('id')->on('facilities')->nullOnDelete();
+            }
+            if (! Schema::hasColumn('delivery_confirmations', 'receiver_country')) {
+                $table->string('receiver_country', 100)->nullable()->after('receiver_name');
+            }
+            if (! Schema::hasColumn('delivery_confirmations', 'receiver_address')) {
+                $table->text('receiver_address')->nullable()->after('receiver_country');
+            }
         });
     }
 

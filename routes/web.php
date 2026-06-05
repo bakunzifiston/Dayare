@@ -14,6 +14,7 @@ use App\Http\Controllers\ContractController;
 use App\Http\Controllers\CrmDashboardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryConfirmationController;
+use App\Http\Controllers\MeatExportDocumentController;
 use App\Http\Controllers\DemandController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FacilityController;
@@ -502,7 +503,26 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::post('warehouse-storages/{warehouse_storage}/temperature-logs', [WarehouseStorageController::class, 'storeTemperatureLog'])->name('warehouse-storages.temperature-logs.store');
     Route::delete('warehouse-storages/{warehouse_storage}/temperature-logs/{temperature_log}', [WarehouseStorageController::class, 'destroyTemperatureLog'])->name('warehouse-storages.temperature-logs.destroy');
     Route::get('transport-trips/overview', [TransportTripController::class, 'hub'])->name('transport-trips.hub');
+    Route::get('transport-trips/export/traceability', [TransportTripController::class, 'exportTraceability'])
+        ->name('transport-trips.export.traceability');
+    Route::get('transport-trips/export', [TransportTripController::class, 'export'])->name('transport-trips.export');
     Route::resource('transport-trips', TransportTripController::class);
+    Route::get('delivery-confirmations/contracts', [DeliveryConfirmationController::class, 'contracts'])
+        ->name('delivery-confirmations.contracts');
+    Route::get('delivery-confirmations/export', [DeliveryConfirmationController::class, 'export'])
+        ->name('delivery-confirmations.export');
+    Route::prefix('delivery-confirmations/{delivery_confirmation}/export-documents')
+        ->name('export-documents.')
+        ->group(function () {
+            Route::get('/', [MeatExportDocumentController::class, 'index'])->name('index');
+            Route::get('/create', [MeatExportDocumentController::class, 'create'])->name('create');
+            Route::post('/', [MeatExportDocumentController::class, 'store'])->name('store');
+            Route::get('/{meat_export_document}', [MeatExportDocumentController::class, 'show'])->name('show');
+            Route::get('/{meat_export_document}/edit', [MeatExportDocumentController::class, 'edit'])->name('edit');
+            Route::put('/{meat_export_document}', [MeatExportDocumentController::class, 'update'])->name('update');
+            Route::delete('/{meat_export_document}', [MeatExportDocumentController::class, 'destroy'])->name('destroy');
+            Route::get('/{meat_export_document}/download', [MeatExportDocumentController::class, 'download'])->name('download');
+        });
     Route::resource('delivery-confirmations', DeliveryConfirmationController::class);
     Route::get('compliance', [ComplianceController::class, 'index'])->name('compliance.index');
     Route::resource('ante-mortem-inspections', AnteMortemInspectionController::class);

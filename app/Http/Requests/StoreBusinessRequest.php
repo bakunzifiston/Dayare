@@ -24,17 +24,7 @@ class StoreBusinessRequest extends FormRequest
         return [
             'type' => ['nullable', 'string', Rule::in(Business::TYPES)],
             // Business info
-            'business_name' => [
-                'nullable',
-                'string',
-                'max:255',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    $normalized = $this->normalizeBusinessName((string) $value);
-                    if ($normalized !== '' && Business::query()->where('business_name_normalized', $normalized)->exists()) {
-                        $fail(__('This business name is already taken.'));
-                    }
-                },
-            ],
+            'business_name' => ['nullable', 'string', 'max:255'],
             'registration_number' => ['nullable', 'string', 'max:100', 'unique:businesses,registration_number'],
             'tax_id' => ['nullable', 'string', 'max:100'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
@@ -125,10 +115,4 @@ class StoreBusinessRequest extends FormRequest
         }
     }
 
-    private function normalizeBusinessName(string $businessName): string
-    {
-        $trimmed = trim($businessName);
-
-        return (string) preg_replace('/\s+/', ' ', Str::lower($trimmed));
-    }
 }

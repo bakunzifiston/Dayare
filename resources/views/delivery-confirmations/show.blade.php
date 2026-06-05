@@ -28,6 +28,9 @@
                             <a href="{{ route('transport-trips.show', $confirmation->transportTrip) }}" class="text-bucha-primary hover:underline">
                                 {{ $confirmation->transportTrip->vehicle_plate_number }} — {{ $confirmation->transportTrip->driver_name }}
                             </a>
+                            <span class="ml-2">
+                                @include('processor.partials.trip-status-badge', ['status' => $confirmation->transportTrip->status])
+                            </span>
                         </dd>
                     </div>
                     <div>
@@ -72,7 +75,7 @@
                     @endif
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Received quantity') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $confirmation->received_quantity }}</dd>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $confirmation->received_quantity }} {{ $confirmation->received_unit ?? 'units' }}</dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Received date') }}</dt>
@@ -88,6 +91,7 @@
                     </div>
                 </dl>
             </div>
+            @include('delivery-confirmations.partials.export-documents-section', ['confirmation' => $confirmation])
         </div>
     </div>
 </x-app-layout>

@@ -22,7 +22,10 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-4">
+            @if (session('status'))
+                <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
+            @endif
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -66,8 +69,17 @@
                         <dd class="mt-1 text-sm text-gray-900">{{ $trip->originFacility ? $trip->originFacility->facility_name : '—' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Destination facility') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $trip->destinationFacility ? $trip->destinationFacility->facility_name : '—' }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Destination') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            @if ($trip->isExternalDestination())
+                                <span class="text-gray-600">{{ __('Other place') }}</span> — {{ $trip->destination_display }}
+                                @if ($trip->destination_address)
+                                    <span class="block text-gray-500 mt-1">{{ $trip->destination_address }}</span>
+                                @endif
+                            @else
+                                {{ $trip->destination_display }}
+                            @endif
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Departure date') }}</dt>
@@ -87,14 +99,21 @@
             @if ($trip->deliveryConfirmation)
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Delivery confirmation') }}</h3>
-                    <p class="text-sm text-gray-600 mb-2">{{ $trip->deliveryConfirmation->receivingFacility ? $trip->deliveryConfirmation->receivingFacility->facility_name : '' }} · {{ $trip->deliveryConfirmation->received_quantity }} {{ __('received') }} · {{ $trip->deliveryConfirmation->received_date->format('d M Y') }} · {{ ucfirst($trip->deliveryConfirmation->confirmation_status) }}</p>
+                    <p class="text-sm text-gray-600 mb-2">
+                        {{ $trip->deliveryConfirmation->receiver_display }}
+                        · {{ $trip->deliveryConfirmation->received_quantity }} {{ $trip->deliveryConfirmation->received_unit ?? 'units' }}
+                        · {{ $trip->deliveryConfirmation->received_date->format('d M Y') }}
+                        · {{ ucfirst($trip->deliveryConfirmation->confirmation_status) }}
+                    </p>
                     <a href="{{ route('delivery-confirmations.show', $trip->deliveryConfirmation) }}" class="text-sm text-bucha-primary hover:underline">{{ __('View confirmation') }}</a>
                 </div>
             @else
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Delivery confirmation') }}</h3>
-                    <p class="text-sm text-gray-500 mb-2">{{ __('No delivery confirmation recorded for this trip.') }}</p>
-                    <a href="{{ route('delivery-confirmations.create') }}" class="text-sm text-bucha-primary hover:underline">{{ __('Confirm delivery') }}</a>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Next step: confirm delivery') }}</h3>
+                    <p class="text-sm text-gray-600 mb-3">{{ __('Record trip only logs the movement. Add received quantity, unit, contract, and international export documents on the delivery confirmation.') }}</p>
+                    <a href="{{ route('delivery-confirmations.create', ['transport_trip_id' => $trip->id]) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                        {{ __('Confirm delivery for this trip') }}
+                    </a>
                 </div>
             @endif
         </div>

@@ -26,25 +26,7 @@ class UpdateBusinessRequest extends FormRequest
 
         return [
             // Business info
-            'business_name' => [
-                'nullable',
-                'string',
-                'max:255',
-                function (string $attribute, mixed $value, \Closure $fail) use ($business): void {
-                    $normalized = $this->normalizeBusinessName((string) $value);
-                    if ($normalized === '') {
-                        return;
-                    }
-
-                    $exists = Business::query()
-                        ->where('business_name_normalized', $normalized)
-                        ->whereKeyNot($business->id)
-                        ->exists();
-                    if ($exists) {
-                        $fail(__('This business name is already taken.'));
-                    }
-                },
-            ],
+            'business_name' => ['nullable', 'string', 'max:255'],
             'registration_number' => ['nullable', 'string', 'max:100', Rule::unique('businesses', 'registration_number')->ignore($business->id)],
             'tax_id' => ['nullable', 'string', 'max:100'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
@@ -138,10 +120,4 @@ class UpdateBusinessRequest extends FormRequest
         }
     }
 
-    private function normalizeBusinessName(string $businessName): string
-    {
-        $trimmed = trim($businessName);
-
-        return (string) preg_replace('/\s+/', ' ', Str::lower($trimmed));
-    }
 }
