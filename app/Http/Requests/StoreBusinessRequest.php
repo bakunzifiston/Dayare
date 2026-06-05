@@ -25,7 +25,29 @@ class StoreBusinessRequest extends FormRequest
             'type' => ['nullable', 'string', Rule::in(Business::TYPES)],
             // Business info
             'business_name' => ['nullable', 'string', 'max:255'],
-            'registration_number' => ['nullable', 'string', 'max:100', 'unique:businesses,registration_number'],
+            'registration_number' => [
+                'nullable',
+                'string',
+                'max:100',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $normalized = mb_strtoupper(preg_replace('/\s+/', ' ', trim((string) $value)) ?? '');
+                    if ($normalized === '') {
+                        return;
+                    }
+
+                    $owned = $this->user()?->businesses()
+                        ->where('registration_number', $normalized)
+                        ->exists();
+
+                    if ($owned) {
+                        return;
+                    }
+
+                    if (Business::query()->where('registration_number', $normalized)->exists()) {
+                        $fail(__('This registration number is already in use.'));
+                    }
+                },
+            ],
             'tax_id' => ['nullable', 'string', 'max:100'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],

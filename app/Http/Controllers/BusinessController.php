@@ -53,8 +53,19 @@ class BusinessController extends Controller
         return view('businesses.index', compact('businesses', 'kpis'));
     }
 
-    public function create(): View
+    public function create(Request $request): View|RedirectResponse
     {
+        $processorBusinesses = $request->user()->businesses()
+            ->where('type', Business::TYPE_PROCESSOR)
+            ->orderByDesc('id')
+            ->get();
+
+        if ($processorBusinesses->count() === 1) {
+            return redirect()
+                ->route('businesses.edit', $processorBusinesses->first())
+                ->with('status', __('You already started business registration. Continue your setup below instead of registering again.'));
+        }
+
         return view('businesses.create');
     }
 
@@ -67,27 +78,36 @@ class BusinessController extends Controller
         $validated['type'] = $validated['type'] ?? Business::TYPE_PROCESSOR;
         $validated['pathway_status'] = $validated['pathway_status'] ?? 'active';
 
-        $existingOwned = $this->findOwnedBusinessByName($request->user(), (string) ($validated['business_name'] ?? ''));
+        $user = $request->user();
+        $existingOwned = $this->findOwnedBusinessByName($user, (string) ($validated['business_name'] ?? ''));
+        $updatedExisting = $existingOwned !== null;
 
         try {
-            if ($existingOwned !== null) {
-                $existingOwned->update($validated);
-                $business = $existingOwned->fresh();
-            } else {
-                $business = $request->user()->businesses()->create($validated);
-            }
+            $business = $this->persistOnboardingBusiness($user, $validated, $existingOwned);
         } catch (QueryException $exception) {
-            $this->throwBusinessValidationFromQueryException($exception);
+            if ($existingOwned === null && $this->isDuplicateBusinessNameException($exception)) {
+                $fallbackOwned = $this->findOwnedBusinessByName($user, (string) ($validated['business_name'] ?? ''))
+                    ?? ($user->businesses()->count() === 1 ? $user->businesses()->first() : null);
+
+                if ($fallbackOwned !== null) {
+                    $business = $this->persistOnboardingBusiness($user, $validated, $fallbackOwned);
+                    $updatedExisting = true;
+                } else {
+                    $this->throwBusinessValidationFromQueryException($exception);
+                }
+            } else {
+                $this->throwBusinessValidationFromQueryException($exception);
+            }
         }
 
         $this->storeBusinessDocumentUploads($request, $business);
 
         BusinessUser::query()->updateOrCreate(
-            ['business_id' => $business->id, 'user_id' => $request->user()->id],
+            ['business_id' => $business->id, 'user_id' => $user->id],
             ['role' => BusinessUser::ROLE_ORG_ADMIN]
         );
 
-        $this->syncOwnershipMembers($business, $members, $existingOwned !== null);
+        $this->syncOwnershipMembers($business, $members, $updatedExisting);
 
         return redirect()->route('businesses.hub')
             ->with('status', __('Business registered successfully.'));
@@ -201,16 +221,48 @@ class BusinessController extends Controller
         }
     }
 
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function persistOnboardingBusiness(User $user, array $validated, ?Business $existingOwned): Business
+    {
+        if ($existingOwned !== null) {
+            $existingOwned->update($validated);
+
+            return $existingOwned->fresh();
+        }
+
+        return $user->businesses()->create($validated);
+    }
+
     private function findOwnedBusinessByName(User $user, string $businessName): ?Business
     {
-        $normalized = $this->normalizeBusinessName($businessName);
+        $normalized = Business::normalizeDisplayName($businessName);
         if ($normalized === '') {
             return null;
         }
 
-        return $user->businesses()
-            ->where('business_name_normalized', $normalized)
-            ->first();
+        foreach ($user->businesses()->get() as $business) {
+            $storedNormalized = $business->business_name_normalized !== null
+                ? (string) $business->business_name_normalized
+                : Business::normalizeDisplayName((string) $business->business_name);
+
+            if ($storedNormalized === $normalized) {
+                return $business;
+            }
+        }
+
+        return null;
+    }
+
+    private function isDuplicateBusinessNameException(QueryException $exception): bool
+    {
+        $errorMessage = Str::lower($exception->getMessage());
+
+        return str_contains($errorMessage, 'businesses_business_name_unique')
+            || str_contains($errorMessage, 'businesses_business_name_normalized_unique')
+            || str_contains($errorMessage, 'businesses.business_name')
+            || (str_contains($errorMessage, 'duplicate entry') && str_contains($errorMessage, 'business_name'));
     }
 
     /**
@@ -240,13 +292,6 @@ class BusinessController extends Controller
         }
     }
 
-    private function normalizeBusinessName(string $businessName): string
-    {
-        $trimmed = trim($businessName);
-
-        return (string) preg_replace('/\s+/', ' ', Str::lower($trimmed));
-    }
-
     /**
      * Convert duplicate-key DB exceptions into user-friendly validation messages.
      */
@@ -254,12 +299,10 @@ class BusinessController extends Controller
     {
         $errorMessage = Str::lower($exception->getMessage());
 
-        if (str_contains($errorMessage, 'businesses_business_name_unique')
-            || str_contains($errorMessage, 'businesses_business_name_normalized_unique')
-            || str_contains($errorMessage, 'businesses.business_name')
+        if ($this->isDuplicateBusinessNameException($exception)
             || str_contains($errorMessage, 'business_name_normalized')) {
             throw ValidationException::withMessages([
-                'business_name' => [__('This business name is already taken.')],
+                'business_name' => [__('This business name is already taken. If you already started registration, open Businesses and choose Edit instead of registering again.')],
             ]);
         }
 

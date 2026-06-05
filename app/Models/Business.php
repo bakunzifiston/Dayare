@@ -393,13 +393,20 @@ class Business extends Model
         self::STATUS_SUSPENDED,
     ];
 
+    public static function normalizeDisplayName(string $businessName): string
+    {
+        $trimmed = trim($businessName);
+
+        return (string) preg_replace('/\s+/', ' ', Str::lower($trimmed));
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $business): void {
             if ($business->business_name !== null) {
                 $collapsedWhitespaceName = preg_replace('/\s+/', ' ', trim((string) $business->business_name)) ?? '';
                 $business->business_name = $collapsedWhitespaceName;
-                $business->business_name_normalized = Str::lower($collapsedWhitespaceName);
+                $business->business_name_normalized = self::normalizeDisplayName($collapsedWhitespaceName);
             }
 
             if ($business->registration_number !== null) {

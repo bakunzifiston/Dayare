@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Business;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ProcessorBusinessRegistrationTest extends TestCase
@@ -79,6 +80,62 @@ class ProcessorBusinessRegistrationTest extends TestCase
             'contact_phone' => '0780000099',
             'owner_first_name' => 'Sandy',
         ]);
+    }
+
+    public function test_processor_can_resubmit_when_owned_business_has_null_normalized_name(): void
+    {
+        $processorUser = User::factory()->create();
+        $now = now();
+
+        DB::table('businesses')->insert([
+            'user_id' => $processorUser->id,
+            'type' => Business::TYPE_PROCESSOR,
+            'business_name' => 'Dayare Meat Co',
+            'business_name_normalized' => null,
+            'registration_number' => 'RDB-LEGACY-001',
+            'contact_phone' => '0780000001',
+            'email' => 'processor@example.com',
+            'status' => Business::STATUS_ACTIVE,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $response = $this->actingAs($processorUser)->post(route('businesses.store'), [
+            'business_name' => '  dayare   meat   co  ',
+            'registration_number' => 'RDB-LEGACY-001',
+            'contact_phone' => '0780000099',
+            'email' => 'processor@example.com',
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        $response->assertRedirect(route('businesses.hub'));
+        $response->assertSessionHas('status');
+        $this->assertDatabaseCount('businesses', 1);
+        $this->assertDatabaseHas('businesses', [
+            'user_id' => $processorUser->id,
+            'business_name' => 'dayare meat co',
+            'contact_phone' => '0780000099',
+        ]);
+    }
+
+    public function test_create_wizard_redirects_to_edit_when_processor_business_already_exists(): void
+    {
+        $processorUser = User::factory()->create();
+        $business = Business::create([
+            'user_id' => $processorUser->id,
+            'type' => Business::TYPE_PROCESSOR,
+            'business_name' => 'Existing Processor',
+            'business_name_normalized' => 'existing processor',
+            'registration_number' => 'RDB-REDIRECT-001',
+            'contact_phone' => '0780000001',
+            'email' => 'processor@example.com',
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        $response = $this->actingAs($processorUser)->get(route('businesses.create'));
+
+        $response->assertRedirect(route('businesses.edit', $business));
+        $response->assertSessionHas('status');
     }
 
     public function test_processor_registration_still_rejects_duplicate_registration_number(): void
