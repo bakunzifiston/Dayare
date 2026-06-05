@@ -8,6 +8,7 @@ use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\Facility;
 use App\Models\User;
+use App\Support\RemovesLegacyBusinessNameUniqueIndexes;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -85,10 +86,8 @@ class BusinessController extends Controller
         try {
             $business = $this->persistOnboardingBusiness($user, $validated, $existingOwned);
         } catch (QueryException $exception) {
-            if ($existingOwned === null && $this->isDuplicateBusinessNameException($exception)) {
-                $fallbackOwned = $this->findOwnedBusinessByName($user, (string) ($validated['business_name'] ?? ''))
-                    ?? ($user->businesses()->count() === 1 ? $user->businesses()->first() : null);
-
+            if ($existingOwned === null && $user->businesses()->count() === 1) {
+                $fallbackOwned = $user->businesses()->first();
                 if ($fallbackOwned !== null) {
                     $business = $this->persistOnboardingBusiness($user, $validated, $fallbackOwned);
                     $updatedExisting = true;
@@ -232,7 +231,17 @@ class BusinessController extends Controller
             return $existingOwned->fresh();
         }
 
-        return $user->businesses()->create($validated);
+        try {
+            return $user->businesses()->create($validated);
+        } catch (QueryException $exception) {
+            if (! $this->isDuplicateBusinessNameException($exception)) {
+                throw $exception;
+            }
+
+            RemovesLegacyBusinessNameUniqueIndexes::remove();
+
+            return $user->businesses()->create($validated);
+        }
     }
 
     private function findOwnedBusinessByName(User $user, string $businessName): ?Business
@@ -302,7 +311,7 @@ class BusinessController extends Controller
         if ($this->isDuplicateBusinessNameException($exception)
             || str_contains($errorMessage, 'business_name_normalized')) {
             throw ValidationException::withMessages([
-                'business_name' => [__('This business name is already taken. If you already started registration, open Businesses and choose Edit instead of registering again.')],
+                'business_name' => [__('We could not save this business name due to a database constraint. Please try again, or contact support if the problem continues.')],
             ]);
         }
 

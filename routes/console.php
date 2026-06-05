@@ -15,17 +15,7 @@ Artisan::command('businesses:drop-name-uniqueness', function () {
         return;
     }
 
-    Artisan::call('migrate', [
-        '--force' => true,
-        '--path' => 'database/migrations/2026_05_21_120000_drop_global_business_name_unique_constraints.php',
-    ]);
-    $this->line(trim(Artisan::output()));
-
-    Artisan::call('migrate', [
-        '--force' => true,
-        '--path' => 'database/migrations/2026_05_23_100000_ensure_business_name_indexes_removed.php',
-    ]);
-    $this->line(trim(Artisan::output()));
+    \App\Support\RemovesLegacyBusinessNameUniqueIndexes::remove();
 
     $this->info('Business name uniqueness indexes removed (if they were still present).');
 })->purpose('Remove legacy unique indexes on business names');

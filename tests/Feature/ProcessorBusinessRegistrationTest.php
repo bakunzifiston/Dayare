@@ -6,11 +6,49 @@ use App\Models\Business;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ProcessorBusinessRegistrationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_new_processor_account_can_register_when_legacy_unique_index_still_exists(): void
+    {
+        $existingOwner = User::factory()->create();
+        Business::create([
+            'user_id' => $existingOwner->id,
+            'type' => Business::TYPE_PROCESSOR,
+            'business_name' => 'Dayare Meat Co.',
+            'business_name_normalized' => 'dayare meat co.',
+            'registration_number' => 'REG-TEST-001',
+            'contact_phone' => '0780000001',
+            'email' => 'existing@example.com',
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        Schema::table('businesses', function ($table): void {
+            $table->unique('business_name_normalized', 'legacy_test_name_unique');
+        });
+
+        $processorUser = User::factory()->create();
+
+        $response = $this->actingAs($processorUser)->post(route('businesses.store'), [
+            'business_name' => 'Dayare Meat Co.',
+            'registration_number' => 'RDB-BRAND-NEW-001',
+            'contact_phone' => '0780000002',
+            'email' => 'newprocessor@example.com',
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        $response->assertRedirect(route('businesses.hub'));
+        $response->assertSessionHas('status');
+        $this->assertDatabaseHas('businesses', [
+            'user_id' => $processorUser->id,
+            'business_name' => 'Dayare Meat Co.',
+            'registration_number' => 'RDB-BRAND-NEW-001',
+        ]);
+    }
 
     public function test_processor_can_register_business_when_name_already_exists_elsewhere(): void
     {
