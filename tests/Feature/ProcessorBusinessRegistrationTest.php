@@ -45,6 +45,42 @@ class ProcessorBusinessRegistrationTest extends TestCase
         ]);
     }
 
+    public function test_processor_can_resubmit_onboarding_for_owned_business_name(): void
+    {
+        $processorUser = User::factory()->create();
+        Business::create([
+            'user_id' => $processorUser->id,
+            'type' => Business::TYPE_PROCESSOR,
+            'business_name' => 'Dayare Meat Co',
+            'business_name_normalized' => 'dayare meat co',
+            'registration_number' => 'RDB-EXISTING-OWNED',
+            'contact_phone' => '0780000001',
+            'email' => 'processor@example.com',
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        $response = $this->actingAs($processorUser)->post(route('businesses.store'), [
+            'business_name' => 'Dayare Meat Co',
+            'registration_number' => 'RDB-UPDATED-OWNED',
+            'contact_phone' => '0780000099',
+            'email' => 'processor@example.com',
+            'status' => Business::STATUS_ACTIVE,
+            'owner_first_name' => 'Sandy',
+            'owner_last_name' => 'Owner',
+        ]);
+
+        $response->assertRedirect(route('businesses.hub'));
+        $response->assertSessionHas('status');
+        $this->assertDatabaseCount('businesses', 1);
+        $this->assertDatabaseHas('businesses', [
+            'user_id' => $processorUser->id,
+            'business_name' => 'Dayare Meat Co',
+            'registration_number' => 'RDB-UPDATED-OWNED',
+            'contact_phone' => '0780000099',
+            'owner_first_name' => 'Sandy',
+        ]);
+    }
+
     public function test_processor_registration_still_rejects_duplicate_registration_number(): void
     {
         $existingOwner = User::factory()->create();

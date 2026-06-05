@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateBusinessRequest;
 use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\Facility;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,8 +67,15 @@ class BusinessController extends Controller
         $validated['type'] = $validated['type'] ?? Business::TYPE_PROCESSOR;
         $validated['pathway_status'] = $validated['pathway_status'] ?? 'active';
 
+        $existingOwned = $this->findOwnedBusinessByName($request->user(), (string) ($validated['business_name'] ?? ''));
+
         try {
-            $business = $request->user()->businesses()->create($validated);
+            if ($existingOwned !== null) {
+                $existingOwned->update($validated);
+                $business = $existingOwned->fresh();
+            } else {
+                $business = $request->user()->businesses()->create($validated);
+            }
         } catch (QueryException $exception) {
             $this->throwBusinessValidationFromQueryException($exception);
         }
@@ -79,22 +87,7 @@ class BusinessController extends Controller
             ['role' => BusinessUser::ROLE_ORG_ADMIN]
         );
 
-        foreach (array_values($members) as $i => $m) {
-            $firstName = trim((string) ($m['first_name'] ?? ''));
-            $lastName = trim((string) ($m['last_name'] ?? ''));
-            if ($firstName !== '' || $lastName !== '') {
-                $business->ownershipMembers()->create([
-                    'first_name' => $firstName,
-                    'last_name' => $lastName,
-                    'date_of_birth' => $m['date_of_birth'] ?? null,
-                    'gender' => $m['gender'] ?? null,
-                    'pwd_status' => $m['pwd_status'] ?? null,
-                    'phone' => $m['phone'] ?? null,
-                    'email' => $m['email'] ?? null,
-                    'sort_order' => $i,
-                ]);
-            }
-        }
+        $this->syncOwnershipMembers($business, $members, $existingOwned !== null);
 
         return redirect()->route('businesses.hub')
             ->with('status', __('Business registered successfully.'));
@@ -142,23 +135,7 @@ class BusinessController extends Controller
 
         $this->storeBusinessDocumentUploads($request, $business);
 
-        $business->ownershipMembers()->delete();
-        foreach (array_values($members) as $i => $m) {
-            $firstName = trim((string) ($m['first_name'] ?? ''));
-            $lastName = trim((string) ($m['last_name'] ?? ''));
-            if ($firstName !== '' || $lastName !== '') {
-                $business->ownershipMembers()->create([
-                    'first_name' => $firstName,
-                    'last_name' => $lastName,
-                    'date_of_birth' => $m['date_of_birth'] ?? null,
-                    'gender' => $m['gender'] ?? null,
-                    'pwd_status' => $m['pwd_status'] ?? null,
-                    'phone' => $m['phone'] ?? null,
-                    'email' => $m['email'] ?? null,
-                    'sort_order' => $i,
-                ]);
-            }
-        }
+        $this->syncOwnershipMembers($business, $members, true);
 
         return redirect()->route('businesses.hub')
             ->with('status', __('Business updated successfully.'));
@@ -222,6 +199,52 @@ class BusinessController extends Controller
         if ($changed) {
             $business->update(['supporting_document_files' => $uploads]);
         }
+    }
+
+    private function findOwnedBusinessByName(User $user, string $businessName): ?Business
+    {
+        $normalized = $this->normalizeBusinessName($businessName);
+        if ($normalized === '') {
+            return null;
+        }
+
+        return $user->businesses()
+            ->where('business_name_normalized', $normalized)
+            ->first();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $members
+     */
+    private function syncOwnershipMembers(Business $business, array $members, bool $replaceExisting): void
+    {
+        if ($replaceExisting) {
+            $business->ownershipMembers()->delete();
+        }
+
+        foreach (array_values($members) as $i => $m) {
+            $firstName = trim((string) ($m['first_name'] ?? ''));
+            $lastName = trim((string) ($m['last_name'] ?? ''));
+            if ($firstName !== '' || $lastName !== '') {
+                $business->ownershipMembers()->create([
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'date_of_birth' => $m['date_of_birth'] ?? null,
+                    'gender' => $m['gender'] ?? null,
+                    'pwd_status' => $m['pwd_status'] ?? null,
+                    'phone' => $m['phone'] ?? null,
+                    'email' => $m['email'] ?? null,
+                    'sort_order' => $i,
+                ]);
+            }
+        }
+    }
+
+    private function normalizeBusinessName(string $businessName): string
+    {
+        $trimmed = trim($businessName);
+
+        return (string) preg_replace('/\s+/', ' ', Str::lower($trimmed));
     }
 
     /**
