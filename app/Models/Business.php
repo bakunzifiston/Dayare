@@ -400,9 +400,40 @@ class Business extends Model
         return (string) preg_replace('/\s+/', ' ', Str::lower($trimmed));
     }
 
+    /**
+     * Optional wizard count fields that must not be persisted as null.
+     *
+     * @var list<string>
+     */
+    public const OPTIONAL_COUNT_FIELDS = [
+        'total_members',
+        'female_members',
+        'members_18_35',
+        'young_women_members',
+        'buyer_count',
+        'cold_storage_capacity_kg',
+        'total_employees',
+        'female_employees',
+        'employees_18_35',
+        'female_employees_18_35',
+        'pwd_employees',
+        'refugee_employees',
+        'seasonal_workers',
+        'full_time_employees',
+        'workers_with_disabilities',
+        'refugee_workers',
+        'manager_age',
+    ];
+
     protected static function booted(): void
     {
         static::saving(function (self $business): void {
+            foreach (self::OPTIONAL_COUNT_FIELDS as $field) {
+                if (array_key_exists($field, $business->getAttributes()) && $business->{$field} === null) {
+                    $business->{$field} = 0;
+                }
+            }
+
             if ($business->business_name !== null) {
                 $collapsedWhitespaceName = preg_replace('/\s+/', ' ', trim((string) $business->business_name)) ?? '';
                 $business->business_name = $collapsedWhitespaceName;

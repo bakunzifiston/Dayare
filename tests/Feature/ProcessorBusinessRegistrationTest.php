@@ -222,6 +222,29 @@ class ProcessorBusinessRegistrationTest extends TestCase
         );
     }
 
+    public function test_processor_registration_allows_blank_optional_workforce_fields(): void
+    {
+        $processorUser = User::factory()->create();
+
+        $response = $this->actingAs($processorUser)->post(route('businesses.store'), [
+            'business_name' => 'Pipi Processor',
+            'registration_number' => '989794343',
+            'tax_id' => '8797438',
+            'contact_phone' => '0783092757',
+            'email' => 'bakunzifiston@gmail.com',
+            'status' => Business::STATUS_ACTIVE,
+            'country_id' => null,
+        ]);
+
+        $response->assertRedirect(route('businesses.hub'));
+        $response->assertSessionHas('status');
+        $this->assertDatabaseHas('businesses', [
+            'user_id' => $processorUser->id,
+            'business_name' => 'Pipi Processor',
+            'seasonal_workers' => 0,
+        ]);
+    }
+
     public function test_processor_registration_still_rejects_duplicate_registration_number(): void
     {
         $existingOwner = User::factory()->create();

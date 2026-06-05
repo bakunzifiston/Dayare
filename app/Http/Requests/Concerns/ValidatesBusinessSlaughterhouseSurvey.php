@@ -78,8 +78,35 @@ trait ValidatesBusinessSlaughterhouseSurvey
         ];
     }
 
+    /**
+     * @var list<string>
+     */
+    private const OPTIONAL_COUNT_FIELDS = [
+        'total_members',
+        'female_members',
+        'members_18_35',
+        'young_women_members',
+        'buyer_count',
+        'cold_storage_capacity_kg',
+        'total_employees',
+        'female_employees',
+        'employees_18_35',
+        'female_employees_18_35',
+        'pwd_employees',
+        'refugee_employees',
+        'seasonal_workers',
+        'manager_age',
+    ];
+
     protected function prepareSlaughterhouseSurveyForValidation(): void
     {
+        foreach (self::OPTIONAL_COUNT_FIELDS as $field) {
+            $value = $this->input($field);
+            if ($value === '' || $value === null) {
+                $this->merge([$field => 0]);
+            }
+        }
+
         $nullableBooleans = [
             'digital_marketplace', 'has_receiving_area', 'has_potable_water', 'has_cold_storage',
             'sanitary_certificate', 'waste_disposal_plan', 'has_sops', 'workers_trained', 'uses_digital_records',
