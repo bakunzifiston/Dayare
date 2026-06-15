@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\CertificatePdfException;
 use App\Http\Requests\StoreCertificateRequest;
 use App\Http\Requests\UpdateCertificateRequest;
 use App\Models\Batch;
@@ -11,6 +12,8 @@ use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
+use App\Models\WarehouseStorage;
+use App\Services\Processor\CertificatePdfService;
 use App\Support\DomPdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -127,8 +130,7 @@ class CertificateController extends Controller
                 ->where('status', Certificate::STATUS_REVOKED)
                 ->count(),
             'ready_to_issue' => Batch::whereIn('id', $batchIds)
-                ->whereHas('postMortemInspection', fn ($q) => $q->where('approved_quantity', '>', 0))
-                ->whereDoesntHave('certificate')
+                ->eligibleForCertificate()
                 ->count(),
         ];
     }
@@ -158,8 +160,7 @@ class CertificateController extends Controller
             ->get();
 
         $readyBatches = Batch::whereIn('id', $batchIds)
-            ->whereHas('postMortemInspection', fn ($q) => $q->where('approved_quantity', '>', 0))
-            ->whereDoesntHave('certificate')
+            ->eligibleForCertificate()
             ->with(['slaughterExecution.slaughterPlan.facility', 'postMortemInspection'])
             ->limit(10)
             ->get();
@@ -249,29 +250,18 @@ class CertificateController extends Controller
         return $pdf->download($fileName);
     }
 
-    public function exportSingle(Request $request, Certificate $certificate): Response
+    public function exportSingle(Request $request, Certificate $certificate, CertificatePdfService $certificatePdfService): Response|RedirectResponse
     {
         $this->authorizeCertificate($request, $certificate);
-        $certificate->load([
-            'batch.postMortemInspection',
-            'batch.slaughterExecution.slaughterPlan.facility',
-            'batch.slaughterExecution.slaughterPlan.anteMortemInspections',
-            'batch.slaughterExecution.slaughterPlan.animalIntake.country',
-            'batch.slaughterExecution.slaughterPlan.animalIntake.province',
-            'batch.slaughterExecution.slaughterPlan.animalIntake.district',
-            'batch.slaughterExecution.slaughterPlan.animalIntake.sector',
-            'batch.slaughterExecution.slaughterPlan.animalIntake.cell',
-            'batch.slaughterExecution.slaughterPlan.animalIntake.village',
-            'inspector',
-            'facility',
-            'certificateQr',
-        ]);
 
-        $fileName = 'certificate-'.($certificate->certificate_number ?: $certificate->id).'.pdf';
-        $pdf = DomPdf::loadView('certificates.pdf.single', [
-            'certificate' => $certificate,
-            'generatedAt' => now(),
-        ])->setPaper('a4', 'portrait');
+        try {
+            $pdf = $certificatePdfService->generate($certificate);
+            $fileName = $certificatePdfService->downloadFilename($certificate);
+        } catch (CertificatePdfException $e) {
+            return redirect()
+                ->back()
+                ->withErrors(['certificate_pdf' => $e->getMessage()]);
+        }
 
         return $pdf->download($fileName);
     }
@@ -280,19 +270,57 @@ class CertificateController extends Controller
     {
         $batchIds = $this->userBatchIds($request);
         $facilityIds = $this->userFacilityIds($request);
+        $releasedBatchIds = WarehouseStorage::releasedBatchIdsFor($batchIds);
 
-        // Batches that can receive a certificate: have post-mortem with approved_quantity > 0 and no certificate yet
-        $batches = Batch::with(['postMortemInspection', 'slaughterExecution.slaughterPlan.facility'])
-            ->whereIn('id', $batchIds)
-            ->whereHas('postMortemInspection', fn ($q) => $q->where('approved_quantity', '>', 0))
+        $batches = Batch::with(['postMortemInspection.inspectionItems', 'slaughterExecution.slaughterPlan.facility', 'inspector'])
+            ->whereIn('id', $releasedBatchIds)
             ->whereDoesntHave('certificate')
             ->latest()
             ->get()
+            ->filter(fn (Batch $b) => $b->canIssueCertificate())
+            ->map(function (Batch $b) {
+                $facilityName = $b->slaughterExecution?->slaughterPlan?->facility?->facility_name ?? __('Unknown facility');
+                $approvedLabel = $b->postMortemInspection?->approved_quantity
+                    ?? ($b->hasReleasedStorageWithPostMortemItem() ? __('released from cold room') : '—');
+
+                return [
+                    'id' => $b->id,
+                    'label' => $b->batch_code.' — '.$facilityName.' ('.__('approved').': '.$approvedLabel.')',
+                    'facility_id' => $b->slaughterExecution?->slaughterPlan?->facility_id,
+                    'inspector_id' => $b->inspector_id,
+                ];
+            })
+            ->values();
+
+        $blockedBatches = Batch::with(['postMortemInspection.inspectionItems', 'slaughterExecution.slaughterPlan.facility', 'warehouseStorages'])
+            ->whereIn('id', $releasedBatchIds)
+            ->whereDoesntHave('certificate')
+            ->latest()
+            ->get()
+            ->reject(fn (Batch $b) => $b->canIssueCertificate())
             ->map(fn (Batch $b) => [
-                'id' => $b->id,
-                'label' => $b->batch_code.' — '.$b->slaughterExecution->slaughterPlan->facility->facility_name.' (approved: '.$b->postMortemInspection->approved_quantity.')',
-                'facility_id' => $b->slaughterExecution->slaughterPlan->facility_id,
-            ]);
+                'batch_code' => $b->batch_code,
+                'reason' => $b->certificateIssueBlockReason() ?? __('Not eligible for certification.'),
+            ])
+            ->values();
+
+        $pendingColdRoomRelease = WarehouseStorage::query()
+            ->forColdRoomUser($request)
+            ->where('status', WarehouseStorage::STATUS_IN_STORAGE)
+            ->with(['batch', 'intakeItem'])
+            ->whereIn('batch_id', $batchIds)
+            ->whereHas('batch', fn ($q) => $q->whereDoesntHave('certificate'))
+            ->latest('entry_date')
+            ->get()
+            ->map(fn (WarehouseStorage $storage) => [
+                'id' => $storage->id,
+                'batch_code' => $storage->batch?->batch_code ?? '—',
+                'ear_tag' => $storage->intakeItem?->ear_tag,
+                'quantity' => $storage->quantity_stored,
+                'unit' => $storage->quantity_unit_label,
+                'edit_url' => route('warehouse-storages.edit', $storage),
+            ])
+            ->values();
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
             ->where('status', 'active')
@@ -314,15 +342,29 @@ class CertificateController extends Controller
                     'postMortemInspection.inspectionItems.intakeItem',
                     'items.intakeItem',
                     'slaughterExecution.slaughterPlan.facility',
+                    'warehouseStorages',
                 ])
                 ->find($selectedBatchId)
             : null;
 
+        $defaultInspectorId = old('inspector_id', $selectedBatch?->canIssueCertificate() ? $selectedBatch->inspector_id : null);
+        $defaultFacilityId = old(
+            'facility_id',
+            $selectedBatch?->canIssueCertificate()
+                ? $selectedBatch->slaughterExecution?->slaughterPlan?->facility_id
+                : null,
+        );
+
         return view('certificates.create', [
             'batches' => $batches,
+            'blockedBatches' => $blockedBatches,
+            'pendingColdRoomRelease' => $pendingColdRoomRelease,
             'inspectorsByFacility' => $inspectorsByFacility,
             'facilities' => $facilities,
             'selectedBatch' => $selectedBatch,
+            'defaultInspectorId' => $defaultInspectorId,
+            'defaultFacilityId' => $defaultFacilityId,
+            'defaultSlaughterhouseName' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
         ]);
     }
 
@@ -339,7 +381,7 @@ class CertificateController extends Controller
             // --- Section 2 --- Auto-create QR so every certificate is immediately traceable
             if (! $certificate->certificateQr) {
                 $certificate->certificateQr()->create([
-                    'slug' => (string) Str::uuid(),
+                    'slug' => CertificateQr::generateSlug(),
                 ]);
             }
 

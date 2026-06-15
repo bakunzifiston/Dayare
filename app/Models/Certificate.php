@@ -20,6 +20,7 @@ class Certificate extends Model
         'batch_id',
         'inspector_id',
         'facility_id',
+        'slaughterhouse_display_name',
         'certificate_number',
         'issued_at',
         'expiry_date',

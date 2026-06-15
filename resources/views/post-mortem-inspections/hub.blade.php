@@ -111,9 +111,12 @@
                                        class="text-xs text-blue-600 hover:underline">{{ __('View') }}</a>
                                     <a href="{{ route('post-mortem-inspections.edit', $pm) }}"
                                        class="text-xs text-gray-500 hover:underline">{{ __('Edit') }}</a>
-                                    @if ($pm->approved_quantity > 0 && ! $pm->batch->certificate)
+                                    @if ($pm->approved_quantity > 0 && $pm->batch->canIssueCertificate())
                                         <a href="{{ route('certificates.create', ['batch_id' => $pm->batch_id]) }}"
                                            class="text-xs text-green-600 hover:underline font-medium">{{ __('Issue cert →') }}</a>
+                                    @elseif ($pm->approved_quantity > 0 && ! $pm->batch->certificate)
+                                        <a href="{{ route('cold-rooms.hub') }}"
+                                           class="text-xs text-amber-600 hover:underline font-medium">{{ __('Release from cold room →') }}</a>
                                     @endif
                                 </div>
                             </div>

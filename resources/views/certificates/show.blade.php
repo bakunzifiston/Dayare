@@ -71,7 +71,7 @@
                     {{ __('Print') }}
                 </button>
                 <a href="{{ route('certificates.export-single', $certificate) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
-                    {{ __('Export PDF') }}
+                    {{ __('Download certificate PDF') }}
                 </a>
                 @if ($certificate->batch)
                     <a href="{{ route('batches.show', $certificate->batch) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
@@ -87,6 +87,11 @@
 
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            @if ($errors->has('certificate_pdf'))
+                <div class="no-print mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    {{ $errors->first('certificate_pdf') }}
+                </div>
+            @endif
             @php
                 $plan = $certificate->batch?->slaughterExecution?->slaughterPlan;
                 $animalIntake = $plan?->animalIntake;

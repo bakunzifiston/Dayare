@@ -21,6 +21,7 @@ class UpdateCertificateRequest extends FormRequest
             'batch_id' => ['required', 'exists:batches,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
             'facility_id' => ['required', 'exists:facilities,id'],
+            'slaughterhouse_display_name' => ['required', 'string', 'max:255'],
             'certificate_number' => ['nullable', 'string', 'max:100'],
             'issued_at' => ['required', 'date'],
             'expiry_date' => ['nullable', 'date', 'after_or_equal:issued_at'],
@@ -39,10 +40,28 @@ class UpdateCertificateRequest extends FormRequest
             if (! $batch) {
                 return;
             }
-            if (! $batch->canIssueCertificate()) {
+            if ($batch->hasPerAnimalData() && ! $batch->isPostMortemComplete()) {
+                if (! $batch->hasReleasedColdRoomStorage()) {
+                    $validator->errors()->add(
+                        'batch_id',
+                        __('All animals in this batch must have a post-mortem outcome recorded before a certificate can be issued.')
+                    );
+                }
+            } elseif (
+                ! $batch->postMortemInspection
+                || (
+                    $batch->postMortemInspection->approved_quantity <= 0
+                    && $batch->postMortemInspection->approved_from_items <= 0
+                )
+            ) {
                 $validator->errors()->add(
                     'batch_id',
                     __('Certificate is only allowed when the batch has a post-mortem inspection with approved quantity greater than zero.')
+                );
+            } elseif (! $batch->hasReleasedColdRoomStorage()) {
+                $validator->errors()->add(
+                    'batch_id',
+                    __('Certificate can only be issued after cold room storage has been released for this batch.')
                 );
             }
             $inspectorId = $this->input('inspector_id');

@@ -64,8 +64,8 @@ class BatchController extends Controller
                 ->whereDoesntHave('postMortemInspection')
                 ->where('status', '!=', 'rejected')->count(),
             'ready_for_cert' => Batch::whereIn('slaughter_execution_id', $executionIds)
-                ->whereHas('postMortemInspection', fn ($q) => $q->where('approved_quantity', '>', 0))
-                ->whereDoesntHave('certificate')->count(),
+                ->eligibleForCertificate()
+                ->count(),
             'cold_chain_issues' => Batch::whereIn('slaughter_execution_id', $executionIds)
                 ->whereIn('cold_chain_status', ['at_risk', 'compromised'])->count(),
             'total_quantity' => Batch::whereIn('slaughter_execution_id', $executionIds)

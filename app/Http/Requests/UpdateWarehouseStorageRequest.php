@@ -16,6 +16,17 @@ class UpdateWarehouseStorageRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('status') === WarehouseStorage::STATUS_RELEASED) {
+            if (! $this->filled('released_date')) {
+                $this->merge(['released_date' => now()->toDateString()]);
+            }
+        } elseif ($this->has('status') && $this->input('status') !== WarehouseStorage::STATUS_RELEASED) {
+            $this->merge(['released_date' => null]);
+        }
+    }
+
     /**
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */

@@ -114,10 +114,13 @@
                     <a href="{{ route('certificates.show', $batch->certificate) }}" class="font-medium text-bucha-primary hover:underline">{{ $batch->certificate->certificate_number ?: __('Certificate') }} #{{ $batch->certificate->id }}</a>
                     <span class="text-sm text-gray-500"> · {{ $batch->certificate->issued_at?->format('d M Y') }} · {{ ucfirst($batch->certificate->status) }}</span>
                 @elseif ($batch->canIssueCertificate())
-                    <p class="text-sm text-gray-500 mb-2">{{ __('This batch is eligible for a certificate (post-mortem approved quantity &gt; 0).') }}</p>
+                    <p class="text-sm text-gray-500 mb-2">{{ __('This batch is eligible for a certificate (post-mortem approved and cold room released).') }}</p>
                     <a href="{{ route('certificates.create', ['batch_id' => $batch->id]) }}" class="text-sm text-bucha-primary hover:underline">{{ __('Issue certificate') }}</a>
+                @elseif ($batch->postMortemInspection && $batch->postMortemInspection->approved_quantity > 0 && ! $batch->hasReleasedColdRoomStorage())
+                    <p class="text-sm text-gray-500 mb-2">{{ __('Post-mortem is approved. Release the meat from cold room storage before issuing a certificate.') }}</p>
+                    <a href="{{ route('cold-rooms.hub') }}" class="text-sm text-bucha-primary hover:underline">{{ __('Go to cold room') }}</a>
                 @else
-                    <p class="text-sm text-gray-500">{{ __('Certificate can be issued only after a post-mortem inspection with approved quantity greater than zero.') }}</p>
+                    <p class="text-sm text-gray-500">{{ __('Certificate can be issued only after post-mortem approval and cold room release.') }}</p>
                 @endif
             </div>
 

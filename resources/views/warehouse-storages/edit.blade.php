@@ -89,9 +89,33 @@
                     <div>
                         <x-input-label for="released_date" :value="__('Released date')" />
                         <x-text-input id="released_date" name="released_date" type="date" class="mt-1 block w-full" :value="old('released_date', $warehouseStorage->released_date?->format('Y-m-d'))" />
-                        <p class="mt-1 text-xs text-slate-500">{{ __('Required when status is Released. Transport can only start when storage is released.') }}</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ __('Filled automatically when status is Released. Transport can only start when storage is released.') }}</p>
                         <x-input-error class="mt-2" :messages="$errors->get('released_date')" />
                     </div>
+
+                    @push('scripts')
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function () {
+                                const statusEl = document.getElementById('status');
+                                const releasedDateEl = document.getElementById('released_date');
+                                if (!statusEl || !releasedDateEl) return;
+
+                                const today = @json(now()->toDateString());
+
+                                function syncReleasedDate() {
+                                    if (statusEl.value === 'released' && !releasedDateEl.value) {
+                                        releasedDateEl.value = today;
+                                    }
+                                    if (statusEl.value !== 'released') {
+                                        releasedDateEl.value = '';
+                                    }
+                                }
+
+                                statusEl.addEventListener('change', syncReleasedDate);
+                                syncReleasedDate();
+                            });
+                        </script>
+                    @endpush
 
                     <div class="flex gap-3">
                         <button type="submit" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">

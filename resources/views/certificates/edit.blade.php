@@ -49,6 +49,20 @@
                     </div>
 
                     <div>
+                        <x-input-label for="slaughterhouse_display_name" :value="__('Slaughterhouse name (on certificate)')" />
+                        <x-text-input
+                            id="slaughterhouse_display_name"
+                            name="slaughterhouse_display_name"
+                            type="text"
+                            class="mt-1 block w-full uppercase"
+                            :value="old('slaughterhouse_display_name', $certificate->slaughterhouse_display_name ?: \App\Services\Processor\CertificatePdfService::NYAGATARE_FACILITY_NAME)"
+                            required
+                        />
+                        <p class="mt-1 text-xs text-gray-500">{{ __('Enter the official name exactly as it should appear on the printed certificate.') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('slaughterhouse_display_name')" />
+                    </div>
+
+                    <div>
                         <x-input-label for="certificate_number" :value="__('Certificate number')" />
                         <x-text-input id="certificate_number" name="certificate_number" type="text" class="mt-1 block w-full" :value="old('certificate_number', $certificate->certificate_number)" />
                         <x-input-error class="mt-2" :messages="$errors->get('certificate_number')" />

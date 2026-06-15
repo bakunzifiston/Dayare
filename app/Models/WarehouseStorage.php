@@ -121,6 +121,65 @@ class WarehouseStorage extends Model
     }
 
     /**
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeReleased($query)
+    {
+        return $query->where('status', self::STATUS_RELEASED);
+    }
+
+    /**
+     * Batch this storage belongs to (direct FK or via post-mortem inspection).
+     */
+    public function resolveBatchId(): ?int
+    {
+        if ($this->batch_id) {
+            return (int) $this->batch_id;
+        }
+
+        $this->loadMissing('postMortemInspectionItem.inspection');
+
+        return $this->postMortemInspectionItem?->inspection?->batch_id
+            ? (int) $this->postMortemInspectionItem->inspection->batch_id
+            : null;
+    }
+
+    /**
+     * Batch IDs that have at least one released storage record.
+     *
+     * @param  Collection<int, int|string>  $accessibleBatchIds
+     * @return Collection<int, int>
+     */
+    public static function releasedBatchIdsFor(Collection $accessibleBatchIds): Collection
+    {
+        $accessibleBatchIds = $accessibleBatchIds
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values();
+
+        if ($accessibleBatchIds->isEmpty()) {
+            return collect();
+        }
+
+        return static::query()
+            ->released()
+            ->with(['postMortemInspectionItem.inspection'])
+            ->where(function ($query) use ($accessibleBatchIds) {
+                $query->whereIn('batch_id', $accessibleBatchIds)
+                    ->orWhereHas(
+                        'postMortemInspectionItem.inspection',
+                        fn ($inspection) => $inspection->whereIn('batch_id', $accessibleBatchIds)
+                    );
+            })
+            ->get()
+            ->map(fn (self $storage) => $storage->resolveBatchId())
+            ->filter(fn (?int $batchId) => $batchId && $accessibleBatchIds->contains($batchId))
+            ->unique()
+            ->values();
+    }
+
+    /**
      * Certificate IDs the signed-in user may use for cold room (warehouse) storage.
      */
     public static function accessibleCertificateIds(Request $request): Collection

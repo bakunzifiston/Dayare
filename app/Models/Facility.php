@@ -137,6 +137,24 @@ class Facility extends Model
         return $this->status === self::STATUS_ACTIVE;
     }
 
+    /** Contact phone from the parent business record. */
+    public function getPhoneAttribute(): ?string
+    {
+        $this->loadMissing('business');
+
+        return $this->business?->contact_phone
+            ?: $this->business?->owner_phone;
+    }
+
+    /** Registration number from the parent business, or facility license number. */
+    public function getRegistrationNumberAttribute(): ?string
+    {
+        $this->loadMissing('business');
+
+        return $this->business?->registration_number
+            ?: $this->license_number;
+    }
+
     public function isLicenseExpired(): bool
     {
         return $this->license_expiry_date && $this->license_expiry_date->isPast();

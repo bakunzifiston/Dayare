@@ -48,7 +48,7 @@
                 <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Ready to issue') }}</p>
                     <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['ready_to_issue'] > 0 ? 'text-blue-700' : 'text-slate-900' }}"
-                       @if ($hubStats['ready_to_issue'] > 0) title="{{ __('Batches with PM approved but no certificate yet') }}" @endif>
+                       @if ($hubStats['ready_to_issue'] > 0) title="{{ __('Batches with PM approved, cold room released, and no certificate yet') }}" @endif>
                         {{ number_format($hubStats['ready_to_issue']) }}
                     </p>
                 </div>

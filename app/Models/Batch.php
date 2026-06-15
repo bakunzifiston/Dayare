@@ -131,21 +131,144 @@ class Batch extends Model
         return $this->hasOne(WarehouseStorage::class);
     }
 
+    /** Batch (1) → Many cold room storage records (per-animal meat). */
+    public function warehouseStorages(): HasMany
+    {
+        return $this->hasMany(WarehouseStorage::class);
+    }
+
+    public function hasReleasedColdRoomStorage(): bool
+    {
+        return WarehouseStorage::query()
+            ->released()
+            ->where(function ($query) {
+                $query->where('batch_id', $this->id)
+                    ->orWhereHas(
+                        'postMortemInspectionItem.inspection',
+                        fn ($inspection) => $inspection->where('batch_id', $this->id)
+                    );
+
+                if ($this->hasPerAnimalData()) {
+                    $query->orWhereIn(
+                        'animal_intake_item_id',
+                        $this->items()->select('animal_intake_item_id')
+                    );
+                }
+            })
+            ->exists();
+    }
+
+    public function hasReleasedStorageWithPostMortemItem(): bool
+    {
+        return WarehouseStorage::query()
+            ->released()
+            ->whereNotNull('post_mortem_inspection_item_id')
+            ->where(function ($query) {
+                $query->where('batch_id', $this->id)
+                    ->orWhereHas(
+                        'postMortemInspectionItem.inspection',
+                        fn ($inspection) => $inspection->where('batch_id', $this->id)
+                    );
+            })
+            ->exists();
+    }
+
+    /**
+     * Human-readable reason when {@see canIssueCertificate()} is false.
+     */
+    public function certificateIssueBlockReason(): ?string
+    {
+        if ($this->certificate()->exists()) {
+            return __('This batch already has a certificate.');
+        }
+
+        if (! $this->hasReleasedColdRoomStorage()) {
+            return __('Release the meat from cold room storage before issuing a certificate.');
+        }
+
+        if ($this->hasReleasedStorageWithPostMortemItem()) {
+            return null;
+        }
+
+        if (! $this->postMortemInspection) {
+            return __('Record a post-mortem inspection for this batch first.');
+        }
+
+        if ($this->postMortemInspection->approved_quantity <= 0
+            && $this->postMortemInspection->approved_from_items <= 0) {
+            return __('Post-mortem approved quantity must be greater than zero.');
+        }
+
+        if ($this->hasPerAnimalData() && ! $this->isPostMortemComplete()) {
+            return __('All animals in this batch must have a post-mortem outcome recorded.');
+        }
+
+        return null;
+    }
+
     public function canIssueCertificate(): bool
     {
+        if ($this->certificate()->exists()) {
+            return false;
+        }
+
+        if (! $this->hasReleasedColdRoomStorage()) {
+            return false;
+        }
+
+        if ($this->hasReleasedStorageWithPostMortemItem()) {
+            return true;
+        }
+
         if (! $this->postMortemInspection) {
             return false;
         }
 
-        if ($this->postMortemInspection->approved_quantity <= 0) {
-            return false;
-        }
+        $approvedQuantity = (float) $this->postMortemInspection->approved_quantity;
+        $approvedAnimals = $this->postMortemInspection->approved_from_items;
 
-        if ($this->hasPerAnimalData() && ! $this->isPostMortemComplete()) {
-            return false;
-        }
+        return $approvedQuantity > 0 || $approvedAnimals > 0;
+    }
 
-        return true;
+    /**
+     * Batches with released cold room storage (by batch or per-animal link).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeWithReleasedColdRoomStorage($query)
+    {
+        return $query->where(function ($batchQuery) {
+            $batchQuery->whereHas(
+                'warehouseStorages',
+                fn ($storage) => $storage->released()
+            )->orWhereHas('postMortemInspection.inspectionItems.warehouseStorages', function ($storage) {
+                $storage->released();
+            })->orWhereHas('items', function ($items) {
+                $items->whereExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('warehouse_storages')
+                        ->whereColumn(
+                            'warehouse_storages.animal_intake_item_id',
+                            'batch_items.animal_intake_item_id'
+                        )
+                        ->where('warehouse_storages.status', WarehouseStorage::STATUS_RELEASED);
+                });
+            });
+        });
+    }
+
+    /**
+     * Batches with released cold room storage and no certificate yet.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeEligibleForCertificate($query)
+    {
+        return $query
+            ->withReleasedColdRoomStorage()
+            ->whereDoesntHave('certificate');
     }
 
     public function transportTrips(): \Illuminate\Database\Eloquent\Relations\HasMany

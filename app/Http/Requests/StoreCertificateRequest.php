@@ -21,6 +21,7 @@ class StoreCertificateRequest extends FormRequest
             'batch_id' => ['required', 'exists:batches,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
             'facility_id' => ['required', 'exists:facilities,id'],
+            'slaughterhouse_display_name' => ['required', 'string', 'max:255'],
             'certificate_number' => ['nullable', 'string', 'max:100'],
             'issued_at' => ['required', 'date'],
             'expiry_date' => ['nullable', 'date', 'after_or_equal:issued_at'],
@@ -35,25 +36,21 @@ class StoreCertificateRequest extends FormRequest
             if (! $batchId) {
                 return;
             }
-            $batch = Batch::with(['postMortemInspection', 'slaughterExecution.slaughterPlan'])->find($batchId);
+            $batch = Batch::with([
+                'postMortemInspection.inspectionItems',
+                'slaughterExecution.slaughterPlan',
+                'warehouseStorages',
+                'items',
+            ])->find($batchId);
             if (! $batch) {
                 return;
             }
 
-            // --- Section 1 ---
-            if ($batch->hasPerAnimalData() && ! $batch->isPostMortemComplete()) {
+            if (! $batch->canIssueCertificate()) {
                 $validator->errors()->add(
                     'batch_id',
-                    __('All animals in this batch must have a post-mortem outcome recorded before a certificate can be issued.')
+                    $batch->certificateIssueBlockReason() ?? __('This batch is not eligible for certification.')
                 );
-            } elseif (! $batch->canIssueCertificate()) {
-                $validator->errors()->add(
-                    'batch_id',
-                    __('Certificate is only allowed when the batch has a post-mortem inspection with approved quantity greater than zero.')
-                );
-            }
-            if ($batch->certificate()->exists()) {
-                $validator->errors()->add('batch_id', __('This batch already has a certificate.'));
             }
             $inspectorId = $this->input('inspector_id');
             $facilityId = $this->input('facility_id');
