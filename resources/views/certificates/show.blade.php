@@ -191,6 +191,62 @@
                         <dd class="mt-1 text-sm text-gray-900">{{ $originLocation }}</dd>
                     </div>
                 </dl>
+
+                @if ($certificate->batch?->hasPerAnimalData())
+                    <div class="mt-4">
+                        <p class="text-sm font-medium text-gray-700 mb-2">
+                            {{ __('Individual animal outcomes') }}
+                            ({{ $certificate->batch->items->count() }} {{ __('animals') }})
+                        </p>
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-xs text-gray-500">
+                                    <th class="pb-1 px-2">#</th>
+                                    <th class="pb-1 px-2">{{ __('Ear tag') }}</th>
+                                    <th class="pb-1 px-2">{{ __('Species') }}</th>
+                                    <th class="pb-1 px-2">{{ __('Sex') }}</th>
+                                    <th class="pb-1 px-2">{{ __('Batch meat qty') }}</th>
+                                    <th class="pb-1 px-2">{{ __('Carcass weight') }}</th>
+                                    <th class="pb-1 px-2">{{ __('PM outcome') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($certificate->batch->items as $batchItem)
+                                    @php
+                                        $pm = $batchItem->postMortemOutcome;
+                                        $intake = $batchItem->intakeItem;
+                                        $pmBadge = match ($pm?->outcome) {
+                                            'approved' => 'bg-green-100 text-green-800',
+                                            'condemned' => 'bg-red-100 text-red-800',
+                                            'deferred' => 'bg-yellow-100 text-yellow-800',
+                                            default => 'bg-gray-100 text-gray-500',
+                                        };
+                                    @endphp
+                                    <tr class="border-t border-gray-100">
+                                        <td class="py-1 px-2 text-gray-400">{{ $loop->iteration }}</td>
+                                        <td class="py-1 px-2 font-mono text-xs">
+                                            {{ $intake->ear_tag }}
+                                            @if (str_starts_with($intake->ear_tag, 'LEGACY-'))
+                                                <span class="ml-1 text-xs text-gray-400 bg-gray-100 px-1 rounded">[legacy]</span>
+                                            @endif
+                                        </td>
+                                        <td class="py-1 px-2">{{ $intake->species }}</td>
+                                        <td class="py-1 px-2">{{ ucfirst($intake->sex) }}</td>
+                                        <td class="py-1 px-2">{{ number_format($batchItem->meat_quantity_kg, 2) }} kg</td>
+                                        <td class="py-1 px-2">
+                                            {{ $pm?->carcass_weight_kg ? number_format($pm->carcass_weight_kg, 2).' kg' : '—' }}
+                                        </td>
+                                        <td class="py-1 px-2">
+                                            <span class="text-xs px-2 py-0.5 rounded-full {{ $pmBadge }}">
+                                                {{ $pm ? ucfirst($pm->outcome) : __('Not recorded') }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
             </div>
 
             @if ($certificate->certificateQr)

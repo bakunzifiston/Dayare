@@ -14,6 +14,18 @@
     <div class="py-12">
         <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                @if ($plan->hasAssignmentGap())
+                    <div class="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        <svg class="inline-block h-4 w-4 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        {{ __('This plan has no animals assigned — it may predate individual animal tracking. Save the plan to trigger assignment.') }}
+                    </div>
+                @elseif (! $plan->isFullyAssigned())
+                    <div class="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        <svg class="inline-block h-4 w-4 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        {{ __('Only :assigned of :scheduled animals are currently assigned. Save to rebalance.', ['assigned' => $plan->assigned_count, 'scheduled' => $plan->number_of_animals_scheduled]) }}
+                    </div>
+                @endif
+
                 <form method="post" action="{{ route('slaughter-plans.update', $plan) }}" class="space-y-6" id="slaughter-plan-edit-form">
                     @csrf
                     @method('put')
@@ -39,7 +51,17 @@
                         <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             <option value="">{{ __('Select facility first') }}</option>
                             @foreach ($eligibleIntakes ?? [] as $intake)
-                                <option value="{{ $intake['id'] }}" data-facility-id="{{ $intake['facility_id'] }}" @selected(old('animal_intake_id', $plan->animal_intake_id) == $intake['id'])>{{ $intake['label'] }}</option>
+                                @php
+                                    $animalsForIntake = collect($intakeAnimals[$intake['id']] ?? []);
+                                    $speciesMixCounts = $animalsForIntake->countBy('species')->all();
+                                @endphp
+                                <option
+                                    value="{{ $intake['id'] }}"
+                                    data-facility-id="{{ $intake['facility_id'] }}"
+                                    data-species-mix="{{ json_encode($speciesMixCounts) }}"
+                                    data-animals="{{ json_encode($animalsForIntake->values()) }}"
+                                    @selected(old('animal_intake_id', $plan->animal_intake_id) == $intake['id'])
+                                >{{ $intake['label'] ?? ($intake['reference'] ?? 'Intake #'.$intake['id']) }}</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('animal_intake_id')" />
@@ -72,6 +94,57 @@
                     <div>
                         <x-input-label for="number_of_animals_scheduled" :value="__('Number of animals scheduled')" />
                         <x-text-input id="number_of_animals_scheduled" name="number_of_animals_scheduled" type="number" min="1" class="mt-1 block w-full" :value="old('number_of_animals_scheduled', $plan->number_of_animals_scheduled)" required />
+                        <div id="animal-preview-panel" class="mt-4" style="display: none;"></div>
+
+                        @if (isset($assignedAnimals) && $assignedAnimals->isNotEmpty())
+                            <div id="assigned-animals-table" class="mt-4">
+                                <p class="text-sm text-slate-500 mb-2">
+                                    {{ __('Currently assigned: :count of :scheduled', ['count' => $assignedAnimals->count(), 'scheduled' => $plan->number_of_animals_scheduled]) }}
+                                </p>
+                                <div class="overflow-x-auto rounded-lg border border-slate-200">
+                                    <table class="min-w-full text-sm">
+                                        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            <tr>
+                                                <th class="px-3 py-2">{{ __('Ear tag') }}</th>
+                                                <th class="px-3 py-2">{{ __('Species') }}</th>
+                                                <th class="px-3 py-2">{{ __('Sex') }}</th>
+                                                <th class="px-3 py-2">{{ __('Age') }}</th>
+                                                <th class="px-3 py-2">{{ __('Weight') }}</th>
+                                                <th class="px-3 py-2">{{ __('Health status') }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            @foreach ($assignedAnimals as $item)
+                                                <tr>
+                                                    <td class="px-3 py-2 font-mono text-xs">
+                                                        {{ $item->ear_tag }}
+                                                        @if (str_starts_with($item->ear_tag, 'LEGACY-'))
+                                                            <span class="ml-1 inline-flex items-center rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600">[legacy]</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="px-3 py-2">{{ $item->species }}</td>
+                                                    <td class="px-3 py-2">{{ ucfirst($item->sex) }}</td>
+                                                    <td class="px-3 py-2">{{ $item->age_months ? $item->age_months.' '.__('months') : '—' }}</td>
+                                                    <td class="px-3 py-2">{{ $item->live_weight_kg ? $item->live_weight_kg.' kg' : '—' }}</td>
+                                                    <td class="px-3 py-2">
+                                                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold
+                                                            @if ($item->health_status === 'healthy') bg-green-100 text-green-800
+                                                            @elseif ($item->health_status === 'under_observation') bg-amber-100 text-amber-800
+                                                            @else bg-red-100 text-red-800 @endif">
+                                                            {{ $item->health_status_label }}
+                                                        </span>
+                                                        @if ($item->health_status === 'under_observation')
+                                                            <small class="text-amber-700 ml-1">{{ __('Under observation — will be reviewed at ante-mortem') }}</small>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
+
                         <x-input-error class="mt-2" :messages="$errors->get('number_of_animals_scheduled')" />
                     </div>
 
@@ -96,42 +169,5 @@
         </div>
     </div>
 
-    <script>
-        (function() {
-            const facilitySelect = document.getElementById('facility_id');
-            const inspectorSelect = document.getElementById('inspector_id');
-            const intakeSelect = document.getElementById('animal_intake_id');
-            function filterByFacility(select, dataAttr) {
-                if (!select || !facilitySelect) return;
-                const fid = facilitySelect.value;
-                Array.from(select.options).forEach(opt => {
-                    if (opt.value === '') { opt.hidden = false; return; }
-                    opt.hidden = opt.getAttribute(dataAttr) !== fid;
-                });
-                const cur = select.options[select.selectedIndex];
-                if (cur && cur.hidden) {
-                    const visible = Array.from(select.options).find(o => o.value && !o.hidden);
-                    select.value = visible ? visible.value : '';
-                }
-            }
-            function filterInspectors() {
-                const fid = facilitySelect && facilitySelect.value;
-                if (!inspectorSelect) return;
-                Array.from(inspectorSelect.options).forEach(opt => {
-                    if (opt.value === '') { opt.hidden = false; return; }
-                    opt.hidden = opt.dataset.facilityId !== fid;
-                });
-                const currentOpt = inspectorSelect.options[inspectorSelect.selectedIndex];
-                if (currentOpt && currentOpt.hidden) {
-                    const visible = Array.from(inspectorSelect.options).find(o => o.value && !o.hidden);
-                    inspectorSelect.value = visible ? visible.value : '';
-                }
-            }
-            function filterIntakes() { filterByFacility(intakeSelect, 'data-facility-id'); }
-            if (facilitySelect) {
-                facilitySelect.addEventListener('change', function() { filterInspectors(); filterIntakes(); });
-            }
-            document.addEventListener('DOMContentLoaded', function() { filterInspectors(); filterIntakes(); });
-        })();
-    </script>
+    @include('slaughter-plans.partials.assignment-form-scripts', ['createForm' => false])
 </x-app-layout>

@@ -379,5 +379,7 @@
         </section>
     </main>
     @include('layouts.footer')
+
+    <x-whatsapp-float phone="250785171213" />
 </body>
 </html>

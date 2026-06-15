@@ -27,6 +27,10 @@ class SuperAdminUserController extends Controller
                 'label' => __('VIBE Programme'),
                 'description' => __('Access business performance, trends, and CSV exports.'),
             ],
+            User::SUPER_ADMIN_MODULE_RICA => [
+                'label' => __('RICA oversight'),
+                'description' => __('Regulatory oversight of slaughterhouses, inspections, and compliance reports.'),
+            ],
             User::SUPER_ADMIN_MODULE_CONFIGURATION => [
                 'label' => __('Global configuration'),
                 'description' => __('Manage species, units, and platform-wide reference data.'),

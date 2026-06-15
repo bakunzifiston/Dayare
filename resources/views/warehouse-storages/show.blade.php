@@ -9,6 +9,14 @@
             </div>
             <div class="flex gap-2">
                 <a href="{{ route('warehouse-storages.edit', $warehouseStorage) }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">{{ __('Edit') }}</a>
+                <form method="post" action="{{ route('warehouse-storages.destroy', $warehouseStorage) }}" class="inline"
+                      onsubmit="return confirm(@json(__('Delete this storage record? The animal will be available to store again.')));">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-white border border-red-200 rounded-md font-semibold text-xs text-red-700 uppercase tracking-widest shadow-sm hover:bg-red-50">
+                        {{ __('Delete') }}
+                    </button>
+                </form>
                 <a href="{{ route('batches.show', $warehouseStorage->batch) }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">{{ __('View batch') }}</a>
                 <a href="{{ route('warehouse-storages.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Back to list') }}</a>
             </div>
@@ -19,6 +27,9 @@
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
             @if (session('status'))
                 <div class="p-4 rounded-md bg-green-50 text-green-800">{{ session('status') }}</div>
+            @endif
+            @if ($errors->has('delete'))
+                <div class="p-4 rounded-md bg-red-50 text-red-800">{{ $errors->first('delete') }}</div>
             @endif
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
@@ -46,10 +57,20 @@
                             <a href="{{ route('batches.show', $warehouseStorage->batch) }}" class="text-bucha-primary hover:underline">{{ $warehouseStorage->batch->batch_code ?? '' }}</a>
                         </dd>
                     </div>
+                    @if ($warehouseStorage->intakeItem)
+                        <div>
+                            <dt class="text-sm font-medium text-slate-500">{{ __('Animal (ear tag)') }}</dt>
+                            <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->intakeItem->ear_tag ?: '—' }}</dd>
+                        </div>
+                    @endif
                     <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Certificate') }}</dt>
                         <dd class="mt-1 text-sm text-slate-900">
-                            <a href="{{ route('certificates.show', $warehouseStorage->certificate) }}" class="text-bucha-primary hover:underline">{{ $warehouseStorage->certificate->certificate_number ?: '#' . $warehouseStorage->certificate_id }}</a>
+                            @if ($warehouseStorage->certificate)
+                                <a href="{{ route('certificates.show', $warehouseStorage->certificate) }}" class="text-bucha-primary hover:underline">{{ $warehouseStorage->certificate->certificate_number ?: '#' . $warehouseStorage->certificate_id }}</a>
+                            @else
+                                <span class="text-slate-500">{{ __('Not issued yet') }}</span>
+                            @endif
                         </dd>
                     </div>
                     <div>
@@ -66,7 +87,7 @@
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Quantity stored') }}</dt>
-                        <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->quantity_stored }} {{ $warehouseStorage->quantity_unit_label }}</dd>
+                        <dd class="mt-1 text-sm text-slate-900">{{ number_format((float) $warehouseStorage->quantity_stored, 2) }} {{ $warehouseStorage->quantity_unit_label }}</dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Status') }}</dt>

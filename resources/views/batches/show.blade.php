@@ -28,7 +28,12 @@
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Status') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($batch->status) }}</dd>
+                        <dd class="mt-1 text-sm text-gray-900 flex flex-wrap items-center gap-2">
+                            {{ ucfirst($batch->status) }}
+                            <span class="text-xs px-2 py-0.5 rounded-full {{ $batch->cold_chain_badge_class }}">
+                                {{ ucfirst(str_replace('_', ' ', $batch->cold_chain_status)) }}
+                            </span>
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Slaughter execution') }}</dt>
@@ -52,9 +57,30 @@
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Quantity') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $batch->quantity }} {{ $batch->quantity_unit_label ?: __('carcasses') }}</dd>
+                        <dd class="mt-1 text-sm text-gray-900">{{ number_format($batch->quantity, 2) }} {{ $batch->quantity_unit_label ?: __('carcasses') }}</dd>
                     </div>
                 </dl>
+            </div>
+
+            @if ($batch->hasPerAnimalData())
+                @include('batches.partials._batch-animals-table', ['batchItems' => $batch->items])
+            @endif
+
+            <div class="flex flex-wrap gap-2">
+                @if (! $batch->hasPostMortem())
+                    <a href="{{ route('post-mortem-inspections.create', ['batch_id' => $batch->id]) }}"
+                       class="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
+                        <i class="ti ti-activity text-base" aria-hidden="true"></i>
+                        {{ __('Record post-mortem inspection') }}
+                    </a>
+                @endif
+                @if ($batch->canIssueCertificate() && ! $batch->certificate)
+                    <a href="{{ route('certificates.create', ['batch_id' => $batch->id]) }}"
+                       class="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
+                        <i class="ti ti-certificate text-base" aria-hidden="true"></i>
+                        {{ __('Issue certificate') }}
+                    </a>
+                @endif
             </div>
 
             @if ($batch->postMortemInspection)
@@ -77,7 +103,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Post-mortem inspection') }}</h3>
                     <p class="text-sm text-gray-500 mb-2">{{ __('No post-mortem inspection recorded for this batch yet.') }}</p>
-                    <a href="{{ route('post-mortem-inspections.create') }}" class="text-sm text-bucha-primary hover:underline">{{ __('Record post-mortem inspection') }}</a>
+                    <a href="{{ route('post-mortem-inspections.create', ['batch_id' => $batch->id]) }}" class="text-sm text-bucha-primary hover:underline">{{ __('Record post-mortem inspection') }}</a>
                 </div>
             @endif
 
@@ -89,11 +115,51 @@
                     <span class="text-sm text-gray-500"> · {{ $batch->certificate->issued_at?->format('d M Y') }} · {{ ucfirst($batch->certificate->status) }}</span>
                 @elseif ($batch->canIssueCertificate())
                     <p class="text-sm text-gray-500 mb-2">{{ __('This batch is eligible for a certificate (post-mortem approved quantity &gt; 0).') }}</p>
-                    <a href="{{ route('certificates.create') }}" class="text-sm text-bucha-primary hover:underline">{{ __('Issue certificate') }}</a>
+                    <a href="{{ route('certificates.create', ['batch_id' => $batch->id]) }}" class="text-sm text-bucha-primary hover:underline">{{ __('Issue certificate') }}</a>
                 @else
                     <p class="text-sm text-gray-500">{{ __('Certificate can be issued only after a post-mortem inspection with approved quantity greater than zero.') }}</p>
                 @endif
             </div>
+
+            @if ($batch->warehouseStorage)
+                <div class="mt-4 rounded bg-gray-50 border border-gray-200 p-3">
+                    <p class="text-xs font-medium text-gray-600 mb-1">{{ __('Warehouse storage') }}</p>
+                    <p class="text-sm text-gray-700">
+                        {{ $batch->warehouseStorage->coldRoom->name ?? '—' }}
+                        · {{ __('Entered') }}: {{ $batch->warehouseStorage->created_at->format('d M Y') }}
+                    </p>
+                </div>
+            @endif
+
+            @if ($batch->transportTrips->isNotEmpty())
+                <div class="mt-4 bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                    <p class="text-sm font-medium text-gray-700 mb-2">
+                        {{ __('Transport trips (:count)', ['count' => $batch->transportTrips->count()]) }}
+                    </p>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-xs text-gray-500">
+                                <th class="pb-1 px-2">{{ __('Destination') }}</th>
+                                <th class="pb-1 px-2">{{ __('Departure') }}</th>
+                                <th class="pb-1 px-2">{{ __('Status') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($batch->transportTrips as $trip)
+                                <tr class="border-t border-gray-100">
+                                    <td class="py-1 px-2">{{ $trip->destination ?? '—' }}</td>
+                                    <td class="py-1 px-2">{{ $trip->created_at->format('d M Y') }}</td>
+                                    <td class="py-1 px-2">
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                            {{ ucfirst($trip->status ?? '—') }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

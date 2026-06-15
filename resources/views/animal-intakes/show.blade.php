@@ -4,7 +4,7 @@
             <div>
                 <a href="{{ route('animal-intakes.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Animal intake') }}</a>
                 <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">
-                    {{ __('Animal intake') }} — {{ $intake->intake_date->format('d M Y') }} · {{ $intake->facility->facility_name ?? '' }}
+                    {{ __('Animal intake') }} — {{ $intake->intakeDatetimeLabel() }} · {{ $intake->facility->facility_name ?? '' }}
                 </h2>
             </div>
             <div class="flex flex-wrap gap-2">
@@ -16,7 +16,7 @@
                         {{ __('Delete') }}
                     </button>
                 </form>
-                @if ($intake->status === \App\Models\AnimalIntake::STATUS_APPROVED && !$intake->isHealthCertificateExpired() && $intake->remainingAnimalsAvailable() > 0)
+                @if ($intake->isPlannableForSlaughter() && $intake->remainingAnimalsAvailable() > 0)
                     <a href="{{ route('slaughter-plans.create') }}?animal_intake_id={{ $intake->id }}&facility_id={{ $intake->facility_id }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Schedule slaughter') }}</a>
                 @endif
                 <a href="{{ route('animal-intakes.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('All intakes') }}</a>
@@ -32,14 +32,18 @@
 
             @if ($intake->isHealthCertificateExpired())
                 <div class="p-4 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                    {{ __('Health certificate has expired. Slaughter cannot be scheduled until certificate is renewed.') }}
+                    {{ __('Health certificate has expired. This is informational only — slaughter planning is not blocked.') }}
+                </div>
+            @elseif (blank($intake->health_certificate_expiry_date))
+                <div class="p-4 rounded-md bg-slate-50 text-slate-600 border border-slate-200">
+                    {{ __('No health certificate on file. You can add certificate details when available.') }}
                 </div>
             @endif
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Facility') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->facility->facility_name ?? '' }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Intake date') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->intake_date->format('d M Y') }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Intake date & time') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->intakeDatetimeLabel() }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Source type') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ ucfirst((string) $intake->source_type) }}</dd></div>
                     @if ($intake->source_type === \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT)
                         <div><dt class="text-sm font-medium text-slate-500">{{ __('Client') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->client?->name ?? '—' }}</dd></div>

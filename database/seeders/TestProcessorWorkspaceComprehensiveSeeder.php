@@ -6,9 +6,12 @@ namespace Database\Seeders;
 
 use App\Models\AdministrativeDivision;
 use App\Models\AnimalIntake;
+use App\Models\AnimalIntakeItem;
 use App\Models\AnteMortemInspection;
+use App\Models\AnteMortemInspectionItem;
 use App\Models\AnteMortemObservation;
 use App\Models\Batch;
+use App\Models\BatchItem;
 use App\Models\Business;
 use App\Models\Certificate;
 use App\Models\CertificateQr;
@@ -23,8 +26,10 @@ use App\Models\Farm;
 use App\Models\Inspector;
 use App\Models\Livestock;
 use App\Models\PostMortemInspection;
+use App\Models\PostMortemInspectionItem;
 use App\Models\PostMortemObservation;
 use App\Models\SlaughterExecution;
+use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
 use App\Models\Species;
 use App\Models\Supplier;
@@ -39,11 +44,12 @@ use Database\Seeders\Support\ProcessorFinanceSync;
 use Database\Seeders\Support\RwandaSeederHelper;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
  * Full processor-workspace demo for test@example.com (REG-TEST-001 / REG-TEST-002):
- * intake → slaughter → inspections → certificates → cold storage → transport → delivery → CRM → finance sync.
+ * Per-animal intake items → slaughter assignment → execution items → batch items → PM outcomes → certificates → cold storage → transport → delivery → CRM → finance sync.
  * Chronological data from 2022-01-01 through 2026-05-03 (Rwanda context, RWF).
  *
  * Idempotent: skips if intakes with health certificate prefix AHC-TEST-COMP already exist.
@@ -371,10 +377,14 @@ class TestProcessorWorkspaceComprehensiveSeeder extends Seeder
         $sh = $ctx['slaughter'];
         $inspectors = $ctx['inspectors'];
         $suppliers = $ctx['suppliers'];
+        $openIntakeSlots = 10;
 
         for ($k = 0; $k < $intakeCount; $k++) {
             $global = $k + $business->id * 10_000;
             $intakeTime = $this->orderedTimestampInRange($rangeStart, $rangeEnd, $k, $intakeCount);
+            if ($k >= $intakeCount - 12) {
+                $intakeTime = now()->subDays($intakeCount - $k)->startOfDay()->addHours(8);
+            }
             $species = $speciesRot[$global % count($speciesRot)];
             $nAnimals = random_int(8, 32);
             $supplier = $suppliers->random();
@@ -385,37 +395,30 @@ class TestProcessorWorkspaceComprehensiveSeeder extends Seeder
                 ->first();
             $chain = $this->randomDivisionChain($provinces->random());
             $healthNo = self::HEALTH_CERT_PREFIX.'-'.$business->id.'-'.str_pad((string) $global, 6, '0', STR_PAD_LEFT);
-
             $unitPrice = (float) (random_int(220, 520) * 1000);
             $inspPick = $inspectors->random();
-            $intake = AnimalIntake::query()->create([
-                'facility_id' => $sh->id,
-                'source_type' => AnimalIntake::SOURCE_TYPE_SUPPLIER,
-                'supplier_id' => $supplier->id,
-                'contract_id' => $contract?->id,
-                'intake_date' => $intakeTime->toDateString(),
-                'supplier_firstname' => $supplier->first_name,
-                'supplier_lastname' => $supplier->last_name,
-                'supplier_contact' => $supplier->phone,
-                'farm_name' => __('Cooperative lot :n — :district', ['n' => $k + 1, 'district' => $chain['district']->name]),
-                'country_id' => $country->id,
-                'province_id' => $chain['province']->id,
-                'district_id' => $chain['district']->id,
-                'sector_id' => $chain['sector']->id,
-                'cell_id' => $chain['cell']?->id,
-                'village_id' => $chain['village']?->id,
-                'species' => $species,
-                'number_of_animals' => $nAnimals,
-                'unit_price' => $unitPrice,
-                'total_price' => round($unitPrice * $nAnimals, 2),
-                'status' => AnimalIntake::STATUS_APPROVED,
-                'transport_vehicle_plate' => 'RAB '.random_int(100, 899).' '.chr(65 + ($k % 26)),
-                'driver_name' => RwandaSeederHelper::fullName($global),
-                'animal_health_certificate_number' => $healthNo,
-                'health_certificate_issue_date' => $intakeTime->copy()->subDays(12),
-                'health_certificate_expiry_date' => $intakeTime->copy()->addMonths(5),
-                'meat_inspector_name' => $inspPick->first_name.' '.$inspPick->last_name,
-            ]);
+
+            $intake = $this->createIntakeSessionHeader(
+                $sh,
+                $supplier,
+                $contract,
+                $chain,
+                $country,
+                $intakeTime,
+                $species,
+                $nAnimals,
+                $unitPrice,
+                $healthNo,
+                $global,
+                $k,
+                $inspPick,
+            );
+
+            $items = $this->createIntakeItems($intake, $nAnimals, $species, $unitPrice, $global, $intakeTime);
+
+            if ($k >= $intakeCount - $openIntakeSlots) {
+                continue;
+            }
 
             $inspector = $inspectors->random();
             $slaughterDay = $intakeTime->copy()->addDays(random_int(1, 6))->setTime(6, 30, 0);
@@ -436,6 +439,11 @@ class TestProcessorWorkspaceComprehensiveSeeder extends Seeder
                 'number_of_animals_scheduled' => $nAnimals,
                 'status' => SlaughterPlan::STATUS_APPROVED,
             ]);
+
+            AnimalIntakeItem::query()
+                ->whereIn('id', $items->pluck('id'))
+                ->update(['slaughter_plan_id' => $plan->id]);
+
             $ante = AnteMortemInspection::query()->create([
                 'slaughter_plan_id' => $plan->id,
                 'inspector_id' => $inspector->id,
@@ -445,26 +453,63 @@ class TestProcessorWorkspaceComprehensiveSeeder extends Seeder
                 'number_rejected' => 0,
                 'notes' => __('Ante-mortem — :farm', ['farm' => (string) $intake->farm_name]),
                 'inspection_date' => $slaughterDay->toDateString(),
+                'examined_count_source' => AnteMortemInspection::SOURCE_ITEMS,
             ]);
+            foreach ($items as $item) {
+                AnteMortemInspectionItem::query()->create([
+                    'ante_mortem_inspection_id' => $ante->id,
+                    'animal_intake_item_id' => $item->id,
+                    'outcome' => AnteMortemInspectionItem::OUTCOME_APPROVED,
+                ]);
+            }
             foreach (RwandaSeederHelper::anteMortemObservationPayload($species) as $row) {
                 AnteMortemObservation::query()->create(array_merge($row, [
                     'ante_mortem_inspection_id' => $ante->id,
                 ]));
             }
+
             $exec = SlaughterExecution::query()->create([
                 'slaughter_plan_id' => $plan->id,
                 'actual_animals_slaughtered' => $nAnimals,
                 'slaughter_time' => $slaughterTime,
                 'status' => SlaughterExecution::STATUS_COMPLETED,
+                'slaughter_count_source' => SlaughterExecution::SOURCE_ITEMS,
             ]);
+
+            $totalMeatKg = 0.0;
+            $executionItems = collect();
+            foreach ($items as $item) {
+                $liveWeight = (float) ($item->live_weight_kg ?? 0);
+                $meatQuantity = $liveWeight > 0
+                    ? round($liveWeight * 0.50, 2)
+                    : round(random_int(180, 320) / 10, 2);
+                $totalMeatKg += $meatQuantity;
+                $executionItems->push(SlaughterExecutionItem::query()->create([
+                    'slaughter_execution_id' => $exec->id,
+                    'animal_intake_item_id' => $item->id,
+                    'meat_quantity_kg' => $meatQuantity,
+                ]));
+            }
+
             $batch = Batch::query()->create([
                 'slaughter_execution_id' => $exec->id,
                 'inspector_id' => $inspector->id,
                 'species' => $species,
-                'quantity' => $nAnimals,
+                'quantity' => $totalMeatKg,
                 'quantity_unit' => $kgUnit,
                 'status' => Batch::STATUS_APPROVED,
             ]);
+
+            $batchItems = collect();
+            foreach ($executionItems as $executionItem) {
+                $batchItems->push(BatchItem::query()->create([
+                    'batch_id' => $batch->id,
+                    'slaughter_execution_item_id' => $executionItem->id,
+                    'animal_intake_item_id' => $executionItem->animal_intake_item_id,
+                    'meat_quantity_kg' => $executionItem->meat_quantity_kg,
+                ]));
+            }
+
             $pm = PostMortemInspection::query()->create([
                 'batch_id' => $batch->id,
                 'inspector_id' => $inspector->id,
@@ -476,11 +521,21 @@ class TestProcessorWorkspaceComprehensiveSeeder extends Seeder
                 'inspection_date' => $slaughterDay->toDateString(),
                 'result' => PostMortemInspection::RESULT_APPROVED,
             ]);
+            foreach ($batchItems as $batchItem) {
+                PostMortemInspectionItem::query()->create([
+                    'post_mortem_inspection_id' => $pm->id,
+                    'batch_item_id' => $batchItem->id,
+                    'animal_intake_item_id' => $batchItem->animal_intake_item_id,
+                    'outcome' => PostMortemInspectionItem::OUTCOME_APPROVED,
+                    'carcass_weight_kg' => $batchItem->meat_quantity_kg,
+                ]);
+            }
             foreach (RwandaSeederHelper::postMortemObservationPayload($species) as $row) {
                 PostMortemObservation::query()->create(array_merge($row, [
                     'post_mortem_inspection_id' => $pm->id,
                 ]));
             }
+
             $this->certCounter++;
             $cert = Certificate::query()->create([
                 'batch_id' => $batch->id,
@@ -493,6 +548,102 @@ class TestProcessorWorkspaceComprehensiveSeeder extends Seeder
             ]);
             $cert->certificateQr()->create(['slug' => CertificateQr::generateSlug()]);
         }
+    }
+
+    /**
+     * @param  array{province: AdministrativeDivision, district: AdministrativeDivision, sector: AdministrativeDivision, cell: ?AdministrativeDivision, village: ?AdministrativeDivision}  $chain
+     */
+    private function createIntakeSessionHeader(
+        Facility $sh,
+        Supplier $supplier,
+        ?Contract $contract,
+        array $chain,
+        AdministrativeDivision $country,
+        Carbon $intakeTime,
+        string $species,
+        int $nAnimals,
+        float $unitPrice,
+        string $healthNo,
+        int $global,
+        int $lotIndex,
+        Inspector $inspPick,
+    ): AnimalIntake {
+        return AnimalIntake::query()->create([
+            'facility_id' => $sh->id,
+            'source_type' => AnimalIntake::SOURCE_TYPE_SUPPLIER,
+            'supplier_id' => $supplier->id,
+            'contract_id' => $contract?->id,
+            'intake_date' => $intakeTime,
+            'supplier_firstname' => $supplier->first_name,
+            'supplier_lastname' => $supplier->last_name,
+            'supplier_contact' => $supplier->phone,
+            'farm_name' => __('Cooperative lot :n — :district', ['n' => $lotIndex + 1, 'district' => $chain['district']->name]),
+            'country_id' => $country->id,
+            'province_id' => $chain['province']->id,
+            'district_id' => $chain['district']->id,
+            'sector_id' => $chain['sector']->id,
+            'cell_id' => $chain['cell']?->id,
+            'village_id' => $chain['village']?->id,
+            'species' => $species,
+            'number_of_animals' => $nAnimals,
+            'unit_price' => $unitPrice,
+            'total_price' => round($unitPrice * $nAnimals, 2),
+            'status' => AnimalIntake::STATUS_APPROVED,
+            'is_draft' => false,
+            'submitted_at' => $intakeTime,
+            'transport_vehicle_plate' => 'RAB '.random_int(100, 899).' '.chr(65 + ($lotIndex % 26)),
+            'driver_name' => RwandaSeederHelper::fullName($global),
+            'animal_health_certificate_number' => $healthNo,
+            'health_certificate_issue_date' => $intakeTime->copy()->subDays(12),
+            'health_certificate_expiry_date' => $intakeTime->copy()->addMonths(5),
+            'meat_inspector_name' => $inspPick->first_name.' '.$inspPick->last_name,
+        ]);
+    }
+
+    /**
+     * @return Collection<int, AnimalIntakeItem>
+     */
+    private function createIntakeItems(
+        AnimalIntake $intake,
+        int $count,
+        string $species,
+        float $unitPrice,
+        int $globalSeed,
+        Carbon $timestamp,
+    ): Collection {
+        $sexes = [AnimalIntake::SEX_MALE, AnimalIntake::SEX_FEMALE];
+        $bodyConditions = ['fair', 'good', 'excellent'];
+        $rows = [];
+
+        for ($n = 1; $n <= $count; $n++) {
+            $liveWeight = match ($species) {
+                AnimalIntake::SPECIES_CATTLE => random_int(350, 550),
+                AnimalIntake::SPECIES_PIG => random_int(80, 120),
+                default => random_int(25, 45),
+            };
+            $rows[] = [
+                'animal_intake_id' => $intake->id,
+                'ear_tag' => sprintf('TW-%d-%d-%04d', $intake->id, $globalSeed, $n),
+                'species' => $species,
+                'sex' => $sexes[($globalSeed + $n) % 2],
+                'age_months' => random_int(12, 48),
+                'live_weight_kg' => $liveWeight,
+                'body_condition_score' => $bodyConditions[($globalSeed + $n) % 3],
+                'unit_price' => $unitPrice,
+                'health_status' => AnimalIntakeItem::HEALTH_HEALTHY,
+                'notes' => null,
+                'slaughter_plan_id' => null,
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+        }
+
+        DB::table('animal_intake_items')->insert($rows);
+
+        return AnimalIntakeItem::query()
+            ->where('animal_intake_id', $intake->id)
+            ->orderBy('id')
+            ->get();
     }
 
     private function orderedTimestampInRange(Carbon $start, Carbon $end, int $index, int $total): Carbon

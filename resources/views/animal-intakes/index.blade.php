@@ -37,7 +37,7 @@
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
                                     <a href="{{ route('animal-intakes.show', $i) }}" class="font-medium text-slate-900 hover:text-bucha-primary">
-                                        {{ $i->intake_date->format('d M Y') }} — {{ $i->facility->facility_name ?? '' }}
+                                        {{ $i->intakeDatetimeLabel() }} — {{ $i->facility->facility_name ?? '' }}
                                     </a>
                                     <p class="text-sm text-slate-500">
                                         {{ $i->supplier_firstname }} {{ $i->supplier_lastname }} · {{ $i->farm_name ?? '—' }} · {{ __($i->species) }}{{ $i->species_ear_tag ? ' · '.$i->species_ear_tag : '' }}{{ $i->sex ? ' · '.ucfirst($i->sex) : '' }}{{ $i->age !== null ? ' · '.$i->age.'y' : '' }} · {{ $i->number_of_animals }} {{ __('animals') }}

@@ -30,6 +30,23 @@ class AnteMortemChecklist
         return config('ante_mortem_checklist.checklists.'.$key, config('ante_mortem_checklist.checklists.all_species', []));
     }
 
+    /**
+     * Clinical checklist items for an inspection. Approve/reject belongs on individual
+     * animals when the slaughter plan has assigned intake items.
+     *
+     * @return array<string, array{label: string, type: string}>
+     */
+    public static function itemsForInspection(?string $species, bool $hasAssignedAnimals): array
+    {
+        $items = self::itemsForSpecies($species);
+
+        if ($hasAssignedAnimals) {
+            unset($items['decision']);
+        }
+
+        return $items;
+    }
+
     public static function allowedValuesForType(string $type): array
     {
         return config('ante_mortem_checklist.value_options.'.$type, []);

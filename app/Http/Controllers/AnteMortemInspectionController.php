@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAnteMortemInspectionRequest;
 use App\Http\Requests\UpdateAnteMortemInspectionRequest;
+use App\Models\AnimalIntakeItem;
 use App\Models\AnteMortemInspection;
+use App\Models\AnteMortemInspectionItem;
 use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\SlaughterPlan;
 use App\Support\AnteMortemChecklist;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -42,11 +45,12 @@ class AnteMortemInspectionController extends Controller
         }
     }
 
-    private function mapObservationPayload(array $observations): array
+    private function mapObservationPayload(array $observations, ?int $animalIntakeItemId = null): array
     {
         return collect($observations)
-            ->map(function ($row, $item) {
+            ->map(function ($row, $item) use ($animalIntakeItemId) {
                 return [
+                    'animal_intake_item_id' => $animalIntakeItemId,
                     'item' => (string) $item,
                     'value' => (string) ($row['value'] ?? ''),
                     'notes' => $row['notes'] ?? null,
@@ -56,40 +60,247 @@ class AnteMortemInspectionController extends Controller
             ->all();
     }
 
+    /**
+     * @param  array<string, array{value?: string|null, notes?: string|null}>  $legacyObservations
+     * @param  array<int, array{animal_intake_item_id: int, observations?: array<string, array{value?: string|null, notes?: string|null}>}>  $itemOutcomes
+     */
+    private function syncObservations(
+        AnteMortemInspection $inspection,
+        array $legacyObservations,
+        array $itemOutcomes,
+        bool $perAnimal,
+    ): void {
+        $inspection->observations()->delete();
+
+        if ($perAnimal) {
+            $rows = [];
+            foreach ($itemOutcomes as $outcome) {
+                $animalId = (int) ($outcome['animal_intake_item_id'] ?? 0);
+                if ($animalId === 0) {
+                    continue;
+                }
+
+                $rows = array_merge(
+                    $rows,
+                    $this->mapObservationPayload($outcome['observations'] ?? [], $animalId),
+                );
+            }
+
+            if ($rows !== []) {
+                $inspection->observations()->createMany($rows);
+            }
+
+            return;
+        }
+
+        if ($legacyObservations !== []) {
+            $inspection->observations()->createMany(
+                $this->mapObservationPayload($legacyObservations),
+            );
+        }
+    }
+
+    private function planHasAssignedAnimals(?SlaughterPlan $plan, string $species): bool
+    {
+        return $plan !== null
+            && $plan->assignedItems()->where('species', $species)->exists();
+    }
+
+    /**
+     * @return array<int, array{outcome: string, outcome_notes: string, observations: array<string, array{value: string, notes: string|null}>}>
+     */
+    private function mapExistingInspectionOutcomes(AnteMortemInspection $inspection): array
+    {
+        $obsByAnimal = $inspection->observations
+            ->whereNotNull('animal_intake_item_id')
+            ->groupBy('animal_intake_item_id');
+
+        return $inspection->inspectionItems
+            ->mapWithKeys(function ($item) use ($obsByAnimal) {
+                return [
+                    $item->animal_intake_item_id => [
+                        'outcome' => $item->outcome,
+                        'outcome_notes' => $item->outcome_notes ?? '',
+                        'observations' => ($obsByAnimal->get($item->animal_intake_item_id) ?? collect())
+                            ->mapWithKeys(fn ($obs) => [
+                                $obs->item => [
+                                    'value' => $obs->value,
+                                    'notes' => $obs->notes,
+                                ],
+                            ])
+                            ->all(),
+                    ],
+                ];
+            })
+            ->all();
+    }
+
     private function checklistConfig(): array
     {
         return AnteMortemChecklist::all();
     }
 
+    /**
+     * @param  array<int, array{animal_intake_item_id: int, outcome: string, outcome_notes?: string|null}>  $itemOutcomes
+     */
+    private function syncInspectionItems(AnteMortemInspection $inspection, array $itemOutcomes): void
+    {
+        if ($itemOutcomes === []) {
+            $inspection->update(['examined_count_source' => AnteMortemInspection::SOURCE_MANUAL]);
+
+            return;
+        }
+
+        foreach ($itemOutcomes as $itemOutcome) {
+            $inspection->inspectionItems()->create([
+                'animal_intake_item_id' => $itemOutcome['animal_intake_item_id'],
+                'outcome' => $itemOutcome['outcome'],
+                'outcome_notes' => $itemOutcome['outcome_notes'] ?? null,
+            ]);
+        }
+
+        $inspection->update([
+            'examined_count_source' => AnteMortemInspection::SOURCE_ITEMS,
+            'number_examined' => $inspection->examined_from_items,
+            'number_approved' => $inspection->approved_from_items,
+            'number_rejected' => $inspection->rejected_from_items,
+        ]);
+    }
+
+    /**
+     * @param  array<int, array{animal_intake_item_id: int, outcome: string}>  $itemOutcomes
+     */
+    private function applyRejectedHealthStatuses(array $itemOutcomes): void
+    {
+        $rejectedIds = collect($itemOutcomes)
+            ->where('outcome', AnteMortemInspectionItem::OUTCOME_REJECTED)
+            ->pluck('animal_intake_item_id');
+
+        if ($rejectedIds->isNotEmpty()) {
+            AnimalIntakeItem::whereIn('id', $rejectedIds)
+                ->update(['health_status' => AnimalIntakeItem::HEALTH_REJECTED]);
+        }
+    }
+
     public function index(Request $request): View
     {
+        $facilityIds = $this->userFacilityIds($request);
         $planIds = $this->userSlaughterPlanIds($request);
 
-        $inspections = AnteMortemInspection::with(['slaughterPlan.facility', 'slaughterPlan.inspector', 'inspector'])
-            ->whereIn('slaughter_plan_id', $planIds)
-            ->latest('inspection_date')
-            ->paginate(10);
-
-        $kpis = [
-            'total' => AnteMortemInspection::whereIn('slaughter_plan_id', $planIds)->count(),
+        $hubStats = [
+            'total_inspections' => AnteMortemInspection::query()
+                ->whereIn('slaughter_plan_id', $planIds)
+                ->count(),
+            'animals_examined' => (int) AnteMortemInspection::query()
+                ->whereIn('slaughter_plan_id', $planIds)
+                ->sum('number_examined'),
+            'rejected_this_week' => AnteMortemInspectionItem::query()
+                ->whereHas('inspection', fn ($query) => $query->whereIn('slaughter_plan_id', $planIds))
+                ->rejected()
+                ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
+                ->count(),
+            'plans_without_am' => SlaughterPlan::query()
+                ->whereIn('id', $planIds)
+                ->whereDoesntHave('anteMortemInspections')
+                ->whereNotIn('status', ['executed'])
+                ->count(),
         ];
 
-        return view('ante-mortem-inspections.index', compact('inspections', 'kpis'));
+        $query = AnteMortemInspection::query()
+            ->with([
+                'slaughterPlan.intake',
+                'slaughterPlan.facility',
+                'inspector',
+                'inspectionItems.intakeItem',
+            ])
+            ->whereIn('slaughter_plan_id', $planIds);
+
+        if ($request->filled('facility_id')) {
+            $facilityId = (int) $request->query('facility_id');
+            if ($facilityIds->contains($facilityId)) {
+                $query->whereHas('slaughterPlan', fn ($planQuery) => $planQuery->where('facility_id', $facilityId));
+            }
+        }
+
+        if ($request->filled('species')) {
+            $query->where('species', $request->query('species'));
+        }
+
+        if ($request->filled('inspector_id')) {
+            $inspectorId = (int) $request->query('inspector_id');
+            if (Inspector::query()
+                ->whereKey($inspectorId)
+                ->whereIn('facility_id', $facilityIds)
+                ->exists()) {
+                $query->where('inspector_id', $inspectorId);
+            }
+        }
+
+        if ($request->filled('date_from')) {
+            $query->where('inspection_date', '>=', $request->query('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('inspection_date', '<=', $request->query('date_to'));
+        }
+
+        if ($request->filled('count_source')) {
+            $countSource = (string) $request->query('count_source');
+            if (in_array($countSource, [AnteMortemInspection::SOURCE_MANUAL, AnteMortemInspection::SOURCE_ITEMS], true)) {
+                $query->where('examined_count_source', $countSource);
+            }
+        }
+
+        if ($request->boolean('has_rejections')) {
+            $query->where('number_rejected', '>', 0);
+        }
+
+        $inspections = $query
+            ->latest('inspection_date')
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        $facilities = Facility::query()
+            ->whereIn('id', $facilityIds)
+            ->orderBy('facility_name')
+            ->get(['id', 'facility_name']);
+
+        $inspectors = Inspector::query()
+            ->whereIn('facility_id', $facilityIds)
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name']);
+
+        return view('ante-mortem-inspections.index', compact(
+            'hubStats',
+            'inspections',
+            'facilities',
+            'inspectors',
+        ));
     }
 
     public function create(Request $request): View
     {
         $planIds = $this->userSlaughterPlanIds($request);
 
-        $plans = SlaughterPlan::with('facility')
+        // --- Section 4 ---
+        $selectedPlanId = $request->query('slaughter_plan_id');
+        $selectedPlan = $selectedPlanId
+            ? SlaughterPlan::whereIn('id', $this->userSlaughterPlanIds($request))
+                ->with('assignedItems')
+                ->find($selectedPlanId)
+            : null;
+        $assignedItems = $selectedPlan?->assignedItems ?? collect();
+
+        $planModels = SlaughterPlan::with(['facility', 'assignedItems', 'intake'])
             ->whereIn('id', $planIds)
             ->orderByDesc('slaughter_date')
-            ->get()
-            ->map(fn (SlaughterPlan $p) => [
-                'id' => $p->id,
-                'label' => $p->slaughter_date->format('d M Y').' — '.$p->facility->facility_name.' ('.$p->species.')',
-                'facility_id' => $p->facility_id,
-            ]);
+            ->get();
+
+        $plans = $this->mapPlansForSelect($planModels);
+        $assignedItemsByPlan = $this->mapAssignedItemsByPlan($planModels);
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $this->userFacilityIds($request))
             ->where('status', 'active')
@@ -102,6 +313,9 @@ class AnteMortemInspectionController extends Controller
             'plans' => $plans,
             'inspectorsByFacility' => $inspectorsByFacility,
             'checklists' => $this->checklistConfig(),
+            'selectedPlan' => $selectedPlan,
+            'assignedItems' => $assignedItems,
+            'assignedItemsByPlan' => $assignedItemsByPlan,
         ]);
     }
 
@@ -111,11 +325,17 @@ class AnteMortemInspectionController extends Controller
 
         $validated = $request->validated();
         $observations = $validated['observations'] ?? [];
-        unset($validated['observations']);
+        $itemOutcomes = $validated['item_outcomes'] ?? [];
+        unset($validated['observations'], $validated['item_outcomes']);
 
-        DB::transaction(function () use ($validated, $observations) {
+        $plan = SlaughterPlan::query()->find($validated['slaughter_plan_id']);
+        $perAnimal = $this->planHasAssignedAnimals($plan, (string) $validated['species']);
+
+        DB::transaction(function () use ($validated, $observations, $itemOutcomes, $perAnimal) {
             $inspection = AnteMortemInspection::create($validated);
-            $inspection->observations()->createMany($this->mapObservationPayload($observations));
+            $this->syncObservations($inspection, $observations, $itemOutcomes, $perAnimal);
+            $this->syncInspectionItems($inspection, $itemOutcomes);
+            $this->applyRejectedHealthStatuses($itemOutcomes);
         });
 
         return redirect()->route('ante-mortem-inspections.index')
@@ -125,7 +345,13 @@ class AnteMortemInspectionController extends Controller
     public function show(Request $request, AnteMortemInspection $anteMortemInspection): View|RedirectResponse
     {
         $this->authorizeInspection($request, $anteMortemInspection);
-        $anteMortemInspection->load(['slaughterPlan.facility.business', 'inspector', 'observations']);
+        // --- Section 4 ---
+        $anteMortemInspection->load([
+            'slaughterPlan.facility.business',
+            'inspector',
+            'observations',
+            'inspectionItems.intakeItem',
+        ]);
 
         return view('ante-mortem-inspections.show', ['inspection' => $anteMortemInspection]);
     }
@@ -136,15 +362,13 @@ class AnteMortemInspectionController extends Controller
 
         $planIds = $this->userSlaughterPlanIds($request);
 
-        $plans = SlaughterPlan::with('facility')
+        $planModels = SlaughterPlan::with(['facility', 'assignedItems', 'intake'])
             ->whereIn('id', $planIds)
             ->orderByDesc('slaughter_date')
-            ->get()
-            ->map(fn (SlaughterPlan $p) => [
-                'id' => $p->id,
-                'label' => $p->slaughter_date->format('d M Y').' — '.$p->facility->facility_name.' ('.$p->species.')',
-                'facility_id' => $p->facility_id,
-            ]);
+            ->get();
+
+        $plans = $this->mapPlansForSelect($planModels);
+        $assignedItemsByPlan = $this->mapAssignedItemsByPlan($planModels);
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $this->userFacilityIds($request))
             ->where('status', 'active')
@@ -153,33 +377,92 @@ class AnteMortemInspectionController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
-        $anteMortemInspection->load('observations');
+        // --- Section 4 ---
+        $anteMortemInspection->load([
+            'slaughterPlan.assignedItems',
+            'inspectionItems.intakeItem',
+            'observations',
+        ]);
+        $assignedItems = $anteMortemInspection->slaughterPlan?->assignedItems ?? collect();
+        $inspectionItems = $anteMortemInspection->inspectionItems;
+        $observationsByAnimal = $anteMortemInspection->observations
+            ->whereNotNull('animal_intake_item_id')
+            ->groupBy('animal_intake_item_id');
 
         return view('ante-mortem-inspections.edit', [
             'inspection' => $anteMortemInspection,
             'plans' => $plans,
             'inspectorsByFacility' => $inspectorsByFacility,
             'checklists' => $this->checklistConfig(),
+            'assignedItemsByPlan' => $assignedItemsByPlan,
+            'assignedItems' => $assignedItems,
+            'inspectionItems' => $inspectionItems,
+            'observationsByAnimal' => $observationsByAnimal,
+            'existingInspectionOutcomes' => $this->mapExistingInspectionOutcomes($anteMortemInspection),
         ]);
     }
 
     public function update(UpdateAnteMortemInspectionRequest $request, AnteMortemInspection $anteMortemInspection): RedirectResponse
     {
         $this->authorizeInspection($request, $anteMortemInspection);
-        $this->authorizePlanId($request, (int) $request->validated('slaughter_plan_id'));
 
         $validated = $request->validated();
-        $observations = $validated['observations'] ?? [];
-        unset($validated['observations']);
+        $this->authorizePlanId(
+            $request,
+            (int) ($validated['slaughter_plan_id'] ?? $anteMortemInspection->slaughter_plan_id),
+        );
 
-        DB::transaction(function () use ($anteMortemInspection, $validated, $observations) {
-            $anteMortemInspection->update($validated);
-            $anteMortemInspection->observations()->delete();
-            $anteMortemInspection->observations()->createMany($this->mapObservationPayload($observations));
+        DB::transaction(function () use ($anteMortemInspection, $validated) {
+            $previouslyRejectedItemIds = $anteMortemInspection->inspectionItems()
+                ->rejected()
+                ->pluck('animal_intake_item_id')
+                ->toArray();
+
+            $anteMortemInspection->update([
+                'inspector_id' => $validated['inspector_id'] ?? $anteMortemInspection->inspector_id,
+                'species' => $validated['species'],
+                'number_examined' => $validated['number_examined'],
+                'number_approved' => $validated['number_approved'],
+                'number_rejected' => $validated['number_rejected'],
+                'notes' => $validated['notes'] ?? null,
+                'inspection_date' => $validated['inspection_date'],
+                'notes_for_under_observation' => $validated['notes_for_under_observation'] ?? null,
+            ]);
+
+            $plan = SlaughterPlan::query()->find($validated['slaughter_plan_id'] ?? $anteMortemInspection->slaughter_plan_id);
+            $perAnimal = $this->planHasAssignedAnimals($plan, (string) $validated['species']);
+            $itemOutcomes = $validated['item_outcomes'] ?? [];
+
+            $this->syncObservations(
+                $anteMortemInspection,
+                $validated['observations'] ?? [],
+                $itemOutcomes,
+                $perAnimal,
+            );
+
+            $anteMortemInspection->inspectionItems()->delete();
+            $this->syncInspectionItems($anteMortemInspection, $itemOutcomes);
+
+            $newlyRejectedIds = collect($validated['item_outcomes'] ?? [])
+                ->where('outcome', AnteMortemInspectionItem::OUTCOME_REJECTED)
+                ->pluck('animal_intake_item_id')
+                ->toArray();
+
+            $removedRejectionIds = array_diff($previouslyRejectedItemIds, $newlyRejectedIds);
+
+            if (! empty($newlyRejectedIds)) {
+                AnimalIntakeItem::whereIn('id', $newlyRejectedIds)
+                    ->update(['health_status' => AnimalIntakeItem::HEALTH_REJECTED]);
+            }
+
+            if (! empty($removedRejectionIds)) {
+                AnimalIntakeItem::whereIn('id', $removedRejectionIds)
+                    ->update(['health_status' => AnimalIntakeItem::HEALTH_OBSERVATION]);
+            }
         });
 
         return redirect()->route('ante-mortem-inspections.index')
-            ->with('status', __('Ante-mortem inspection updated successfully.'));
+            ->with('status', __('Ante-mortem inspection updated.'));
     }
 
     public function destroy(Request $request, AnteMortemInspection $anteMortemInspection): RedirectResponse
@@ -189,5 +472,41 @@ class AnteMortemInspectionController extends Controller
 
         return redirect()->route('ante-mortem-inspections.index')
             ->with('status', __('Ante-mortem inspection removed.'));
+    }
+
+    /**
+     * @param  Collection<int, SlaughterPlan>  $planModels
+     * @return Collection<int, array{id: int, label: string, facility_id: int}>
+     */
+    private function mapPlansForSelect(Collection $planModels): Collection
+    {
+        return $planModels->map(fn (SlaughterPlan $plan) => [
+            'id' => $plan->id,
+            'label' => $plan->sessionSelectLabel(),
+            'facility_id' => $plan->facility_id,
+            'species' => $plan->species,
+            'scheduled_count' => (int) $plan->number_of_animals_scheduled,
+            'assigned_count' => $plan->assigned_count,
+        ])->values();
+    }
+
+    /**
+     * @param  Collection<int, SlaughterPlan>  $planModels
+     * @return Collection<int|string, array<int, array<string, mixed>>>
+     */
+    private function mapAssignedItemsByPlan(Collection $planModels): Collection
+    {
+        return $planModels->mapWithKeys(fn (SlaughterPlan $plan) => [
+            $plan->id => $plan->assignedItems->map(fn (AnimalIntakeItem $item) => [
+                'id' => $item->id,
+                'ear_tag' => $item->ear_tag,
+                'species' => $item->species,
+                'sex' => ucfirst($item->sex),
+                'age_months' => $item->age_months,
+                'live_weight_kg' => $item->live_weight_kg,
+                'health_status' => $item->health_status,
+                'health_status_label' => $item->health_status_label,
+            ])->values()->toArray(),
+        ]);
     }
 }

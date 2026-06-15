@@ -66,6 +66,8 @@ class User extends Authenticatable
 
     public const SUPER_ADMIN_MODULE_SYSTEM_SETTINGS = 'system_settings';
 
+    public const SUPER_ADMIN_MODULE_RICA = 'rica';
+
     /**
      * @return list<string>
      */
@@ -77,6 +79,7 @@ class User extends Authenticatable
             self::SUPER_ADMIN_MODULE_CONFIGURATION,
             self::SUPER_ADMIN_MODULE_USER_MANAGEMENT,
             self::SUPER_ADMIN_MODULE_SYSTEM_SETTINGS,
+            self::SUPER_ADMIN_MODULE_RICA,
         ];
     }
 

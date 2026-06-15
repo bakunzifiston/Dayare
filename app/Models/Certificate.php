@@ -97,4 +97,80 @@ class Certificate extends Model
             ->where('status', self::STATUS_ACTIVE)
             ->where(fn ($q) => $q->whereNull('expiry_date')->orWhere('expiry_date', '>=', now()->startOfDay()));
     }
+
+    // --- Section 1 ---
+
+    protected static function booted(): void
+    {
+        static::saving(function (Certificate $cert) {
+            if ($cert->status !== self::STATUS_REVOKED
+                && $cert->expiry_date
+                && $cert->expiry_date->isPast()
+            ) {
+                $cert->status = self::STATUS_EXPIRED;
+            }
+        });
+    }
+
+    /**
+     * Whether the certificate expiry date is in the past.
+     */
+    public function isExpired(): bool
+    {
+        return $this->expiry_date && $this->expiry_date->isPast();
+    }
+
+    /**
+     * Whether the certificate has been revoked.
+     */
+    public function isRevoked(): bool
+    {
+        return $this->status === self::STATUS_REVOKED;
+    }
+
+    /**
+     * True when not revoked and expiry date is absent or still in the future.
+     * Prefer this over the stored status field for compliance checks.
+     */
+    public function isCurrentlyValid(): bool
+    {
+        if ($this->isRevoked()) {
+            return false;
+        }
+        if ($this->expiry_date && $this->expiry_date->isPast()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Tailwind badge classes for the derived certificate status label.
+     */
+    public function getStatusBadgeClassAttribute(): string
+    {
+        if ($this->isRevoked()) {
+            return 'bg-red-100 text-red-800';
+        }
+        if ($this->isExpired()) {
+            return 'bg-yellow-100 text-yellow-800';
+        }
+
+        return 'bg-green-100 text-green-800';
+    }
+
+    /**
+     * Human-readable status derived from revocation and expiry date.
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        if ($this->isRevoked()) {
+            return 'Revoked';
+        }
+        if ($this->isExpired()) {
+            return 'Expired';
+        }
+
+        return 'Active';
+    }
 }

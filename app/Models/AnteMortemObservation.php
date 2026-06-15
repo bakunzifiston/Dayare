@@ -12,6 +12,7 @@ class AnteMortemObservation extends Model
 
     protected $fillable = [
         'ante_mortem_inspection_id',
+        'animal_intake_item_id',
         'item',
         'value',
         'notes',
@@ -20,5 +21,10 @@ class AnteMortemObservation extends Model
     public function inspection(): BelongsTo
     {
         return $this->belongsTo(AnteMortemInspection::class, 'ante_mortem_inspection_id');
+    }
+
+    public function intakeItem(): BelongsTo
+    {
+        return $this->belongsTo(AnimalIntakeItem::class, 'animal_intake_item_id');
     }
 }

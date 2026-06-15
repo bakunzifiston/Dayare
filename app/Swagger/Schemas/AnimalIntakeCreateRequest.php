@@ -14,7 +14,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'facility_id', type: 'integer', example: 3),
         new OA\Property(property: 'supplier_id', type: 'integer', nullable: true, example: 12),
         new OA\Property(property: 'contract_id', type: 'integer', nullable: true, example: 41),
-        new OA\Property(property: 'intake_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'intake_date', type: 'string', format: 'date-time'),
         new OA\Property(property: 'species', type: 'string', maxLength: 50),
         new OA\Property(property: 'number_of_animals', type: 'integer', minimum: 1),
         new OA\Property(property: 'status', type: 'string', enum: ['received', 'approved', 'rejected']),

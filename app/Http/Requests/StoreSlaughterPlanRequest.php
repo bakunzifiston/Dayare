@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\AnimalIntake;
 use App\Models\SlaughterPlan;
+use App\Services\Processor\SlaughterPlanAssignmentService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -49,19 +50,55 @@ class StoreSlaughterPlanRequest extends FormRequest
             if (! $intake) {
                 return;
             }
+
+            $assignmentService = app(SlaughterPlanAssignmentService::class);
+            $requestedSpecies = (string) $this->input('species');
+            $scheduled = (int) $this->input('number_of_animals_scheduled');
+
             if ($intake->facility_id != $this->input('facility_id')) {
                 $validator->errors()->add('animal_intake_id', __('Selected intake must be for the chosen facility.'));
             }
+
             if ($intake->isHealthCertificateExpired()) {
                 $validator->errors()->add('animal_intake_id', __('Cannot schedule slaughter: health certificate has expired.'));
             }
-            if ($intake->species !== $this->input('species')) {
-                $validator->errors()->add('species', __('Species must match the animal intake.'));
+
+            if (! $intake->isPlannableForSlaughter()) {
+                $validator->errors()->add(
+                    'animal_intake_id',
+                    __('The selected intake must be submitted before a slaughter plan can be created.'),
+                );
+
+                return;
             }
-            $remaining = $intake->remainingAnimalsAvailable();
-            $scheduled = (int) $this->input('number_of_animals_scheduled');
+
+            if ($intake->items()->exists()) {
+                $availableForSpecies = $assignmentService->availableCountForSpecies($intake, $requestedSpecies);
+                if ($availableForSpecies === 0) {
+                    $validator->errors()->add(
+                        'species',
+                        __('No available :species animals on this intake.', ['species' => $requestedSpecies]),
+                    );
+                }
+
+                $remaining = $availableForSpecies;
+            } else {
+                if ($intake->species !== $requestedSpecies) {
+                    $validator->errors()->add('species', __('Species must match the animal intake.'));
+                }
+
+                $remaining = $intake->remainingAnimalsAvailable();
+            }
+
             if ($scheduled > $remaining) {
-                $validator->errors()->add('number_of_animals_scheduled', __('Number scheduled cannot exceed animals received from this intake. Remaining: :n', ['n' => $remaining]));
+                $validator->errors()->add(
+                    'number_of_animals_scheduled',
+                    __('Only :remaining :species animals are available — :scheduled requested.', [
+                        'remaining' => $remaining,
+                        'species' => $requestedSpecies,
+                        'scheduled' => $scheduled,
+                    ]),
+                );
             }
         });
     }

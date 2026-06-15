@@ -32,9 +32,16 @@ class UpdateBatchRequest extends FormRequest
             'slaughter_execution_id' => ['required', 'exists:slaughter_executions,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
             'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
-            'quantity' => ['required', 'integer', 'min:1'],
+            'quantity' => ['required', 'numeric', 'min:0.01'],
             'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],
             'status' => ['required', 'string', Rule::in(Batch::STATUSES)],
+            // --- Section 2 ---
+            'selected_animal_ids' => 'nullable|array',
+            'selected_animal_ids.*' => 'integer|exists:animal_intake_items,id',
+            'item_quantities' => 'nullable|array',
+            'item_quantities.*.slaughter_execution_item_id' => 'required_with:item_quantities|integer|exists:slaughter_execution_items,id',
+            'item_quantities.*.meat_quantity_kg' => 'required_with:item_quantities|numeric|min:0.01|max:9999',
+            'item_quantities.*.notes' => 'nullable|string|max:500',
         ];
     }
 
@@ -64,6 +71,54 @@ class UpdateBatchRequest extends FormRequest
                 $inspector = \App\Models\Inspector::find($inspectorId);
                 if ($inspector && $inspector->facility_id !== $execution->slaughterPlan->facility_id) {
                     $validator->errors()->add('inspector_id', __('Inspector must be assigned to the facility of this slaughter execution.'));
+                }
+            }
+
+            // --- Section 2 ---
+            $execution = SlaughterExecution::find(
+                $this->input('slaughter_execution_id')
+                ?? $this->route('batch')?->slaughter_execution_id
+            );
+
+            if ($execution && $execution->status !== 'completed') {
+                $validator->errors()->add(
+                    'slaughter_execution_id',
+                    'Slaughter execution must be completed before a batch can be created.'
+                );
+            }
+
+            if ($execution) {
+                $maxQuantity = $execution->hasPerAnimalSlaughter()
+                    ? $execution->total_meat_quantity_kg
+                    : (float) $execution->actual_animals_slaughtered;
+                $quantity = (float) $this->input('quantity');
+                if ($quantity > $maxQuantity) {
+                    $validator->errors()->add(
+                        'quantity',
+                        "Batch quantity ({$quantity}) cannot exceed the execution total ({$maxQuantity})."
+                    );
+                }
+            }
+
+            if (! empty($this->input('selected_animal_ids')) && $execution) {
+                $validIds = $execution->executionItems()->pluck('animal_intake_item_id')->toArray();
+                $invalidIds = array_diff($this->input('selected_animal_ids'), $validIds);
+                if (! empty($invalidIds)) {
+                    $validator->errors()->add(
+                        'selected_animal_ids',
+                        'One or more selected animals do not belong to this execution.'
+                    );
+                }
+            }
+
+            // --- Section 2 --- UpdateBatchRequest only
+            if ($this->input('status') === 'approved') {
+                $batch = $this->route('batch');
+                if ($batch && ! $batch->hasPostMortem()) {
+                    $validator->errors()->add(
+                        'status',
+                        'Batch cannot be approved without a completed post-mortem inspection.'
+                    );
                 }
             }
         });

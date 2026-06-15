@@ -5,7 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 /**
  * Batch – group of carcasses from slaughter.
@@ -27,6 +29,14 @@ class Batch extends Model
         'status',
         'cold_chain_status',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            // --- Section 1 ---
+            'quantity' => 'decimal:2',
+        ];
+    }
 
     /** Display label for quantity_unit (from configured Unit name, or Demand legacy label, or code). */
     public function getQuantityUnitLabelAttribute(): string
@@ -123,13 +133,224 @@ class Batch extends Model
 
     public function canIssueCertificate(): bool
     {
-        $pm = $this->postMortemInspection;
+        if (! $this->postMortemInspection) {
+            return false;
+        }
 
-        return $pm && $pm->approved_quantity > 0;
+        if ($this->postMortemInspection->approved_quantity <= 0) {
+            return false;
+        }
+
+        if ($this->hasPerAnimalData() && ! $this->isPostMortemComplete()) {
+            return false;
+        }
+
+        return true;
     }
 
     public function transportTrips(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(TransportTrip::class);
+    }
+
+    // --- Section 1 ---
+
+    /**
+     * Individual animals assigned to this batch.
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(BatchItem::class, 'batch_id')->orderBy('id');
+    }
+
+    /**
+     * True when this batch has per-animal item rows.
+     */
+    public function hasPerAnimalData(): bool
+    {
+        if ($this->relationLoaded('items')) {
+            return $this->items->isNotEmpty();
+        }
+
+        return $this->items()->exists();
+    }
+
+    /**
+     * Total meat quantity across all batch items in kg.
+     */
+    public function getTotalMeatQuantityKgAttribute(): float
+    {
+        if ($this->relationLoaded('items')) {
+            return (float) $this->items->sum('meat_quantity_kg');
+        }
+
+        return (float) $this->items()->sum('meat_quantity_kg');
+    }
+
+    /**
+     * Number of animals in this batch.
+     */
+    public function getAnimalCountAttribute(): int
+    {
+        if ($this->relationLoaded('items')) {
+            return $this->items->count();
+        }
+
+        return $this->items()->count();
+    }
+
+    /**
+     * Number of batch animals with a recorded post-mortem outcome.
+     */
+    public function getPostMortemDoneCountAttribute(): int
+    {
+        return $this->items()->whereHas('postMortemOutcome')->count();
+    }
+
+    /**
+     * True when every animal in the batch has a post-mortem outcome.
+     */
+    public function isPostMortemComplete(): bool
+    {
+        $total = $this->animal_count;
+        if ($total === 0) {
+            return false;
+        }
+
+        return $this->post_mortem_done_count === $total;
+    }
+
+    /**
+     * Whether cold chain status is normal.
+     */
+    public function isColdChainOk(): bool
+    {
+        return $this->cold_chain_status === self::COLD_CHAIN_OK;
+    }
+
+    /**
+     * Whether cold chain is at risk.
+     */
+    public function isColdChainAtRisk(): bool
+    {
+        return $this->cold_chain_status === self::COLD_CHAIN_AT_RISK;
+    }
+
+    /**
+     * Whether cold chain has been compromised.
+     */
+    public function isColdChainCompromised(): bool
+    {
+        return $this->cold_chain_status === self::COLD_CHAIN_COMPROMISED;
+    }
+
+    /**
+     * Tailwind badge classes for the current cold chain status.
+     */
+    public function getColdChainBadgeClassAttribute(): string
+    {
+        return match ($this->cold_chain_status) {
+            self::COLD_CHAIN_AT_RISK => 'bg-yellow-100 text-yellow-800',
+            self::COLD_CHAIN_COMPROMISED => 'bg-red-100 text-red-800',
+            default => 'bg-green-100 text-green-800',
+        };
+    }
+
+    /**
+     * Suggested batch quantity from the linked slaughter execution.
+     */
+    public function suggestedQuantity(): float|int
+    {
+        $execution = $this->slaughterExecution;
+        if ($execution === null) {
+            return 0;
+        }
+
+        return $execution->hasPerAnimalSlaughter()
+            ? $execution->total_meat_quantity_kg
+            : $execution->actual_animals_slaughtered;
+    }
+
+    /**
+     * Whether a post-mortem inspection record exists for this batch.
+     */
+    public function hasPostMortem(): bool
+    {
+        return $this->postMortemInspection()->exists();
+    }
+
+    /**
+     * Animals available for post-mortem on this batch.
+     * Uses batch items when present; otherwise falls back to slaughter execution animals.
+     *
+     * @return Collection<int, array{
+     *     batch_item_id: int|null,
+     *     slaughter_execution_item_id: int,
+     *     animal_intake_item_id: int,
+     *     ear_tag: string,
+     *     species: string,
+     *     sex: string,
+     *     meat_quantity_kg: float,
+     *     session_label: string,
+     *     source: string
+     * }>
+     */
+    public function inspectableAnimalsForPostMortem(): Collection
+    {
+        $this->loadMissing([
+            'items.intakeItem',
+            'slaughterExecution.executionItems.intakeItem',
+            'slaughterExecution.slaughterPlan',
+        ]);
+
+        if ($this->hasPerAnimalData()) {
+            return $this->items->map(function (BatchItem $batchItem) {
+                $intake = $batchItem->intakeItem;
+
+                return [
+                    'batch_item_id' => $batchItem->id,
+                    'slaughter_execution_item_id' => (int) $batchItem->slaughter_execution_item_id,
+                    'animal_intake_item_id' => (int) $batchItem->animal_intake_item_id,
+                    'ear_tag' => $intake->ear_tag,
+                    'species' => $intake->species,
+                    'sex' => ucfirst($intake->sex),
+                    'meat_quantity_kg' => (float) $batchItem->meat_quantity_kg,
+                    'session_label' => $this->slaughterExecution?->slaughter_time?->format('H:i') ?? '—',
+                    'source' => 'batch',
+                ];
+            })->values();
+        }
+
+        $reference = $this->slaughterExecution;
+        if ($reference === null) {
+            return collect();
+        }
+
+        $executionIds = SlaughterExecution::query()
+            ->sameDayAndFacility($reference)
+            ->pluck('id');
+
+        return SlaughterExecutionItem::query()
+            ->whereIn('slaughter_execution_id', $executionIds)
+            ->with(['intakeItem', 'execution'])
+            ->orderBy('id')
+            ->get()
+            ->unique('animal_intake_item_id')
+            ->map(function (SlaughterExecutionItem $executionItem) {
+                $intake = $executionItem->intakeItem;
+
+                return [
+                    'batch_item_id' => null,
+                    'slaughter_execution_item_id' => $executionItem->id,
+                    'animal_intake_item_id' => (int) $executionItem->animal_intake_item_id,
+                    'ear_tag' => $intake->ear_tag,
+                    'species' => $intake->species,
+                    'sex' => ucfirst($intake->sex),
+                    'meat_quantity_kg' => (float) $executionItem->meat_quantity_kg,
+                    'session_label' => $executionItem->execution?->slaughter_time?->format('H:i') ?? '—',
+                    'source' => 'execution',
+                ];
+            })
+            ->values();
     }
 }

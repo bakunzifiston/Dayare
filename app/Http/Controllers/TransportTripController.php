@@ -289,9 +289,14 @@ class TransportTripController extends Controller
      */
     protected function releasedStorageOptions(\Illuminate\Support\Collection $certificateIds): array
     {
-        return WarehouseStorage::with(['batch', 'certificate', 'warehouseFacility'])
-            ->whereIn('certificate_id', $certificateIds)
+        $batchIds = WarehouseStorage::accessibleBatchIds(request());
+
+        return WarehouseStorage::with(['batch', 'certificate', 'warehouseFacility', 'intakeItem'])
             ->where('status', WarehouseStorage::STATUS_RELEASED)
+            ->where(function ($q) use ($certificateIds, $batchIds) {
+                $q->whereIn('certificate_id', $certificateIds)
+                    ->orWhereIn('batch_id', $batchIds);
+            })
             ->latest('released_date')
             ->get()
             ->map(fn (WarehouseStorage $ws) => [

@@ -36,10 +36,20 @@
                         <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             <option value="">{{ __('Select facility first') }}</option>
                             @foreach ($eligibleIntakes ?? [] as $intake)
-                                <option value="{{ $intake['id'] }}" data-facility-id="{{ $intake['facility_id'] }}" @selected(old('animal_intake_id', request('animal_intake_id')) == $intake['id'])>{{ $intake['label'] }}</option>
+                                @php
+                                    $animalsForIntake = collect($intakeAnimals[$intake['id']] ?? []);
+                                    $speciesMixCounts = $animalsForIntake->countBy('species')->all();
+                                @endphp
+                                <option
+                                    value="{{ $intake['id'] }}"
+                                    data-facility-id="{{ $intake['facility_id'] }}"
+                                    data-species-mix="{{ json_encode($speciesMixCounts) }}"
+                                    data-animals="{{ json_encode($animalsForIntake->values()) }}"
+                                    @selected(old('animal_intake_id', request('animal_intake_id')) == $intake['id'])
+                                >{{ $intake['label'] ?? ($intake['reference'] ?? 'Intake #'.$intake['id']) }}</option>
                             @endforeach
                         </select>
-                        <p class="mt-1 text-xs text-gray-500">{{ __('Slaughter cannot be created without a linked animal intake. Health certificate must be valid.') }}</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('Select a facility first — only submitted intakes with available animals for that facility are listed.') }}</p>
                         <x-input-error class="mt-2" :messages="$errors->get('animal_intake_id')" />
                     </div>
 
@@ -72,6 +82,7 @@
                     <div>
                         <x-input-label for="number_of_animals_scheduled" :value="__('Number of animals scheduled')" />
                         <x-text-input id="number_of_animals_scheduled" name="number_of_animals_scheduled" type="number" min="1" class="mt-1 block w-full" :value="old('number_of_animals_scheduled')" required />
+                        <div id="animal-preview-panel" class="mt-4" style="display: none;"></div>
                         <x-input-error class="mt-2" :messages="$errors->get('number_of_animals_scheduled')" />
                     </div>
 
@@ -79,7 +90,7 @@
                         <x-input-label for="status" :value="__('Status')" />
                         <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
                             @foreach (\App\Models\SlaughterPlan::STATUSES as $s)
-                                <option value="{{ $s }}" @selected(old('status', 'planned') === $s)>{{ ucfirst($s) }}</option>
+                                <option value="{{ $s }}" @selected(old('status', \App\Models\SlaughterPlan::STATUS_APPROVED) === $s)>{{ ucfirst($s) }}</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('status')" />
@@ -96,49 +107,5 @@
         </div>
     </div>
 
-    <script>
-        (function() {
-            const facilitySelect = document.getElementById('facility_id');
-            const inspectorSelect = document.getElementById('inspector_id');
-            const intakeSelect = document.getElementById('animal_intake_id');
-            const oldFacilityId = '{{ old('facility_id', request('facility_id')) }}';
-            const oldInspectorId = '{{ old('inspector_id') }}';
-            function filterByFacility(select, dataAttr) {
-                if (!select || !facilitySelect) return;
-                const fid = facilitySelect.value;
-                Array.from(select.options).forEach(opt => {
-                    if (opt.value === '') { opt.hidden = false; return; }
-                    const optFid = opt.getAttribute(dataAttr);
-                    opt.hidden = optFid !== fid;
-                });
-                if (select.value && select.options[select.selectedIndex].hidden) select.value = '';
-            }
-            function filterInspectors() {
-                const fid = facilitySelect && facilitySelect.value;
-                if (!inspectorSelect) return;
-                Array.from(inspectorSelect.options).forEach(opt => {
-                    if (opt.value === '') {
-                        opt.textContent = fid ? '{{ __('Select inspector') }}' : '{{ __('Select facility first') }}';
-                        opt.hidden = false;
-                        return;
-                    }
-                    opt.hidden = opt.dataset.facilityId !== fid;
-                });
-                inspectorSelect.value = fid && oldFacilityId === fid ? oldInspectorId : '';
-            }
-            function filterIntakes() {
-                filterByFacility(intakeSelect, 'data-facility-id');
-            }
-            if (facilitySelect) {
-                facilitySelect.addEventListener('change', function() {
-                    filterInspectors();
-                    filterIntakes();
-                });
-            }
-            document.addEventListener('DOMContentLoaded', function() {
-                filterInspectors();
-                filterIntakes();
-            });
-        })();
-    </script>
+    @include('slaughter-plans.partials.assignment-form-scripts', ['createForm' => true])
 </x-app-layout>

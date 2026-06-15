@@ -8,7 +8,7 @@
     <div class="py-12">
         <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                <form method="post" action="{{ route('ante-mortem-inspections.update', $inspection) }}" class="space-y-6" id="ante-mortem-edit-form">
+                <form method="post" action="{{ route('ante-mortem-inspections.update', $inspection) }}" class="space-y-6" id="ante-mortem-edit-form" novalidate>
                     @csrf
                     @method('put')
 
@@ -16,7 +16,9 @@
                         <x-input-label for="slaughter_plan_id" :value="__('Slaughter session')" />
                         <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
                             @foreach ($plans as $p)
-                                <option value="{{ $p['id'] }}" data-facility-id="{{ $p['facility_id'] }}" @selected(old('slaughter_plan_id', $inspection->slaughter_plan_id) == $p['id'])>{{ $p['label'] }}</option>
+                                <option value="{{ $p['id'] }}"
+                                    data-facility-id="{{ $p['facility_id'] }}"
+                                    @selected(old('slaughter_plan_id', $inspection->slaughter_plan_id) == $p['id'])>{{ $p['label'] }}</option>
                             @endforeach
                         </select>
                         <x-input-error class="mt-2" :messages="$errors->get('slaughter_plan_id')" />
@@ -54,47 +56,107 @@
                         <x-input-error class="mt-2" :messages="$errors->get('species')" />
                     </div>
 
-                    <div>
-                        <x-input-label :value="__('Species checklist')" />
-                        <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
-                            <table class="min-w-full divide-y divide-slate-200 text-sm">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Result') }}</th>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes (optional)') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
-                            </table>
-                        </div>
-                        <p id="checklist-empty" class="mt-2 text-xs text-slate-500 hidden">{{ __('No checklist configured for this species.') }}</p>
-                        <x-input-error class="mt-2" :messages="$errors->get('observations')" />
+                    <div id="under-observation-banner" style="display:none;"
+                         class="rounded-md bg-yellow-50 border border-yellow-200 p-3 mb-4">
+                        <p class="text-sm text-yellow-800">
+                            <span id="under-observation-count"></span>
+                            {{ __('animal(s) flagged as under observation are assigned to this plan — review each individually below.') }}
+                        </p>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div>
-                            <x-input-label for="number_examined" :value="__('Number examined')" />
-                            <x-text-input id="number_examined" name="number_examined" type="number" min="0" class="mt-1 block w-full" :value="old('number_examined', $inspection->number_examined)" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('number_examined')" />
+                    <div id="assignment-gap-alert" class="hidden rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                        <p id="assignment-gap-alert-text"></p>
+                    </div>
+
+                    <div id="per-animal-outcomes-section"
+                         class="rounded-lg border border-slate-200 bg-white @if (! isset($assignedItems) || $assignedItems->isEmpty()) hidden @endif">
+                        <div class="border-b border-slate-200 px-4 py-3">
+                            <h3 class="text-sm font-semibold text-slate-800">{{ __('Individual animal inspection') }}</h3>
+                            <p class="mt-1 text-xs text-slate-500">{{ __('Record an outcome and complete the inspection checklist for each assigned animal.') }}</p>
                         </div>
-                        <div>
-                            <x-input-label for="number_approved" :value="__('Number approved')" />
-                            <x-text-input id="number_approved" name="number_approved" type="number" min="0" class="mt-1 block w-full" :value="old('number_approved', $inspection->number_approved)" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('number_approved')" />
+                        <div id="per-animal-outcomes-container" class="p-4">
+                            @if (isset($assignedItems) && $assignedItems->isNotEmpty())
+                                @include('ante-mortem-inspections.partials._per-animal-outcomes', [
+                                    'assignedItems' => $assignedItems,
+                                    'inspectionItems' => $inspectionItems ?? collect(),
+                                    'species' => old('species', $inspection->species),
+                                    'observationsByAnimal' => $observationsByAnimal ?? collect(),
+                                ])
+                            @else
+                                <p class="text-sm text-gray-500">
+                                    {{ __('Select a slaughter session to load assigned animals.') }}
+                                </p>
+                            @endif
                         </div>
-                        <div>
-                            <x-input-label for="number_rejected" :value="__('Number rejected')" />
-                            <x-text-input id="number_rejected" name="number_rejected" type="number" min="0" class="mt-1 block w-full" :value="old('number_rejected', $inspection->number_rejected)" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('number_rejected')" />
+                        <x-input-error class="px-4 pb-3" :messages="$errors->get('item_outcomes')" />
+                    </div>
+
+                    <div id="inspection-checklist-section" class="rounded-lg border border-slate-200 bg-white @if (isset($assignedItems) && $assignedItems->isNotEmpty()) hidden @endif">
+                        <div class="border-b border-slate-200 px-4 py-3">
+                            <h3 class="text-sm font-semibold text-slate-800">{{ __('Inspection checklist') }}</h3>
+                            <p class="mt-1 text-xs text-slate-500">{{ __('Complete this checklist for legacy sessions without individually assigned animals.') }}</p>
+                        </div>
+                        <div class="p-4">
+                            <div class="overflow-hidden rounded-lg border border-slate-200">
+                                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Result') }}</th>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes (optional)') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                                </table>
+                            </div>
+                            <p id="checklist-empty" class="mt-2 text-xs text-slate-500 hidden">{{ __('No checklist configured for this species.') }}</p>
+                            <x-input-error class="mt-2" :messages="$errors->get('observations')" />
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 -mt-2">{{ __('Approved + Rejected cannot exceed Number Examined.') }}</p>
+
+                    <div id="aggregate-counts-section" @if (isset($assignedItems) && $assignedItems->isNotEmpty()) style="display:none;" @endif>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <div>
+                                <x-input-label for="number_examined" :value="__('Number examined')" />
+                                <x-text-input id="number_examined" name="number_examined" type="number" min="0" class="mt-1 block w-full" :value="old('number_examined', $inspection->number_examined)" required />
+                                <x-input-error class="mt-2" :messages="$errors->get('number_examined')" />
+                            </div>
+                            <div>
+                                <x-input-label for="number_approved" :value="__('Number approved')" />
+                                <x-text-input id="number_approved" name="number_approved" type="number" min="0" class="mt-1 block w-full" :value="old('number_approved', $inspection->number_approved)" required />
+                                <x-input-error class="mt-2" :messages="$errors->get('number_approved')" />
+                            </div>
+                            <div>
+                                <x-input-label for="number_rejected" :value="__('Number rejected')" />
+                                <x-text-input id="number_rejected" name="number_rejected" type="number" min="0" class="mt-1 block w-full" :value="old('number_rejected', $inspection->number_rejected)" required />
+                                <x-input-error class="mt-2" :messages="$errors->get('number_rejected')" />
+                            </div>
+                        </div>
+                        <p id="aggregate-counts-hint" class="text-xs text-gray-500 -mt-2">
+                            @if (isset($assignedItems) && $assignedItems->isNotEmpty())
+                                {{ __('Totals are calculated from individual animal outcomes.') }}
+                            @else
+                                {{ __('Approved + Rejected cannot exceed Number Examined.') }}
+                            @endif
+                        </p>
+                    </div>
 
                     <div>
                         <x-input-label for="notes" :value="__('Notes')" />
                         <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">{{ old('notes', $inspection->notes) }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('notes')" />
+                    </div>
+
+                    <div id="notes-for-under-observation-field" style="display:none;">
+                        <label for="notes_for_under_observation" class="block text-sm font-medium text-gray-700 mb-1">
+                            {{ __('Notes for under-observation animals') }}
+                        </label>
+                        <textarea id="notes_for_under_observation" name="notes_for_under_observation" rows="3" maxlength="2000"
+                                  class="w-full rounded border-gray-300 text-sm"
+                        >{{ old('notes_for_under_observation', $inspection->notes_for_under_observation ?? '') }}</textarea>
+                        @error('notes_for_under_observation')
+                            <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <div class="flex gap-4">
@@ -145,11 +207,23 @@
                 }
             }
 
-            function renderChecklist() {
+            window.anteMortemExcludeDecision = false;
+
+            window.renderAnteMortemChecklist = function renderChecklist() {
                 if (!checklistBody || !speciesSelect) return;
+
+                const checklistSection = document.getElementById('inspection-checklist-section');
+                if (checklistSection && checklistSection.classList.contains('hidden')) {
+                    checklistBody.innerHTML = '';
+                    if (checklistEmpty) checklistEmpty.classList.add('hidden');
+                    return;
+                }
+
                 const key = speciesKey(speciesSelect.value);
                 const items = key ? (checklists[key] || {}) : {};
-                const entries = Object.entries(items);
+                const entries = Object.entries(items).filter(([itemKey]) => {
+                    return !(window.anteMortemExcludeDecision && itemKey === 'decision');
+                });
                 checklistBody.innerHTML = '';
 
                 if (entries.length === 0) {
@@ -185,11 +259,28 @@
             }
 
             if (planSelect) planSelect.addEventListener('change', filterInspectors);
-            if (speciesSelect) speciesSelect.addEventListener('change', renderChecklist);
+            if (speciesSelect) speciesSelect.addEventListener('change', window.renderAnteMortemChecklist);
             document.addEventListener('DOMContentLoaded', function() {
                 filterInspectors();
-                renderChecklist();
+                window.renderAnteMortemChecklist();
             });
         })();
     </script>
+
+    @if (! empty($inspection->notes_for_under_observation))
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                var field = document.getElementById('notes-for-under-observation-field');
+                if (field) {
+                    field.style.display = '';
+                }
+            });
+        </script>
+    @endif
+
+    @include('ante-mortem-inspections.partials.form-plan-scripts', [
+        'checklists' => $checklists,
+        'existingInspectionOutcomes' => $existingInspectionOutcomes ?? [],
+        'preserveExistingOutcomes' => true,
+    ])
 </x-app-layout>

@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Certificate;
+use App\Http\Requests\StoreWarehouseStorageRequest;
+use App\Http\Requests\UpdateWarehouseStorageRequest;
 use App\Models\ColdRoom;
-use App\Models\Demand;
 use App\Models\Facility;
 use App\Models\TemperatureLog;
 use App\Models\WarehouseStorage;
+use App\Services\ColdRoomMonitoringService;
+use App\Support\StorablePostMortemMeat;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -18,6 +22,13 @@ class WarehouseStorageController extends Controller
     private function userFacilityIds(Request $request): \Illuminate\Support\Collection
     {
         return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
+            ->pluck('id');
+    }
+
+    private function userStorageFacilityIds(Request $request): \Illuminate\Support\Collection
+    {
+        return Facility::whereIn('business_id', $request->user()->accessibleBusinessIds())
+            ->where('facility_type', Facility::TYPE_STORAGE)
             ->pluck('id');
     }
 
@@ -42,39 +53,63 @@ class WarehouseStorageController extends Controller
             ]);
     }
 
-    private function userCertificateIds(Request $request): \Illuminate\Support\Collection
-    {
-        return WarehouseStorage::accessibleCertificateIds($request);
-    }
-
     private function authorizeStorage(Request $request, WarehouseStorage $storage): void
     {
-        if (! $this->userCertificateIds($request)->contains($storage->certificate_id)) {
+        if (! WarehouseStorage::isAccessibleBy($request, $storage)) {
             abort(404);
         }
     }
 
+    private function scopedStorageQuery(Request $request)
+    {
+        $query = WarehouseStorage::query()->forColdRoomUser($request);
+
+        if ($request->filled('cold_room_id')) {
+            $coldRoomId = $request->integer('cold_room_id');
+            $allowedRoomIds = ColdRoom::query()
+                ->whereIn('facility_id', $this->userStorageFacilityIds($request))
+                ->pluck('id');
+
+            if ($allowedRoomIds->contains($coldRoomId)) {
+                $query->where('cold_room_id', $coldRoomId);
+            }
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        return $query;
+    }
+
     public function index(Request $request): View
     {
-        $certificateIds = $this->userCertificateIds($request);
-        $storages = WarehouseStorage::with(['warehouseFacility', 'batch', 'certificate'])
-            ->whereIn('certificate_id', $certificateIds)
+        $storages = $this->scopedStorageQuery($request)
+            ->with(['warehouseFacility', 'batch', 'certificate', 'intakeItem', 'coldRoom'])
             ->latest('entry_date')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
+        $baseQuery = $this->scopedStorageQuery($request);
         $kpis = [
-            'total' => WarehouseStorage::whereIn('certificate_id', $certificateIds)->count(),
-            'in_storage' => WarehouseStorage::whereIn('certificate_id', $certificateIds)->where('status', WarehouseStorage::STATUS_IN_STORAGE)->count(),
-            'released' => WarehouseStorage::whereIn('certificate_id', $certificateIds)->where('status', WarehouseStorage::STATUS_RELEASED)->count(),
+            'total' => (clone $baseQuery)->count(),
+            'in_storage' => (clone $baseQuery)->where('status', WarehouseStorage::STATUS_IN_STORAGE)->count(),
+            'released' => (clone $baseQuery)->where('status', WarehouseStorage::STATUS_RELEASED)->count(),
         ];
 
-        return view('warehouse-storages.index', compact('storages', 'kpis'));
+        $filterColdRoom = null;
+        if ($request->filled('cold_room_id')) {
+            $filterColdRoom = ColdRoom::query()
+                ->whereIn('facility_id', $this->userStorageFacilityIds($request))
+                ->find($request->integer('cold_room_id'));
+        }
+
+        return view('warehouse-storages.index', compact('storages', 'kpis', 'filterColdRoom'));
     }
 
     public function create(Request $request): View
     {
         $facilityIds = $this->userFacilityIds($request);
-        $certificateIds = $this->userCertificateIds($request);
 
         $warehouseFacilities = Facility::whereIn('id', $facilityIds)
             ->where('facility_type', Facility::TYPE_STORAGE)
@@ -82,71 +117,99 @@ class WarehouseStorageController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
-        // Certificates that are active, have batch, and batch has no current in_storage
-        $certificates = Certificate::with(['batch', 'facility'])
-            ->whereIn('id', $certificateIds)
-            ->where('status', Certificate::STATUS_ACTIVE)
-            ->whereNotNull('batch_id')
-            ->whereDoesntHave('warehouseStorages', fn ($q) => $q->where('status', WarehouseStorage::STATUS_IN_STORAGE))
-            ->latest('issued_at')
-            ->get()
-            ->map(fn (Certificate $c) => [
-                'id' => $c->id,
-                'label' => ($c->certificate_number ?: '#'.$c->id).' — '.($c->batch?->batch_code ?? '—').' ('.($c->batch?->quantity ?? 0).' '.__('carcasses').')',
-                'batch_id' => $c->batch_id,
-            ]);
+        $storableMeat = StorablePostMortemMeat::optionsFor($request);
 
         $units = $request->user()->configuredUnitsForBusinessIds($request->user()->accessibleBusinessIds());
-        $coldRooms = $this->coldRoomOptionsForUser($request);
 
-        return view('warehouse-storages.create', compact('warehouseFacilities', 'certificates', 'units', 'coldRooms'));
+        $coldRoomsByFacility = ColdRoom::with('standard')
+            ->whereIn('facility_id', $this->userStorageFacilityIds($request))
+            ->get()
+            ->groupBy('facility_id')
+            ->map(fn ($rooms) => $rooms->map(fn (ColdRoom $r) => [
+                'id' => $r->id,
+                'name' => $r->name.' ('.ucfirst($r->type).')',
+                'type' => $r->type,
+            ])->values()->toArray());
+
+        return view('warehouse-storages.create', compact('warehouseFacilities', 'storableMeat', 'units', 'coldRoomsByFacility'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreWarehouseStorageRequest $request): RedirectResponse
     {
-        $facilityIds = $this->userFacilityIds($request);
-        $certificateIds = $this->userCertificateIds($request);
+        $valid = $request->validated();
+        $quantities = $valid['quantities'] ?? [];
 
-        $allowedUnits = $request->user()->configuredUnitsForBusinessIds($request->user()->accessibleBusinessIds())->pluck('code')->all();
-        $allowedUnits = empty($allowedUnits) ? array_keys(Demand::QUANTITY_UNITS) : array_values(array_unique(array_merge($allowedUnits, array_keys(Demand::QUANTITY_UNITS))));
+        $pmItems = StorablePostMortemMeat::findStorableItems(
+            $request,
+            $valid['post_mortem_inspection_item_ids']
+        );
 
-        $valid = $request->validate([
-            'warehouse_facility_id' => ['required', Rule::in($facilityIds->all())],
-            'cold_room_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('cold_rooms', 'id')->where(
-                    fn ($q) => $q->where('facility_id', (int) $request->input('warehouse_facility_id'))
-                ),
-            ],
-            'certificate_id' => ['required', Rule::in($certificateIds->all())],
-            'entry_date' => ['required', 'date'],
-            'storage_location' => ['nullable', 'string', 'max:255'],
-            'temperature_at_entry' => ['nullable', 'numeric', 'min:-50', 'max:50'],
-            'quantity_stored' => ['required', 'integer', 'min:1'],
-            'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],
-        ]);
-
-        $cert = Certificate::findOrFail($valid['certificate_id']);
-        if ($cert->status !== Certificate::STATUS_ACTIVE) {
-            return back()->withErrors(['certificate_id' => __('Cannot store: certificate must be active.')])->withInput();
-        }
-        if (WarehouseStorage::where('certificate_id', $cert->id)->where('status', WarehouseStorage::STATUS_IN_STORAGE)->exists()) {
-            return back()->withErrors(['certificate_id' => __('This batch is already in storage.')])->withInput();
+        if ($pmItems->isEmpty()) {
+            return back()
+                ->withErrors(['post_mortem_inspection_item_ids' => __('Select at least one animal meat approved at post-mortem.')])
+                ->withInput();
         }
 
-        $valid['batch_id'] = $cert->batch_id;
-        $valid['status'] = WarehouseStorage::STATUS_IN_STORAGE;
+        $shared = collect($valid)->except([
+            'post_mortem_inspection_item_ids',
+            'quantities',
+        ])->all();
 
-        WarehouseStorage::create($valid);
+        $created = 0;
 
-        return redirect()->route('warehouse-storages.index')->with('status', __('Cold room storage recorded.'));
+        DB::transaction(function () use ($pmItems, $shared, $quantities, &$created): void {
+            foreach ($pmItems as $pmItem) {
+                $batch = $pmItem->inspection?->batch;
+                if (! $batch) {
+                    continue;
+                }
+
+                $meatKg = StorablePostMortemMeat::meatKgForItem($pmItem);
+                $quantity = $quantities[$pmItem->id] ?? null;
+                $quantityStored = ($quantity !== null && $quantity !== '') ? (float) $quantity : $meatKg;
+
+                if ($quantityStored <= 0) {
+                    continue;
+                }
+
+                WarehouseStorage::create(array_merge($shared, [
+                    'batch_id' => $batch->id,
+                    'animal_intake_item_id' => $pmItem->animal_intake_item_id,
+                    'post_mortem_inspection_item_id' => $pmItem->id,
+                    'certificate_id' => $batch->certificate?->id,
+                    'quantity_stored' => $quantityStored,
+                    'status' => WarehouseStorage::STATUS_IN_STORAGE,
+                ]));
+
+                $created++;
+            }
+        });
+
+        if ($created === 0) {
+            return back()
+                ->withErrors(['post_mortem_inspection_item_ids' => __('No storage records could be created.')])
+                ->withInput();
+        }
+
+        $message = $created === 1
+            ? __('Cold room storage recorded for 1 animal.')
+            : __('Cold room storage recorded for :count animals.', ['count' => $created]);
+
+        return redirect()->route('warehouse-storages.index')->with('status', $message);
     }
 
     public function show(Request $request, WarehouseStorage $warehouseStorage): View
     {
         $this->authorizeStorage($request, $warehouseStorage);
-        $warehouseStorage->load(['warehouseFacility', 'batch', 'certificate', 'temperatureLogs', 'coldRoom.standard']);
+        $warehouseStorage->load([
+            'warehouseFacility',
+            'batch',
+            'certificate',
+            'intakeItem',
+            'postMortemInspectionItem',
+            'temperatureLogs',
+            'coldRoom.standard',
+        ]);
 
         return view('warehouse-storages.show', compact('warehouseStorage'));
     }
@@ -166,30 +229,11 @@ class WarehouseStorageController extends Controller
         return view('warehouse-storages.edit', compact('warehouseStorage', 'warehouseFacilities', 'units', 'coldRooms'));
     }
 
-    public function update(Request $request, WarehouseStorage $warehouseStorage): RedirectResponse
+    public function update(UpdateWarehouseStorageRequest $request, WarehouseStorage $warehouseStorage): RedirectResponse
     {
         $this->authorizeStorage($request, $warehouseStorage);
-        $facilityIds = $this->userFacilityIds($request);
 
-        $allowedUnits = $request->user()->configuredUnitsForBusinessIds($request->user()->accessibleBusinessIds())->pluck('code')->all();
-        $allowedUnits = empty($allowedUnits) ? array_keys(Demand::QUANTITY_UNITS) : array_values(array_unique(array_merge($allowedUnits, array_keys(Demand::QUANTITY_UNITS))));
-
-        $valid = $request->validate([
-            'warehouse_facility_id' => ['required', Rule::in($facilityIds->all())],
-            'cold_room_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('cold_rooms', 'id')->where(
-                    fn ($q) => $q->where('facility_id', (int) $request->input('warehouse_facility_id'))
-                ),
-            ],
-            'storage_location' => ['nullable', 'string', 'max:255'],
-            'temperature_at_entry' => ['nullable', 'numeric', 'min:-50', 'max:50'],
-            'quantity_stored' => ['required', 'integer', 'min:0'],
-            'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],
-            'status' => ['required', Rule::in(WarehouseStorage::STATUSES)],
-            'released_date' => ['nullable', 'required_if:status,released', 'date'],
-        ]);
+        $valid = $request->validated();
 
         if (isset($valid['status']) && $valid['status'] === WarehouseStorage::STATUS_RELEASED && empty($valid['released_date'])) {
             $valid['released_date'] = now()->toDateString();
@@ -203,6 +247,22 @@ class WarehouseStorageController extends Controller
         return redirect()->route('warehouse-storages.show', $warehouseStorage)->with('status', __('Cold room storage updated.'));
     }
 
+    public function destroy(Request $request, WarehouseStorage $warehouseStorage): RedirectResponse
+    {
+        $this->authorizeStorage($request, $warehouseStorage);
+
+        if ($warehouseStorage->transportTrips()->exists()) {
+            return back()->withErrors([
+                'delete' => __('Cannot delete: this storage is linked to a transport trip.'),
+            ]);
+        }
+
+        $warehouseStorage->delete();
+
+        return redirect()->route('warehouse-storages.index')
+            ->with('status', __('Cold room storage record removed.'));
+    }
+
     public function storeTemperatureLog(Request $request, WarehouseStorage $warehouseStorage): RedirectResponse
     {
         $this->authorizeStorage($request, $warehouseStorage);
@@ -214,8 +274,22 @@ class WarehouseStorageController extends Controller
             'status' => ['required', Rule::in(TemperatureLog::STATUSES)],
         ]);
 
-        $valid['warehouse_storage_id'] = $warehouseStorage->id;
-        TemperatureLog::create($valid);
+        DB::transaction(function () use ($warehouseStorage, $valid): void {
+            $valid['warehouse_storage_id'] = $warehouseStorage->id;
+            TemperatureLog::create($valid);
+
+            // --- Section 2 --- Bridge manual temperature log to cold room monitoring
+            if ($warehouseStorage->cold_room_id) {
+                $coldRoom = $warehouseStorage->coldRoom;
+                if ($coldRoom) {
+                    app(ColdRoomMonitoringService::class)->recordTemperature(
+                        $coldRoom,
+                        (float) $valid['recorded_temperature'],
+                        Carbon::parse($valid['recorded_at'] ?? now())
+                    );
+                }
+            }
+        });
 
         return back()->with('status', __('Temperature log added.'));
     }

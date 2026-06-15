@@ -1,3 +1,13 @@
+@php
+    use App\Support\AnteMortemChecklist;
+
+    $legacyObservations = $inspection->observations->whereNull('animal_intake_item_id');
+    $observationsByAnimal = $inspection->observations
+        ->whereNotNull('animal_intake_item_id')
+        ->groupBy('animal_intake_item_id');
+    $checklistItems = AnteMortemChecklist::itemsForInspection($inspection->species, $inspection->hasPerAnimalOutcomes());
+@endphp
+
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
@@ -65,29 +75,108 @@
             </div>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Species checklist observations') }}</h3>
-                @if ($inspection->observations->isEmpty())
-                    <p class="text-sm text-gray-500">{{ __('No checklist observations recorded.') }}</p>
+                @if ($inspection->hasPerAnimalOutcomes())
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Individual animal inspections') }}</h3>
+                    <div class="space-y-4">
+                        @foreach ($inspection->inspectionItems as $inspItem)
+                            @php
+                                $animalObservations = $observationsByAnimal->get($inspItem->animal_intake_item_id, collect());
+                                $outcomeClass = match ($inspItem->outcome) {
+                                    'approved' => 'bg-green-100 text-green-800',
+                                    'rejected' => 'bg-red-100 text-red-800',
+                                    default => 'bg-yellow-100 text-yellow-800',
+                                };
+                            @endphp
+                            <div class="overflow-hidden rounded-lg border border-slate-200">
+                                <div class="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="font-mono text-sm font-medium text-slate-900">
+                                            {{ $inspItem->intakeItem->ear_tag }}
+                                            @if (str_starts_with($inspItem->intakeItem->ear_tag, 'LEGACY-'))
+                                                <span class="ml-1 text-xs font-normal text-gray-400 bg-gray-100 px-1 rounded">[legacy]</span>
+                                            @endif
+                                        </p>
+                                        <p class="mt-0.5 text-xs text-slate-500">
+                                            {{ $inspItem->intakeItem->species }}
+                                            <span class="mx-1">·</span>
+                                            {{ ucfirst($inspItem->intakeItem->sex) }}
+                                        </p>
+                                    </div>
+                                    <span class="text-xs px-2 py-0.5 rounded-full {{ $outcomeClass }}">
+                                        {{ ucfirst($inspItem->outcome) }}
+                                    </span>
+                                </div>
+                                @if ($inspItem->outcome_notes)
+                                    <div class="border-b border-slate-100 px-4 py-2 text-sm text-slate-600">
+                                        {{ $inspItem->outcome_notes }}
+                                    </div>
+                                @endif
+                                <div class="p-4">
+                                    <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Inspection checklist') }}</h4>
+                                    @if ($animalObservations->isEmpty())
+                                        <p class="text-sm text-gray-500">{{ __('No checklist observations recorded for this animal.') }}</p>
+                                    @else
+                                        <div class="overflow-x-auto">
+                                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                                <thead class="bg-gray-50">
+                                                    <tr>
+                                                        <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Item') }}</th>
+                                                        <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Result') }}</th>
+                                                        <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Notes') }}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-100 bg-white">
+                                                    @foreach ($animalObservations as $observation)
+                                                        <tr>
+                                                            <td class="px-3 py-2">{{ $checklistItems[$observation->item]['label'] ?? str($observation->item)->replace('_', ' ')->title() }}</td>
+                                                            <td class="px-3 py-2">{{ str($observation->value)->replace('_', ' ')->title() }}</td>
+                                                            <td class="px-3 py-2">{{ $observation->notes ?: '—' }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
                 @else
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Item') }}</th>
-                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Result') }}</th>
-                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Notes') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 bg-white">
-                                @foreach ($inspection->observations as $observation)
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Inspection checklist') }}</h3>
+                    @if ($legacyObservations->isEmpty())
+                        <p class="text-sm text-gray-500">{{ __('No checklist observations recorded.') }}</p>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
                                     <tr>
-                                        <td class="px-3 py-2">{{ str($observation->item)->replace('_', ' ')->title() }}</td>
-                                        <td class="px-3 py-2">{{ str($observation->value)->replace('_', ' ')->title() }}</td>
-                                        <td class="px-3 py-2">{{ $observation->notes ?: '—' }}</td>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Item') }}</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Result') }}</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Notes') }}</th>
                                     </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 bg-white">
+                                    @foreach ($legacyObservations as $observation)
+                                        <tr>
+                                            <td class="px-3 py-2">{{ $checklistItems[$observation->item]['label'] ?? str($observation->item)->replace('_', ' ')->title() }}</td>
+                                            <td class="px-3 py-2">{{ str($observation->value)->replace('_', ' ')->title() }}</td>
+                                            <td class="px-3 py-2">{{ $observation->notes ?: '—' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                @endif
+
+                @if ($inspection->notes_for_under_observation)
+                    <div class="mt-4 rounded bg-yellow-50 border border-yellow-200 p-3">
+                        <p class="text-xs font-medium text-yellow-700 mb-1">
+                            {{ __('Notes for under-observation animals') }}
+                        </p>
+                        <p class="text-sm text-yellow-800">
+                            {{ $inspection->notes_for_under_observation }}
+                        </p>
                     </div>
                 @endif
             </div>

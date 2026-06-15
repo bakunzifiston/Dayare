@@ -22,7 +22,9 @@ use App\Http\Requests\UpdateSlaughterExecutionRequest;
 use App\Http\Requests\UpdateSlaughterPlanRequest;
 use App\Http\Responses\ApiJson;
 use App\Models\AnimalIntake;
+use App\Models\AnimalIntakeItem;
 use App\Models\AnteMortemInspection;
+use App\Models\AnteMortemInspectionItem;
 use App\Models\Batch;
 use App\Models\Certificate;
 use App\Models\Client;
@@ -574,34 +576,81 @@ class MobileCollectionController extends Controller
             );
         }
 
-        $items = AnteMortemChecklist::itemsForSpecies($data['species']);
-        foreach ($items as $itemKey => $meta) {
-            $value = $data['observations'][$itemKey]['value'] ?? null;
-            $allowed = AnteMortemChecklist::allowedValuesForItem($data['species'], (string) $itemKey);
-            if (! is_string($value) || trim($value) === '') {
-                return ApiJson::failure(__('Invalid or missing checklist data.'), [], 422);
-            }
-            if (! empty($allowed) && ! in_array($value, $allowed, true)) {
-                return ApiJson::failure(__('Invalid or missing checklist data.'), [], 422);
-            }
-        }
+        $hasAssignedAnimals = $plan->assignedItems()
+            ->where('species', $data['species'])
+            ->exists();
 
         $inspection = null;
-        DB::transaction(function () use (&$inspection, $data) {
-            $observations = $data['observations'];
-            unset($data['observations']);
+        DB::transaction(function () use (&$inspection, $data, $hasAssignedAnimals) {
+            $observations = $data['observations'] ?? [];
+            $itemOutcomes = $data['item_outcomes'] ?? [];
+            unset($data['observations'], $data['item_outcomes']);
 
             $inspection = AnteMortemInspection::create($data);
-            $inspection->observations()->createMany(
-                collect($observations)->map(fn ($row, $item) => [
-                    'item' => (string) $item,
-                    'value' => (string) ($row['value'] ?? ''),
-                    'notes' => $row['notes'] ?? null,
-                ])->values()->all()
-            );
+
+            if ($hasAssignedAnimals) {
+                $rows = [];
+                foreach ($itemOutcomes as $itemOutcome) {
+                    $animalId = (int) ($itemOutcome['animal_intake_item_id'] ?? 0);
+                    if ($animalId === 0) {
+                        continue;
+                    }
+
+                    foreach (($itemOutcome['observations'] ?? []) as $itemKey => $row) {
+                        $rows[] = [
+                            'animal_intake_item_id' => $animalId,
+                            'item' => (string) $itemKey,
+                            'value' => (string) ($row['value'] ?? ''),
+                            'notes' => $row['notes'] ?? null,
+                        ];
+                    }
+                }
+
+                if ($rows !== []) {
+                    $inspection->observations()->createMany($rows);
+                }
+            } elseif ($observations !== []) {
+                $inspection->observations()->createMany(
+                    collect($observations)->map(fn ($row, $item) => [
+                        'item' => (string) $item,
+                        'value' => (string) ($row['value'] ?? ''),
+                        'notes' => $row['notes'] ?? null,
+                    ])->values()->all()
+                );
+            }
+
+            if ($itemOutcomes !== []) {
+                foreach ($itemOutcomes as $itemOutcome) {
+                    $inspection->inspectionItems()->create([
+                        'animal_intake_item_id' => $itemOutcome['animal_intake_item_id'],
+                        'outcome' => $itemOutcome['outcome'],
+                        'outcome_notes' => $itemOutcome['outcome_notes'] ?? null,
+                    ]);
+                }
+
+                $inspection->update([
+                    'examined_count_source' => AnteMortemInspection::SOURCE_ITEMS,
+                    'number_examined' => $inspection->examined_from_items,
+                    'number_approved' => $inspection->approved_from_items,
+                    'number_rejected' => $inspection->rejected_from_items,
+                ]);
+
+                $rejectedIds = collect($itemOutcomes)
+                    ->where('outcome', AnteMortemInspectionItem::OUTCOME_REJECTED)
+                    ->pluck('animal_intake_item_id');
+
+                if ($rejectedIds->isNotEmpty()) {
+                    AnimalIntakeItem::whereIn('id', $rejectedIds)
+                        ->update(['health_status' => AnimalIntakeItem::HEALTH_REJECTED]);
+                }
+            }
         });
 
-        return ApiJson::success($inspection->load('observations'), __('Created.'), 201);
+        return ApiJson::success(
+            $inspection->load(['observations', 'inspectionItems']),
+            __('Created.'),
+            201,
+        );
     }
 
     public function postMortemStore(StorePostMortemInspectionRequest $request): JsonResponse

@@ -114,13 +114,17 @@ class ComplianceController extends Controller
             ->filter(fn (WarehouseStorage $ws) => $ws->entry_date->diffInDays(Carbon::today()) > $maxStorageDays)
             ->values();
 
-        // Animal intakes with expired health certificate (block slaughter)
+        // Animal intakes with missing or expired health certificate (advisory)
         $intakesWithExpiredHealthCert = AnimalIntake::with('facility')
             ->whereIn('facility_id', $facilityIds)
             ->where('status', AnimalIntake::STATUS_APPROVED)
-            ->get()
-            ->filter(fn (AnimalIntake $i) => $i->isHealthCertificateExpired())
-            ->values();
+            ->where('is_draft', false)
+            ->where(fn ($q) => $q
+                ->whereNull('health_certificate_expiry_date')
+                ->orWhere('health_certificate_expiry_date', '<', $today)
+            )
+            ->orderBy('intake_date')
+            ->get();
 
         $kpis = [
             'expired_licenses' => $expiredFacilityLicenses->count(),

@@ -18,7 +18,7 @@
                         {{ __('Delete') }}
                     </button>
                 </form>
-                <a href="{{ route('inspectors.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                <a href="{{ route('inspectors.hub') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('All inspectors') }}
                 </a>
             </div>

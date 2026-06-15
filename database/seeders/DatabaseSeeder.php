@@ -25,5 +25,8 @@ class DatabaseSeeder extends Seeder
         $this->call(TestDataSeeder::class);
         /** Full processor pipeline + CRM + cold chain + finance for test@ (REG-TEST-001/002), 2022-01-01 → 2026-05-03. */
         $this->call(TestProcessorWorkspaceComprehensiveSeeder::class);
+
+        $this->call(ColdRoomStandardSeeder::class);
+        $this->call(ColdRoomSeeder::class);
     }
 }

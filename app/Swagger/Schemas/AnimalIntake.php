@@ -15,7 +15,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'facility_id', type: 'integer', example: 3),
         new OA\Property(property: 'supply_request_id', type: 'integer', nullable: true),
         new OA\Property(property: 'farm_id', type: 'integer', nullable: true),
-        new OA\Property(property: 'intake_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'intake_date', type: 'string', format: 'date-time'),
         new OA\Property(property: 'supplier_firstname', type: 'string', example: 'Paul'),
         new OA\Property(property: 'supplier_lastname', type: 'string', example: 'Farmer'),
         new OA\Property(property: 'species', type: 'string', example: 'Cattle'),

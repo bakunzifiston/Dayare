@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesPostMortemItemOutcomes;
 use App\Models\Batch;
 use App\Support\PostMortemChecklist;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,9 +10,19 @@ use Illuminate\Validation\Rule;
 
 class StorePostMortemInspectionRequest extends FormRequest
 {
+    use ValidatesPostMortemItemOutcomes;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $batch = Batch::find($this->input('batch_id'));
+        if ($batch !== null && $batch->inspectableAnimalsForPostMortem()->isNotEmpty()) {
+            $this->merge(['observations' => null]);
+        }
     }
 
     /**
@@ -32,23 +43,32 @@ class StorePostMortemInspectionRequest extends FormRequest
             'batch_id' => ['required', 'exists:batches,id'],
             'inspector_id' => ['required', 'exists:inspectors,id'],
             'species' => ['required', 'string', 'max:50', Rule::in($allowedSpecies)],
-            'total_examined' => ['required', 'integer', 'min:0'],
-            'approved_quantity' => ['required', 'integer', 'min:0'],
-            'condemned_quantity' => ['required', 'integer', 'min:0'],
+            'total_examined' => ['required', 'numeric', 'min:0'],
+            'approved_quantity' => ['required', 'numeric', 'min:0'],
+            'condemned_quantity' => ['required', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'inspection_date' => ['required', 'date'],
-            'observations' => ['required', 'array'],
-            'observations.*.value' => ['required', 'string', 'max:5000'],
+            'observations' => ['nullable', 'array'],
+            'observations.*.value' => ['required_with:observations', 'string', 'max:5000'],
             'observations.*.notes' => ['nullable', 'string', 'max:5000'],
+            'item_outcomes' => ['nullable', 'array'],
+            'item_outcomes.*.batch_item_id' => ['nullable', 'integer', 'exists:batch_items,id'],
+            'item_outcomes.*.animal_intake_item_id' => ['required_with:item_outcomes', 'integer', 'exists:animal_intake_items,id'],
+            'item_outcomes.*.outcome' => ['required_with:item_outcomes', 'in:approved,condemned,deferred'],
+            'item_outcomes.*.outcome_notes' => ['nullable', 'string', 'max:1000'],
+            'item_outcomes.*.carcass_weight_kg' => ['nullable', 'numeric', 'min:0.1', 'max:9999'],
+            'item_outcomes.*.observations' => ['nullable', 'array'],
+            'item_outcomes.*.observations.*.value' => ['required_with:item_outcomes.*.observations', 'string', 'max:5000'],
+            'item_outcomes.*.observations.*.notes' => ['nullable', 'string', 'max:5000'],
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            $approved = (int) $this->input('approved_quantity');
-            $condemned = (int) $this->input('condemned_quantity');
-            $examined = (int) $this->input('total_examined');
+            $approved = (float) $this->input('approved_quantity');
+            $condemned = (float) $this->input('condemned_quantity');
+            $examined = (float) $this->input('total_examined');
             if ($approved + $condemned > $examined) {
                 $validator->errors()->add(
                     'approved_quantity',
@@ -67,33 +87,10 @@ class StorePostMortemInspectionRequest extends FormRequest
             }
 
             $species = (string) $this->input('species');
-            $checklistItems = PostMortemChecklist::itemsForSpecies($species);
-            if (empty($checklistItems)) {
+            if (empty(PostMortemChecklist::itemsForSpecies($species))) {
                 $validator->errors()->add('species', __('No post-mortem checklist is configured for this species.'));
 
                 return;
-            }
-
-            $observations = $this->input('observations', []);
-            foreach ($checklistItems as $itemKey => $meta) {
-                $value = $observations[$itemKey]['value'] ?? null;
-                if (! is_string($value) || trim($value) === '') {
-                    $validator->errors()->add('observations', __('Please complete all post-mortem checklist items.'));
-
-                    continue;
-                }
-
-                $allowed = PostMortemChecklist::allowedValuesForItem($species, (string) $itemKey);
-                if (! empty($allowed) && ! in_array($value, $allowed, true)) {
-                    $validator->errors()->add('observations', __('Invalid checklist value for :item.', ['item' => $meta['label'] ?? $itemKey]));
-                }
-            }
-
-            foreach (array_keys($observations) as $submittedItem) {
-                if (! array_key_exists($submittedItem, $checklistItems)) {
-                    $validator->errors()->add('observations', __('Unexpected checklist item submitted.'));
-                    break;
-                }
             }
 
             if ($batch) {
@@ -103,6 +100,31 @@ class StorePostMortemInspectionRequest extends FormRequest
                 if ($batchSpeciesKey && $formSpeciesKey && $batchSpeciesKey !== $formSpeciesKey) {
                     $validator->errors()->add('species', __('Selected species does not match batch species.'));
                 }
+            }
+
+            $perAnimal = $batch !== null && $batch->inspectableAnimalsForPostMortem()->isNotEmpty();
+
+            if ($perAnimal) {
+                $this->validateItemOutcomesForBatch(
+                    $validator,
+                    $batch,
+                    $species,
+                    $this->input('item_outcomes'),
+                );
+
+                $maxMeatKg = round((float) $batch->inspectableAnimalsForPostMortem()->sum('meat_quantity_kg'), 2);
+                if ($examined > $maxMeatKg + 0.001) {
+                    $validator->errors()->add(
+                        'total_examined',
+                        __('Total meat examined cannot exceed available slaughter meat (:kg kg).', ['kg' => number_format($maxMeatKg, 2)]),
+                    );
+                }
+            } else {
+                $this->validateLegacyPostMortemObservations(
+                    $validator,
+                    $species,
+                    $this->input('observations', []),
+                );
             }
         });
     }

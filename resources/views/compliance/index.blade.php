@@ -43,7 +43,7 @@
                             <span>{{ __('Missing transport') }} <strong class="text-slate-700">{{ $kpis['missing_transport'] }}</strong></span>
                             <span>{{ __('Temp. alerts') }} <strong class="text-slate-700">{{ $kpis['temperature_alerts'] ?? 0 }}</strong></span>
                             <span>{{ __('Storage exceeded') }} <strong class="text-slate-700">{{ $kpis['storage_duration_exceeded'] ?? 0 }}</strong></span>
-                            <span>{{ __('Intakes (expired cert)') }} <strong class="text-slate-700">{{ $kpis['intakes_expired_health_cert'] ?? 0 }}</strong></span>
+                            <span>{{ __('Intakes (cert issues)') }} <strong class="text-slate-700">{{ $kpis['intakes_expired_health_cert'] ?? 0 }}</strong></span>
                         </div>
                     </div>
                 </div>
@@ -188,14 +188,14 @@
                 @if (($intakesWithExpiredHealthCert ?? collect())->isNotEmpty())
                     <div class="rounded-xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
                         <div class="px-5 py-3 border-b border-slate-100 bg-amber-50/50">
-                            <h3 class="text-sm font-semibold text-amber-800">{{ __('Animal intakes — expired health certificate') }}</h3>
-                            <p class="text-xs text-slate-500 mt-0.5">{{ __('Slaughter cannot be scheduled until certificate is renewed.') }}</p>
+                            <h3 class="text-sm font-semibold text-amber-800">{{ __('Animal intakes — health certificate advisory') }}</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">{{ __('Missing or expired certificates are informational — slaughter planning is not blocked.') }}</p>
                         </div>
                         <ul class="divide-y divide-slate-50">
                             @foreach ($intakesWithExpiredHealthCert as $i)
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-                                    <a href="{{ route('animal-intakes.show', $i) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $i->intake_date->format('d M Y') }} — {{ $i->facility->facility_name ?? '' }}</a>
-                                    <span class="text-slate-500 text-sm"> · {{ $i->supplier_firstname }} {{ $i->supplier_lastname }} · {{ __('Expired') }} {{ $i->health_certificate_expiry_date?->format('d M Y') }}</span>
+                                    <a href="{{ route('animal-intakes.show', $i) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $i->intakeDatetimeLabel() }} — {{ $i->facility->facility_name ?? '' }}</a>
+                                    <span class="text-slate-500 text-sm"> · {{ $i->supplier_firstname }} {{ $i->supplier_lastname }} · @if ($i->health_certificate_expiry_date){{ __('Expired') }} {{ $i->health_certificate_expiry_date->format('d M Y') }}@else{{ __('No certificate on file') }}@endif</span>
                                 </li>
                             @endforeach
                         </ul>

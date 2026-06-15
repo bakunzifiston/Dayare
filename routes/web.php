@@ -77,6 +77,7 @@ use App\Http\Controllers\SpeciesController;
 use App\Http\Controllers\SuperAdminConfigurationController;
 use App\Http\Controllers\SuperAdminDashboardController;
 use App\Http\Controllers\SuperAdminUserController;
+use App\Http\Controllers\SuperAdmin\RicaController;
 use App\Http\Controllers\SuperAdminVibeProgrammeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TenantUserController;
@@ -476,6 +477,7 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::get('inspectors/overview', [InspectorController::class, 'hub'])->name('inspectors.hub');
     Route::resource('inspectors', InspectorController::class);
     Route::get('animal-intakes/overview', [AnimalIntakeController::class, 'hub'])->name('animal-intakes.hub');
+    Route::post('animal-intakes/{animal_intake}/submit', [AnimalIntakeController::class, 'submitDraft'])->name('animal-intakes.submit');
     Route::resource('animal-intakes', AnimalIntakeController::class);
     Route::get('slaughter-plans/overview', [SlaughterPlanController::class, 'hub'])->name('slaughter-plans.hub');
     Route::resource('slaughter-plans', SlaughterPlanController::class);
@@ -483,6 +485,8 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::resource('slaughter-executions', SlaughterExecutionController::class);
     Route::get('batches/overview', [BatchController::class, 'hub'])->name('batches.hub');
     Route::resource('batches', BatchController::class);
+    Route::get('post-mortem-inspections/overview', [PostMortemInspectionController::class, 'hub'])
+        ->name('post-mortem-inspections.hub');
     Route::resource('post-mortem-inspections', PostMortemInspectionController::class);
     Route::get('certificates/overview', [CertificateController::class, 'hub'])->name('certificates.hub');
     Route::resource('certificates', CertificateController::class);
@@ -596,6 +600,17 @@ Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->nam
         ->middleware('super_admin.module:user_management')
         ->name('tenants.destroy');
 });
+
+Route::middleware(['auth', 'tenant', 'super_admin', 'super_admin.module:rica'])
+    ->prefix('super-admin/rica')
+    ->name('rica.')
+    ->group(function () {
+        Route::get('/', [RicaController::class, 'hub'])->name('hub');
+        Route::get('slaughterhouses', [RicaController::class, 'index'])->name('slaughterhouses.index');
+        Route::get('slaughterhouses/{facility}', [RicaController::class, 'show'])->name('slaughterhouses.show');
+        Route::get('reports', [RicaController::class, 'reports'])->name('reports');
+        Route::get('reports/export', [RicaController::class, 'export'])->name('reports.export');
+    });
 
 Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {
     Route::get('settings', [SettingsController::class, 'edit'])

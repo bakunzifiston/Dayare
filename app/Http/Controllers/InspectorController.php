@@ -7,7 +7,6 @@ use App\Http\Requests\UpdateInspectorRequest;
 use App\Models\AdministrativeDivision;
 use App\Models\Facility;
 use App\Models\Inspector;
-use App\Models\PostMortemInspection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -43,45 +42,23 @@ class InspectorController extends Controller
         $facilityIds = $this->userFacilityIds($request);
         $base = Inspector::query()->whereIn('facility_id', $facilityIds);
 
-        $totalInspectors = (clone $base)->count();
-        $activeCount = (clone $base)->where('status', Inspector::STATUS_ACTIVE)->count();
-        $expiredCount = (clone $base)->where('status', Inspector::STATUS_EXPIRED)->count();
-        $inspectorsWithPlansCount = (clone $base)->has('slaughterPlans')->count();
-        $facilitiesWithInspectorsCount = Facility::whereIn('id', $facilityIds)
-            ->whereHas('inspectors')
-            ->count();
-
-        $postMortemInspectionsCount = PostMortemInspection::query()
-            ->whereHas('batch.slaughterExecution.slaughterPlan', function ($q) use ($facilityIds) {
-                $q->whereIn('facility_id', $facilityIds);
-            })
-            ->count();
-
-        return view('inspectors.hub', compact(
-            'totalInspectors',
-            'activeCount',
-            'expiredCount',
-            'inspectorsWithPlansCount',
-            'facilitiesWithInspectorsCount',
-            'postMortemInspectionsCount',
-        ));
-    }
-
-    public function index(Request $request): View
-    {
-        $facilityIds = $this->userFacilityIds($request);
-
-        $inspectors = Inspector::with('facility.business')
-            ->whereIn('facility_id', $facilityIds)
+        $inspectors = (clone $base)
+            ->with('facility.business')
             ->latest()
             ->paginate(10);
 
         $kpis = [
-            'total' => Inspector::whereIn('facility_id', $facilityIds)->count(),
-            'active' => Inspector::whereIn('facility_id', $facilityIds)->where('status', Inspector::STATUS_ACTIVE)->count(),
+            'total' => (clone $base)->count(),
+            'active' => (clone $base)->where('status', Inspector::STATUS_ACTIVE)->count(),
+            'expired' => (clone $base)->where('status', Inspector::STATUS_EXPIRED)->count(),
         ];
 
-        return view('inspectors.index', compact('inspectors', 'kpis'));
+        return view('inspectors.hub', compact('inspectors', 'kpis'));
+    }
+
+    public function index(Request $request): RedirectResponse
+    {
+        return redirect()->route('inspectors.hub');
     }
 
     public function create(Request $request): View

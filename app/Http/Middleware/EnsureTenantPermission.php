@@ -44,6 +44,7 @@ class EnsureTenantPermission
             'update' => BusinessUser::PERMISSION_CREATE_BATCH,
             'delete' => BusinessUser::PERMISSION_CREATE_BATCH,
         ],
+        // --- Section 6 --- batches.index / batches.show also allow view_assigned_batches (see ROUTE_ALTERNATE_VIEW_PERMISSIONS)
         'ante-mortem-inspections' => [
             'view' => BusinessUser::PERMISSION_VIEW_INSPECTIONS,
             'create' => BusinessUser::PERMISSION_RECORD_ANTE_MORTEM,
@@ -160,6 +161,9 @@ class EnsureTenantPermission
         if ($user->canProcessorPermission($requiredPermission, $activeBusinessId)) {
             return $next($request);
         }
+        if ($action === 'view' && $this->hasAlternateViewPermission($user, $routeName, $activeBusinessId)) {
+            return $next($request);
+        }
         if ($this->allowsViewAllModulesBypass($routeName, $action)
             && $user->canProcessorPermission(BusinessUser::PERMISSION_VIEW_ALL_MODULES, $activeBusinessId)) {
             return $next($request);
@@ -167,6 +171,16 @@ class EnsureTenantPermission
 
         abort(403, __('You do not have permission to access this section.'));
     }
+
+    /** Routes where view access is granted if the user has any listed permission (in addition to the module map). */
+    private const ROUTE_ALTERNATE_VIEW_PERMISSIONS = [
+        'batches.index' => [
+            BusinessUser::PERMISSION_VIEW_ASSIGNED_BATCHES,
+        ],
+        'batches.show' => [
+            BusinessUser::PERMISSION_VIEW_ASSIGNED_BATCHES,
+        ],
+    ];
 
     private const ROUTE_PERMISSION_OVERRIDES = [
         'transport-trips.export' => BusinessUser::PERMISSION_EXPORT_RECORDS,
@@ -182,6 +196,19 @@ class EnsureTenantPermission
         'export-documents.update' => BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
         'export-documents.destroy' => BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS,
     ];
+
+    private function hasAlternateViewPermission($user, string $routeName, int $activeBusinessId): bool
+    {
+        $alternates = self::ROUTE_ALTERNATE_VIEW_PERMISSIONS[$routeName] ?? [];
+
+        foreach ($alternates as $permission) {
+            if ($user->canProcessorPermission($permission, $activeBusinessId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private function permissionForRoute(string $routeName, string $action): ?string
     {

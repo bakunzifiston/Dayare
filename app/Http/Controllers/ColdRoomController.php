@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Batch;
 use App\Models\ColdRoom;
 use App\Models\ColdRoomStandard;
+use App\Models\ColdRoomTemperatureLog;
+use App\Models\ColdRoomViolation;
 use App\Models\Facility;
 use App\Models\WarehouseStorage;
 use Illuminate\Http\RedirectResponse;
@@ -32,17 +35,61 @@ class ColdRoomController extends Controller
         abort_unless($user->canProcessorPermission('monitor_temperature_logs'), 403);
     }
 
+    // --- Section 3 ---
     public function hub(Request $request): View
     {
         $this->authorizeWarehouse($request);
 
         $facilityIds = $this->userStorageFacilityIds($request);
-        $roomCount = ColdRoom::query()->whereIn('facility_id', $facilityIds)->count();
-        $standardCount = ColdRoomStandard::query()->count();
-        $certificateIds = WarehouseStorage::accessibleCertificateIds($request);
-        $storageCount = WarehouseStorage::query()->whereIn('certificate_id', $certificateIds)->count();
 
-        return view('cold-rooms.hub', compact('roomCount', 'standardCount', 'storageCount'));
+        $hubStats = [
+            'total_rooms' => ColdRoom::whereIn('facility_id', $facilityIds)->count(),
+            'open_violations' => ColdRoomViolation::whereHas('coldRoom',
+                fn ($q) => $q->whereIn('facility_id', $facilityIds)
+            )->where('status', ColdRoomViolation::STATUS_OPEN)->count(),
+            'batches_at_risk' => Batch::whereIn('cold_chain_status', [Batch::COLD_CHAIN_AT_RISK, Batch::COLD_CHAIN_COMPROMISED])
+                ->whereHas('warehouseStorage', fn ($q) => $q->whereHas('coldRoom', fn ($q2) => $q2
+                    ->whereIn('facility_id', $facilityIds)))
+                ->count(),
+            'storages_in_room' => WarehouseStorage::whereHas('coldRoom',
+                fn ($q) => $q->whereIn('facility_id', $facilityIds)
+            )->where('status', WarehouseStorage::STATUS_IN_STORAGE)->count(),
+            'standards' => ColdRoomStandard::count(),
+        ];
+
+        $roomsWithStatus = ColdRoom::whereIn('facility_id', $facilityIds)
+            ->with([
+                'standard',
+                'facility',
+                'violations' => fn ($q) => $q->where('status', ColdRoomViolation::STATUS_OPEN),
+                'warehouseStorages' => fn ($q) => $q->where('status', WarehouseStorage::STATUS_IN_STORAGE),
+            ])
+            ->get();
+
+        $recentLogs = ColdRoomTemperatureLog::whereHas('coldRoom',
+            fn ($q) => $q->whereIn('facility_id', $facilityIds)
+        )->with('coldRoom.facility')
+            ->orderByDesc('recorded_at')
+            ->limit(10)
+            ->get();
+
+        $openViolations = ColdRoomViolation::whereHas('coldRoom',
+            fn ($q) => $q->whereIn('facility_id', $facilityIds)
+        )->where('status', ColdRoomViolation::STATUS_OPEN)
+            ->with(['coldRoom.facility'])
+            ->orderByDesc('start_time')
+            ->get();
+
+        $storageRecords = WarehouseStorage::query()
+            ->whereIn('warehouse_facility_id', $facilityIds)
+            ->with(['warehouseFacility', 'batch', 'certificate', 'intakeItem', 'coldRoom'])
+            ->latest('entry_date')
+            ->limit(15)
+            ->get();
+
+        return view('cold-rooms.hub', compact(
+            'hubStats', 'roomsWithStatus', 'recentLogs', 'openViolations', 'storageRecords'
+        ));
     }
 
     public function index(Request $request): View

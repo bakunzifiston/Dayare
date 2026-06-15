@@ -39,7 +39,14 @@ class StoreCertificateRequest extends FormRequest
             if (! $batch) {
                 return;
             }
-            if (! $batch->canIssueCertificate()) {
+
+            // --- Section 1 ---
+            if ($batch->hasPerAnimalData() && ! $batch->isPostMortemComplete()) {
+                $validator->errors()->add(
+                    'batch_id',
+                    __('All animals in this batch must have a post-mortem outcome recorded before a certificate can be issued.')
+                );
+            } elseif (! $batch->canIssueCertificate()) {
                 $validator->errors()->add(
                     'batch_id',
                     __('Certificate is only allowed when the batch has a post-mortem inspection with approved quantity greater than zero.')

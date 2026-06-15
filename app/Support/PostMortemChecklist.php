@@ -30,6 +30,22 @@ class PostMortemChecklist
         return config('post_mortem_checklist.checklists.'.$key, config('post_mortem_checklist.checklists.all_species', []));
     }
 
+    /**
+     * Checklist items for per-animal inspection (excludes batch-level decision).
+     *
+     * @return array<string, array{label: string, type: string, category?: string, critical?: bool}>
+     */
+    public static function itemsForInspection(?string $species, bool $hasInspectableAnimals): array
+    {
+        $items = self::itemsForSpecies($species);
+
+        if ($hasInspectableAnimals) {
+            unset($items['decision']);
+        }
+
+        return $items;
+    }
+
     public static function allowedValuesForType(string $type): array
     {
         return config('post_mortem_checklist.value_options.'.$type, []);

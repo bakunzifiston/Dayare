@@ -52,16 +52,16 @@
                         <dd class="mt-1 text-sm text-gray-900">{{ str($inspection->result ?? 'approved')->replace('_', ' ')->title() }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Total examined') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $inspection->total_examined }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Total meat examined') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900 tabular-nums">{{ number_format((float) $inspection->total_examined, 2) }} kg</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Approved quantity') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $inspection->approved_quantity }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Approved meat') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900 tabular-nums">{{ number_format((float) $inspection->approved_quantity, 2) }} kg</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Condemned quantity') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $inspection->condemned_quantity }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Rejected meat') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900 tabular-nums">{{ number_format((float) $inspection->condemned_quantity, 2) }} kg</dd>
                     </div>
                     @if ($inspection->notes)
                         <div class="sm:col-span-2">
@@ -72,10 +72,45 @@
                 </dl>
             </div>
 
+            @if ($inspection->inspectionItems->isNotEmpty())
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Individual animal outcomes') }}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Ear tag') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Outcome') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Before PM (kg)') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('After PM (kg)') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Notes') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 bg-white">
+                                @foreach ($inspection->inspectionItems as $item)
+                                    <tr>
+                                        <td class="px-3 py-2 font-mono text-xs">{{ $item->intakeItem->ear_tag ?? '—' }}</td>
+                                        <td class="px-3 py-2">{{ ucfirst($item->outcome) }}</td>
+                                        <td class="px-3 py-2 tabular-nums">
+                                            {{ $item->batchItem ? number_format($item->batchItem->meat_quantity_kg, 2).' kg' : '—' }}
+                                        </td>
+                                        <td class="px-3 py-2 tabular-nums">{{ $item->carcass_weight_kg ? number_format($item->carcass_weight_kg, 2).' kg' : '—' }}</td>
+                                        <td class="px-3 py-2">{{ $item->outcome_notes ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+
+            @php $legacyObservations = $inspection->observations->whereNull('animal_intake_item_id'); @endphp
+
+            @if ($inspection->inspectionItems->isEmpty())
             <div class="grid gap-6 md:grid-cols-2">
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Carcass inspection') }}</h3>
-                    @php $carcass = $inspection->observations->where('category', 'carcass'); @endphp
+                    @php $carcass = $legacyObservations->where('category', 'carcass'); @endphp
                     @if ($carcass->isEmpty())
                         <p class="text-sm text-gray-500">{{ __('No carcass observations recorded.') }}</p>
                     @else
@@ -104,7 +139,7 @@
 
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Organ inspection') }}</h3>
-                    @php $organs = $inspection->observations->where('category', 'organ'); @endphp
+                    @php $organs = $legacyObservations->where('category', 'organ'); @endphp
                     @if ($organs->isEmpty())
                         <p class="text-sm text-gray-500">{{ __('No organ observations recorded.') }}</p>
                     @else
@@ -134,7 +169,7 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Decision & comment') }}</h3>
                 @php
-                    $decisionItems = $inspection->observations->filter(function ($observation) {
+                    $decisionItems = $legacyObservations->filter(function ($observation) {
                         return $observation->category === 'decision' || in_array($observation->item, ['decision', 'comment'], true);
                     });
                 @endphp
@@ -163,6 +198,7 @@
                     </div>
                 @endif
             </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

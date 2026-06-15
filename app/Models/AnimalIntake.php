@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Animal Origin (Intake) – record where animals come from before slaughter.
- * Must happen BEFORE SlaughterPlan. Facility (slaughterhouse) → Many AnimalIntakes.
+ * Animal intake session header — source, facility, compliance documents.
+ * Individual animals are stored in AnimalIntakeItem rows.
  */
 class AnimalIntake extends Model
 {
@@ -19,12 +20,19 @@ class AnimalIntake extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (AnimalIntake $intake): void {
+            if (empty($intake->reference)) {
+                $intake->reference = static::generateReference();
+            }
+        });
+
         static::deleting(function (AnimalIntake $intake): void {
             AnimalIntakeMovementPermitStorage::delete($intake->movement_permit_document_path);
         });
     }
 
     protected $fillable = [
+        'reference',
         'facility_id',
         'supply_request_id',
         'farm_id',
@@ -62,15 +70,19 @@ class AnimalIntake extends Model
         'health_certificate_issue_date',
         'health_certificate_expiry_date',
         'status',
+        'is_draft',
+        'submitted_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'intake_date' => 'date',
+            'intake_date' => 'datetime',
             'health_certificate_issue_date' => 'date',
             'health_certificate_expiry_date' => 'date',
+            'submitted_at' => 'datetime',
             'age' => 'integer',
+            'is_draft' => 'boolean',
         ];
     }
 
@@ -124,6 +136,16 @@ class AnimalIntake extends Model
         self::SOURCE_TYPE_SUPPLIER,
         self::SOURCE_TYPE_CLIENT,
     ];
+
+    public static function generateReference(): string
+    {
+        $year = now()->year;
+        $sequence = static::query()
+            ->whereYear('created_at', $year)
+            ->count() + 1;
+
+        return sprintf('INT-%d-%05d', $year, $sequence);
+    }
 
     public function facility(): BelongsTo
     {
@@ -185,19 +207,66 @@ class AnimalIntake extends Model
         return $this->belongsTo(AdministrativeDivision::class, 'village_id');
     }
 
+    public function items(): HasMany
+    {
+        return $this->hasMany(AnimalIntakeItem::class)->orderBy('id');
+    }
+
     public function slaughterPlans(): HasMany
     {
         return $this->hasMany(SlaughterPlan::class);
     }
 
-    /** If health certificate is expired → block SlaughterPlan creation */
+    public function isDraft(): bool
+    {
+        return (bool) $this->is_draft;
+    }
+
+    public function isSubmitted(): bool
+    {
+        return ! $this->is_draft && $this->submitted_at !== null;
+    }
+
+    public function isPlannableForSlaughter(): bool
+    {
+        return ! $this->is_draft
+            && in_array($this->status, [self::STATUS_RECEIVED, self::STATUS_APPROVED], true);
+    }
+
+    /**
+     * Submitted intakes with animals still available for slaughter planning.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<AnimalIntake>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<AnimalIntake>
+     */
+    public function scopePlannableForSlaughter(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query
+            ->where('is_draft', false)
+            ->whereIn('status', [self::STATUS_RECEIVED, self::STATUS_APPROVED]);
+    }
+
     public function isHealthCertificateExpired(): bool
     {
-        if (! $this->health_certificate_expiry_date) {
+        if (blank($this->health_certificate_expiry_date)) {
             return false;
         }
 
         return $this->health_certificate_expiry_date->isPast();
+    }
+
+    /** Human-readable intake timestamp; omits midnight for legacy date-only rows. */
+    public function intakeDatetimeLabel(): string
+    {
+        if ($this->intake_date === null) {
+            return '—';
+        }
+
+        if ($this->intake_date->format('H:i') === '00:00') {
+            return $this->intake_date->format('d M Y');
+        }
+
+        return $this->intake_date->format('d M Y H:i');
     }
 
     /** Total number of animals already scheduled for slaughter from this intake */
@@ -206,10 +275,134 @@ class AnimalIntake extends Model
         return (int) $this->slaughterPlans()->sum('number_of_animals_scheduled');
     }
 
-    /** Remaining animals that can still be scheduled (number_of_animals - total scheduled) */
+    /** Animals not yet assigned to a slaughter plan (item-based, with legacy fallback). */
     public function remainingAnimalsAvailable(): int
     {
-        return max(0, $this->number_of_animals - $this->totalScheduledForSlaughter());
+        if ($this->hasItemRows()) {
+            if ($this->relationLoaded('items')) {
+                return $this->items
+                    ->filter(fn (AnimalIntakeItem $item) => $item->isAvailableForPlanning())
+                    ->count();
+            }
+
+            return (int) $this->items()->available()->count();
+        }
+
+        return max(0, $this->legacyNumberOfAnimals() - $this->totalScheduledForSlaughter());
+    }
+
+    public function getNumberOfAnimalsAttribute($value): int
+    {
+        if ($this->relationLoaded('items')) {
+            if ($this->items->isNotEmpty()) {
+                return $this->items->count();
+            }
+        } elseif ($this->items()->exists()) {
+            return (int) $this->items()->count();
+        }
+
+        return (int) ($value ?? 0);
+    }
+
+    public function getTotalPriceAttribute($value): float
+    {
+        if ($this->relationLoaded('items')) {
+            if ($this->items->isNotEmpty()) {
+                return (float) $this->items->sum('unit_price');
+            }
+        } elseif ($this->items()->exists()) {
+            return (float) $this->items()->sum('unit_price');
+        }
+
+        return (float) ($value ?? 0);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getSpeciesMixAttribute(): array
+    {
+        if (! $this->hasItemRows()) {
+            return [];
+        }
+
+        return $this->itemCollection()
+            ->groupBy('species')
+            ->map(fn (Collection $group) => $group->count())
+            ->sortKeys()
+            ->all();
+    }
+
+    public function getSpeciesMixLabelAttribute(): string
+    {
+        $mix = $this->species_mix;
+
+        if ($mix !== []) {
+            return collect($mix)
+                ->map(fn (int $count, string $species) => $species.' ('.$count.')')
+                ->implode(', ');
+        }
+
+        return (string) ($this->attributes['species'] ?? '');
+    }
+
+    public function getHasRejectedAnimalsAttribute(): bool
+    {
+        if (! $this->hasItemRows()) {
+            return false;
+        }
+
+        if ($this->relationLoaded('items')) {
+            return $this->items->contains(fn (AnimalIntakeItem $item) => $item->isRejected());
+        }
+
+        return $this->items()->rejected()->exists();
+    }
+
+    public function getHasObservationAnimalsAttribute(): bool
+    {
+        if (! $this->hasItemRows()) {
+            return false;
+        }
+
+        if ($this->relationLoaded('items')) {
+            return $this->items->contains(
+                fn (AnimalIntakeItem $item) => $item->health_status === AnimalIntakeItem::HEALTH_OBSERVATION,
+            );
+        }
+
+        return $this->items()
+            ->where('health_status', AnimalIntakeItem::HEALTH_OBSERVATION)
+            ->exists();
+    }
+
+    /**
+     * @return array{healthy: int, under_observation: int, rejected: int}
+     */
+    public function getHealthSummaryAttribute(): array
+    {
+        $summary = [
+            'healthy' => 0,
+            'under_observation' => 0,
+            'rejected' => 0,
+        ];
+
+        if (! $this->hasItemRows()) {
+            $legacyCount = $this->legacyNumberOfAnimals();
+            if ($legacyCount > 0) {
+                $summary['healthy'] = $legacyCount;
+            }
+
+            return $summary;
+        }
+
+        $items = $this->itemCollection();
+
+        $summary['healthy'] = $items->where('health_status', AnimalIntakeItem::HEALTH_HEALTHY)->count();
+        $summary['under_observation'] = $items->where('health_status', AnimalIntakeItem::HEALTH_OBSERVATION)->count();
+        $summary['rejected'] = $items->where('health_status', AnimalIntakeItem::HEALTH_REJECTED)->count();
+
+        return $summary;
     }
 
     /** Linked CRM client name, or manual client names on client-source intake without `client_id`. */
@@ -230,7 +423,11 @@ class AnimalIntake extends Model
     /** One line for AR invoice selector: name · species · number of animals. */
     public function labelForFinanceInvoice(): string
     {
-        return $this->clientSourceDisplayName().' · '.__((string) $this->species).' · '.$this->number_of_animals.' '.__('animals');
+        $speciesLabel = $this->species_mix_label !== ''
+            ? $this->species_mix_label
+            : (string) ($this->attributes['species'] ?? '');
+
+        return $this->clientSourceDisplayName().' · '.$speciesLabel.' · '.$this->number_of_animals.' '.__('animals');
     }
 
     public function movementPermitDocumentUrl(): ?string
@@ -240,5 +437,31 @@ class AnimalIntake extends Model
         }
 
         return Storage::disk('public')->url($this->movement_permit_document_path);
+    }
+
+    protected function hasItemRows(): bool
+    {
+        if ($this->relationLoaded('items')) {
+            return $this->items->isNotEmpty();
+        }
+
+        return $this->items()->exists();
+    }
+
+    /**
+     * @return Collection<int, AnimalIntakeItem>
+     */
+    protected function itemCollection(): Collection
+    {
+        if ($this->relationLoaded('items')) {
+            return $this->items;
+        }
+
+        return $this->items()->get();
+    }
+
+    protected function legacyNumberOfAnimals(): int
+    {
+        return (int) ($this->attributes['number_of_animals'] ?? 0);
     }
 }

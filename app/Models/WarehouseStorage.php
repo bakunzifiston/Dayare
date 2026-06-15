@@ -10,9 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 /**
- * Warehouse (cold storage) – track certified meat batches before transport.
+ * Warehouse (cold storage) – track post-mortem approved meat before transport.
  * Facility (type = storage) → Many WarehouseStorages.
- * Batch (1) → One WarehouseStorage. Certificate required before storage.
+ * Each record may represent one animal's meat after post-mortem approval.
  */
 class WarehouseStorage extends Model
 {
@@ -25,6 +25,8 @@ class WarehouseStorage extends Model
         'cold_room_id',
         'batch_id',
         'certificate_id',
+        'animal_intake_item_id',
+        'post_mortem_inspection_item_id',
         'entry_date',
         'storage_location',
         'temperature_at_entry',
@@ -39,6 +41,7 @@ class WarehouseStorage extends Model
         return [
             'entry_date' => 'date',
             'released_date' => 'date',
+            'quantity_stored' => 'decimal:2',
         ];
     }
 
@@ -70,9 +73,11 @@ class WarehouseStorage extends Model
         return $this->belongsTo(Facility::class, 'warehouse_facility_id');
     }
 
+    // --- Section 2 ---
+
     public function coldRoom(): BelongsTo
     {
-        return $this->belongsTo(ColdRoom::class);
+        return $this->belongsTo(ColdRoom::class, 'cold_room_id');
     }
 
     public function batch(): BelongsTo
@@ -83,6 +88,16 @@ class WarehouseStorage extends Model
     public function certificate(): BelongsTo
     {
         return $this->belongsTo(Certificate::class);
+    }
+
+    public function intakeItem(): BelongsTo
+    {
+        return $this->belongsTo(AnimalIntakeItem::class, 'animal_intake_item_id');
+    }
+
+    public function postMortemInspectionItem(): BelongsTo
+    {
+        return $this->belongsTo(PostMortemInspectionItem::class, 'post_mortem_inspection_item_id');
     }
 
     public function temperatureLogs(): HasMany
@@ -122,5 +137,47 @@ class WarehouseStorage extends Model
             $q->whereIn('batch_id', $batchIds)
                 ->orWhere(fn ($q2) => $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds));
         })->pluck('id');
+    }
+
+    /**
+     * Batch IDs linked to the user's accessible slaughter facilities.
+     *
+     * @return Collection<int, int>
+     */
+    public static function accessibleBatchIds(Request $request): Collection
+    {
+        return \App\Support\StorablePostMortemMeat::accessibleBatchIds($request);
+    }
+
+    public static function isAccessibleBy(Request $request, self $storage): bool
+    {
+        $storageFacilityIds = Facility::query()
+            ->whereIn('business_id', $request->user()->accessibleBusinessIds())
+            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->pluck('id');
+
+        if ($storageFacilityIds->contains((int) $storage->warehouse_facility_id)) {
+            return true;
+        }
+
+        if ($storage->certificate_id && self::accessibleCertificateIds($request)->contains((int) $storage->certificate_id)) {
+            return true;
+        }
+
+        return self::accessibleBatchIds($request)->contains((int) $storage->batch_id);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeForColdRoomUser($query, Request $request)
+    {
+        $storageFacilityIds = Facility::query()
+            ->whereIn('business_id', $request->user()->accessibleBusinessIds())
+            ->where('facility_type', Facility::TYPE_STORAGE)
+            ->pluck('id');
+
+        return $query->whereIn('warehouse_facility_id', $storageFacilityIds);
     }
 }

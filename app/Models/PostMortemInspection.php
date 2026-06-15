@@ -39,6 +39,9 @@ class PostMortemInspection extends Model
     {
         return [
             'inspection_date' => 'date',
+            'total_examined' => 'decimal:2',
+            'approved_quantity' => 'decimal:2',
+            'condemned_quantity' => 'decimal:2',
         ];
     }
 
@@ -55,5 +58,51 @@ class PostMortemInspection extends Model
     public function observations(): HasMany
     {
         return $this->hasMany(PostMortemObservation::class);
+    }
+
+    // --- Section 5 ---
+
+    /**
+     * Per-animal outcomes recorded during this inspection.
+     */
+    public function inspectionItems(): HasMany
+    {
+        return $this->hasMany(PostMortemInspectionItem::class, 'post_mortem_inspection_id');
+    }
+
+    /**
+     * True when per-animal outcome rows exist for this inspection.
+     */
+    public function hasPerAnimalOutcomes(): bool
+    {
+        if ($this->relationLoaded('inspectionItems')) {
+            return $this->inspectionItems->isNotEmpty();
+        }
+
+        return $this->inspectionItems()->exists();
+    }
+
+    /**
+     * Count of animals approved at post-mortem (from per-animal items).
+     */
+    public function getApprovedFromItemsAttribute(): int
+    {
+        if ($this->relationLoaded('inspectionItems')) {
+            return $this->inspectionItems->where('outcome', PostMortemInspectionItem::OUTCOME_APPROVED)->count();
+        }
+
+        return $this->inspectionItems()->approved()->count();
+    }
+
+    /**
+     * Count of animals condemned at post-mortem (from per-animal items).
+     */
+    public function getCondemnedFromItemsAttribute(): int
+    {
+        if ($this->relationLoaded('inspectionItems')) {
+            return $this->inspectionItems->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)->count();
+        }
+
+        return $this->inspectionItems()->condemned()->count();
     }
 }

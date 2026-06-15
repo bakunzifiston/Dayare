@@ -41,7 +41,7 @@ class StoreAnimalIntakeRequest extends FormRequest
                 Rule::exists('clients', 'id')->where('is_active', true),
             ],
             'contract_id' => ['nullable', 'prohibited_if:source_type,'.AnimalIntake::SOURCE_TYPE_CLIENT, 'exists:contracts,id'],
-            'intake_date' => ['required', 'date'],
+            'intake_date' => ['required', 'date', 'before_or_equal:now'],
             'supplier_firstname' => [
                 'nullable',
                 'string',

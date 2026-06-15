@@ -5,6 +5,9 @@
                 <a href="{{ route('cold-rooms.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Cold Room') }}</a>
                 <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">
                     {{ __('Storage records') }}
+                    @if ($filterColdRoom)
+                        <span class="text-base font-normal text-slate-500">— {{ $filterColdRoom->name }}</span>
+                    @endif
                 </h2>
             </div>
             <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
@@ -20,6 +23,15 @@
                 <x-kpi-card inline title="{{ __('In storage') }}" :value="$kpis['in_storage']" color="green" />
                 <x-kpi-card inline title="{{ __('Released') }}" :value="$kpis['released']" color="slate" />
             </div>
+
+            @if ($filterColdRoom)
+                <div class="mb-4">
+                    <a href="{{ route('warehouse-storages.index') }}" class="text-sm text-bucha-primary hover:text-bucha-burgundy">
+                        {{ __('Clear room filter') }}
+                    </a>
+                </div>
+            @endif
+
             @if (session('status'))
                 <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
@@ -27,34 +39,14 @@
             @if ($storages->isEmpty())
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
                     <p class="mb-4">{{ __('No cold room storage records yet.') }}</p>
-                    <p class="text-sm mb-4">{{ __('Record storage of certified meat batches. Certificate must be active.') }}</p>
+                    <p class="text-sm mb-4">{{ __('Record storage of animal meat approved at post-mortem.') }}</p>
                     <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Record first storage') }}</a>
                 </div>
             @else
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
-                    <ul class="divide-y divide-slate-100">
-                        @foreach ($storages as $s)
-                            <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
-                                <div>
-                                    <a href="{{ route('warehouse-storages.show', $s) }}" class="font-medium text-slate-900 hover:text-bucha-primary">
-                                        {{ $s->batch->batch_code ?? '' }} — {{ $s->warehouseFacility->facility_name ?? '' }}
-                                    </a>
-                                    <p class="text-sm text-slate-500">
-                                        {{ $s->entry_date->format('d M Y') }} · {{ $s->storage_location ?? '—' }} · {{ $s->quantity_stored }} {{ $s->quantity_unit_label }}
-                                    </p>
-                                    <p class="text-xs text-slate-400 mt-1">
-                                        {{ __('Certificate') }} {{ $s->certificate->certificate_number ?: '#' . $s->certificate_id }} · {{ ucfirst(str_replace('_', ' ', $s->status)) }}
-                                    </p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <a href="{{ route('warehouse-storages.show', $s) }}" class="text-sm text-bucha-primary hover:text-indigo-900">{{ __('View') }}</a>
-                                    <a href="{{ route('warehouse-storages.edit', $s) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
-                                </div>
-                            </li>
-                        @endforeach
-                    </ul>
-                    <div class="px-4 py-3 border-t border-slate-100">{{ $storages->links() }}</div>
-                </div>
+                @include('warehouse-storages.partials.storage-table', [
+                    'storages' => $storages,
+                    'showPagination' => true,
+                ])
             @endif
         </div>
     </div>

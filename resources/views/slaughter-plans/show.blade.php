@@ -50,7 +50,7 @@
                             <dt class="text-sm font-medium text-gray-500">{{ __('Animal intake') }}</dt>
                             <dd class="mt-1 text-sm text-gray-900">
                                 <a href="{{ route('animal-intakes.show', $plan->animalIntake) }}" class="text-bucha-primary hover:underline">
-                                    {{ $plan->animalIntake->intake_date->format('d M Y') }} — {{ $plan->animalIntake->supplier_firstname }} {{ $plan->animalIntake->supplier_lastname }}
+                                    {{ $plan->animalIntake->intakeDatetimeLabel() }} — {{ $plan->animalIntake->supplier_firstname }} {{ $plan->animalIntake->supplier_lastname }}
                                 </a>
                             </dd>
                         </div>
@@ -74,33 +74,55 @@
                 </dl>
             </div>
 
-            @if ($plan->anteMortemInspections->isNotEmpty())
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Ante-mortem inspections') }}</h3>
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">{{ __('Ante-mortem inspections') }}</h3>
+                    @if ($plan->anteMortemInspections->isEmpty() && auth()->user()?->canProcessorPermission(\App\Models\BusinessUser::PERMISSION_RECORD_ANTE_MORTEM))
+                        <a href="{{ route('ante-mortem-inspections.create', ['slaughter_plan_id' => $plan->id]) }}"
+                           class="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
+                            <i class="ti ti-stethoscope text-base" aria-hidden="true"></i>
+                            {{ __('Record ante-mortem inspection') }}
+                        </a>
+                    @endif
+                </div>
+                @if ($plan->anteMortemInspections->isNotEmpty())
                     <ul class="divide-y divide-gray-200">
                         @foreach ($plan->anteMortemInspections as $am)
                             <li class="py-2">
                                 <a href="{{ route('ante-mortem-inspections.show', $am) }}" class="font-medium text-bucha-primary hover:underline">{{ $am->inspection_date->format('d M Y') }} — {{ $am->species }}</a>
-                                <span class="text-sm text-gray-500"> {{ $am->number_examined }} examined, {{ $am->number_approved }} approved, {{ $am->number_rejected }} rejected</span>
+                                <span class="text-sm text-gray-500"> {{ $am->number_examined }} {{ __('examined') }}, {{ $am->number_approved }} {{ __('approved') }}, {{ $am->number_rejected }} {{ __('rejected') }}</span>
                             </li>
                         @endforeach
                     </ul>
-                </div>
-            @endif
+                @else
+                    <p class="text-sm text-gray-500">{{ __('No ante-mortem inspections recorded for this plan yet.') }}</p>
+                @endif
+            </div>
 
-            @if ($plan->slaughterExecutions->isNotEmpty())
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Slaughter executions') }}</h3>
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">{{ __('Slaughter executions') }}</h3>
+                    @if ($plan->slaughterExecutions->isEmpty() && auth()->user()?->canProcessorPermission(\App\Models\BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER))
+                        <a href="{{ route('slaughter-executions.create', ['slaughter_plan_id' => $plan->id]) }}"
+                           class="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
+                            <i class="ti ti-bolt text-base" aria-hidden="true"></i>
+                            {{ __('Record slaughter execution') }}
+                        </a>
+                    @endif
+                </div>
+                @if ($plan->slaughterExecutions->isNotEmpty())
                     <ul class="divide-y divide-gray-200">
                         @foreach ($plan->slaughterExecutions as $ex)
                             <li class="py-2">
                                 <a href="{{ route('slaughter-executions.show', $ex) }}" class="font-medium text-bucha-primary hover:underline">{{ $ex->slaughter_time->format('d M Y H:i') }}</a>
-                                <span class="text-sm text-gray-500"> {{ $ex->actual_animals_slaughtered }} animals · {{ ucfirst(str_replace('_', ' ', $ex->status)) }}</span>
+                                <span class="text-sm text-gray-500"> {{ $ex->actual_animals_slaughtered }} {{ __('animals') }} · {{ ucfirst(str_replace('_', ' ', $ex->status)) }}</span>
                             </li>
                         @endforeach
                     </ul>
-                </div>
-            @endif
+                @else
+                    <p class="text-sm text-gray-500">{{ __('No slaughter executions recorded for this plan yet.') }}</p>
+                @endif
+            </div>
         </div>
     </div>
 </x-app-layout>

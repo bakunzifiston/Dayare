@@ -82,8 +82,41 @@ class ColdRoomMonitoringService
                     'duration_minutes' => $minutes,
                     'status' => ColdRoomViolation::STATUS_CLOSED,
                 ]);
+
+                // --- Section 2 --- Reset batch cold chain when violation closes
+                $this->resetBatchColdChainForRoom($room);
             }
         });
+    }
+
+    /**
+     * Reset cold_chain_status to ok for batches stored in this room when no other
+     * open violations exist for those batches on other rooms.
+     */
+    // --- Section 2 ---
+    private function resetBatchColdChainForRoom(ColdRoom $room): void
+    {
+        $batchIds = WarehouseStorage::where('cold_room_id', $room->id)
+            ->where('status', WarehouseStorage::STATUS_IN_STORAGE)
+            ->pluck('batch_id');
+
+        if ($batchIds->isEmpty()) {
+            return;
+        }
+
+        foreach ($batchIds as $batchId) {
+            $hasOtherOpenViolations = ColdRoomViolation::whereHas('coldRoom.warehouseStorages', fn ($q) => $q
+                ->where('batch_id', $batchId)
+                ->where('status', WarehouseStorage::STATUS_IN_STORAGE))
+                ->where('status', ColdRoomViolation::STATUS_OPEN)
+                ->where('cold_room_id', '!=', $room->id)
+                ->exists();
+
+            if (! $hasOtherOpenViolations) {
+                Batch::where('id', $batchId)
+                    ->update(['cold_chain_status' => Batch::COLD_CHAIN_OK]);
+            }
+        }
     }
 
     protected function openViolation(ColdRoom $room): ?ColdRoomViolation

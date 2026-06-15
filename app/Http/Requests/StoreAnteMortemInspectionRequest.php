@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesAnteMortemItemOutcomes;
 use App\Models\SlaughterPlan;
 use App\Support\AnteMortemChecklist;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,6 +10,7 @@ use Illuminate\Validation\Rule;
 
 class StoreAnteMortemInspectionRequest extends FormRequest
 {
+    use ValidatesAnteMortemItemOutcomes;
     public function authorize(): bool
     {
         return true;
@@ -34,9 +36,18 @@ class StoreAnteMortemInspectionRequest extends FormRequest
             'number_approved' => ['required', 'integer', 'min:0'],
             'number_rejected' => ['required', 'integer', 'min:0'],
             'notes' => ['nullable', 'string', 'max:5000'],
+            // --- Section 3 ---
+            'notes_for_under_observation' => ['nullable', 'string', 'max:2000'],
+            'item_outcomes' => ['nullable', 'array'],
+            'item_outcomes.*.animal_intake_item_id' => ['required_with:item_outcomes', 'integer', 'exists:animal_intake_items,id'],
+            'item_outcomes.*.outcome' => ['required_with:item_outcomes', 'in:approved,rejected,deferred'],
+            'item_outcomes.*.outcome_notes' => ['nullable', 'string', 'max:1000'],
+            'item_outcomes.*.observations' => ['nullable', 'array'],
+            'item_outcomes.*.observations.*.value' => ['nullable', 'string', 'max:5000'],
+            'item_outcomes.*.observations.*.notes' => ['nullable', 'string', 'max:5000'],
             'inspection_date' => ['required', 'date'],
-            'observations' => ['required', 'array'],
-            'observations.*.value' => ['required', 'string', 'max:20'],
+            'observations' => ['nullable', 'array'],
+            'observations.*.value' => ['nullable', 'string', 'max:5000'],
             'observations.*.notes' => ['nullable', 'string', 'max:5000'],
         ];
     }
@@ -63,31 +74,47 @@ class StoreAnteMortemInspectionRequest extends FormRequest
                 }
             }
 
-            $species = (string) $this->input('species');
-            $checklistItems = AnteMortemChecklist::itemsForSpecies($species);
-            $observations = $this->input('observations', []);
+            // --- Section 3 ---
+            if ($plan && $plan->species !== $this->input('species')) {
+                $validator->errors()->add(
+                    'species',
+                    __('Inspection species must match the slaughter plan species.'),
+                );
+            }
 
-            foreach ($checklistItems as $itemKey => $meta) {
-                $value = $observations[$itemKey]['value'] ?? null;
-                if (! is_string($value) || trim($value) === '') {
-                    $validator->errors()->add('observations', __('Please complete all species checklist items.'));
-
-                    continue;
-                }
-
-                $allowed = AnteMortemChecklist::allowedValuesForItem($species, (string) $itemKey);
-                if (! empty($allowed) && ! in_array($value, $allowed, true)) {
-                    $validator->errors()->add('observations', __('Invalid checklist value for :item.', ['item' => $meta['label'] ?? $itemKey]));
+            if ($plan && $plan->assignedItems()->exists()) {
+                $assignedCount = $plan->assignedItems()
+                    ->where('species', $this->input('species'))
+                    ->count();
+                $examined = (int) $this->input('number_examined');
+                if ($examined > $assignedCount) {
+                    $validator->errors()->add(
+                        'number_examined',
+                        __('Only :count :species animals are assigned to this plan — cannot examine more than :count.', [
+                            'count' => $assignedCount,
+                            'species' => $this->input('species'),
+                        ]),
+                    );
                 }
             }
 
-            if (! empty($checklistItems)) {
-                foreach (array_keys($observations) as $submittedItem) {
-                    if (! array_key_exists($submittedItem, $checklistItems)) {
-                        $validator->errors()->add('observations', __('Unexpected checklist item submitted.'));
-                        break;
-                    }
-                }
+            $species = (string) $this->input('species');
+            $hasAssignedAnimals = $plan !== null
+                && $plan->assignedItems()->where('species', $species)->exists();
+
+            if ($hasAssignedAnimals) {
+                $this->validateItemOutcomesForPlan(
+                    $validator,
+                    $plan,
+                    $species,
+                    $this->input('item_outcomes'),
+                );
+            } else {
+                $this->validateLegacyObservations(
+                    $validator,
+                    $species,
+                    is_array($this->input('observations')) ? $this->input('observations') : [],
+                );
             }
         });
     }
