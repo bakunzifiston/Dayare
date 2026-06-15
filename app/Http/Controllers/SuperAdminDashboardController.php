@@ -101,6 +101,10 @@ class SuperAdminDashboardController extends Controller
             ->whereHas('businesses')
             ->withCount('businesses')
             ->with(['businesses.memberUsers:id'])
+            ->orderByRaw("CASE WHEN COALESCE(tenant_environment, ?) = ? THEN 1 ELSE 0 END", [
+                User::TENANT_ENVIRONMENT_LIVE,
+                User::TENANT_ENVIRONMENT_TEST,
+            ])
             ->orderBy('name')
             ->get()
             ->map(function (User $tenant) {
