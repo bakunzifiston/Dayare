@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\User;
+use App\Support\SuperAdminActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -168,6 +169,31 @@ class SuperAdminUserController extends Controller
             ->with('status', __('Super admin user removed.'));
     }
 
+    public function updateTenantEnvironment(Request $request, User $tenant): RedirectResponse
+    {
+        if ($tenant->isSuperAdmin()) {
+            return redirect()
+                ->route('super-admin.dashboard')
+                ->with('error', __('Super admin accounts cannot be marked as test tenants.'));
+        }
+
+        $validated = $request->validate([
+            'tenant_environment' => ['required', 'string', Rule::in(User::tenantEnvironmentOptions())],
+        ]);
+
+        $tenant->tenant_environment = $validated['tenant_environment'];
+        $tenant->save();
+
+        $label = $tenant->isTestTenant() ? __('test') : __('live');
+
+        return redirect()
+            ->back()
+            ->with('status', __('Tenant :name marked as :environment.', [
+                'name' => $tenant->name,
+                'environment' => $label,
+            ]));
+    }
+
     public function destroyTenant(Request $request, User $tenant): RedirectResponse
     {
         if ($tenant->isSuperAdmin()) {
@@ -182,11 +208,15 @@ class SuperAdminUserController extends Controller
                 ->with('error', __('You cannot delete your own account.'));
         }
 
-        $this->deleteTenantCascade($tenant);
+        $result = DB::transaction(fn () => $this->deleteTenantCascade($tenant, $request->user()));
 
         return redirect()
             ->route('super-admin.dashboard')
-            ->with('status', __('Tenant deleted. All associated businesses were removed, and tenant-only users were deleted.'));
+            ->with('status', __('Tenant :name deleted. :businesses businesses, :staff staff accounts, and all associated data were permanently removed.', [
+                'name' => $result['tenant_name'],
+                'businesses' => $result['business_count'],
+                'staff' => $result['staff_count'],
+            ]));
     }
 
     public function destroyTenantsBulk(Request $request): RedirectResponse
@@ -219,22 +249,38 @@ class SuperAdminUserController extends Controller
                 ->with('error', __('No valid tenant accounts were selected.'));
         }
 
-        DB::transaction(function () use ($tenants): void {
+        DB::transaction(function () use ($tenants, $request): void {
             foreach ($tenants as $tenant) {
-                $this->deleteTenantCascade($tenant);
+                $this->deleteTenantCascade($tenant, $request->user());
             }
         });
 
         return redirect()
             ->route('super-admin.dashboard')
-            ->with('status', __('Selected tenants deleted. Associated businesses were removed, and tenant-only users were deleted.'));
+            ->with('status', __(':count selected tenant(s) deleted. Associated businesses, staff accounts, and all related data were permanently removed.', [
+                'count' => $tenants->count(),
+            ]));
     }
 
-    private function deleteTenantCascade(User $tenant): void
+    /**
+     * @return array{
+     *   tenant_name: string,
+     *   business_ids: list<int>,
+     *   staff_user_ids: list<int>,
+     *   business_count: int,
+     *   staff_count: int
+     * }
+     */
+    private function deleteTenantCascade(User $tenant, ?User $actor = null): array
     {
         $ownedBusinessIds = Business::query()
             ->where('user_id', $tenant->id)
-            ->pluck('id');
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $deletedStaffIds = [];
 
         $associatedUserIds = DB::table('business_user')
             ->whereIn('business_id', $ownedBusinessIds)
@@ -260,10 +306,32 @@ class SuperAdminUserController extends Controller
                 ->exists();
 
             if (! $hasOwnedBusinessesOutsideTenant && ! $hasMembershipOutsideTenant) {
+                $deletedStaffIds[] = (int) $associatedUser->id;
                 $associatedUser->delete();
             }
         }
 
+        $tenantName = (string) $tenant->name;
+        $tenantId = (int) $tenant->id;
         $tenant->delete();
+
+        if ($actor !== null) {
+            SuperAdminActivityLogger::log($actor, 'tenant.deleted', [
+                'tenant_id' => $tenantId,
+                'tenant_name' => $tenantName,
+                'business_ids' => $ownedBusinessIds,
+                'staff_user_ids' => $deletedStaffIds,
+                'business_count' => count($ownedBusinessIds),
+                'staff_count' => count($deletedStaffIds),
+            ]);
+        }
+
+        return [
+            'tenant_name' => $tenantName,
+            'business_ids' => $ownedBusinessIds,
+            'staff_user_ids' => $deletedStaffIds,
+            'business_count' => count($ownedBusinessIds),
+            'staff_count' => count($deletedStaffIds),
+        ];
     }
 }

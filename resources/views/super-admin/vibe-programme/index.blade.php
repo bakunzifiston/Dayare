@@ -6,7 +6,7 @@
                 <p class="text-xs text-slate-500 mt-0.5">{{ __('Global business monitoring and evaluation workspace.') }}</p>
             </div>
             <a
-                href="{{ route('super-admin.vibe-programme.export', array_filter($filters, fn ($value) => $value !== '')) }}"
+                href="{{ route('super-admin.vibe-programme.export', array_filter(array_merge($filters, ['tenant_environment' => $tenantEnvironmentFilter ?? 'live']))) }}"
                 class="inline-flex items-center px-3 py-2 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy"
             >
                 {{ __('Export programme CSV') }}
@@ -16,6 +16,11 @@
 
     <div class="py-8">
         <div class="max-w-7xl mx-auto space-y-5">
+            <x-super-admin.tenant-environment-filter
+                :action="route('super-admin.vibe-programme.index')"
+                :current="$tenantEnvironmentFilter ?? null"
+            />
+
             <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Businesses') }}</p>
@@ -40,6 +45,7 @@
 
             <section class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
                 <form method="GET" action="{{ route('super-admin.vibe-programme.index') }}" class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+                    <input type="hidden" name="tenant_environment" value="{{ $tenantEnvironmentFilter ?? 'live' }}">
                     <div class="md:col-span-2">
                         <x-input-label for="search" :value="__('Search')" />
                         <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" :value="$filters['search']" placeholder="{{ __('Business name, registration number, owner, VIBE ID') }}" />

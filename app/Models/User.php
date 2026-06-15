@@ -29,6 +29,7 @@ class User extends Authenticatable
         'password',
         'is_super_admin',
         'super_admin_permissions',
+        'tenant_environment',
     ];
 
     /**
@@ -67,6 +68,36 @@ class User extends Authenticatable
     public const SUPER_ADMIN_MODULE_SYSTEM_SETTINGS = 'system_settings';
 
     public const SUPER_ADMIN_MODULE_RICA = 'rica';
+
+    public const TENANT_ENVIRONMENT_LIVE = 'live';
+
+    public const TENANT_ENVIRONMENT_TEST = 'test';
+
+    /**
+     * @return list<string>
+     */
+    public static function tenantEnvironmentOptions(): array
+    {
+        return [
+            self::TENANT_ENVIRONMENT_LIVE,
+            self::TENANT_ENVIRONMENT_TEST,
+        ];
+    }
+
+    public function isTestTenant(): bool
+    {
+        return $this->tenant_environment === self::TENANT_ENVIRONMENT_TEST;
+    }
+
+    public function isLiveTenant(): bool
+    {
+        return ! $this->isTestTenant();
+    }
+
+    public function tenantEnvironmentLabel(): string
+    {
+        return $this->isTestTenant() ? __('Test') : __('Live');
+    }
 
     /**
      * @return list<string>

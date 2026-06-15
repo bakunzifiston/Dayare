@@ -10,6 +10,81 @@
 
     <div class="py-6">
         <div class="max-w-7xl mx-auto space-y-8">
+            <x-super-admin.tenant-environment-filter
+                :action="route('super-admin.dashboard')"
+                :current="$tenantEnvironmentFilter"
+            />
+
+            {{-- Platform summary --}}
+            <section class="rounded-xl border border-slate-200/80 bg-gradient-to-r from-slate-50 to-white p-5 shadow-sm">
+                <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Platform summary') }}</h2>
+                <p class="text-xs text-slate-500 mt-0.5">{{ __('Key operational counts for the current month.') }}</p>
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <x-kpi-card stat glyph="building" color="blue"
+                        :title="__('Active facilities')"
+                        :subtitle="__('Facilities with active operating status')"
+                        :value="$complianceSummary['active_facilities']" />
+                    <x-kpi-card stat glyph="box" color="slate"
+                        :title="__('Batches this month')"
+                        :subtitle="__('Slaughter batches by execution date')"
+                        :value="$complianceSummary['batches_this_month']" />
+                    <x-kpi-card stat glyph="certificate" color="green"
+                        :title="__('Certificates this month')"
+                        :subtitle="__('Veterinary certificates issued')"
+                        :value="$complianceSummary['certificates_this_month']" />
+                </div>
+            </section>
+
+            {{-- Pipeline compliance alerts --}}
+            <section class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
+                <div class="px-6 py-4 border-b border-slate-100">
+                    <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Pipeline compliance alerts') }}</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">{{ __('Actionable slaughter pipeline issues across all tenants.') }}</p>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach ($pipelineAlerts as $alert)
+                            <x-super-admin.compliance-alert-card
+                                :label="$alert['label']"
+                                :description="$alert['description']"
+                                :count="$alert['count']"
+                                :severity="$alert['count'] > 0 ? $alert['severity'] : 'green'"
+                                :icon="$alert['icon']"
+                                :href="$alert['href']"
+                            />
+                        @endforeach
+                    </div>
+                    @if (collect($pipelineAlerts)->every(fn ($a) => ($a['count'] ?? 0) === 0))
+                        <p class="mt-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-3">
+                            {{ __('All pipeline compliance checks are clear. No slaughter workflow issues require attention.') }}
+                        </p>
+                    @endif
+                </div>
+            </section>
+
+            {{-- Administrative compliance --}}
+            @php $adminWithIssues = collect($administrativeAlerts)->filter(fn ($a) => ($a['count'] ?? 0) > 0); @endphp
+            @if ($adminWithIssues->isNotEmpty())
+                <section class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
+                    <div class="px-6 py-4 border-b border-slate-100">
+                        <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Administrative compliance') }}</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">{{ __('Licenses, contracts, and authorization expiry alerts.') }}</p>
+                    </div>
+                    <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach ($adminWithIssues as $alert)
+                            <x-super-admin.compliance-alert-card
+                                :label="$alert['label']"
+                                :description="$alert['description']"
+                                :count="$alert['count']"
+                                :severity="$alert['severity']"
+                                :icon="$alert['icon']"
+                                :href="null"
+                            />
+                        @endforeach
+                    </div>
+                </section>
+            @endif
+
             {{-- 1. Global KPIs --}}
             <section class="space-y-4">
                 <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Global KPIs') }}</h2>
@@ -21,7 +96,7 @@
                     <div class="p-6">
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                             <x-kpi-card title="{{ __('Total tenants') }}" :value="$workspaceKpis['tenants']" color="blue" />
-                            <x-kpi-card title="{{ __('Total businesses') }}" :value="$workspaceKpis['businesses']" :href="route('businesses.hub')" color="slate" />
+                            <x-kpi-card title="{{ __('Total businesses') }}" :value="$workspaceKpis['businesses']" :href="route('super-admin.vibe-programme.index')" color="slate" />
                             <x-kpi-card title="{{ __('Total users') }}" :value="$workspaceKpis['users']" color="blue" />
                             <x-kpi-card title="{{ __('Total delete actions') }}" :value="$workspaceKpis['delete_actions']" color="slate" />
                         </div>
@@ -68,6 +143,7 @@
                                         <th class="px-4 py-3">{{ __('Business type') }}</th>
                                         <th class="px-4 py-3">{{ __('Number of businesses') }}</th>
                                         <th class="px-4 py-3">{{ __('Number of users') }}</th>
+                                        <th class="px-4 py-3">{{ __('Environment') }}</th>
                                         <th class="px-4 py-3 text-right">{{ __('Actions') }}</th>
                                     </tr>
                                 </thead>
@@ -123,6 +199,27 @@
                                             <td class="px-4 py-3.5">
                                                 <span class="inline-flex min-w-8 justify-center rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-700">{{ $tenant['users_count'] }}</span>
                                             </td>
+                                            <td class="px-4 py-3.5">
+                                                @if (auth()->user()?->hasSuperAdminModuleAccess(\App\Models\User::SUPER_ADMIN_MODULE_USER_MANAGEMENT) && (int) ($tenant['id'] ?? 0) !== (int) Auth::id())
+                                                    <form method="POST" action="{{ route('super-admin.tenants.environment', ['tenant' => $tenant['id']]) }}" class="inline-flex items-center gap-2">
+                                                        @csrf
+                                                        @method('PATCH')
+                                                        <select
+                                                            name="tenant_environment"
+                                                            onchange="this.form.submit()"
+                                                            class="text-xs rounded-md border-slate-300 py-1 pl-2 pr-7 focus:border-bucha-primary focus:ring-bucha-primary {{ ($tenant['tenant_environment'] ?? 'live') === 'test' ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-emerald-50 text-emerald-900 border-emerald-200' }}"
+                                                            aria-label="{{ __('Tenant environment for :name', ['name' => $tenant['tenant_name']]) }}"
+                                                        >
+                                                            <option value="live" @selected(($tenant['tenant_environment'] ?? 'live') === 'live')>{{ __('Live') }}</option>
+                                                            <option value="test" @selected(($tenant['tenant_environment'] ?? 'live') === 'test')>{{ __('Test') }}</option>
+                                                        </select>
+                                                    </form>
+                                                @else
+                                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold {{ ($tenant['tenant_environment'] ?? 'live') === 'test' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800' }}">
+                                                        {{ ($tenant['tenant_environment'] ?? 'live') === 'test' ? __('Test') : __('Live') }}
+                                                    </span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3.5 text-right">
                                                 @if ((int) ($tenant['id'] ?? 0) !== (int) Auth::id() && auth()->user()?->hasSuperAdminModuleAccess(\App\Models\User::SUPER_ADMIN_MODULE_USER_MANAGEMENT))
                                                     <button
@@ -130,6 +227,8 @@
                                                         class="tenant-delete-trigger text-rose-600 hover:text-rose-800 text-xs font-semibold"
                                                         data-delete-url="{{ route('super-admin.tenants.destroy', ['tenant' => $tenant['id']]) }}"
                                                         data-tenant-name="{{ $tenant['tenant_name'] }}"
+                                                        data-businesses-count="{{ $tenant['businesses_count'] }}"
+                                                        data-staff-count="{{ $tenant['staff_count'] }}"
                                                     >
                                                         {{ __('Delete') }}
                                                     </button>
@@ -181,75 +280,6 @@
                             </table>
                         @endif
                     </div>
-                </div>
-            </section>
-
-            {{-- 2. Compliance monitoring --}}
-            <section class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
-                <div class="px-6 py-4 border-b border-slate-100">
-                    <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Compliance monitoring') }}</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">{{ __('Alerts for compliance issues across the platform.') }}</p>
-                </div>
-                <div class="p-6">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @if ($compliance['facilities_expired_license'] > 0)
-                            <div class="rounded-lg border border-red-200 bg-red-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-red-900">{{ __('Facilities with expired licenses') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-red-700">{{ $compliance['facilities_expired_license'] }}</p>
-                            </div>
-                        @endif
-                        @if ($compliance['inspectors_expired_authorization'] > 0)
-                            <div class="rounded-lg border border-red-200 bg-red-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-red-900">{{ __('Inspectors with expired authorization') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-red-700">{{ $compliance['inspectors_expired_authorization'] }}</p>
-                            </div>
-                        @endif
-                        @if ($compliance['employees_expired_contracts'] > 0)
-                            <div class="rounded-lg border border-red-200 bg-red-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-red-900">{{ __('Employees with expired contracts') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-red-700">{{ $compliance['employees_expired_contracts'] }}</p>
-                            </div>
-                        @endif
-                        @if ($compliance['supplier_contracts_expiring_soon'] > 0)
-                            <div class="rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-amber-900">{{ __('Supplier contracts expiring soon') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-amber-700">{{ $compliance['supplier_contracts_expiring_soon'] }}</p>
-                            </div>
-                        @endif
-                        @if ($compliance['sessions_without_ante_mortem'] > 0)
-                            <div class="rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-amber-900">{{ __('Slaughter sessions without Ante-Mortem') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-amber-700">{{ $compliance['sessions_without_ante_mortem'] }}</p>
-                            </div>
-                        @endif
-                        @if ($compliance['batches_without_post_mortem'] > 0)
-                            <div class="rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-amber-900">{{ __('Batches without Post-Mortem') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-amber-700">{{ $compliance['batches_without_post_mortem'] }}</p>
-                            </div>
-                        @endif
-                        @if ($compliance['batches_without_certificate'] > 0)
-                            <div class="rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-amber-900">{{ __('Batches without certificates') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-amber-700">{{ $compliance['batches_without_certificate'] }}</p>
-                            </div>
-                        @endif
-                        @if ($compliance['temperature_violations'] > 0)
-                            <div class="rounded-lg border border-red-200 bg-red-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-red-900">{{ __('Temperature violations in cold room') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-red-700">{{ $compliance['temperature_violations'] }}</p>
-                            </div>
-                        @endif
-                        @if ($compliance['batches_stored_beyond_time'] > 0)
-                            <div class="rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3">
-                                <p class="text-sm font-medium text-amber-900">{{ __('Batches stored beyond allowed time') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-amber-700">{{ $compliance['batches_stored_beyond_time'] }}</p>
-                            </div>
-                        @endif
-                    </div>
-                    @if (array_sum($compliance) === 0)
-                        <p class="text-sm text-slate-500">{{ __('No compliance alerts at this time.') }}</p>
-                    @endif
                 </div>
             </section>
 
@@ -363,9 +393,16 @@
     <dialog id="tenant-delete-dialog" class="w-full max-w-lg rounded-xl border border-slate-200 p-0 backdrop:bg-slate-900/40">
         <div class="px-6 py-5">
             <h3 class="text-base font-semibold text-slate-900">{{ __('Delete tenant account') }}</h3>
-            <p class="mt-3 text-sm text-slate-700">{{ __('Are you sure you want to delete this tenant?') }}</p>
-            <p class="mt-1 text-sm text-slate-700">{{ __('This action will permanently remove all associated businesses and users.') }}</p>
-            <p id="tenant-delete-name" class="mt-3 text-xs text-slate-500"></p>
+            <p class="mt-3 text-sm text-slate-700">{{ __('This action is irreversible. The following will be permanently removed:') }}</p>
+            <ul class="mt-3 space-y-1 text-sm text-slate-700 list-disc list-inside">
+                <li id="tenant-delete-businesses-line"></li>
+                <li id="tenant-delete-staff-line"></li>
+                <li>{{ __('All slaughter, inspection, certificate, and business data') }}</li>
+            </ul>
+            <p id="tenant-delete-name" class="mt-4 text-sm font-semibold text-slate-900"></p>
+            <p class="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-md px-3 py-2">
+                {{ __('Warning: This cannot be undone. Export any data you need before proceeding.') }}
+            </p>
         </div>
         <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2">
             <button id="tenant-delete-cancel" type="button" class="inline-flex items-center px-3 py-2 rounded-md text-xs font-semibold border border-slate-300 text-slate-700 hover:bg-slate-50">
@@ -412,6 +449,8 @@
                 const form = document.getElementById('tenant-delete-form');
                 const cancelButton = document.getElementById('tenant-delete-cancel');
                 const nameEl = document.getElementById('tenant-delete-name');
+                const businessesLine = document.getElementById('tenant-delete-businesses-line');
+                const staffLine = document.getElementById('tenant-delete-staff-line');
                 const triggers = document.querySelectorAll('.tenant-delete-trigger');
                 const selectAll = document.getElementById('tenant-select-all');
                 const selectRows = document.querySelectorAll('.tenant-select-checkbox');
@@ -430,8 +469,16 @@
                     button.addEventListener('click', function () {
                         const deleteUrl = button.getAttribute('data-delete-url') || '';
                         const tenantName = button.getAttribute('data-tenant-name') || '';
+                        const businessesCount = button.getAttribute('data-businesses-count') || '0';
+                        const staffCount = button.getAttribute('data-staff-count') || '0';
                         form.setAttribute('action', deleteUrl);
-                        nameEl.textContent = tenantName ? `Tenant: ${tenantName}` : '';
+                        nameEl.textContent = tenantName ? `{{ __('Tenant') }}: ${tenantName}` : '';
+                        if (businessesLine) {
+                            businessesLine.textContent = `{{ __('Businesses') }}: ${businessesCount}`;
+                        }
+                        if (staffLine) {
+                            staffLine.textContent = `{{ __('Staff accounts') }}: ${staffCount}`;
+                        }
                         dialog.showModal();
                     });
                 });

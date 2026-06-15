@@ -10,6 +10,8 @@ use App\Models\PostMortemInspectionItem;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
+use App\Services\SuperAdmin\RicaReportService;
+use App\Support\TenantEnvironmentScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -19,6 +21,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RicaController extends Controller
 {
+    public function __construct(
+        private readonly RicaReportService $reportService,
+    ) {}
+
     /**
      * All slaughterhouses across all businesses — no tenant scoping.
      */
@@ -36,9 +42,13 @@ class RicaController extends Controller
         return SlaughterPlan::whereIn('facility_id', $facilityIds)->pluck('id');
     }
 
-    public function hub(): View
+    public function hub(Request $request): View
     {
-        $facilityIds = Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)->pluck('id');
+        TenantEnvironmentScope::setFilter(TenantEnvironmentScope::resolveFromRequest($request));
+
+        $facilityIds = TenantEnvironmentScope::applyToFacilities(
+            Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)
+        )->pluck('id');
         $planIds = $this->planIdsForFacilities($facilityIds);
 
         $monthExecutionFilter = fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
@@ -53,18 +63,18 @@ class RicaController extends Controller
             'animals_slaughtered_month' => SlaughterExecutionItem::whereHas('execution', $monthExecutionFilter)->count(),
             'meat_kg_month' => (float) SlaughterExecutionItem::whereHas('execution', $monthExecutionFilter)->sum('meat_quantity_kg'),
             'condemned_month' => PostMortemInspectionItem::whereHas(
-                'inspection.batch.slaughterExecution.slaughterPlan',
-                fn ($q) => $q->whereIn('facility_id', $facilityIds)
+                'inspection.batch.slaughterExecution',
+                fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
+                    ->whereMonth('slaughter_time', now()->month)
+                    ->whereYear('slaughter_time', now()->year)
             )->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)
-                ->whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
                 ->count(),
             'certificates_month' => Certificate::whereHas(
-                'batch.slaughterExecution.slaughterPlan',
-                fn ($q) => $q->whereIn('facility_id', $facilityIds)
-            )->whereMonth('issued_at', now()->month)
-                ->whereYear('issued_at', now()->year)
-                ->count(),
+                'batch.slaughterExecution',
+                fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
+                    ->whereMonth('slaughter_time', now()->month)
+                    ->whereYear('slaughter_time', now()->year)
+            )->count(),
         ];
 
         $recentExecutions = SlaughterExecution::whereIn('slaughter_plan_id', $planIds)
@@ -79,7 +89,8 @@ class RicaController extends Controller
             ->limit(6)
             ->get();
 
-        return view('superadmin.rica.hub', compact('hubStats', 'recentExecutions', 'slaughterhouses'));
+        return view('superadmin.rica.hub', compact('hubStats', 'recentExecutions', 'slaughterhouses'))
+            ->with('tenantEnvironmentFilter', TenantEnvironmentScope::current());
     }
 
     public function index(Request $request): View
@@ -121,16 +132,16 @@ class RicaController extends Controller
             'animals_slaughtered' => (clone $execItemsBase)->count(),
             'total_meat_kg' => (float) (clone $execItemsBase)->sum('meat_quantity_kg'),
             'condemned' => PostMortemInspectionItem::whereHas(
-                'inspection.batch.slaughterExecution.slaughterPlan',
-                fn ($q) => $q->where('facility_id', $facility->id)
+                'inspection.batch.slaughterExecution',
+                fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
+                    ->whereBetween('slaughter_time', [$dateFrom, $dateTo])
             )->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)
-                ->whereBetween('created_at', [$dateFrom, $dateTo])
                 ->count(),
             'certificates' => Certificate::whereHas(
-                'batch.slaughterExecution.slaughterPlan',
-                fn ($q) => $q->where('facility_id', $facility->id)
-            )->whereBetween('issued_at', [$dateFrom, $dateTo])
-                ->count(),
+                'batch.slaughterExecution',
+                fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
+                    ->whereBetween('slaughter_time', [$dateFrom, $dateTo])
+            )->count(),
         ];
 
         $speciesBreakdown = SlaughterExecutionItem::whereHas('execution', fn ($q) => $q
@@ -163,58 +174,33 @@ class RicaController extends Controller
 
     public function reports(Request $request): View
     {
-        $dateFrom = $request->date_from
-            ? Carbon::parse($request->date_from)->startOfDay()
-            : now()->startOfMonth();
-        $dateTo = $request->date_to
-            ? Carbon::parse($request->date_to)->endOfDay()
-            : now()->endOfMonth();
+        TenantEnvironmentScope::setFilter(TenantEnvironmentScope::resolveFromRequest($request));
 
-        $businesses = Business::whereHas('facilities', fn ($q) => $q
-            ->where('facility_type', Facility::TYPE_SLAUGHTERHOUSE))
-            ->orderBy('business_name')
-            ->get();
+        $report = $this->reportService->buildReport($request);
 
-        $reportRows = Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)
-            ->with('business')
-            ->when($request->business_id, fn ($q) => $q->where('business_id', $request->business_id))
-            ->orderBy('facility_name')
-            ->get()
-            ->map(function (Facility $facility) use ($dateFrom, $dateTo) {
-                $planIds = SlaughterPlan::where('facility_id', $facility->id)->pluck('id');
-                $execBase = SlaughterExecutionItem::whereHas('execution', fn ($q) => $q
-                    ->whereIn('slaughter_plan_id', $planIds)
-                    ->whereBetween('slaughter_time', [$dateFrom, $dateTo]));
+        $businesses = TenantEnvironmentScope::applyToBusinesses(
+            Business::whereHas('facilities', fn ($q) => $q->where('facility_type', Facility::TYPE_SLAUGHTERHOUSE))
+        )->orderBy('business_name')->get();
 
-                return [
-                    'facility' => $facility,
-                    'animals' => (clone $execBase)->count(),
-                    'total_meat_kg' => (float) (clone $execBase)->sum('meat_quantity_kg'),
-                    'condemned' => PostMortemInspectionItem::whereHas(
-                        'inspection.batch.slaughterExecution.slaughterPlan',
-                        fn ($q) => $q->where('facility_id', $facility->id)
-                    )->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)
-                        ->whereBetween('created_at', [$dateFrom, $dateTo])
-                        ->count(),
-                    'certificates' => Certificate::whereHas(
-                        'batch.slaughterExecution.slaughterPlan',
-                        fn ($q) => $q->where('facility_id', $facility->id)
-                    )->whereBetween('issued_at', [$dateFrom, $dateTo])
-                        ->count(),
-                ];
-            });
-
-        return view('superadmin.rica.reports', compact('reportRows', 'businesses', 'dateFrom', 'dateTo'));
+        return view('superadmin.rica.reports', [
+            'reportRows' => $report['rows'],
+            'totals' => $report['totals'],
+            'dateFrom' => $report['dateFrom'],
+            'dateTo' => $report['dateTo'],
+            'dateBasis' => $report['dateBasis'],
+            'businesses' => $businesses,
+            'tenantEnvironmentFilter' => TenantEnvironmentScope::current(),
+        ]);
     }
 
     public function export(Request $request): StreamedResponse
     {
-        $dateFrom = $request->date_from
-            ? Carbon::parse($request->date_from)->startOfDay()
-            : now()->startOfMonth();
-        $dateTo = $request->date_to
-            ? Carbon::parse($request->date_to)->endOfDay()
-            : now()->endOfMonth();
+        TenantEnvironmentScope::setFilter(TenantEnvironmentScope::resolveFromRequest($request));
+        $report = $this->reportService->buildReport($request);
+        $rows = $this->reportService->allRowsForExport($request);
+
+        $dateFrom = $report['dateFrom'];
+        $dateTo = $report['dateTo'];
 
         $filename = 'rica-report-'
             .$dateFrom->format('Y-m-d')
@@ -222,7 +208,7 @@ class RicaController extends Controller
             .$dateTo->format('Y-m-d')
             .'.csv';
 
-        return response()->streamDownload(function () use ($dateFrom, $dateTo, $request): void {
+        return response()->streamDownload(function () use ($rows, $report): void {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, [
                 'Slaughterhouse',
@@ -231,38 +217,37 @@ class RicaController extends Controller
                 'Total meat (kg)',
                 'Condemned at PM',
                 'Certificates issued',
+                'Released, no certificate',
+                'Avg cold room days',
+                'Temperature violations',
             ]);
 
-            Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)
-                ->with('business')
-                ->when($request->business_id, fn ($q) => $q->where('business_id', $request->business_id))
-                ->orderBy('facility_name')
-                ->chunk(50, function ($facilities) use ($handle, $dateFrom, $dateTo): void {
-                    foreach ($facilities as $facility) {
-                        $planIds = SlaughterPlan::where('facility_id', $facility->id)->pluck('id');
-                        $execBase = SlaughterExecutionItem::whereHas('execution', fn ($q) => $q
-                            ->whereIn('slaughter_plan_id', $planIds)
-                            ->whereBetween('slaughter_time', [$dateFrom, $dateTo]));
+            foreach ($rows as $row) {
+                fputcsv($handle, [
+                    $row['facility']->facility_name,
+                    $row['facility']->business->business_name ?? '—',
+                    $row['animals'],
+                    number_format((float) $row['total_meat_kg'], 2),
+                    $row['condemned'],
+                    $row['certificates'],
+                    $row['awaiting_certificate'],
+                    $row['avg_cold_room_days'] !== null ? number_format((float) $row['avg_cold_room_days'], 1) : '—',
+                    $row['temperature_violations'],
+                ]);
+            }
 
-                        fputcsv($handle, [
-                            $facility->facility_name,
-                            $facility->business->business_name ?? '—',
-                            (clone $execBase)->count(),
-                            number_format((float) (clone $execBase)->sum('meat_quantity_kg'), 2),
-                            PostMortemInspectionItem::whereHas(
-                                'inspection.batch.slaughterExecution.slaughterPlan',
-                                fn ($q) => $q->where('facility_id', $facility->id)
-                            )->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)
-                                ->whereBetween('created_at', [$dateFrom, $dateTo])
-                                ->count(),
-                            Certificate::whereHas(
-                                'batch.slaughterExecution.slaughterPlan',
-                                fn ($q) => $q->where('facility_id', $facility->id)
-                            )->whereBetween('issued_at', [$dateFrom, $dateTo])
-                                ->count(),
-                        ]);
-                    }
-                });
+            $totals = $report['totals'];
+            fputcsv($handle, [
+                'TOTALS',
+                '',
+                $totals['animals'],
+                number_format((float) $totals['total_meat_kg'], 2),
+                $totals['condemned'],
+                $totals['certificates'],
+                $totals['awaiting_certificate'],
+                $totals['avg_cold_room_days'] !== null ? number_format((float) $totals['avg_cold_room_days'], 1) : '—',
+                $totals['temperature_violations'],
+            ]);
 
             fclose($handle);
         }, $filename, ['Content-Type' => 'text/csv']);

@@ -4,25 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\AdministrativeDivision;
 use App\Models\AnimalIntake;
-use App\Models\AnteMortemInspection;
-use App\Models\Batch;
 use App\Models\Business;
+use App\Services\SuperAdmin\SuperAdminComplianceService;
 use App\Models\BusinessUser;
-use App\Models\Certificate;
+use App\Support\TenantEnvironmentScope;
 use App\Models\Client;
-use App\Models\Contract;
 use App\Models\DeliveryConfirmation;
 use App\Models\Demand;
 use App\Models\Facility;
 use App\Models\Inspector;
-use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
-use App\Models\SlaughterPlan;
 use App\Models\Supplier;
-use App\Models\TemperatureLog;
-use App\Models\TransportTrip;
 use App\Models\User;
-use App\Models\WarehouseStorage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -31,20 +24,23 @@ use Illuminate\View\View;
 
 class SuperAdminDashboardController extends Controller
 {
-    /** Max storage days before "stored beyond allowed time" alert (configurable). */
-    private const MAX_STORAGE_DAYS = 30;
-
-    /** Supplier contract "expiring soon" within days. */
-    private const CONTRACT_EXPIRING_DAYS = 30;
+    public function __construct(
+        private readonly SuperAdminComplianceService $complianceService,
+    ) {}
 
     public function index(Request $request): View
     {
+        $tenantEnvironmentFilter = TenantEnvironmentScope::resolveFromRequest($request);
+        TenantEnvironmentScope::setFilter($tenantEnvironmentFilter);
+
         $platformKpis = $this->platformKpis();
         $workspaceKpis = $this->workspaceKpis();
         $tenantRows = $this->tenantRows();
         $tenantUserRows = $this->tenantUserRows();
 
-        $compliance = $this->complianceAlerts();
+        $complianceSummary = $this->complianceService->summaryBar();
+        $pipelineAlerts = $this->complianceService->pipelineAlertCards();
+        $administrativeAlerts = $this->complianceService->administrativeAlertCards();
 
         $demandTrends = $this->demandTrends();
         $charts = [
@@ -76,19 +72,24 @@ class SuperAdminDashboardController extends Controller
             'workspaceKpis',
             'tenantRows',
             'tenantUserRows',
-            'compliance',
+            'complianceSummary',
+            'pipelineAlerts',
+            'administrativeAlerts',
             'charts',
             'crmInsights',
             'allUsers',
-            'allBusinesses'
+            'allBusinesses',
+            'tenantEnvironmentFilter',
         ));
     }
 
     private function workspaceKpis(): array
     {
+        $businessQuery = TenantEnvironmentScope::applyToBusinesses(Business::query());
+
         return [
-            'tenants' => (int) Business::query()->distinct('user_id')->count('user_id'),
-            'businesses' => Business::count(),
+            'tenants' => (int) (clone $businessQuery)->distinct('user_id')->count('user_id'),
+            'businesses' => (clone $businessQuery)->count(),
             'users' => User::count(),
             'delete_actions' => $this->totalDeleteActions(),
         ];
@@ -110,10 +111,17 @@ class SuperAdminDashboardController extends Controller
                     ->unique()
                     ->count();
 
+                $staffCount = $tenant->businesses
+                    ->flatMap(fn (Business $business) => $business->memberUsers->pluck('id'))
+                    ->unique()
+                    ->count();
+
                 return [
                     'id' => (int) $tenant->id,
                     'tenant_name' => $tenant->name,
                     'tenant_email' => $tenant->email,
+                    'tenant_environment' => (string) ($tenant->tenant_environment ?? User::TENANT_ENVIRONMENT_LIVE),
+                    'staff_count' => (int) $staffCount,
                     'business_names' => $tenant->businesses
                         ->pluck('business_name')
                         ->filter()
@@ -135,9 +143,9 @@ class SuperAdminDashboardController extends Controller
 
     private function tenantUserRows()
     {
-        $businesses = Business::query()
+        $businesses = TenantEnvironmentScope::applyToBusinesses(Business::query())
             ->with([
-                'user:id,name,email',
+                'user:id,name,email,tenant_environment',
                 'memberUsers:id,name,email',
             ])
             ->orderBy('business_name')
@@ -196,63 +204,10 @@ class SuperAdminDashboardController extends Controller
     private function platformKpis(): array
     {
         return [
-            'businesses' => Business::count(),
-            'facilities' => Facility::count(),
+            'businesses' => TenantEnvironmentScope::applyToBusinesses(Business::query())->count(),
+            'facilities' => TenantEnvironmentScope::applyToFacilities(Facility::query())->count(),
             'users' => User::count(),
-            'inspectors' => Inspector::count(),
-        ];
-    }
-
-    private function complianceAlerts(): array
-    {
-        $today = now()->toDateString();
-        $expiringSoon = now()->addDays(self::CONTRACT_EXPIRING_DAYS)->toDateString();
-
-        $facilitiesExpiredLicense = Facility::whereNotNull('license_expiry_date')
-            ->where('license_expiry_date', '<', $today)
-            ->count();
-
-        $inspectorsExpiredAuth = Inspector::whereNotNull('authorization_expiry_date')
-            ->where('authorization_expiry_date', '<', $today)
-            ->count();
-
-        $employeeContractsExpired = Contract::where('contract_category', Contract::CATEGORY_EMPLOYEE)
-            ->whereNotNull('end_date')
-            ->where('end_date', '<', $today)
-            ->count();
-
-        $supplierContractsExpiringSoon = Contract::where('contract_category', Contract::CATEGORY_SUPPLIER)
-            ->where('status', Contract::STATUS_ACTIVE)
-            ->whereNotNull('end_date')
-            ->whereBetween('end_date', [$today, $expiringSoon])
-            ->count();
-
-        $planIdsWithAnteMortem = AnteMortemInspection::pluck('slaughter_plan_id')->unique()->filter();
-        $sessionsWithoutAnteMortem = SlaughterExecution::whereNotIn('slaughter_plan_id', $planIdsWithAnteMortem)->count();
-
-        $batchIdsWithPostMortem = PostMortemInspection::pluck('batch_id')->unique()->filter();
-        $batchesWithoutPostMortem = Batch::whereNotIn('id', $batchIdsWithPostMortem)->count();
-
-        $batchIdsWithCertificate = Certificate::pluck('batch_id')->unique()->filter();
-        $batchesWithoutCertificate = Batch::whereNotIn('id', $batchIdsWithCertificate)->count();
-
-        $temperatureViolations = TemperatureLog::whereIn('status', [TemperatureLog::STATUS_WARNING, TemperatureLog::STATUS_CRITICAL])->count();
-
-        $storageThreshold = now()->subDays(self::MAX_STORAGE_DAYS)->toDateString();
-        $batchesStoredBeyondTime = WarehouseStorage::where('status', WarehouseStorage::STATUS_IN_STORAGE)
-            ->where('entry_date', '<=', $storageThreshold)
-            ->count();
-
-        return [
-            'facilities_expired_license' => $facilitiesExpiredLicense,
-            'inspectors_expired_authorization' => $inspectorsExpiredAuth,
-            'employees_expired_contracts' => $employeeContractsExpired,
-            'supplier_contracts_expiring_soon' => $supplierContractsExpiringSoon,
-            'sessions_without_ante_mortem' => $sessionsWithoutAnteMortem,
-            'batches_without_post_mortem' => $batchesWithoutPostMortem,
-            'batches_without_certificate' => $batchesWithoutCertificate,
-            'temperature_violations' => $temperatureViolations,
-            'batches_stored_beyond_time' => $batchesStoredBeyondTime,
+            'inspectors' => TenantEnvironmentScope::applyToInspectors(Inspector::query())->count(),
         ];
     }
 
@@ -260,7 +215,8 @@ class SuperAdminDashboardController extends Controller
     {
         $days = 14;
         $start = now()->subDays($days)->startOfDay();
-        $executions = SlaughterExecution::whereNotNull('slaughter_time')
+        $executions = TenantEnvironmentScope::applyToSlaughterExecutions(SlaughterExecution::query())
+            ->whereNotNull('slaughter_time')
             ->where('slaughter_time', '>=', $start)
             ->get();
         $byDate = $executions->groupBy(fn ($e) => Carbon::parse($e->slaughter_time)->toDateString())
@@ -281,7 +237,7 @@ class SuperAdminDashboardController extends Controller
 
     private function chartSpeciesDistribution(): array
     {
-        $groups = AnimalIntake::query()
+        $groups = TenantEnvironmentScope::applyToAnimalIntakes(AnimalIntake::query())
             ->select('species')
             ->selectRaw('COALESCE(SUM(number_of_animals), 0) as total')
             ->groupBy('species')
@@ -302,9 +258,11 @@ class SuperAdminDashboardController extends Controller
         for ($i = $months - 1; $i >= 0; $i--) {
             $monthKeys[] = now()->subMonths($i)->format('Y-m');
         }
-        $demands = Demand::where('created_at', '>=', $start)->get();
+        $demands = TenantEnvironmentScope::applyToDemands(Demand::query())->where('created_at', '>=', $start)->get();
         $demandByMonth = $demands->groupBy(fn ($d) => Carbon::parse($d->created_at)->format('Y-m'))->map->count()->all();
-        $executions = SlaughterExecution::where('slaughter_time', '>=', $start)->get();
+        $executions = TenantEnvironmentScope::applyToSlaughterExecutions(SlaughterExecution::query())
+            ->where('slaughter_time', '>=', $start)
+            ->get();
         $supplyByMonth = $executions->groupBy(fn ($e) => Carbon::parse($e->slaughter_time)->format('Y-m'))
             ->map(fn ($g) => $g->sum('actual_animals_slaughtered'))->all();
         $fill = fn ($arr) => array_map(fn ($k) => (int) ($arr[$k] ?? 0), $monthKeys);
@@ -321,7 +279,9 @@ class SuperAdminDashboardController extends Controller
 
     private function chartDeliveriesByRegion(): array
     {
-        $deliveries = DeliveryConfirmation::with(['client', 'receivingFacility'])->get();
+        $deliveries = TenantEnvironmentScope::applyToDeliveryConfirmations(DeliveryConfirmation::query())
+            ->with(['client', 'receivingFacility'])
+            ->get();
         $districtCounts = [];
         foreach ($deliveries as $d) {
             $districtId = $d->client?->district_id ?? $d->receivingFacility?->district_id;
@@ -346,7 +306,7 @@ class SuperAdminDashboardController extends Controller
 
     private function topSuppliersByVolume(int $limit = 10): array
     {
-        $rows = AnimalIntake::query()
+        $rows = TenantEnvironmentScope::applyToAnimalIntakes(AnimalIntake::query())
             ->whereNotNull('supplier_id')
             ->selectRaw('supplier_id, COALESCE(SUM(number_of_animals), 0) as total')
             ->groupBy('supplier_id')
@@ -364,11 +324,13 @@ class SuperAdminDashboardController extends Controller
 
     private function supplierRejectionRate(): array
     {
-        $total = AnimalIntake::count();
+        $total = TenantEnvironmentScope::applyToAnimalIntakes(AnimalIntake::query())->count();
         if ($total === 0) {
             return ['rate' => 0, 'rejected' => 0, 'total' => 0];
         }
-        $rejected = AnimalIntake::where('status', AnimalIntake::STATUS_REJECTED)->count();
+        $rejected = TenantEnvironmentScope::applyToAnimalIntakes(AnimalIntake::query())
+            ->where('status', AnimalIntake::STATUS_REJECTED)
+            ->count();
         return [
             'rate' => round(($rejected / $total) * 100, 1),
             'rejected' => $rejected,
@@ -378,7 +340,7 @@ class SuperAdminDashboardController extends Controller
 
     private function topCustomersByVolume(int $limit = 10): array
     {
-        $rows = DeliveryConfirmation::query()
+        $rows = TenantEnvironmentScope::applyToDeliveryConfirmations(DeliveryConfirmation::query())
             ->whereNotNull('client_id')
             ->selectRaw('client_id, COALESCE(SUM(received_quantity), 0) as total')
             ->groupBy('client_id')
@@ -401,7 +363,7 @@ class SuperAdminDashboardController extends Controller
         for ($i = $months - 1; $i >= 0; $i--) {
             $monthKeys[] = now()->subMonths($i)->format('Y-m');
         }
-        $demands = Demand::where('created_at', '>=', $start)->get();
+        $demands = TenantEnvironmentScope::applyToDemands(Demand::query())->where('created_at', '>=', $start)->get();
         $byMonth = $demands->groupBy(fn ($d) => Carbon::parse($d->created_at)->format('Y-m'))->map->count()->all();
         return [
             'labels' => array_map(fn ($k) => Carbon::createFromFormat('Y-m', $k)->translatedFormat('M Y'), $monthKeys),

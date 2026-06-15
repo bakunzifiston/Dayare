@@ -75,6 +75,7 @@ use App\Http\Controllers\SlaughterExecutionController;
 use App\Http\Controllers\SlaughterPlanController;
 use App\Http\Controllers\SpeciesController;
 use App\Http\Controllers\SuperAdminConfigurationController;
+use App\Http\Controllers\SuperAdminComplianceController;
 use App\Http\Controllers\SuperAdminDashboardController;
 use App\Http\Controllers\SuperAdminUserController;
 use App\Http\Controllers\SuperAdmin\RicaController;
@@ -569,6 +570,9 @@ Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->nam
     Route::get('/', [SuperAdminDashboardController::class, 'index'])
         ->middleware('super_admin.module:dashboard')
         ->name('dashboard');
+    Route::get('compliance', [SuperAdminComplianceController::class, 'index'])
+        ->middleware('super_admin.module:dashboard')
+        ->name('compliance.index');
     Route::get('configuration', [SuperAdminConfigurationController::class, 'index'])
         ->middleware('super_admin.module:configuration')
         ->name('configurations.index');
@@ -599,6 +603,9 @@ Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->nam
     Route::delete('tenants/{tenant}', [SuperAdminUserController::class, 'destroyTenant'])
         ->middleware('super_admin.module:user_management')
         ->name('tenants.destroy');
+    Route::patch('tenants/{tenant}/tenant-environment', [SuperAdminUserController::class, 'updateTenantEnvironment'])
+        ->middleware('super_admin.module:user_management')
+        ->name('tenants.environment');
 });
 
 Route::middleware(['auth', 'tenant', 'super_admin', 'super_admin.module:rica'])
