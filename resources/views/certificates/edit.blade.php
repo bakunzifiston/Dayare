@@ -9,7 +9,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <form method="post" action="{{ route('certificates.update', $certificate) }}" class="space-y-6" id="certificate-edit-form">
                     @csrf
@@ -61,6 +61,11 @@
                         <p class="mt-1 text-xs text-gray-500">{{ __('Enter the official name exactly as it should appear on the printed certificate.') }}</p>
                         <x-input-error class="mt-2" :messages="$errors->get('slaughterhouse_display_name')" />
                     </div>
+
+                    @include('certificates.partials.pdf-details-form', [
+                        'pdfDefaults' => $pdfDefaults ?? [],
+                        'savedPdfDetails' => $savedPdfDetails ?? [],
+                    ])
 
                     <div>
                         <x-input-label for="certificate_number" :value="__('Certificate number')" />

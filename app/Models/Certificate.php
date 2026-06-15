@@ -21,6 +21,7 @@ class Certificate extends Model
         'inspector_id',
         'facility_id',
         'slaughterhouse_display_name',
+        'pdf_details',
         'certificate_number',
         'issued_at',
         'expiry_date',
@@ -32,6 +33,7 @@ class Certificate extends Model
         return [
             'issued_at' => 'date',
             'expiry_date' => 'date',
+            'pdf_details' => 'array',
         ];
     }
 

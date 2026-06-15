@@ -355,6 +355,14 @@ class CertificateController extends Controller
                 : null,
         );
 
+        $pdfDefaults = [];
+        if ($selectedBatch?->canIssueCertificate()) {
+            $pdfDefaults = app(CertificatePdfService::class)->suggestedPdfDetails(
+                $selectedBatch,
+                $selectedBatch->slaughterExecution?->slaughterPlan?->facility,
+            );
+        }
+
         return view('certificates.create', [
             'batches' => $batches,
             'blockedBatches' => $blockedBatches,
@@ -365,6 +373,8 @@ class CertificateController extends Controller
             'defaultInspectorId' => $defaultInspectorId,
             'defaultFacilityId' => $defaultFacilityId,
             'defaultSlaughterhouseName' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
+            'pdfDefaults' => $pdfDefaults,
+            'savedPdfDetails' => [],
         ]);
     }
 
@@ -466,11 +476,20 @@ class CertificateController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
+        $certificate->load(['batch', 'facility', 'transportTrips']);
+        $pdfDefaults = app(CertificatePdfService::class)->suggestedPdfDetails(
+            $certificate->batch,
+            $certificate->facility,
+            $certificate->transportTrips->sortByDesc('departure_date')->first(),
+        );
+
         return view('certificates.edit', [
             'certificate' => $certificate,
             'batches' => $batches,
             'inspectorsByFacility' => $inspectorsByFacility,
             'facilities' => $facilities,
+            'pdfDefaults' => $pdfDefaults,
+            'savedPdfDetails' => $certificate->pdf_details ?? [],
         ]);
     }
 

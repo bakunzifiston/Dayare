@@ -27,7 +27,7 @@
                         {{ __('View all') }}
                     </a>
                     <a href="{{ route('post-mortem-inspections.create') }}"
-                       class="text-sm px-3 py-1.5 rounded border border-gray-800 bg-gray-900 hover:bg-gray-800 text-white">
+                       class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
                         {{ __('+ New inspection') }}
                     </a>
                 </div>

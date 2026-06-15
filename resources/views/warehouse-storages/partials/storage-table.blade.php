@@ -17,27 +17,53 @@
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50">
                 <tr>
-                    <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Animal / batch') }}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Ear tag') }}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Animal') }}</th>
+                    <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Batch') }}</th>
                     <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Cold room') }}</th>
                     <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Entry date') }}</th>
-                    <th class="px-4 py-3 text-right font-semibold text-slate-700">{{ __('Quantity') }}</th>
+                    <th class="px-4 py-3 text-right font-semibold text-slate-700">{{ __('Meat stored') }}</th>
                     <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Status') }}</th>
                     <th class="px-4 py-3 text-right font-semibold text-slate-700">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
                 @forelse ($storages as $s)
+                    @php
+                        $animal = $s->resolvedIntakeItem();
+                    @endphp
                     <tr class="hover:bg-slate-50/80">
                         <td class="px-4 py-3">
-                            <p class="font-medium text-slate-900">
-                                {{ $s->intakeItem?->ear_tag ?: ($s->batch->batch_code ?? '—') }}
+                            <p class="font-mono text-sm font-medium text-slate-900">
+                                {{ $animal?->ear_tag ?: '—' }}
                             </p>
-                            <p class="text-xs text-slate-500 mt-0.5">
-                                {{ $s->batch->batch_code ?? '—' }}
-                                @if ($s->certificate)
-                                    · {{ $s->certificate->certificate_number ?: '#'.$s->certificate_id }}
+                        </td>
+                        <td class="px-4 py-3 text-slate-600">
+                            @if ($animal)
+                                <p class="text-sm text-slate-900">{{ $animal->species }}{{ $animal->sex ? ' · '.ucfirst($animal->sex) : '' }}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">
+                                    {{ __('Live weight (before slaughter)') }}:
+                                    <span class="font-medium text-slate-700 tabular-nums">
+                                        {{ $animal->live_weight_kg ? number_format((float) $animal->live_weight_kg, 2).' kg' : '—' }}
+                                    </span>
+                                </p>
+                                @if ($s->postMortemInspectionItem?->carcass_weight_kg)
+                                    <p class="text-xs text-slate-500">
+                                        {{ __('Carcass (post-mortem)') }}:
+                                        <span class="tabular-nums">{{ number_format((float) $s->postMortemInspectionItem->carcass_weight_kg, 2) }} kg</span>
+                                    </p>
                                 @endif
-                            </p>
+                            @else
+                                <span class="text-slate-400">—</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3">
+                            <p class="font-medium text-slate-900">{{ $s->batch->batch_code ?? '—' }}</p>
+                            @if ($s->certificate)
+                                <p class="text-xs text-slate-500 mt-0.5">
+                                    {{ $s->certificate->certificate_number ?: '#'.$s->certificate_id }}
+                                </p>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-slate-600">
                             <p>{{ $s->coldRoom?->name ?? '—' }}</p>
@@ -76,7 +102,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-slate-500">
+                        <td colspan="8" class="px-4 py-8 text-center text-slate-500">
                             {{ $emptyMessage }}
                         </td>
                     </tr>

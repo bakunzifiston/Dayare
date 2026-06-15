@@ -64,6 +64,9 @@
                 </h2>
             </div>
             <div class="flex flex-wrap gap-2">
+                <a href="{{ route('certificates.edit', $certificate) }}#pdf-details" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
+                    {{ __('Edit PDF details') }}
+                </a>
                 <a href="{{ route('certificates.edit', $certificate) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                     {{ __('Edit') }}
                 </a>
@@ -92,6 +95,10 @@
                     {{ $errors->first('certificate_pdf') }}
                 </div>
             @endif
+            <div class="no-print mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                {{ __('To change what appears on the downloaded PDF (butcher, shop, meat weight, transporter, etc.), use') }}
+                <a href="{{ route('certificates.edit', $certificate) }}#pdf-details" class="font-medium underline">{{ __('Edit PDF details') }}</a>.
+            </div>
             @php
                 $plan = $certificate->batch?->slaughterExecution?->slaughterPlan;
                 $animalIntake = $plan?->animalIntake;

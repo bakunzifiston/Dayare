@@ -459,9 +459,9 @@ class CertificatePdfTest extends TestCase
         );
     }
 
-    public function test_certificate_pdf_rejects_non_nyagatare_facility(): void
+    public function test_certificate_pdf_rejects_non_slaughterhouse_facility(): void
     {
-        $this->slaughterFacility->update(['facility_name' => 'Other Slaughterhouse']);
+        $this->slaughterFacility->update(['facility_type' => Facility::TYPE_STORAGE]);
         $this->certificate->update(['facility_id' => $this->slaughterFacility->id]);
         $this->createReleasedStorage('RW-TAG-002');
 
@@ -585,6 +585,37 @@ class CertificatePdfTest extends TestCase
         $data = app(CertificatePdfService::class)->buildViewData($this->certificate->fresh());
 
         $this->assertSame($customName, $data['slaughterhouseDisplayName']);
+    }
+
+    public function test_certificate_pdf_uses_manual_pdf_details_overrides(): void
+    {
+        $this->createReleasedStorage('RW-TAG-OVERRIDE');
+
+        $this->certificate->update([
+            'pdf_details' => [
+                'butcher_name' => 'Manual Butcher',
+                'shop_name' => 'Manual Shop Ltd',
+                'carcass_meat_kg' => 99.5,
+            ],
+        ]);
+
+        $data = app(CertificatePdfService::class)->buildViewData($this->certificate->fresh());
+
+        $this->assertSame('Manual Butcher', $data['butcherName']);
+        $this->assertSame('Manual Shop Ltd', $data['shopName']);
+        $this->assertSame(99.5, $data['carcassMeatKg']);
+    }
+
+    public function test_certificate_pdf_works_when_facility_name_differs_from_display_name(): void
+    {
+        $this->slaughterFacility->update(['facility_name' => 'Nyagatare Slaughterhouse']);
+        $this->createReleasedStorage('RW-TAG-NYS');
+
+        $response = $this->actingAs($this->user)
+            ->get(route('certificates.export-single', $this->certificate));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
     }
 
     /**

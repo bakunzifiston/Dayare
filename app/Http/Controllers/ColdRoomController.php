@@ -82,7 +82,14 @@ class ColdRoomController extends Controller
 
         $storageRecords = WarehouseStorage::query()
             ->whereIn('warehouse_facility_id', $facilityIds)
-            ->with(['warehouseFacility', 'batch', 'certificate', 'intakeItem', 'coldRoom'])
+            ->with([
+                'warehouseFacility',
+                'batch',
+                'certificate',
+                'intakeItem',
+                'postMortemInspectionItem.intakeItem',
+                'coldRoom',
+            ])
             ->latest('entry_date')
             ->limit(15)
             ->get();

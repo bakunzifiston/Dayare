@@ -27,7 +27,7 @@
                         {{ __('View all') }}
                     </a>
                     <a href="{{ route('batches.create') }}"
-                       class="text-sm px-3 py-1.5 rounded border border-gray-800 bg-gray-900 hover:bg-gray-800 text-white">
+                       class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
                         {{ __('+ New batch') }}
                     </a>
                 </div>
@@ -63,19 +63,37 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                @foreach (['pending', 'approved', 'rejected'] as $status)
-                    @php
-                        $statusBatches = $byStatus->get($status, collect());
-                        $badgeClass = match ($status) {
-                            'pending' => 'bg-gray-100 text-gray-700',
-                            'approved' => 'bg-green-100 text-green-700',
-                            'rejected' => 'bg-red-100 text-red-700',
-                        };
-                    @endphp
+                @php
+                    $batchColumns = [
+                        [
+                            'label' => __('Recent batches'),
+                            'batches' => $recentBatches,
+                            'badgeClass' => 'bg-blue-100 text-blue-700',
+                            'emptyMessage' => __('No batches recorded yet.'),
+                            'viewAllRoute' => route('batches.index'),
+                        ],
+                        [
+                            'label' => __('Approved'),
+                            'batches' => $byStatus->get('approved', collect()),
+                            'badgeClass' => 'bg-green-100 text-green-700',
+                            'emptyMessage' => __('No approved batches.'),
+                            'viewAllRoute' => route('batches.index', ['status' => 'approved']),
+                        ],
+                        [
+                            'label' => __('Rejected'),
+                            'batches' => $byStatus->get('rejected', collect()),
+                            'badgeClass' => 'bg-red-100 text-red-700',
+                            'emptyMessage' => __('No rejected batches.'),
+                            'viewAllRoute' => route('batches.index', ['status' => 'rejected']),
+                        ],
+                    ];
+                @endphp
+                @foreach ($batchColumns as $column)
+                    @php $statusBatches = $column['batches']; @endphp
                     <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                         <div class="flex items-center justify-between mb-3">
-                            <span class="text-sm font-medium text-gray-700">{{ ucfirst($status) }}</span>
-                            <span class="text-xs px-2 py-0.5 rounded-full {{ $badgeClass }}">
+                            <span class="text-sm font-medium text-gray-700">{{ $column['label'] }}</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full {{ $column['badgeClass'] }}">
                                 {{ $statusBatches->count() }}
                             </span>
                         </div>
@@ -127,54 +145,16 @@
                                 </div>
                             </div>
                         @empty
-                            <p class="text-xs text-gray-400 py-2">{{ __('No :status batches.', ['status' => $status]) }}</p>
+                            <p class="text-xs text-gray-400 py-2">{{ $column['emptyMessage'] }}</p>
                         @endforelse
                         @if ($statusBatches->count() > 5)
-                            <a href="{{ route('batches.index', ['status' => $status]) }}"
+                            <a href="{{ $column['viewAllRoute'] }}"
                                class="block mt-2 text-xs text-blue-600 hover:underline text-center">
                                 {{ __('View all :count →', ['count' => $statusBatches->count()]) }}
                             </a>
                         @endif
                     </div>
                 @endforeach
-            </div>
-
-            <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <p class="text-sm font-medium text-gray-700">{{ __('Recent batches') }}</p>
-                    <a href="{{ route('batches.index') }}"
-                       class="text-xs text-blue-600 hover:underline">{{ __('View all →') }}</a>
-                </div>
-                @forelse ($recentBatches as $batch)
-                    @php
-                        $dot = match ($batch->status) {
-                            'approved' => 'bg-green-500',
-                            'rejected' => 'bg-red-400',
-                            default => 'bg-gray-400',
-                        };
-                    @endphp
-                    <div class="flex items-center gap-4 px-4 py-3 border-b border-gray-100 last:border-b-0">
-                        <div class="w-2 h-2 rounded-full {{ $dot }} flex-shrink-0" aria-hidden="true"></div>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-mono text-sm text-gray-800">{{ $batch->batch_code }}</p>
-                            <p class="text-xs text-gray-400">
-                                {{ $batch->slaughterExecution->slaughterPlan->facility->facility_name ?? '—' }}
-                            </p>
-                        </div>
-                        <div class="text-right flex-shrink-0">
-                            <p class="text-sm text-gray-700">
-                                {{ $batch->hasPerAnimalData() ? $batch->animal_count.' '.__('animals') : number_format($batch->quantity, 2).' '.$batch->quantity_unit }}
-                            </p>
-                            <p class="text-xs {{ $batch->postMortemInspection ? 'text-green-600' : 'text-amber-500' }}">
-                                {{ $batch->postMortemInspection ? __('PM done') : __('PM pending') }}
-                            </p>
-                        </div>
-                        <a href="{{ route('batches.show', $batch) }}"
-                           class="text-xs text-blue-600 hover:underline flex-shrink-0">{{ __('View') }}</a>
-                    </div>
-                @empty
-                    <p class="text-sm text-gray-400 px-4 py-6 text-center">{{ __('No batches recorded yet.') }}</p>
-                @endforelse
             </div>
 
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">

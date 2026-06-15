@@ -100,6 +100,16 @@ class WarehouseStorage extends Model
         return $this->belongsTo(PostMortemInspectionItem::class, 'post_mortem_inspection_item_id');
     }
 
+    /**
+     * Animal record for this storage (direct link or via post-mortem item).
+     */
+    public function resolvedIntakeItem(): ?AnimalIntakeItem
+    {
+        $this->loadMissing(['intakeItem', 'postMortemInspectionItem.intakeItem']);
+
+        return $this->intakeItem ?? $this->postMortemInspectionItem?->intakeItem;
+    }
+
     public function temperatureLogs(): HasMany
     {
         return $this->hasMany(TemperatureLog::class);

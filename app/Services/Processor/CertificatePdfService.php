@@ -4,6 +4,7 @@ namespace App\Services\Processor;
 
 use App\Exceptions\CertificatePdfException;
 use App\Models\AnimalIntake;
+use App\Models\Batch;
 use App\Models\Certificate;
 use App\Models\CertificateQr;
 use App\Models\Client;
@@ -37,8 +38,12 @@ class CertificatePdfService
             throw new CertificatePdfException(__('A slaughterhouse facility is required to generate this certificate.'));
         }
 
-        if (strcasecmp(trim((string) $facility->facility_name), self::NYAGATARE_FACILITY_NAME) !== 0) {
-            throw new CertificatePdfException(__('This certificate template is only valid for Nyagatare Modern Slaughter House.'));
+        if ($facility->facility_type !== Facility::TYPE_SLAUGHTERHOUSE) {
+            throw new CertificatePdfException(__('This certificate template is only valid for slaughterhouse facilities.'));
+        }
+
+        if (trim($this->resolvedSlaughterhouseDisplayName($certificate)) === '') {
+            throw new CertificatePdfException(__('Enter the slaughterhouse name on the certificate before generating the PDF.'));
         }
 
         if (! $this->facilityLocationIsComplete($facility)) {
@@ -73,6 +78,7 @@ class CertificatePdfService
             'slug' => CertificateQr::generateSlug(),
         ]);
         $issuedAt = $certificate->issued_at;
+        $auto = $this->autoPdfDetails($batch, $facility, $releasedStorages, $owner, $transportTrip);
 
         return [
             'certificate' => $certificate,
@@ -80,34 +86,60 @@ class CertificatePdfService
             'batch' => $batch,
             'owner' => $owner,
             'releasedEarTags' => $this->releasedEarTags($releasedStorages, $batch),
-            'ownerNames' => $this->resolveOwnerNames($releasedStorages, $batch, $owner),
-            'carcassMeatKg' => $this->sumReleasedQuantity($releasedStorages),
-            'otherMeatKg' => 0.0,
-            'temperatureCelsius' => $this->resolveTemperature($releasedStorages),
+            'ownerNames' => $this->pdfField($certificate, 'animal_names', $auto['animal_names']),
+            'butcherName' => $this->pdfField($certificate, 'butcher_name', $auto['butcher_name']),
+            'ownerPhone' => $this->pdfField($certificate, 'owner_phone', $auto['owner_phone']),
+            'shopName' => $this->pdfField($certificate, 'shop_name', $auto['shop_name']),
+            'shopPhone' => $this->pdfField($certificate, 'shop_phone', $auto['shop_phone']),
+            'carcassMeatKg' => (float) $this->pdfField($certificate, 'carcass_meat_kg', $auto['carcass_meat_kg']),
+            'otherMeatKg' => (float) $this->pdfField($certificate, 'other_meat_kg', $auto['other_meat_kg']),
+            'temperatureCelsius' => $this->pdfField($certificate, 'temperature_celsius', $auto['temperature_celsius']),
             'transportTrip' => $transportTrip,
-            'slaughterhouseDisplayName' => $certificate->slaughterhouse_display_name ?: self::NYAGATARE_FACILITY_NAME,
+            'transporterLicenseHolder' => $this->pdfField($certificate, 'transporter_license_holder', $auto['transporter_license_holder']),
+            'vehiclePlateNumber' => $this->pdfField($certificate, 'vehicle_plate_number', $auto['vehicle_plate_number']),
+            'driverName' => $this->pdfField($certificate, 'driver_name', $auto['driver_name']),
+            'departureDestination' => $this->pdfField($certificate, 'departure_destination', $auto['departure_destination']),
+            'transporterPhone' => $this->pdfField($certificate, 'transporter_phone', $auto['transporter_phone']),
+            'slaughterhouseDisplayName' => $this->resolvedSlaughterhouseDisplayName($certificate),
             'headerDistrictLine' => $this->formatDivisionLine($this->facilityDistrict($facility), 'DISTRICT'),
             'headerSectorLine' => $this->formatDivisionLine($this->facilitySector($facility), 'SECTOR'),
             'headerCellLine' => $this->formatDivisionLine($this->facilityCell($facility), 'CELL'),
-            'facilityLocationLine' => $this->formatLocationLine(
-                $this->facilityDistrict($facility),
-                $this->facilitySector($facility),
-                $this->facilityCell($facility),
-            ),
-            'sellingLocationLine' => $this->formatLocationLine(
-                $owner->district,
-                $owner->sector,
-                $owner->cell,
-            ),
-            'facilityTypeLabel' => $this->facilityTypeLabel($facility),
-            'facilityPhone' => $facility->phone,
-            'facilityRegistrationNumber' => $facility->registration_number,
+            'facilityLocationLine' => $this->pdfField($certificate, 'facility_location', $auto['facility_location']),
+            'sellingLocationLine' => $this->pdfField($certificate, 'selling_location', $auto['selling_location']),
+            'facilityTypeLabel' => $this->pdfField($certificate, 'facility_type', $auto['facility_type']),
+            'facilityPhone' => $this->pdfField($certificate, 'facility_phone', $auto['facility_phone']),
+            'facilityRegistrationNumber' => $this->pdfField($certificate, 'facility_registration', $auto['facility_registration']),
             'issuedDay' => $issuedAt?->format('d') ?: '..........',
             'issuedMonth' => $issuedAt?->format('m') ?: '..........',
             'issuedYear' => $issuedAt ? $issuedAt->format('Y') : '20..........',
             'qrImage' => PdfQrCode::dataUri($qr->trace_url),
             'generatedAt' => now(),
         ];
+    }
+
+    /**
+     * Suggested values for the certificate PDF form (pre-filled, editable before issue).
+     *
+     * @return array<string, mixed>
+     */
+    public function suggestedPdfDetails(Batch $batch, ?Facility $facility = null, ?TransportTrip $transportTrip = null): array
+    {
+        $batch->loadMissing([
+            'items.intakeItem',
+            'slaughterExecution.slaughterPlan.animalIntake.client.districtDivision',
+            'slaughterExecution.slaughterPlan.animalIntake.client.sectorDivision',
+            'slaughterExecution.slaughterPlan.animalIntake.client.cell',
+            'slaughterExecution.slaughterPlan.animalIntake.district',
+            'slaughterExecution.slaughterPlan.animalIntake.sector',
+            'slaughterExecution.slaughterPlan.animalIntake.cell',
+        ]);
+
+        $facility?->loadMissing(['districtDivision', 'sectorDivision', 'cell', 'business']);
+        $facility ??= $batch->slaughterExecution?->slaughterPlan?->facility;
+        $releasedStorages = $this->releasedStoragesForBatch((int) $batch->id);
+        $owner = $this->resolveBatchOwner($batch);
+
+        return $this->autoPdfDetails($batch, $facility, $releasedStorages, $owner, $transportTrip);
     }
 
     /**
@@ -186,6 +218,76 @@ class CertificatePdfService
         $trimmed = trim((string) $value);
 
         return $trimmed !== '' ? $trimmed : null;
+    }
+
+    private function resolvedSlaughterhouseDisplayName(Certificate $certificate): string
+    {
+        $manualName = $this->nonEmptyString($certificate->slaughterhouse_display_name);
+        if ($manualName !== null) {
+            return $manualName;
+        }
+
+        return self::NYAGATARE_FACILITY_NAME;
+    }
+
+    private function pdfField(Certificate $certificate, string $key, mixed $autoValue): mixed
+    {
+        $manual = data_get($certificate->pdf_details, $key);
+
+        if ($manual === null || $manual === '') {
+            return $autoValue;
+        }
+
+        return $manual;
+    }
+
+    /**
+     * @param  Collection<int, WarehouseStorage>  $releasedStorages
+     * @param  object{
+     *     name: string|null,
+     *     business_name: string|null,
+     *     phone: string|null,
+     *     district: string|null,
+     *     sector: string|null,
+     *     cell: string|null
+     * }  $owner
+     * @return array<string, mixed>
+     */
+    private function autoPdfDetails(
+        Batch $batch,
+        ?Facility $facility,
+        Collection $releasedStorages,
+        object $owner,
+        ?TransportTrip $transportTrip,
+    ): array {
+        $temperature = $this->resolveTemperature($releasedStorages);
+
+        return [
+            'facility_location' => $facility
+                ? $this->formatLocationLine(
+                    $this->facilityDistrict($facility),
+                    $this->facilitySector($facility),
+                    $this->facilityCell($facility),
+                )
+                : '—',
+            'facility_type' => $facility ? $this->facilityTypeLabel($facility) : '—',
+            'facility_phone' => $facility?->phone ?: '',
+            'facility_registration' => $facility?->registration_number ?: '',
+            'animal_names' => $this->resolveOwnerNames($releasedStorages, $batch, $owner),
+            'butcher_name' => $owner->name ?: '',
+            'selling_location' => $this->formatLocationLine($owner->district, $owner->sector, $owner->cell),
+            'owner_phone' => $owner->phone ?: '',
+            'shop_name' => $owner->business_name ?: $owner->name ?: '',
+            'shop_phone' => $owner->phone ?: '',
+            'carcass_meat_kg' => $this->sumReleasedQuantity($releasedStorages),
+            'other_meat_kg' => 0,
+            'temperature_celsius' => $temperature,
+            'transporter_license_holder' => $transportTrip?->driver_name ?: '',
+            'vehicle_plate_number' => $transportTrip?->vehicle_plate_number ?: '',
+            'driver_name' => $transportTrip?->driver_name ?: '',
+            'departure_destination' => $transportTrip?->destination_display ?: '',
+            'transporter_phone' => $transportTrip?->driver_phone ?: '',
+        ];
     }
 
     private function hasReleasedStorageForBatch(int $batchId): bool

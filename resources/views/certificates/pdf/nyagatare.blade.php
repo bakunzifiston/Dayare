@@ -183,7 +183,7 @@
         </div>
         <div class="form-line">
             <span class="form-label">{{ __("Butcher's Name") }}:</span>
-            <span class="form-value">{{ $owner->name ?: '—' }}</span>
+            <span class="form-value">{{ $butcherName ?: '—' }}</span>
         </div>
         <div class="form-line">
             <span class="form-label">{{ __('Selling Location (District, Sector, Cell)') }}:</span>
@@ -191,7 +191,7 @@
         </div>
         <div class="form-line">
             <span class="form-label">{{ __('Telephone') }}:</span>
-            <span class="form-value">{{ $owner->phone ?: '—' }}</span>
+            <span class="form-value">{{ $ownerPhone ?: '—' }}</span>
         </div>
     </div>
 
@@ -199,11 +199,11 @@
         <div class="section-heading">3. {{ __('IDENTIFICATION OF THE BUTCHER / MEAT SELLING SHOP') }}</div>
         <div class="form-line">
             <span class="form-label">{{ __('Names') }}:</span>
-            <span class="form-value">{{ $owner->business_name ?: $owner->name ?: '—' }}</span>
+            <span class="form-value">{{ $shopName ?: '—' }}</span>
         </div>
         <div class="form-line">
             <span class="form-label">{{ __('Telephone') }}:</span>
-            <span class="form-value">{{ $owner->phone ?: '—' }}</span>
+            <span class="form-value">{{ $shopPhone ?: '—' }}</span>
         </div>
     </div>
 
@@ -231,22 +231,22 @@
         <div class="section-heading">5. {{ __('IDENTIFICATION OF THE AUTHORIZED MEAT TRANSPORTER') }}</div>
         <div class="form-line">
             <span class="form-label">{{ __('Name of License Holder') }}:</span>
-            <span class="form-value">{{ $transportTrip?->driver_name ?: '—' }}</span>
+            <span class="form-value">{{ $transporterLicenseHolder ?: '—' }}</span>
         </div>
         <div class="form-line">
             <span class="form-label">{{ __('Vehicle Plate Number') }}:</span>
-            <span class="form-value">{{ $transportTrip?->vehicle_plate_number ?: '—' }}</span>
+            <span class="form-value">{{ $vehiclePlateNumber ?: '—' }}</span>
         </div>
         <div class="form-line">
             <span class="form-label">{{ __("Driver's Name") }}:</span>
-            <span class="form-value">{{ $transportTrip?->driver_name ?: '—' }}</span>
+            <span class="form-value">{{ $driverName ?: '—' }}</span>
         </div>
         <div class="form-line">
             <span class="form-label">{{ __('Departure Destination') }}:</span>
-            <span class="form-value-inline">{{ $transportTrip?->destination_display ?: '—' }}</span>
+            <span class="form-value-inline">{{ $departureDestination ?: '—' }}</span>
             <span class="inline-sep">|</span>
             <span class="form-label">{{ __('Telephone') }}:</span>
-            <span class="form-value-inline">{{ $transportTrip?->driver_phone ?: '—' }}</span>
+            <span class="form-value-inline">{{ $transporterPhone ?: '—' }}</span>
         </div>
     </div>
 

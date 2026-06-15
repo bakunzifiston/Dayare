@@ -85,7 +85,14 @@ class WarehouseStorageController extends Controller
     public function index(Request $request): View
     {
         $storages = $this->scopedStorageQuery($request)
-            ->with(['warehouseFacility', 'batch', 'certificate', 'intakeItem', 'coldRoom'])
+            ->with([
+                'warehouseFacility',
+                'batch',
+                'certificate',
+                'intakeItem',
+                'postMortemInspectionItem.intakeItem',
+                'coldRoom',
+            ])
             ->latest('entry_date')
             ->paginate(10)
             ->withQueryString();
@@ -206,7 +213,7 @@ class WarehouseStorageController extends Controller
             'batch',
             'certificate',
             'intakeItem',
-            'postMortemInspectionItem',
+            'postMortemInspectionItem.intakeItem',
             'temperatureLogs',
             'coldRoom.standard',
         ]);

@@ -4,7 +4,13 @@
             <div>
                 <a href="{{ route('cold-rooms.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Cold Room') }}</a>
                 <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">
-                    {{ __('Storage') }} — {{ $warehouseStorage->batch->batch_code ?? '' }}
+                    {{ __('Storage') }}
+                    @php $headerAnimal = $warehouseStorage->resolvedIntakeItem(); @endphp
+                    @if ($headerAnimal?->ear_tag)
+                        — <span class="font-mono">{{ $headerAnimal->ear_tag }}</span>
+                    @elseif ($warehouseStorage->batch?->batch_code)
+                        — {{ $warehouseStorage->batch->batch_code }}
+                    @endif
                 </h2>
             </div>
             <div class="flex gap-2">
@@ -32,6 +38,55 @@
                 <div class="p-4 rounded-md bg-red-50 text-red-800">{{ $errors->first('delete') }}</div>
             @endif
 
+            @php
+                $animal = $warehouseStorage->resolvedIntakeItem();
+                $pmItem = $warehouseStorage->postMortemInspectionItem;
+            @endphp
+
+            @if ($animal)
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
+                    <h3 class="text-lg font-medium text-slate-900 mb-4">{{ __('Animal identification') }}</h3>
+                    <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div>
+                            <dt class="text-sm font-medium text-slate-500">{{ __('Ear tag') }}</dt>
+                            <dd class="mt-1 text-sm font-mono font-semibold text-slate-900">{{ $animal->ear_tag ?: '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-slate-500">{{ __('Species') }}</dt>
+                            <dd class="mt-1 text-sm text-slate-900">{{ $animal->species ?: '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-slate-500">{{ __('Sex') }}</dt>
+                            <dd class="mt-1 text-sm text-slate-900">{{ $animal->sex ? ucfirst($animal->sex) : '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-slate-500">{{ __('Live weight (before slaughter)') }}</dt>
+                            <dd class="mt-1 text-sm text-slate-900 tabular-nums">
+                                {{ $animal->live_weight_kg ? number_format((float) $animal->live_weight_kg, 2).' kg' : '—' }}
+                            </dd>
+                        </div>
+                        @if ($pmItem?->carcass_weight_kg)
+                            <div>
+                                <dt class="text-sm font-medium text-slate-500">{{ __('Carcass weight (post-mortem)') }}</dt>
+                                <dd class="mt-1 text-sm text-slate-900 tabular-nums">
+                                    {{ number_format((float) $pmItem->carcass_weight_kg, 2) }} kg
+                                </dd>
+                            </div>
+                        @endif
+                        @if ($animal->age_months)
+                            <div>
+                                <dt class="text-sm font-medium text-slate-500">{{ __('Age') }}</dt>
+                                <dd class="mt-1 text-sm text-slate-900">{{ $animal->age_months }} {{ __('months') }}</dd>
+                            </div>
+                        @endif
+                        <div>
+                            <dt class="text-sm font-medium text-slate-500">{{ __('Health at intake') }}</dt>
+                            <dd class="mt-1 text-sm text-slate-900">{{ $animal->health_status ? ucfirst(str_replace('_', ' ', $animal->health_status)) : '—' }}</dd>
+                        </div>
+                    </dl>
+                </div>
+            @endif
+
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -57,12 +112,6 @@
                             <a href="{{ route('batches.show', $warehouseStorage->batch) }}" class="text-bucha-primary hover:underline">{{ $warehouseStorage->batch->batch_code ?? '' }}</a>
                         </dd>
                     </div>
-                    @if ($warehouseStorage->intakeItem)
-                        <div>
-                            <dt class="text-sm font-medium text-slate-500">{{ __('Animal (ear tag)') }}</dt>
-                            <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->intakeItem->ear_tag ?: '—' }}</dd>
-                        </div>
-                    @endif
                     <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Certificate') }}</dt>
                         <dd class="mt-1 text-sm text-slate-900">
