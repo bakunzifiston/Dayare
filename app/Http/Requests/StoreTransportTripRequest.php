@@ -2,14 +2,17 @@
 
 namespace App\Http\Requests;
 
-use App\Http\Requests\Concerns\PreparesTransportTripFromWarehouseStorage;
+use App\Http\Requests\Concerns\PreparesTransportTripFromCertificate;
+use App\Http\Requests\Concerns\ValidatesTransportTripAgainstCertificate;
 use App\Http\Requests\Concerns\ValidatesTransportTripDestination;
+use App\Models\Certificate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreTransportTripRequest extends FormRequest
 {
-    use PreparesTransportTripFromWarehouseStorage;
+    use PreparesTransportTripFromCertificate;
+    use ValidatesTransportTripAgainstCertificate;
     use ValidatesTransportTripDestination;
     public function authorize(): bool
     {
@@ -22,13 +25,16 @@ class StoreTransportTripRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'warehouse_storage_id' => [
-                'nullable',
-                'exists:warehouse_storages,id',
-                Rule::requiredIf(fn () => $this->boolean('require_released_storage')),
+            'certificate_id' => [
+                'required',
+                Rule::exists('certificates', 'id')->where(function ($query) {
+                    $query->where('status', Certificate::STATUS_ACTIVE)
+                        ->where(function ($inner) {
+                            $inner->whereNull('expiry_date')
+                                ->orWhereDate('expiry_date', '>=', today());
+                        });
+                }),
             ],
-            'require_released_storage' => ['sometimes', 'boolean'],
-            'certificate_id' => ['required', 'exists:certificates,id'],
             'batch_id' => ['nullable', 'exists:batches,id'],
             'origin_facility_id' => ['required', 'exists:facilities,id'],
             ...$this->transportTripDestinationRules(),

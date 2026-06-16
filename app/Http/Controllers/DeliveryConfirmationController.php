@@ -16,6 +16,7 @@ use App\Models\MeatExportDocument;
 use App\Models\Demand;
 use App\Models\Facility;
 use App\Models\TransportTrip;
+use App\Services\Processor\DeliveryTransportAlignmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,10 @@ class DeliveryConfirmationController extends Controller
 {
     use ExportsProcessorRecords;
     use ScopesProcessorData;
+
+    public function __construct(
+        private readonly DeliveryTransportAlignmentService $transportAlignment,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -147,7 +152,6 @@ class DeliveryConfirmationController extends Controller
         $deliveryConfirmation->load([
             'transportTrip.certificate.batch',
             'transportTrip.originFacility',
-            'transportTrip.destinationFacility',
             'receivingFacility',
             'client',
             'contract',
@@ -206,15 +210,9 @@ class DeliveryConfirmationController extends Controller
     protected function validatedConfirmationData(Request $request): array
     {
         $tripIds = $this->accessibleTripIds($request);
-        $facilityIds = $this->accessibleFacilityIds($request);
         $validated = $request->validated();
 
         if (! $tripIds->contains((int) $validated['transport_trip_id'])) {
-            abort(404);
-        }
-
-        $receivingFacilityId = $validated['receiving_facility_id'] ?? null;
-        if ($receivingFacilityId !== null && $receivingFacilityId !== '' && ! $facilityIds->contains((int) $receivingFacilityId)) {
             abort(404);
         }
 
@@ -241,9 +239,7 @@ class DeliveryConfirmationController extends Controller
             $validated['received_unit'] = ReceivedUnit::Units->value;
         }
 
-        if ($receivingFacilityId === '') {
-            $validated['receiving_facility_id'] = null;
-        }
+        $validated['receiving_facility_id'] = null;
 
         return $validated;
     }
@@ -371,7 +367,7 @@ class DeliveryConfirmationController extends Controller
     protected function formOptions(Request $request, bool $onlyTripsWithoutConfirmation): array
     {
         $tripIds = $this->accessibleTripIds($request);
-        $tripsQuery = TransportTrip::with('certificate', 'originFacility', 'destinationFacility')
+        $tripsQuery = TransportTrip::with(['certificate.batch', 'originFacility', 'destinationFacility'])
             ->whereIn('id', $tripIds)
             ->latest('departure_date');
 
@@ -380,18 +376,21 @@ class DeliveryConfirmationController extends Controller
         }
 
         return [
-            'trips' => $tripsQuery->get()->map(fn (TransportTrip $t) => [
-                'id' => $t->id,
-                'label' => $t->vehicle_plate_number.' — '.($t->originFacility->facility_name ?? '').' → '.$t->destination_display.' ('.$t->departure_date->format('d M Y').')',
-                'external_destination' => $t->isExternalDestination(),
-                'destination_name' => $t->destination_name ?? '',
-                'destination_country' => $t->destination_country ?? '',
-                'destination_address' => $t->destination_address ?? '',
-            ]),
-            'facilities' => Facility::whereIn('id', $this->accessibleFacilityIds($request))
-                ->orderBy('facility_name')
-                ->get()
-                ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]),
+            'trips' => $tripsQuery->get()->map(function (TransportTrip $trip) {
+                $context = $this->transportAlignment->tripContextForForm($trip);
+                $certRef = $context['certificate_number'] ?: '#'.$trip->certificate_id;
+
+                return [
+                    'id' => $trip->id,
+                    'label' => $trip->vehicle_plate_number
+                        .' — '.__('Cert').' '.$certRef
+                        .' — '.($context['origin'] ?? '').' → '.$context['destination']
+                        .' ('.$trip->departure_date->format('d M Y').')',
+                    'context' => $context,
+                    'receiver_defaults' => $context['receiver_defaults'],
+                    'locked_receiver_fields' => $context['locked_receiver_fields'],
+                ];
+            }),
             'clients' => Client::whereIn('business_id', $request->user()->accessibleBusinessIds())
                 ->where('is_active', true)
                 ->orderBy('name')

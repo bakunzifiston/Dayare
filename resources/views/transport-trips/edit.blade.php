@@ -18,12 +18,12 @@
                     @csrf
                     @method('put')
 
-                    @include('transport-trips.partials.storage-source-fields', [
+                    @include('transport-trips.partials.certificate-source-fields', [
                         'trip' => $trip,
-                        'releasedStorages' => $releasedStorages ?? [],
                         'certificates' => $certificates,
-                        'batches' => $batches,
-                        'hasReleasedStorages' => $hasReleasedStorages ?? false,
+                        'selectedCertificateId' => $selectedCertificateId ?? null,
+                        'transportDefaults' => $transportDefaults ?? [],
+                        'lockedTransportFields' => $lockedTransportFields ?? [],
                     ])
 
                     <div>
@@ -36,26 +36,13 @@
                         <x-input-error class="mt-2" :messages="$errors->get('origin_facility_id')" />
                     </div>
 
-                    @include('transport-trips.partials.destination-fields', ['trip' => $trip, 'facilities' => $facilities])
+                    @include('transport-trips.partials.destination-fields', ['trip' => $trip])
 
-                    <div>
-                        <x-input-label for="vehicle_plate_number" :value="__('Vehicle plate number')" />
-                        <x-text-input id="vehicle_plate_number" name="vehicle_plate_number" type="text" class="mt-1 block w-full" :value="old('vehicle_plate_number', $trip->vehicle_plate_number)" required />
-                        <x-input-error class="mt-2" :messages="$errors->get('vehicle_plate_number')" />
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <x-input-label for="driver_name" :value="__('Driver name')" />
-                            <x-text-input id="driver_name" name="driver_name" type="text" class="mt-1 block w-full" :value="old('driver_name', $trip->driver_name)" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('driver_name')" />
-                        </div>
-                        <div>
-                            <x-input-label for="driver_phone" :value="__('Driver phone')" />
-                            <x-text-input id="driver_phone" name="driver_phone" type="text" class="mt-1 block w-full" :value="old('driver_phone', $trip->driver_phone)" />
-                            <x-input-error class="mt-2" :messages="$errors->get('driver_phone')" />
-                        </div>
-                    </div>
+                    @include('transport-trips.partials.transport-logistics-fields', [
+                        'trip' => $trip,
+                        'transportDefaults' => $transportDefaults ?? [],
+                        'lockedTransportFields' => $lockedTransportFields ?? [],
+                    ])
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>

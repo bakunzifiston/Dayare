@@ -14,7 +14,6 @@
                     @include('delivery-confirmations.partials.form-fields', [
                         'confirmation' => $confirmation,
                         'trips' => $trips,
-                        'facilities' => $facilities,
                         'clients' => $clients,
                         'receivedUnits' => $receivedUnits,
                         'contractsUrl' => $contractsUrl,

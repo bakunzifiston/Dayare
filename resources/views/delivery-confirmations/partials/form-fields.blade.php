@@ -1,7 +1,6 @@
 @props([
     'confirmation' => null,
     'trips' => [],
-    'facilities' => [],
     'clients' => [],
     'receivedUnits' => [],
     'contractsUrl' => '',
@@ -10,6 +9,13 @@
 
 @php
     $isEdit = $confirmation !== null;
+    $selectedTripId = old('transport_trip_id', $confirmation?->transport_trip_id ?? $preselectedTripId);
+    $selectedTrip = collect($trips)->firstWhere('id', (int) $selectedTripId);
+    $lockedReceiverFields = collect($selectedTrip['locked_receiver_fields'] ?? []);
+    $receiverDefaults = $selectedTrip['receiver_defaults'] ?? [];
+    $receiverName = old('receiver_name', $confirmation?->receiver_name ?? ($receiverDefaults['receiver_name'] ?? ''));
+    $receiverCountry = old('receiver_country', $confirmation?->receiver_country ?? ($receiverDefaults['receiver_country'] ?? ''));
+    $receiverAddress = old('receiver_address', $confirmation?->receiver_address ?? ($receiverDefaults['receiver_address'] ?? ''));
 @endphp
 
 <div>
@@ -17,29 +23,39 @@
     <select id="transport_trip_id" name="transport_trip_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
         @foreach ($trips as $t)
             <option value="{{ $t['id'] }}"
-                data-external-destination="{{ ! empty($t['external_destination']) ? '1' : '0' }}"
-                data-destination-name="{{ e($t['destination_name'] ?? '') }}"
-                data-destination-country="{{ e($t['destination_country'] ?? '') }}"
-                data-destination-address="{{ e($t['destination_address'] ?? '') }}"
-                @selected(old('transport_trip_id', $confirmation?->transport_trip_id ?? $preselectedTripId) == $t['id'])>{{ $t['label'] }}</option>
+                data-context="{{ e(json_encode($t['context'] ?? [])) }}"
+                data-receiver-defaults="{{ e(json_encode($t['receiver_defaults'] ?? [])) }}"
+                data-locked-receiver-fields="{{ e(json_encode($t['locked_receiver_fields'] ?? [])) }}"
+                @selected((int) $selectedTripId === (int) $t['id'])>{{ $t['label'] }}</option>
         @endforeach
     </select>
+    <p class="mt-1 text-sm text-gray-500">{{ __('Receiver details are taken from the trip destination and must match.') }}</p>
     <x-input-error class="mt-2" :messages="$errors->get('transport_trip_id')" />
 </div>
 
-<div>
-    <x-input-label for="receiving_facility_id" :value="__('Receiving facility')" />
-    <select id="receiving_facility_id" name="receiving_facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
-        <option value="">{{ __('External / non-registered (e.g. client in another country)') }}</option>
-        @foreach ($facilities as $f)
-            <option value="{{ $f['id'] }}" @selected(old('receiving_facility_id', $confirmation?->receiving_facility_id) == $f['id'])>{{ $f['label'] }}</option>
-        @endforeach
-    </select>
-    <p class="mt-1 text-sm text-gray-500">{{ __('Choose the first option (External) to show client, contract, and international export fields. Required when the receiver is in another country.') }}</p>
-    <x-input-error class="mt-2" :messages="$errors->get('receiving_facility_id')" />
+<div id="trip-context-panel" class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-700">
+    <p class="font-medium text-slate-800">{{ __('Linked transport') }}</p>
+    <dl class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div>
+            <dt class="text-xs uppercase tracking-wide text-slate-500">{{ __('Certificate') }}</dt>
+            <dd id="trip-context-certificate" class="mt-0.5">—</dd>
+        </div>
+        <div>
+            <dt class="text-xs uppercase tracking-wide text-slate-500">{{ __('Route') }}</dt>
+            <dd id="trip-context-route" class="mt-0.5">—</dd>
+        </div>
+        <div>
+            <dt class="text-xs uppercase tracking-wide text-slate-500">{{ __('Driver') }}</dt>
+            <dd id="trip-context-driver" class="mt-0.5">—</dd>
+        </div>
+        <div>
+            <dt class="text-xs uppercase tracking-wide text-slate-500">{{ __('Destination') }}</dt>
+            <dd id="trip-context-destination" class="mt-0.5">—</dd>
+        </div>
+    </dl>
 </div>
 
-<div id="client-block" class="hidden space-y-4">
+<div id="client-block" class="space-y-4">
     <div>
         <x-input-label for="client_id" :value="__('Link to client (optional)')" />
         <select id="client_id" name="client_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
@@ -48,6 +64,7 @@
                 <option value="{{ $c['id'] }}" data-name="{{ e($c['name']) }}" data-country="{{ e($c['country']) }}" data-address="{{ e($c['address']) }}" @selected(old('client_id', $confirmation?->client_id) == $c['id'])>{{ $c['label'] }}</option>
             @endforeach
         </select>
+        <p class="mt-1 text-sm text-gray-500">{{ __('Optional — link a client and contract without changing the trip destination.') }}</p>
         <x-input-error class="mt-2" :messages="$errors->get('client_id')" />
     </div>
     <div>
@@ -59,24 +76,12 @@
     </div>
 </div>
 
-<div>
-    <x-input-label for="receiver_name" :value="__('Receiver name')" />
-    <x-text-input id="receiver_name" name="receiver_name" type="text" class="mt-1 block w-full" :value="old('receiver_name', $confirmation?->receiver_name)" required />
-    <x-input-error class="mt-2" :messages="$errors->get('receiver_name')" />
-</div>
-
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    <div>
-        <x-input-label for="receiver_country" :value="__('Receiver country (optional)')" />
-        <x-text-input id="receiver_country" name="receiver_country" type="text" class="mt-1 block w-full" :value="old('receiver_country', $confirmation?->receiver_country)" />
-        <x-input-error class="mt-2" :messages="$errors->get('receiver_country')" />
-    </div>
-    <div>
-        <x-input-label for="receiver_address" :value="__('Receiver address (optional)')" />
-        <x-text-input id="receiver_address" name="receiver_address" type="text" class="mt-1 block w-full" :value="old('receiver_address', $confirmation?->receiver_address)" />
-        <x-input-error class="mt-2" :messages="$errors->get('receiver_address')" />
-    </div>
-</div>
+@include('delivery-confirmations.partials.receiver-fields', [
+    'receiverName' => $receiverName,
+    'receiverCountry' => $receiverCountry,
+    'receiverAddress' => $receiverAddress,
+    'lockedReceiverFields' => $lockedReceiverFields,
+])
 
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div>
@@ -116,17 +121,18 @@
     var contractsUrl = @json($contractsUrl);
     var initialContractId = @json(old('contract_id', $confirmation?->contract_id));
     var tripSelect = document.getElementById('transport_trip_id');
-    var receivingSelect = document.getElementById('receiving_facility_id');
-    var clientBlock = document.getElementById('client-block');
     var clientSelect = document.getElementById('client_id');
     var contractSelect = document.getElementById('contract_id');
+    var contextPanel = document.getElementById('trip-context-panel');
 
-    function toggleClientBlock() {
-        var isExternal = !receivingSelect.value;
-        clientBlock.classList.toggle('hidden', !isExternal);
-        if (!isExternal) {
-            clientSelect.value = '';
-            resetContracts(@json(__('Select a client first')), true);
+    function parseJsonAttr(el, attr) {
+        if (!el || !el.dataset[attr]) {
+            return null;
+        }
+        try {
+            return JSON.parse(el.dataset[attr]);
+        } catch (e) {
+            return null;
         }
     }
 
@@ -162,41 +168,88 @@
         }
     }
 
-    function prefillFromClient() {
-        var opt = clientSelect.options[clientSelect.selectedIndex];
-        if (!opt || !opt.value) return;
-        var receiverName = document.getElementById('receiver_name');
-        var receiverCountry = document.getElementById('receiver_country');
-        var receiverAddress = document.getElementById('receiver_address');
-        if (receiverName) receiverName.value = opt.dataset.name || '';
-        if (receiverCountry) receiverCountry.value = opt.dataset.country || '';
-        if (receiverAddress) receiverAddress.value = opt.dataset.address || '';
+    function renderReceiverFields(defaults, lockedFields) {
+        var locked = lockedFields || [];
+        var fields = ['receiver_name', 'receiver_country', 'receiver_address'];
+        fields.forEach(function(field) {
+            var container = document.getElementById(field + '_field');
+            if (!container) {
+                return;
+            }
+            var value = (defaults && defaults[field]) ? defaults[field] : '';
+            var isLocked = locked.indexOf(field) !== -1 && value;
+            container.innerHTML = '';
+
+            var label = document.createElement('label');
+            label.className = 'block font-medium text-sm text-gray-700';
+            label.setAttribute('for', field);
+            label.textContent = field === 'receiver_name'
+                ? @json(__('Receiver name'))
+                : (field === 'receiver_country' ? @json(__('Receiver country (optional)')) : @json(__('Receiver address (optional)')));
+            container.appendChild(label);
+
+            if (isLocked) {
+                var display = document.createElement('p');
+                display.className = 'mt-1 text-sm text-gray-900 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2';
+                display.textContent = value;
+                container.appendChild(display);
+
+                var hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = field;
+                hidden.id = field;
+                hidden.value = value;
+                container.appendChild(hidden);
+
+                var hint = document.createElement('p');
+                hint.className = 'mt-1 text-xs text-emerald-700';
+                hint.textContent = @json(__('From transport trip — edit the trip if this must change.'));
+                container.appendChild(hint);
+            } else {
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.name = field;
+                input.id = field;
+                input.className = 'mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm';
+                input.value = value;
+                if (field === 'receiver_name') {
+                    input.required = true;
+                }
+                container.appendChild(input);
+            }
+        });
     }
 
-    function prefillFromTrip() {
+    function updateTripContext() {
         var opt = tripSelect.options[tripSelect.selectedIndex];
-        if (!opt || !opt.value) return;
-        if (opt.dataset.externalDestination !== '1') return;
-        receivingSelect.value = '';
-        toggleClientBlock();
-        var receiverName = document.getElementById('receiver_name');
-        var receiverCountry = document.getElementById('receiver_country');
-        var receiverAddress = document.getElementById('receiver_address');
-        if (receiverName && opt.dataset.destinationName) receiverName.value = opt.dataset.destinationName;
-        if (receiverCountry && opt.dataset.destinationCountry) receiverCountry.value = opt.dataset.destinationCountry;
-        if (receiverAddress && opt.dataset.destinationAddress) receiverAddress.value = opt.dataset.destinationAddress;
+        if (!opt || !opt.value) {
+            contextPanel.classList.add('hidden');
+            return;
+        }
+
+        var context = parseJsonAttr(opt, 'context') || {};
+        var defaults = parseJsonAttr(opt, 'receiverDefaults') || {};
+        var locked = parseJsonAttr(opt, 'lockedReceiverFields') || [];
+
+        contextPanel.classList.remove('hidden');
+        document.getElementById('trip-context-certificate').textContent = context.certificate_number
+            ? context.certificate_number + (context.batch_code ? ' (' + context.batch_code + ')' : '')
+            : '—';
+        document.getElementById('trip-context-route').textContent = [context.origin, context.destination].filter(Boolean).join(' → ') || '—';
+        document.getElementById('trip-context-driver').textContent = [context.driver_name, context.vehicle_plate_number].filter(Boolean).join(' · ') || '—';
+        document.getElementById('trip-context-destination').textContent = context.destination || '—';
+
+        renderReceiverFields(defaults, locked);
     }
 
-    receivingSelect.addEventListener('change', toggleClientBlock);
-    tripSelect.addEventListener('change', prefillFromTrip);
+    tripSelect.addEventListener('change', updateTripContext);
     clientSelect.addEventListener('change', function() {
-        prefillFromClient();
         loadContracts(clientSelect.value);
     });
-    toggleClientBlock();
+
     if (clientSelect.value) {
         loadContracts(clientSelect.value);
     }
-    prefillFromTrip();
+    updateTripContext();
 })();
 </script>

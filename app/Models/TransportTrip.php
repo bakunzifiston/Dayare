@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * Transport Trip – movement of meat.
- * Belongs to: Certificate, Batch (optional), Origin Facility, Destination Facility.
+ * Transport Trip – movement of certified meat.
+ * Belongs to: Certificate (required), Batch (derived), Origin Facility, Destination Facility.
  */
 class TransportTrip extends Model
 {

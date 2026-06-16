@@ -18,9 +18,12 @@ class UpdateFacilityRequest extends FormRequest
      */
     public function rules(): array
     {
+        /** @var Facility|null $facility */
+        $facility = $this->route('facility');
+
         return [
             'facility_name' => ['required', 'string', 'max:255'],
-            'facility_type' => ['required', 'string', 'max:100', Rule::in(Facility::TYPES)],
+            'facility_type' => ['required', 'string', 'max:100', Rule::in(Facility::selectableTypes($facility))],
             'country_id' => ['nullable', 'exists:administrative_divisions,id'],
             'province_id' => ['nullable', 'exists:administrative_divisions,id'],
             'district_id' => ['nullable', 'exists:administrative_divisions,id'],

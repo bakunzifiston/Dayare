@@ -762,21 +762,6 @@ class MobileCollectionController extends Controller
             return ApiJson::failure(__('Not found.'), [], 404);
         }
 
-        $warehouseStorageId = (int) ($data['warehouse_storage_id'] ?? 0);
-        if ($warehouseStorageId > 0) {
-            $warehouseStorage = WarehouseStorage::query()->find($warehouseStorageId);
-            if (! $warehouseStorage || ! $this->certificateIds($request)->contains((int) $warehouseStorage->certificate_id)) {
-                return ApiJson::failure(__('Not found.'), [], 404);
-            }
-            if ($warehouseStorage->status !== WarehouseStorage::STATUS_RELEASED) {
-                return ApiJson::failure(
-                    __('Cannot transport: storage must be released first.'),
-                    ['warehouse_storage_id' => [__('Cannot transport: storage must be released first.')]],
-                    422
-                );
-            }
-        }
-
         $trip = TransportTrip::query()->create($data);
 
         return ApiJson::success(

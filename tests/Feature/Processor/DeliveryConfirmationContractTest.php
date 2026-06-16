@@ -44,7 +44,7 @@ class DeliveryConfirmationContractTest extends TestCase
                 'received_quantity' => 10,
                 'received_unit' => 'kg',
                 'received_date' => now()->toDateString(),
-                'receiver_name' => 'External Receiver',
+                'receiver_name' => $fixture['destination']->facility_name,
                 'confirmation_status' => DeliveryConfirmation::STATUS_CONFIRMED,
             ])
             ->assertRedirect(route('delivery-confirmations.index'));

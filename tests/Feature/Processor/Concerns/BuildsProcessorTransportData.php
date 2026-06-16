@@ -51,7 +51,8 @@ trait BuildsProcessorTransportData
         $trip = TransportTrip::query()->create([
             'certificate_id' => $certificate->id,
             'origin_facility_id' => $origin->id,
-            'destination_facility_id' => $destination->id,
+            'destination_facility_id' => null,
+            'destination_name' => $destination->facility_name,
             'vehicle_plate_number' => 'RAB 123A',
             'driver_name' => 'Test Driver',
             'driver_phone' => '+250788000000',
@@ -73,13 +74,13 @@ trait BuildsProcessorTransportData
 
         return DeliveryConfirmation::query()->create([
             'transport_trip_id' => $trip->id,
-            'receiving_facility_id' => ($clientId || $international) ? null : $origin->id,
+            'receiving_facility_id' => null,
             'client_id' => $clientId,
             'contract_id' => $contractId,
             'received_quantity' => 100,
             'received_unit' => 'kg',
             'received_date' => now()->toDateString(),
-            'receiver_name' => 'Receiver',
+            'receiver_name' => $trip->destination_name ?? $trip->destination_display ?? 'Receiver',
             'receiver_country' => $receiverCountry,
             'receiver_address' => $international ? '123 Export St' : null,
             'confirmation_status' => DeliveryConfirmation::STATUS_CONFIRMED,

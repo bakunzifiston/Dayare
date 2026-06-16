@@ -20,7 +20,7 @@ class StoreFacilityRequest extends FormRequest
     {
         return [
             'facility_name' => ['required', 'string', 'max:255'],
-            'facility_type' => ['required', 'string', 'max:100', Rule::in(Facility::TYPES)],
+            'facility_type' => ['required', 'string', 'max:100', Rule::in(Facility::SELECTABLE_TYPES)],
             'country_id' => ['nullable', 'exists:administrative_divisions,id'],
             'province_id' => ['nullable', 'exists:administrative_divisions,id'],
             'district_id' => ['nullable', 'exists:administrative_divisions,id'],

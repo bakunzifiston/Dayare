@@ -86,15 +86,27 @@ class ComplianceController extends Controller
             ->latest()
             ->get();
 
-        // Missing transport: certificates with no transport trip
+        // Missing transport: active certificates with no transport trip
         $userCertificateIds = Certificate::where(function ($q) use ($userBatchIds, $facilityIds) {
             $q->whereIn('batch_id', $userBatchIds)
                 ->orWhere(fn ($q2) => $q2->whereNull('batch_id')->whereIn('facility_id', $facilityIds));
         })->pluck('id');
         $missingTransportCertificates = Certificate::with('batch', 'facility')
             ->whereIn('id', $userCertificateIds)
+            ->where('status', Certificate::STATUS_ACTIVE)
             ->whereDoesntHave('transportTrips')
             ->latest('issued_at')
+            ->get();
+
+        // Missing delivery: departed trips without a delivery confirmation
+        $userTripIds = TransportTrip::query()
+            ->whereIn('certificate_id', $userCertificateIds)
+            ->pluck('id');
+        $missingDeliveryTrips = TransportTrip::with(['certificate', 'originFacility'])
+            ->whereIn('id', $userTripIds)
+            ->whereDoesntHave('deliveryConfirmation')
+            ->whereDate('departure_date', '<=', $today)
+            ->orderByDesc('departure_date')
             ->get();
 
         // Warehouse: temperature alerts (warning/critical)
@@ -134,6 +146,7 @@ class ComplianceController extends Controller
             'missing_post_mortem' => $missingPostMortemBatches->count(),
             'missing_certificates' => $missingCertificateBatches->count(),
             'missing_transport' => $missingTransportCertificates->count(),
+            'missing_delivery' => $missingDeliveryTrips->count(),
             'temperature_alerts' => $temperatureAlerts->count(),
             'storage_duration_exceeded' => $storageDurationExceeded->count(),
             'intakes_expired_health_cert' => $intakesWithExpiredHealthCert->count(),
@@ -141,6 +154,7 @@ class ComplianceController extends Controller
                 + $overCapacityPlans->count() + $missingAnteMortemPlans->count()
                 + $missingPostMortemBatches->count() + $missingCertificateBatches->count()
                 + $missingTransportCertificates->count()
+                + $missingDeliveryTrips->count()
                 + $temperatureAlerts->count() + $storageDurationExceeded->count()
                 + $intakesWithExpiredHealthCert->count(),
         ];
@@ -153,6 +167,7 @@ class ComplianceController extends Controller
             'missingPostMortemBatches' => $missingPostMortemBatches,
             'missingCertificateBatches' => $missingCertificateBatches,
             'missingTransportCertificates' => $missingTransportCertificates,
+            'missingDeliveryTrips' => $missingDeliveryTrips,
             'temperatureAlerts' => $temperatureAlerts,
             'storageDurationExceeded' => $storageDurationExceeded,
             'intakesWithExpiredHealthCert' => $intakesWithExpiredHealthCert,

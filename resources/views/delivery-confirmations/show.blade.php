@@ -34,12 +34,32 @@
                         </dd>
                     </div>
                     <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Certificate') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            @if ($confirmation->transportTrip?->certificate)
+                                <a href="{{ route('certificates.show', $confirmation->transportTrip->certificate) }}" class="text-bucha-primary hover:underline">
+                                    {{ $confirmation->transportTrip->certificate->certificate_number }}
+                                </a>
+                                @if ($confirmation->transportTrip->certificate->batch?->batch_code)
+                                    <span class="text-gray-500">({{ $confirmation->transportTrip->certificate->batch->batch_code }})</span>
+                                @endif
+                            @else
+                                —
+                            @endif
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Trip destination') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $confirmation->transportTrip->destination_display ?? '—' }}</dd>
+                    </div>
+                    <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Receiving at') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900">
                             @if ($confirmation->receivingFacility)
                                 {{ $confirmation->receivingFacility->facility_name }}
+                                <span class="text-xs text-gray-500">({{ __('legacy record') }})</span>
                             @else
-                                <span class="text-gray-600">{{ __('External / non-registered') }}</span> — {{ $confirmation->receiver_name }}{!! $confirmation->receiver_country ? ' (' . e($confirmation->receiver_country) . ')' : '' !!}
+                                {{ $confirmation->receiver_name }}{!! $confirmation->receiver_country ? ' (' . e($confirmation->receiver_country) . ')' : '' !!}
                             @endif
                         </dd>
                     </div>

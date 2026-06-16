@@ -59,10 +59,6 @@ class StoreSlaughterPlanRequest extends FormRequest
                 $validator->errors()->add('animal_intake_id', __('Selected intake must be for the chosen facility.'));
             }
 
-            if ($intake->isHealthCertificateExpired()) {
-                $validator->errors()->add('animal_intake_id', __('Cannot schedule slaughter: health certificate has expired.'));
-            }
-
             if (! $intake->isPlannableForSlaughter()) {
                 $validator->errors()->add(
                     'animal_intake_id',

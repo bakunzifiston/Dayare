@@ -46,10 +46,11 @@
                     <p class="mt-0.5 text-xs text-slate-500">{{ __('Submitted sessions') }}</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Cert issues') }}</p>
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Cert advisory') }}</p>
                     <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['cert_issues'] > 0 ? 'text-amber-700' : 'text-slate-900' }}">
                         {{ number_format($hubStats['cert_issues']) }}
                     </p>
+                    <p class="mt-0.5 text-xs text-slate-500">{{ __('Missing or expired — does not block slaughter') }}</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Drafts pending') }}</p>

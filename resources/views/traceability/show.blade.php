@@ -28,6 +28,23 @@
         .inspection-block:first-of-type { margin-top: 0.5rem; border-top: none; padding-top: 0; }
         .inspection-h { font-size: 0.85rem; font-weight: 600; color: #0f172a; margin-bottom: 0.35rem; }
         .inspection-meta { font-size: 0.8rem; color: #64748b; margin-bottom: 0.5rem; }
+        .animal-panel { border: 1px solid #e2e8f0; border-radius: 0.75rem; margin-bottom: 0.65rem; background: #fff; overflow: hidden; }
+        .animal-panel summary { list-style: none; cursor: pointer; padding: 0.75rem; }
+        .animal-panel summary::-webkit-details-marker { display: none; }
+        .animal-panel[open] summary { border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
+        .animal-summary { display: grid; grid-template-columns: 1.5rem 1fr; gap: 0.35rem 0.75rem; font-size: 0.8125rem; align-items: start; }
+        .animal-summary-label { color: #64748b; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .animal-summary-value { color: #0f172a; }
+        .ear-tag-link { font-family: ui-monospace, monospace; color: #0f766e; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+        .animal-panel-hint { font-size: 0.7rem; color: #94a3b8; margin-top: 0.35rem; }
+        .animal-inspection-detail { padding: 0.85rem 0.75rem 1rem; }
+        .animal-inspection-title { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 0.75rem 0 0.5rem; }
+        .animal-inspection-title:first-child { margin-top: 0; }
+        .animal-inspection-block { margin-bottom: 0.75rem; }
+        .animal-inspection-meta { font-size: 0.8rem; color: #475569; margin: 0 0 0.35rem; }
+        .animal-inspection-notes { font-size: 0.8rem; color: #64748b; margin: 0 0 0.5rem; white-space: pre-wrap; }
+        .animal-inspection-subtitle { font-size: 0.75rem; font-weight: 600; color: #334155; margin: 0.65rem 0 0.35rem; }
+        .animal-inspection-empty { font-size: 0.8rem; color: #94a3b8; margin: 0; }
     </style>
 </head>
 <body>
@@ -125,6 +142,40 @@
                     </div>
                 @endif
             </dl>
+        </div>
+    @endif
+
+    @if (!empty($animalsDetail))
+        <div class="card">
+            <p class="section-title">{{ __('Individual animals') }} ({{ count($animalsDetail) }})</p>
+            <p style="font-size: 0.8rem; color: #64748b; margin: -0.35rem 0 0.75rem;">{{ __('Tap an ear tag to view ante-mortem and post-mortem inspection results for that animal.') }}</p>
+            @foreach ($animalsDetail as $animal)
+                <details class="animal-panel">
+                    <summary>
+                        <div class="animal-summary">
+                            <span class="animal-summary-label">{{ __('#') }}</span>
+                            <span class="animal-summary-value">{{ $loop->iteration }}</span>
+
+                            <span class="animal-summary-label">{{ __('Ear tag') }}</span>
+                            <span class="animal-summary-value ear-tag-link">{{ $animal['ear_tag'] }}</span>
+
+                            <span class="animal-summary-label">{{ __('Species') }}</span>
+                            <span class="animal-summary-value">{{ $animal['species'] }}</span>
+
+                            <span class="animal-summary-label">{{ __('Sex') }}</span>
+                            <span class="animal-summary-value">{{ $animal['sex'] }}</span>
+
+                            <span class="animal-summary-label">{{ __('Live weight') }}</span>
+                            <span class="animal-summary-value">{{ $animal['live_weight_kg'] !== null ? number_format((float) $animal['live_weight_kg'], 2).' kg' : '—' }}</span>
+
+                            <span class="animal-summary-label">{{ __('PM outcome') }}</span>
+                            <span class="animal-summary-value">{{ $animal['pm_outcome'] ?: __('Not recorded') }}</span>
+                        </div>
+                        <p class="animal-panel-hint">{{ __('Tap to view inspection details') }}</p>
+                    </summary>
+                    @include('traceability.partials.animal-inspection-detail', ['animal' => $animal])
+                </details>
+            @endforeach
         </div>
     @endif
 

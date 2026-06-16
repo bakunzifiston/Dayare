@@ -8,12 +8,11 @@ use OpenApi\Attributes as OA;
 
 #[OA\Schema(
     schema: 'TransportTripCreateRequest',
-    description: 'Create transport trip. Certificate and facilities must be in workspace scope; optional warehouse storage must be released.',
+    description: 'Create transport trip. Requires an active, non-expired certificate in workspace scope.',
     required: ['certificate_id', 'origin_facility_id', 'destination_facility_id', 'vehicle_plate_number', 'driver_name', 'departure_date', 'status'],
     properties: [
         new OA\Property(property: 'certificate_id', type: 'integer', example: 101),
-        new OA\Property(property: 'warehouse_storage_id', type: 'integer', nullable: true, example: 55),
-        new OA\Property(property: 'batch_id', type: 'integer', nullable: true, example: 88),
+        new OA\Property(property: 'batch_id', type: 'integer', nullable: true, description: 'Optional; auto-filled from certificate when omitted', example: 88),
         new OA\Property(property: 'origin_facility_id', type: 'integer', example: 3),
         new OA\Property(property: 'destination_facility_id', type: 'integer', example: 4),
         new OA\Property(property: 'vehicle_plate_number', type: 'string', maxLength: 50, example: 'RAB123C'),

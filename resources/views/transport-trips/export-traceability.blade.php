@@ -38,9 +38,6 @@
             @if ($trip->batch)
                 <p><strong>{{ __('Batch') }}:</strong> {{ $trip->batch->batch_code }}</p>
             @endif
-            @if ($trip->warehouseStorage)
-                <p><strong>{{ __('Warehouse storage') }}:</strong> {{ $trip->warehouseStorage->batch?->batch_code ?? '#' }} — {{ __('released') }}</p>
-            @endif
             <p><strong>{{ __('Route') }}:</strong> {{ $trip->originFacility?->facility_name }} → {{ $trip->destination_display }}</p>
             <p><strong>{{ __('Driver') }}:</strong> {{ $trip->driver_name }} @if($trip->driver_phone)| {{ $trip->driver_phone }}@endif</p>
             <p><strong>{{ __('Departed') }}:</strong> {{ $trip->departure_date?->format('d M Y') }}

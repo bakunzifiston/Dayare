@@ -986,12 +986,13 @@ class ProcessorDashboardService
 
         $trip = TransportTrip::query()
             ->whereIn('id', $ctx->tripIds)
-            ->whereNull('certificate_id')
-            ->latest()
+            ->whereDoesntHave('deliveryConfirmation')
+            ->whereDate('departure_date', '<=', $ctx->today)
+            ->latest('departure_date')
             ->first();
         if ($trip) {
             $rows[] = [
-                'message' => __('Transport trip missing certificate'),
+                'message' => __('Transport trip missing delivery confirmation'),
                 'dotTone' => 'amber',
                 'reference' => __('Trip #:id', ['id' => $trip->id]),
                 'route' => 'transport-trips.show',

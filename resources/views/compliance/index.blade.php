@@ -41,6 +41,7 @@
                             <span>{{ __('Missing post-mortem') }} <strong class="text-slate-700">{{ $kpis['missing_post_mortem'] }}</strong></span>
                             <span>{{ __('Missing certificates') }} <strong class="text-slate-700">{{ $kpis['missing_certificates'] }}</strong></span>
                             <span>{{ __('Missing transport') }} <strong class="text-slate-700">{{ $kpis['missing_transport'] }}</strong></span>
+                            <span>{{ __('Missing delivery') }} <strong class="text-slate-700">{{ $kpis['missing_delivery'] ?? 0 }}</strong></span>
                             <span>{{ __('Temp. alerts') }} <strong class="text-slate-700">{{ $kpis['temperature_alerts'] ?? 0 }}</strong></span>
                             <span>{{ __('Storage exceeded') }} <strong class="text-slate-700">{{ $kpis['storage_duration_exceeded'] ?? 0 }}</strong></span>
                             <span>{{ __('Intakes (cert issues)') }} <strong class="text-slate-700">{{ $kpis['intakes_expired_health_cert'] ?? 0 }}</strong></span>
@@ -162,6 +163,28 @@
                                 <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
                                     <a href="{{ route('certificates.show', $c) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $c->certificate_number ?: '#' . $c->id }}</a>
                                     <span class="text-slate-500 text-sm"> · {{ $c->batch ? $c->batch->batch_code : ($c->facility?->facility_name ?? '') }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                @if ($missingDeliveryTrips->isNotEmpty())
+                    <div class="rounded-xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
+                        <div class="px-5 py-3 border-b border-slate-100 bg-amber-50/50">
+                            <h3 class="text-sm font-semibold text-amber-800">{{ __('Missing delivery confirmations') }}</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">{{ __('Transport trips that have departed without a delivery confirmation.') }}</p>
+                        </div>
+                        <ul class="divide-y divide-slate-50">
+                            @foreach ($missingDeliveryTrips as $t)
+                                <li class="px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
+                                    <a href="{{ route('transport-trips.show', $t) }}" class="font-medium text-bucha-primary hover:text-bucha-burgundy">{{ $t->vehicle_plate_number }}</a>
+                                    <span class="text-slate-500 text-sm">
+                                        · {{ __('Cert') }} {{ $t->certificate?->certificate_number ?: '#'.$t->certificate_id }}
+                                        · {{ $t->originFacility?->facility_name ?? '' }} → {{ $t->destination_display }}
+                                        · {{ $t->departure_date->format('d M Y') }}
+                                    </span>
+                                    <a href="{{ route('delivery-confirmations.create', ['transport_trip_id' => $t->id]) }}" class="ml-2 text-xs text-bucha-primary hover:underline">{{ __('Confirm delivery') }}</a>
                                 </li>
                             @endforeach
                         </ul>

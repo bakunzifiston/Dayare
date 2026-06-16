@@ -7,12 +7,11 @@ use App\Http\Controllers\Concerns\ScopesProcessorData;
 use App\Http\Requests\ExportTransportTripsRequest;
 use App\Http\Requests\StoreTransportTripRequest;
 use App\Http\Requests\UpdateTransportTripRequest;
-use App\Models\Batch;
 use App\Models\Business;
 use App\Models\Certificate;
 use App\Models\Facility;
 use App\Models\TransportTrip;
-use App\Models\WarehouseStorage;
+use App\Services\Processor\CertificateTransportDefaultsService;
 use App\Support\DomPdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +24,10 @@ class TransportTripController extends Controller
 {
     use ExportsProcessorRecords;
     use ScopesProcessorData;
+
+    public function __construct(
+        private readonly CertificateTransportDefaultsService $certificateTransportDefaults,
+    ) {}
 
     public function hub(Request $request): View
     {
@@ -76,7 +79,6 @@ class TransportTripController extends Controller
                 'originFacility',
                 'destinationFacility',
                 'batch',
-                'warehouseStorage',
                 'deliveryConfirmation.client',
                 'deliveryConfirmation.receivingFacility',
             ]),
@@ -104,8 +106,6 @@ class TransportTripController extends Controller
                 'originFacility',
                 'destinationFacility',
                 'batch',
-                'warehouseStorage.batch',
-                'warehouseStorage.warehouseFacility',
                 'deliveryConfirmation.receivingFacility',
                 'deliveryConfirmation.client',
                 'deliveryConfirmation.contract',
@@ -132,19 +132,30 @@ class TransportTripController extends Controller
 
     public function create(Request $request): View
     {
-        return view('transport-trips.create', $this->formOptions($request));
+        $options = $this->formOptions($request);
+        $certificateId = $request->integer('certificate_id');
+        if ($certificateId > 0 && collect($options['certificates'])->contains('id', $certificateId)) {
+            $options['selectedCertificateId'] = $certificateId;
+            $selected = collect($options['certificates'])->firstWhere('id', $certificateId);
+            $options['transportDefaults'] = $selected['transport_defaults'] ?? [];
+            $options['lockedTransportFields'] = $selected['locked_fields'] ?? [];
+        }
+
+        return view('transport-trips.create', $options);
     }
 
     public function store(StoreTransportTripRequest $request): RedirectResponse
     {
         $this->assertTripRelationsInScope($request);
-        if ($redirect = $this->warehouseStorageRedirectIfInvalid($request)) {
-            return $redirect;
-        }
 
         $trip = TransportTrip::create(
             TransportTrip::normalizeDestinationAttributes($request->validated())
         );
+
+        $trip->load('certificate');
+        if ($trip->certificate) {
+            $this->certificateTransportDefaults->syncTripToCertificate($trip->certificate, $trip);
+        }
 
         return redirect()
             ->route('transport-trips.show', $trip)
@@ -160,7 +171,6 @@ class TransportTripController extends Controller
             'certificate.inspector',
             'originFacility',
             'destinationFacility',
-            'warehouseStorage.batch',
             'deliveryConfirmation.receivingFacility',
         ]);
 
@@ -172,7 +182,15 @@ class TransportTripController extends Controller
         $this->ensureTripInScope($request, $transportTrip);
 
         return view('transport-trips.edit', array_merge(
-            ['trip' => $transportTrip],
+            [
+                'trip' => $transportTrip,
+                'transportDefaults' => $transportTrip->certificate
+                    ? $this->certificateTransportDefaults->suggestedForCertificate($transportTrip->certificate)
+                    : [],
+                'lockedTransportFields' => $transportTrip->certificate
+                    ? $this->certificateTransportDefaults->lockedFieldKeys($transportTrip->certificate)
+                    : [],
+            ],
             $this->formOptions($request)
         ));
     }
@@ -181,13 +199,15 @@ class TransportTripController extends Controller
     {
         $this->ensureTripInScope($request, $transportTrip);
         $this->assertTripRelationsInScope($request);
-        if ($redirect = $this->warehouseStorageRedirectIfInvalid($request)) {
-            return $redirect;
-        }
 
         $transportTrip->update(
             TransportTrip::normalizeDestinationAttributes($request->validated())
         );
+
+        $transportTrip->load('certificate');
+        if ($transportTrip->certificate) {
+            $this->certificateTransportDefaults->syncTripToCertificate($transportTrip->certificate, $transportTrip);
+        }
 
         return redirect()->route('transport-trips.hub')
             ->with('status', __('Transport trip updated successfully.'));
@@ -226,7 +246,6 @@ class TransportTripController extends Controller
             'Departure date' => fn (TransportTrip $t) => $t->departure_date?->format('Y-m-d') ?? '',
             'Arrival date' => fn (TransportTrip $t) => $t->arrival_date?->format('Y-m-d') ?? '',
             'Status' => fn (TransportTrip $t) => $t->status,
-            'Warehouse storage linked' => fn (TransportTrip $t) => $t->warehouse_storage_id ? __('Yes') : __('No'),
             'Has delivery confirmation' => fn (TransportTrip $t) => $t->deliveryConfirmation ? __('Yes') : __('No'),
             'Delivery status' => fn (TransportTrip $t) => $t->deliveryConfirmation?->confirmation_status ?? '',
             'Received quantity' => fn (TransportTrip $t) => $t->deliveryConfirmation?->received_quantity ?? '',
@@ -262,24 +281,10 @@ class TransportTripController extends Controller
     {
         $certificateIds = $this->accessibleCertificateIds($request);
 
-        $releasedStorages = $this->releasedStorageOptions($certificateIds);
-
         return [
-            'certificates' => Certificate::with('batch')
-                ->whereIn('id', $certificateIds)
-                ->latest('issued_at')
-                ->get()
-                ->map(fn (Certificate $c) => [
-                    'id' => $c->id,
-                    'label' => ($c->certificate_number ?: '#'.$c->id).($c->batch ? ' — '.$c->batch->batch_code : ''),
-                ]),
+            'certificates' => $this->transportableCertificateOptions($certificateIds),
             'facilities' => $this->facilityOptions($request),
-            'batches' => Batch::whereIn('id', $this->accessibleBatchIds($request))
-                ->orderByDesc('id')
-                ->get()
-                ->map(fn (Batch $b) => ['id' => $b->id, 'label' => $b->batch_code]),
-            'releasedStorages' => $releasedStorages,
-            'hasReleasedStorages' => $releasedStorages !== [],
+            'selectedCertificateId' => null,
         ];
     }
 
@@ -287,28 +292,38 @@ class TransportTripController extends Controller
      * @param  \Illuminate\Support\Collection<int, int>  $certificateIds
      * @return list<array<string, mixed>>
      */
-    protected function releasedStorageOptions(\Illuminate\Support\Collection $certificateIds): array
+    protected function transportableCertificateOptions(\Illuminate\Support\Collection $certificateIds): array
     {
-        $batchIds = WarehouseStorage::accessibleBatchIds(request());
-
-        return WarehouseStorage::with(['batch', 'certificate', 'warehouseFacility', 'intakeItem'])
-            ->where('status', WarehouseStorage::STATUS_RELEASED)
-            ->where(function ($q) use ($certificateIds, $batchIds) {
-                $q->whereIn('certificate_id', $certificateIds)
-                    ->orWhereIn('batch_id', $batchIds);
-            })
-            ->latest('released_date')
-            ->get()
-            ->map(fn (WarehouseStorage $ws) => [
-                'id' => $ws->id,
-                'label' => ($ws->batch?->batch_code ?? '#').' — '.($ws->warehouseFacility?->facility_name ?? '').' ('.__('released').')',
-                'certificate_id' => $ws->certificate_id,
-                'certificate_label' => ($ws->certificate?->certificate_number ?: '#'.$ws->certificate_id)
-                    .($ws->batch ? ' — '.$ws->batch->batch_code : ''),
-                'batch_id' => $ws->batch_id,
-                'batch_label' => $ws->batch?->batch_code ?? '—',
-                'warehouse_facility_id' => $ws->warehouse_facility_id,
+        return Certificate::query()
+            ->with([
+                'batch',
+                'facility',
+                'transportTrips' => fn ($query) => $query->orderByDesc('departure_date'),
             ])
+            ->whereIn('id', $certificateIds)
+            ->where('status', Certificate::STATUS_ACTIVE)
+            ->where(function ($query) {
+                $query->whereNull('expiry_date')
+                    ->orWhereDate('expiry_date', '>=', today());
+            })
+            ->latest('issued_at')
+            ->get()
+            ->map(function (Certificate $certificate) {
+                $transportDefaults = $this->certificateTransportDefaults->suggestedForCertificate($certificate);
+
+                return [
+                    'id' => $certificate->id,
+                    'label' => ($certificate->certificate_number ?: '#'.$certificate->id)
+                        .($certificate->batch ? ' — '.$certificate->batch->batch_code : '')
+                        .($certificate->issued_at ? ' ('.$certificate->issued_at->format('d M Y').')' : ''),
+                    'batch_id' => $certificate->batch_id,
+                    'batch_label' => $certificate->batch?->batch_code ?? '—',
+                    'facility_id' => $certificate->facility_id,
+                    'facility_label' => $certificate->facility?->facility_name ?? '—',
+                    'transport_defaults' => $transportDefaults,
+                    'locked_fields' => $this->certificateTransportDefaults->lockedFieldKeys($certificate),
+                ];
+            })
             ->values()
             ->all();
     }
@@ -342,25 +357,5 @@ class TransportTripController extends Controller
             && ! $facilityIds->contains((int) $destinationFacilityId)) {
             abort(404);
         }
-    }
-
-    protected function warehouseStorageRedirectIfInvalid(Request $request): ?RedirectResponse
-    {
-        $wid = $request->validated('warehouse_storage_id');
-        if (! $wid) {
-            return null;
-        }
-
-        $ws = WarehouseStorage::find($wid);
-        if (! $ws || ! $this->accessibleCertificateIds($request)->contains($ws->certificate_id)) {
-            abort(404);
-        }
-        if ($ws->status !== WarehouseStorage::STATUS_RELEASED) {
-            return redirect()->back()
-                ->withErrors(['warehouse_storage_id' => __('Cannot transport: storage must be released first.')])
-                ->withInput();
-        }
-
-        return null;
     }
 }

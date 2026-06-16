@@ -11,7 +11,7 @@
                 <p class="font-medium">{{ __('New on this form') }}</p>
                 <ul class="mt-2 list-disc list-inside space-y-1">
                     <li>{{ __('Unit') }} — {{ __('kg, carcasses, boxes, etc. next to received quantity') }}</li>
-                    <li>{{ __('Customer contract') }} — {{ __('choose External / non-registered as receiving facility, then pick a client') }}</li>
+                    <li>{{ __('Customer contract') }} — {{ __('optionally link a client after choosing the transport trip') }}</li>
                     <li>{{ __('International export') }} — {{ __('after saving, if receiver country is not :country, add vet cert, customs, invoice, and cold chain docs on the confirmation page.', ['country' => config('processor.domestic_country', 'RW')]) }}</li>
                 </ul>
             </div>
@@ -20,7 +20,6 @@
                     @csrf
                     @include('delivery-confirmations.partials.form-fields', [
                         'trips' => $trips,
-                        'facilities' => $facilities,
                         'clients' => $clients,
                         'receivedUnits' => $receivedUnits,
                         'contractsUrl' => $contractsUrl,

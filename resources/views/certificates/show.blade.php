@@ -285,7 +285,15 @@
                             </li>
                         @endforeach
                     </ul>
-                    <a href="{{ route('transport-trips.create') }}" class="no-print inline-flex items-center mt-2 text-sm text-bucha-primary hover:text-indigo-900">{{ __('Record trip') }}</a>
+                    <a href="{{ route('transport-trips.create', ['certificate_id' => $certificate->id]) }}" class="no-print inline-flex items-center mt-2 text-sm text-bucha-primary hover:text-indigo-900">{{ __('Record another trip') }}</a>
+                </div>
+            @else
+                <div class="print-card bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6 no-print">
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Transport') }}</h3>
+                    <p class="text-sm text-gray-600 mb-3">{{ __('Record a transport trip for this certificate when certified meat leaves the facility.') }}</p>
+                    <a href="{{ route('transport-trips.create', ['certificate_id' => $certificate->id]) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                        {{ __('Record trip for this certificate') }}
+                    </a>
                 </div>
             @endif
         </div>

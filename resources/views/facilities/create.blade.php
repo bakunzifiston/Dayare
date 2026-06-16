@@ -20,7 +20,7 @@
                     <div>
                         <x-input-label for="facility_type" :value="__('Facility Type')" />
                         <select id="facility_type" name="facility_type" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach (\App\Models\Facility::TYPES as $t)
+                            @foreach (\App\Models\Facility::SELECTABLE_TYPES as $t)
                                 <option value="{{ $t }}" @selected(old('facility_type') === $t)>{{ $t }}</option>
                             @endforeach
                         </select>

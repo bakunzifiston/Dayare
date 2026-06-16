@@ -54,6 +54,27 @@ class Facility extends Model
         self::TYPE_OTHER,
     ];
 
+    /** Types offered when creating or changing a facility in the UI. */
+    public const SELECTABLE_TYPES = [
+        self::TYPE_SLAUGHTERHOUSE,
+        self::TYPE_STORAGE,
+        self::TYPE_OTHER,
+    ];
+
+    /**
+     * @return list<string>
+     */
+    public static function selectableTypes(?self $facility = null): array
+    {
+        $types = self::SELECTABLE_TYPES;
+
+        if ($facility?->facility_type === self::TYPE_BUTCHERY) {
+            array_unshift($types, self::TYPE_BUTCHERY);
+        }
+
+        return $types;
+    }
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_SUSPENDED = 'suspended';

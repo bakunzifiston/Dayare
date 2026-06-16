@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AnimalIntakeItem;
 use App\Models\AnteMortemInspection;
+use App\Models\AnteMortemInspectionItem;
+use App\Models\BatchItem;
 use App\Models\CertificateQr;
 use App\Models\PostMortemInspection;
+use App\Models\PostMortemInspectionItem;
 use App\Support\AnteMortemChecklist;
 use App\Support\DomPdf;
 use App\Support\PostMortemChecklist;
@@ -41,6 +45,9 @@ class TraceabilityController extends Controller
             'certificate.batch.slaughterExecution.slaughterPlan.anteMortemInspections.inspector',
             'certificate.batch.slaughterExecution.slaughterPlan.anteMortemInspections.observations',
             'certificate.batch.slaughterExecution.slaughterPlan.inspector',
+            'certificate.batch.items.intakeItem.anteMortemInspectionItems.inspection.inspector',
+            'certificate.batch.items.intakeItem.anteMortemInspectionItems.inspection.observations',
+            'certificate.batch.items.postMortemOutcome.inspection.inspector',
         ]);
 
         $cert = $certificateQr->certificate;
@@ -78,6 +85,7 @@ class TraceabilityController extends Controller
 
         $anteMortemInspectionsDetail = $this->formatAnteMortemInspectionsForTrace($plan?->anteMortemInspections ?? collect());
         $postMortemInspectionDetail = $this->formatPostMortemInspectionForTrace($postMortem);
+        $animalsDetail = $this->formatAnimalsForTrace($batch?->items ?? collect(), $postMortem);
 
         return [
             'certificate' => $cert,
@@ -96,6 +104,117 @@ class TraceabilityController extends Controller
             'hasPostMortemApproved' => $hasPostMortemApproved,
             'anteMortemInspectionsDetail' => $anteMortemInspectionsDetail,
             'postMortemInspectionDetail' => $postMortemInspectionDetail,
+            'animalsDetail' => $animalsDetail,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, BatchItem>  $batchItems
+     * @return array<int, array<string, mixed>>
+     */
+    private function formatAnimalsForTrace(Collection $batchItems, ?PostMortemInspection $postMortem): array
+    {
+        return $batchItems
+            ->sortBy('id')
+            ->values()
+            ->map(function (BatchItem $batchItem) use ($postMortem) {
+                $intake = $batchItem->intakeItem;
+                $pm = $batchItem->postMortemOutcome;
+
+                return [
+                    'ear_tag' => $intake?->ear_tag ?: '—',
+                    'species' => $intake?->species ?: '—',
+                    'sex' => $intake?->sex ? ucfirst((string) $intake->sex) : '—',
+                    'live_weight_kg' => $intake?->live_weight_kg,
+                    'meat_quantity_kg' => $batchItem->meat_quantity_kg,
+                    'carcass_weight_kg' => $pm?->carcass_weight_kg,
+                    'pm_outcome' => $pm?->outcome ? ucfirst((string) $pm->outcome) : null,
+                    'ante_mortem' => $this->formatAnimalAnteMortemForTrace($intake),
+                    'post_mortem' => $this->formatAnimalPostMortemForTrace($pm, $postMortem, $intake?->id),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function formatAnimalAnteMortemForTrace(?AnimalIntakeItem $intake): array
+    {
+        if ($intake === null) {
+            return [];
+        }
+
+        return $intake->anteMortemInspectionItems
+            ->sortBy(fn (AnteMortemInspectionItem $item) => $item->inspection?->inspection_date?->timestamp ?? 0)
+            ->map(function (AnteMortemInspectionItem $item) use ($intake) {
+                $inspection = $item->inspection;
+                $checklist = AnteMortemChecklist::itemsForSpecies($inspection?->species);
+                $rows = ($inspection?->observations ?? collect())
+                    ->where('animal_intake_item_id', $intake->id)
+                    ->map(function ($obs) use ($checklist) {
+                        $label = $checklist[$obs->item]['label'] ?? Str::of($obs->item)->replace('_', ' ')->title()->toString();
+
+                        return [
+                            'label' => $label,
+                            'value' => $this->humanizeChecklistValue((string) $obs->value),
+                            'notes' => $obs->notes ? (string) $obs->notes : null,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                return [
+                    'inspection_date' => $inspection?->inspection_date?->format('d M Y') ?? '—',
+                    'inspector' => $inspection?->inspector?->full_name,
+                    'outcome' => ucfirst((string) $item->outcome),
+                    'outcome_notes' => $item->outcome_notes ? (string) $item->outcome_notes : null,
+                    'rows' => $rows,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function formatAnimalPostMortemForTrace(
+        ?PostMortemInspectionItem $pmItem,
+        ?PostMortemInspection $inspection,
+        ?int $intakeItemId,
+    ): ?array {
+        if ($pmItem === null && ($inspection === null || $intakeItemId === null)) {
+            return null;
+        }
+
+        $species = $inspection?->species;
+        $checklist = PostMortemChecklist::itemsForSpecies($species);
+
+        $mapRows = function (Collection $observations) use ($checklist) {
+            return $observations->map(function ($obs) use ($checklist) {
+                $label = $checklist[$obs->item]['label'] ?? Str::of($obs->item)->replace('_', ' ')->title()->toString();
+
+                return [
+                    'label' => $label,
+                    'value' => $this->humanizeChecklistValue((string) $obs->value),
+                    'notes' => $obs->notes ? (string) $obs->notes : null,
+                ];
+            })->values()->all();
+        };
+
+        $observations = $inspection && $intakeItemId
+            ? $inspection->observations->where('animal_intake_item_id', $intakeItemId)
+            : collect();
+
+        return [
+            'inspection_date' => $inspection?->inspection_date?->format('d M Y') ?? '—',
+            'inspector' => $inspection?->inspector?->full_name,
+            'outcome' => $pmItem?->outcome ? ucfirst((string) $pmItem->outcome) : null,
+            'outcome_notes' => $pmItem?->outcome_notes ? (string) $pmItem->outcome_notes : null,
+            'carcass_weight_kg' => $pmItem?->carcass_weight_kg,
+            'carcass_rows' => $mapRows($observations->where('category', 'carcass')),
+            'organ_rows' => $mapRows($observations->where('category', 'organ')),
         ];
     }
 

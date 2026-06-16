@@ -3,11 +3,15 @@
 namespace App\Http\Requests;
 
 use App\Enums\ReceivedUnit;
+use App\Http\Requests\Concerns\PreparesDeliveryConfirmationFromTransport;
+use App\Http\Requests\Concerns\ValidatesDeliveryConfirmationAgainstTransport;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateDeliveryConfirmationRequest extends FormRequest
 {
+    use PreparesDeliveryConfirmationFromTransport;
+    use ValidatesDeliveryConfirmationAgainstTransport;
     public function authorize(): bool
     {
         return true;
@@ -17,7 +21,7 @@ class UpdateDeliveryConfirmationRequest extends FormRequest
     {
         return [
             'transport_trip_id' => ['required', 'exists:transport_trips,id'],
-            'receiving_facility_id' => ['nullable', 'exists:facilities,id'],
+            'receiving_facility_id' => ['nullable', 'prohibited'],
             'client_id' => ['nullable', 'exists:clients,id'],
             'contract_id' => ['nullable', 'exists:contracts,id'],
             'received_quantity' => ['required', 'integer', 'min:0'],

@@ -21,7 +21,6 @@ class TransportTripExternalDestinationTest extends TestCase
             ->post(route('transport-trips.store'), [
                 'certificate_id' => $fixture['certificate']->id,
                 'origin_facility_id' => $fixture['origin']->id,
-                'destination_type' => 'external',
                 'destination_name' => 'Nairobi Cold Store',
                 'destination_country' => 'KE',
                 'destination_address' => 'Industrial Area',
@@ -47,7 +46,6 @@ class TransportTripExternalDestinationTest extends TestCase
             ->post(route('transport-trips.store'), [
                 'certificate_id' => $fixture['certificate']->id,
                 'origin_facility_id' => $fixture['origin']->id,
-                'destination_facility_id' => '',
                 'vehicle_plate_number' => 'RAB 999X',
                 'driver_name' => 'Export Driver',
                 'departure_date' => now()->toDateString(),

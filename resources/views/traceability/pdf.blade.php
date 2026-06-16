@@ -57,6 +57,79 @@
         </table>
     </div>
 
+    @if (!empty($animalsDetail))
+        <div class="section">
+            <div class="section-title">Individual animals ({{ count($animalsDetail) }})</div>
+            @foreach ($animalsDetail as $animal)
+                <p class="subh">{{ $loop->iteration }}. {{ $animal['ear_tag'] }} · {{ $animal['species'] }} · {{ $animal['sex'] }}</p>
+                <p class="sub">Live weight: {{ $animal['live_weight_kg'] !== null ? number_format((float) $animal['live_weight_kg'], 2).' kg' : '—' }}
+                    · Meat qty: {{ $animal['meat_quantity_kg'] !== null ? number_format((float) $animal['meat_quantity_kg'], 2).' kg' : '—' }}
+                    · PM outcome: {{ $animal['pm_outcome'] ?: 'Not recorded' }}</p>
+
+                @if (!empty($animal['ante_mortem']))
+                    <p class="subh">Ante-mortem</p>
+                    @foreach ($animal['ante_mortem'] as $am)
+                        <p class="sub">{{ $am['inspection_date'] }} · Outcome: {{ $am['outcome'] }}
+                            @if (!empty($am['inspector'])) · Inspector: {{ $am['inspector'] }} @endif
+                        </p>
+                        @if (!empty($am['outcome_notes']))
+                            <p class="sub">{{ $am['outcome_notes'] }}</p>
+                        @endif
+                        @if (!empty($am['rows']))
+                            <table class="checklist">
+                                <tr><th>Item</th><th>Result</th><th>Notes</th></tr>
+                                @foreach ($am['rows'] as $row)
+                                    <tr>
+                                        <td>{{ $row['label'] }}</td>
+                                        <td>{{ $row['value'] }}</td>
+                                        <td>{{ $row['notes'] ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </table>
+                        @endif
+                    @endforeach
+                @endif
+
+                @if (!empty($animal['post_mortem']))
+                    @php $pmAnimal = $animal['post_mortem']; @endphp
+                    <p class="subh">Post-mortem</p>
+                    <p class="sub">{{ $pmAnimal['inspection_date'] }}
+                        @if (!empty($pmAnimal['outcome'])) · Outcome: {{ $pmAnimal['outcome'] }} @endif
+                        @if (!empty($pmAnimal['inspector'])) · Inspector: {{ $pmAnimal['inspector'] }} @endif
+                    </p>
+                    @if (!empty($pmAnimal['outcome_notes']))
+                        <p class="sub">{{ $pmAnimal['outcome_notes'] }}</p>
+                    @endif
+                    @if (!empty($pmAnimal['carcass_rows']))
+                        <table class="checklist">
+                            <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
+                            @foreach ($pmAnimal['carcass_rows'] as $row)
+                                <tr>
+                                    <td>{{ $row['label'] }}</td>
+                                    <td>{{ $row['value'] }}</td>
+                                    <td>{{ $row['notes'] ?: '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </table>
+                    @endif
+                    @if (!empty($pmAnimal['organ_rows']))
+                        <table class="checklist">
+                            <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
+                            @foreach ($pmAnimal['organ_rows'] as $row)
+                                <tr>
+                                    <td>{{ $row['label'] }}</td>
+                                    <td>{{ $row['value'] }}</td>
+                                    <td>{{ $row['notes'] ?: '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </table>
+                    @endif
+                @endif
+                @if (!$loop->last)<div style="height:8px"></div>@endif
+            @endforeach
+        </div>
+    @endif
+
     @if (!empty($anteMortemInspectionsDetail))
         <div class="section">
             <div class="section-title">Ante-mortem — checklist</div>
