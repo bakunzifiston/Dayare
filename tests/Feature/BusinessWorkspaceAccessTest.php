@@ -87,4 +87,72 @@ class BusinessWorkspaceAccessTest extends TestCase
 
         $this->actingAs($user)->get('/farmer/dashboard')->assertForbidden();
     }
+
+    public function test_butcher_registration_redirects_to_butcher_dashboard(): void
+    {
+        $this->seedDistrict();
+
+        $response = $this->post('/register', [
+            'name' => 'Butcher User',
+            'email' => 'butcher@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'business_type' => 'butcher',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('butcher.onboarding.index', absolute: false));
+    }
+
+    public function test_butcher_can_access_onboarding(): void
+    {
+        $this->post('/register', [
+            'name' => 'Butcher User',
+            'email' => 'butcher2@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'business_type' => 'butcher',
+        ]);
+
+        $this->get('/butcher/onboarding')->assertOk();
+    }
+
+    public function test_butcher_cannot_access_processor_dashboard(): void
+    {
+        $this->post('/register', [
+            'name' => 'Butcher User',
+            'email' => 'butcher3@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'business_type' => 'butcher',
+        ]);
+
+        $this->get('/dashboard')->assertForbidden();
+    }
+
+    public function test_processor_user_cannot_access_butcher_dashboard(): void
+    {
+        $user = User::factory()->create();
+        Business::create([
+            'user_id' => $user->id,
+            'type' => Business::TYPE_PROCESSOR,
+            'business_name' => 'Processor Co',
+            'business_name_normalized' => 'processor co',
+            'registration_number' => 'REG-TEST-003',
+            'contact_phone' => '1234567890',
+            'email' => 'processor@example.com',
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($user)->get('/butcher/dashboard')->assertForbidden();
+    }
+
+    private function seedDistrict(): void
+    {
+        \App\Models\AdministrativeDivision::query()->create([
+            'parent_id' => null,
+            'name' => 'Kigali',
+            'type' => \App\Models\AdministrativeDivision::TYPE_DISTRICT,
+        ]);
+    }
 }

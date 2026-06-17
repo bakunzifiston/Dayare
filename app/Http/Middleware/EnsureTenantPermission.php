@@ -260,6 +260,7 @@ class EnsureTenantPermission
         return $routeName === null
             || str_starts_with($routeName, 'farmer.')
             || str_starts_with($routeName, 'logistics.')
+            || str_starts_with($routeName, 'butcher.')
             || str_starts_with($routeName, 'super-admin.')
             || str_starts_with($routeName, 'profile.');
     }

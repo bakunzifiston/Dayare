@@ -107,9 +107,9 @@ class TestDataSeeder extends Seeder
         $this->createInspector($f2, 'Eric', 'Nkusi');
         $this->createInspector($f2, 'Claudine', 'Uwineza');
 
-        // --- Hilltop Butchery (Northern Province, user2) ---
+        // --- Hilltop Meats Co. (Northern Province, user2) — processor workspace ---
         $b3 = $this->createBusiness($user2, [
-            'business_name' => 'Hilltop Butchery',
+            'business_name' => 'Hilltop Meats Co.',
             'registration_number' => 'REG-TEST-003',
             'contact_phone' => '+250788333001',
             'email' => 'hilltop@test.me',
@@ -125,7 +125,7 @@ class TestDataSeeder extends Seeder
             'district_id' => $districtNorth?->id,
             'sector_id' => $sectorNorth?->id,
         ]);
-        $f3 = $this->createFacility($b3, 'Musanze Butchery', Facility::TYPE_BUTCHERY, $provinceNorth, $districtNorth, $sectorNorth, null, null);
+        $f3 = $this->createFacility($b3, 'Musanze Processing Unit', Facility::TYPE_BUTCHERY, $provinceNorth, $districtNorth, $sectorNorth, null, null);
         $this->createInspector($f3, 'Jean Pierre', 'Ndayisaba');
 
         // Employees (Rwanda names, +250 phone)

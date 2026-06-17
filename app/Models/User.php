@@ -187,6 +187,7 @@ class User extends Authenticatable
         $isProcessorRoute = $routeName !== null
             && ! str_starts_with($routeName, 'farmer.')
             && ! str_starts_with($routeName, 'logistics.')
+            && ! str_starts_with($routeName, 'butcher.')
             && ! str_starts_with($routeName, 'super-admin.')
             && ! str_starts_with($routeName, 'profile.');
         $activeProcessorBusinessId = session('active_processor_business_id');
@@ -211,6 +212,16 @@ class User extends Authenticatable
     {
         return Business::query()
             ->where('type', Business::TYPE_FARMER)
+            ->whereIn('id', $this->accessibleBusinessIds())
+            ->pluck('id')
+            ->values();
+    }
+
+    /** Business IDs the user may act as for butcher workspace (owned or member, type butcher). */
+    public function accessibleButcherBusinessIds(): Collection
+    {
+        return Business::query()
+            ->where('type', Business::TYPE_BUTCHER)
             ->whereIn('id', $this->accessibleBusinessIds())
             ->pluck('id')
             ->values();
@@ -509,6 +520,7 @@ class User extends Authenticatable
         return match ($this->tenantWorkspaceType()) {
             Business::TYPE_FARMER => 'farmer.dashboard',
             Business::TYPE_LOGISTICS => 'logistics.dashboard.index',
+            Business::TYPE_BUTCHER => 'butcher.dashboard',
             default => 'dashboard',
         };
     }

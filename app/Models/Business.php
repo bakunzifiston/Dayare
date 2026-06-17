@@ -107,6 +107,18 @@ class Business extends Model
         'supporting_documents',
         'supporting_documents_other',
         'supporting_document_files',
+        // Butcher workspace
+        'butchery_type',
+        'rfa_permit_number',
+        'rfa_permit_expiry',
+        'butcher_district',
+        'butcher_sector',
+        'butcher_cell',
+        'gps_lat',
+        'gps_lng',
+        'butcher_fresh_max_temp_c',
+        'butcher_frozen_max_temp_c',
+        'butcher_batch_shelf_life_days',
     ];
 
     public const TYPE_FARMER = 'farmer';
@@ -115,11 +127,27 @@ class Business extends Model
 
     public const TYPE_LOGISTICS = 'logistics';
 
+    public const TYPE_BUTCHER = 'butcher';
+
+    public const BUTCHERY_TYPE_RETAIL = 'retail';
+
+    public const BUTCHERY_TYPE_WHOLESALE = 'wholesale';
+
+    public const BUTCHERY_TYPE_MIXED = 'mixed';
+
+    /** @var list<string> */
+    public const BUTCHERY_TYPES = [
+        self::BUTCHERY_TYPE_RETAIL,
+        self::BUTCHERY_TYPE_WHOLESALE,
+        self::BUTCHERY_TYPE_MIXED,
+    ];
+
     /** @var list<string> */
     public const TYPES = [
         self::TYPE_FARMER,
         self::TYPE_PROCESSOR,
         self::TYPE_LOGISTICS,
+        self::TYPE_BUTCHER,
     ];
 
     public const OWNERSHIP_TYPES = ['sole_proprietor', 'partnership', 'company', 'cooperative', 'other'];
@@ -382,13 +410,22 @@ class Business extends Model
         'workers_trained' => 'boolean',
         'uses_digital_records' => 'boolean',
         'baseline_revenue_rwf' => 'decimal:2',
+        'rfa_permit_expiry' => 'date',
+        'gps_lat' => 'decimal:7',
+        'gps_lng' => 'decimal:7',
+        'butcher_fresh_max_temp_c' => 'decimal:2',
+        'butcher_frozen_max_temp_c' => 'decimal:2',
+        'butcher_batch_shelf_life_days' => 'integer',
     ];
+
+    public const STATUS_PENDING = 'pending';
 
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_SUSPENDED = 'suspended';
 
     public const STATUSES = [
+        self::STATUS_PENDING,
         self::STATUS_ACTIVE,
         self::STATUS_SUSPENDED,
     ];
@@ -592,6 +629,111 @@ class Business extends Model
     public function healthCertificates(): HasMany
     {
         return $this->hasMany(FarmerHealthCertificate::class, 'farmer_id');
+    }
+
+    public function butcherOutlets(): HasMany
+    {
+        return $this->hasMany(ButcherOutlet::class);
+    }
+
+    public function butcherPermits(): HasMany
+    {
+        return $this->hasMany(ButcherPermit::class);
+    }
+
+    public function butcherSuppliers(): HasMany
+    {
+        return $this->hasMany(ButcherSupplier::class);
+    }
+
+    public function butcherPurchaseOrders(): HasMany
+    {
+        return $this->hasMany(ButcherPurchaseOrder::class);
+    }
+
+    public function butcherDeliveries(): HasMany
+    {
+        return $this->hasMany(ButcherDelivery::class);
+    }
+
+    public function butcherInventoryBatches(): HasMany
+    {
+        return $this->hasMany(ButcherInventoryBatch::class);
+    }
+
+    public function butcherTemperatureLogs(): HasMany
+    {
+        return $this->hasMany(ButcherTemperatureLog::class);
+    }
+
+    public function butcherDisposalLogs(): HasMany
+    {
+        return $this->hasMany(ButcherDisposalLog::class);
+    }
+
+    public function butcherCutTypes(): HasMany
+    {
+        return $this->hasMany(ButcherCutType::class);
+    }
+
+    public function butcherCuttingSessions(): HasMany
+    {
+        return $this->hasMany(ButcherCuttingSession::class);
+    }
+
+    public function butcherProducts(): HasMany
+    {
+        return $this->hasMany(ButcherProduct::class);
+    }
+
+    public function butcherPriceRules(): HasMany
+    {
+        return $this->hasMany(ButcherPriceRule::class);
+    }
+
+    public function butcherCustomers(): HasMany
+    {
+        return $this->hasMany(ButcherCustomer::class);
+    }
+
+    public function butcherSales(): HasMany
+    {
+        return $this->hasMany(ButcherSale::class);
+    }
+
+    public function butcherOrders(): HasMany
+    {
+        return $this->hasMany(ButcherOrder::class);
+    }
+
+    public function butcherHygieneLogs(): HasMany
+    {
+        return $this->hasMany(ButcherHygieneLog::class);
+    }
+
+    public function butcherSanitationRecords(): HasMany
+    {
+        return $this->hasMany(ButcherSanitationRecord::class);
+    }
+
+    public function butcherStaffHealthRecords(): HasMany
+    {
+        return $this->hasMany(ButcherStaffHealthRecord::class);
+    }
+
+    public function butcherExpenses(): HasMany
+    {
+        return $this->hasMany(ButcherExpense::class);
+    }
+
+    public function isButcher(): bool
+    {
+        return $this->type === self::TYPE_BUTCHER;
+    }
+
+    public function hasPlaceholderRegistration(): bool
+    {
+        return str_starts_with((string) $this->registration_number, 'PENDING-');
     }
 
     public function hasOwnershipMembers(): bool

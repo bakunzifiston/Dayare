@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
         $this->call(SpeciesSeeder::class);
         $this->call(UnitSeeder::class);
         $this->call(RolesAndPermissionsSeeder::class);
-        /** @see ComprehensiveRwandaSeeder Multi-tenant Rwanda demo (~200+ rows per major module). */
+        /** @see ComprehensiveRwandaSeeder Multi-tenant Rwanda demo (~200+ rows per major module). Includes butcher workspace via ButcherWorkspaceDemoSeeder. */
         $this->call(ComprehensiveRwandaSeeder::class);
         /** Local test tenants: test@example.com / tester@dayare.me — password: password; REG-TEST-* businesses. */
         $this->call(TestDataSeeder::class);

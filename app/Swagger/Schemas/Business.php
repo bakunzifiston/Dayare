@@ -8,12 +8,12 @@ use OpenApi\Attributes as OA;
 
 #[OA\Schema(
     schema: 'Business',
-    description: 'Tenant business (farmer, processor, or logistics). FK: user_id (owner linkage).',
+    description: 'Tenant business (farmer, processor, logistics, or butcher). FK: user_id (owner linkage).',
     required: ['id', 'type', 'business_name', 'status'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', example: 10),
         new OA\Property(property: 'user_id', type: 'integer', nullable: true),
-        new OA\Property(property: 'type', type: 'string', enum: ['farmer', 'processor', 'logistics'], example: 'processor'),
+        new OA\Property(property: 'type', type: 'string', enum: ['farmer', 'processor', 'logistics', 'butcher'], example: 'processor'),
         new OA\Property(property: 'business_name', type: 'string', example: 'Dayare Meat Ltd'),
         new OA\Property(property: 'registration_number', type: 'string', nullable: true),
         new OA\Property(property: 'tax_id', type: 'string', nullable: true),

@@ -47,7 +47,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 /**
- * Full multi-tenant Rwanda demo: 1 farmer, 1 logistics, 5 processor tenant owners, RBAC on business_user,
+ * Full multi-tenant Rwanda demo: 1 farmer, 1 logistics, 1 butcher, 5 processor tenant owners, RBAC on business_user,
  * ~200+ rows per major operational module, dates spread over the past year.
  */
 class ComprehensiveRwandaSeeder extends Seeder
@@ -71,6 +71,7 @@ class ComprehensiveRwandaSeeder extends Seeder
             $this->backfillMissingRegistrationFieldsOnSeededBusinesses();
             ProcessorFinanceSync::sync();
             $this->call(FarmerWorkspaceDemoSeeder::class);
+            $this->call(ButcherWorkspaceDemoSeeder::class);
 
             return;
         }
@@ -100,6 +101,8 @@ class ComprehensiveRwandaSeeder extends Seeder
 
         $this->command?->info('Seeding logistics company, orders, trips, and tracking…');
         $this->seedLogisticsOperations($ctx, $country, $rangeStart, $rangeEnd);
+        $this->command?->info('Seeding butcher workspace demo (onboarding → finance)…');
+        $this->call(ButcherWorkspaceDemoSeeder::class);
         $this->command?->info('Deriving finance records from processor workflow data…');
         ProcessorFinanceSync::sync(collect($ctx['processors'])->pluck('business.id'));
 
@@ -232,6 +235,26 @@ class ComprehensiveRwandaSeeder extends Seeder
         $this->makeLogisticsTeamUser(0, $password, $logisticsBiz);
         $this->makeLogisticsTeamUser(1, $password, $logisticsBiz);
 
+        $butcherOwner = User::query()->updateOrCreate(
+            ['email' => 'owner.butcher@demo.rw'],
+            [
+                'name' => 'Remera Prime Butchery (Owner)',
+                'password' => $password,
+                'email_verified_at' => now(),
+                'is_super_admin' => false,
+            ]
+        );
+        $butcherLoc = $this->randomDivisionChain($provinces->firstWhere('name', 'City of Kigali') ?? $provinces->first());
+        $butcherBiz = $this->createBusiness(
+            $butcherOwner,
+            self::REG_PREFIX.'BU-001',
+            'Remera Prime Butchery',
+            Business::TYPE_BUTCHER,
+            $butcherLoc,
+        );
+        $this->attachRole($butcherOwner, $butcherBiz, BusinessUser::ROLE_ORG_ADMIN);
+        $this->makeButcherTeamUser(0, $password, $butcherBiz);
+
         return [
             'farmers' => [
                 [
@@ -241,6 +264,7 @@ class ComprehensiveRwandaSeeder extends Seeder
                 ],
             ],
             'logistics' => ['user' => $logisticsOwner, 'business' => $logisticsBiz],
+            'butcher' => ['user' => $butcherOwner, 'business' => $butcherBiz],
             'processors' => $processors,
         ];
     }
@@ -296,6 +320,20 @@ class ComprehensiveRwandaSeeder extends Seeder
             ]
         );
         $this->attachRole($u, $biz, BusinessUser::ROLE_TRANSPORT_MANAGER);
+    }
+
+    private function makeButcherTeamUser(int $n, string $password, Business $biz): void
+    {
+        $u = User::query()->updateOrCreate(
+            ['email' => "team.butcher.{$n}@demo.rw"],
+            [
+                'name' => 'Counter staff '.$n,
+                'password' => $password,
+                'email_verified_at' => now(),
+                'is_super_admin' => false,
+            ]
+        );
+        $this->attachRole($u, $biz, BusinessUser::ROLE_OPERATIONS_MANAGER);
     }
 
     /**
@@ -730,6 +768,7 @@ class ComprehensiveRwandaSeeder extends Seeder
             Business::TYPE_PROCESSOR => [Business::BASELINE_REVENUE_BRACKET_2M_20M, 'medium'],
             Business::TYPE_LOGISTICS => [Business::BASELINE_REVENUE_BRACKET_2M_20M, 'medium'],
             Business::TYPE_FARMER => [Business::BASELINE_REVENUE_BRACKET_LT_2M, 'small'],
+            Business::TYPE_BUTCHER => [Business::BASELINE_REVENUE_BRACKET_LT_2M, 'small'],
         ] as $type => [$bracket, $size]) {
             Business::query()
                 ->where('registration_number', 'like', self::REG_PREFIX.'%')
@@ -748,6 +787,7 @@ class ComprehensiveRwandaSeeder extends Seeder
         $this->command?->info('Tenant demo accounts: password: password');
         $this->command?->info('  Super Admin:  superadmin@dayare.me  — password: superadmin');
         $this->command?->info('  Farmers:      owner.farmer@demo.rw + team.farmer.0-1@demo.rw');
+        $this->command?->info('  Butchers:     owner.butcher@demo.rw + team.butcher.0@demo.rw');
         $this->command?->info('  Logistics:   owner.logistics@demo.rw + team.logistics.0-1@demo.rw');
         $this->command?->info('  Processors:  owner.processor.1-5@demo.rw + team.p{n}.e*.i*@demo.rw (ops/compliance/inspector/transport)');
     }
@@ -778,6 +818,7 @@ class ComprehensiveRwandaSeeder extends Seeder
             'baseline_revenue' => match ($type) {
                 Business::TYPE_PROCESSOR => Business::BASELINE_REVENUE_BRACKET_2M_20M,
                 Business::TYPE_LOGISTICS => Business::BASELINE_REVENUE_BRACKET_2M_20M,
+                Business::TYPE_BUTCHER => Business::BASELINE_REVENUE_BRACKET_LT_2M,
                 default => Business::BASELINE_REVENUE_BRACKET_LT_2M,
             },
             'pathway_status' => Business::PATHWAY_STATUSES[0] ?? 'active',

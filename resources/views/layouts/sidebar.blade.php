@@ -109,7 +109,7 @@
     }
 
     $workspaceKind = $user?->tenantWorkspaceType() ?? 'processor';
-    if (! $isSuperAdmin && $user && in_array($workspaceKind, ['farmer', 'logistics'], true)) {
+    if (! $isSuperAdmin && $user && in_array($workspaceKind, ['farmer', 'logistics', 'butcher'], true)) {
         if ($workspaceKind === 'farmer') {
             $tenantNav = [
                 ['label' => __('Dashboard'), 'route' => 'farmer.dashboard', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['farmer.dashboard']],
@@ -123,7 +123,7 @@
                 ['label' => __('Sales'), 'route' => 'farmer.sales.hub', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['farmer.sales.*']],
                 ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => null, 'routeIs' => ['settings.edit']],
             ];
-        } else {
+        } elseif ($workspaceKind === 'logistics') {
             $tenantNav = [
                 ['label' => __('Dashboard'), 'route' => 'logistics.dashboard.index', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['logistics.dashboard.*']],
                 ['label' => __('Company'), 'route' => 'logistics.company.index', 'icon' => 'building', 'permission' => null, 'routeIs' => ['logistics.company.*']],
@@ -135,6 +135,19 @@
                 ['label' => __('Tracking'), 'route' => 'logistics.tracking.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['logistics.tracking.*']],
                 ['label' => __('Compliance'), 'route' => 'logistics.compliance.index', 'icon' => 'shield', 'permission' => null, 'routeIs' => ['logistics.compliance.*']],
                 ['label' => __('Billing'), 'route' => 'logistics.billing.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['logistics.billing.*']],
+            ];
+        } else {
+            $tenantNav = [
+                ['label' => __('Dashboard'), 'route' => 'butcher.dashboard', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['butcher.dashboard']],
+                ['label' => __('Onboarding'), 'route' => 'butcher.onboarding.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['butcher.onboarding.*']],
+                ['label' => __('Procurement'), 'route' => 'butcher.procurement.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.procurement.*']],
+                ['label' => __('Cold storage'), 'route' => 'butcher.storage.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.storage.*']],
+                ['label' => __('Cutting'), 'route' => 'butcher.cutting.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.cutting.*']],
+                ['label' => __('Catalog'), 'route' => 'butcher.catalog.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.catalog.*']],
+                ['label' => __('Sales & POS'), 'route' => 'butcher.sales.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.sales.*']],
+                ['label' => __('Compliance'), 'route' => 'butcher.compliance.index', 'icon' => 'shield', 'permission' => null, 'routeIs' => ['butcher.compliance.*']],
+                ['label' => __('Finance'), 'route' => 'butcher.finance.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.finance.*']],
+                ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => null, 'routeIs' => ['settings.edit']],
             ];
         }
     }

@@ -78,6 +78,7 @@
                     <option value="farmer" @selected($bt === 'farmer')>{{ __('Farmer') }}</option>
                     <option value="processor" @selected($bt === 'processor')>{{ __('Processor') }}</option>
                     <option value="logistics" @selected($bt === 'logistics')>{{ __('Logistics') }}</option>
+                    <option value="butcher" @selected($bt === 'butcher')>{{ __('Butcher') }}</option>
                 </select>
                 <p class="mt-1 text-xs text-gray-500">{{ __('This sets your workspace. You can complete business details after signing up.') }}</p>
                 <x-input-error :messages="$errors->get('business_type')" class="mt-2" />

@@ -11,7 +11,7 @@ use OpenApi\Attributes as OA;
     description: 'Business create payload aligned to StoreBusinessRequest.',
     required: ['business_name', 'registration_number', 'contact_phone', 'email', 'status', 'owner_first_name', 'owner_last_name'],
     properties: [
-        new OA\Property(property: 'type', type: 'string', enum: ['farmer', 'processor', 'logistics'], nullable: true, example: 'processor'),
+        new OA\Property(property: 'type', type: 'string', enum: ['farmer', 'processor', 'logistics', 'butcher'], nullable: true, example: 'processor'),
         new OA\Property(property: 'business_name', type: 'string', maxLength: 255, example: 'Dayare Meat Ltd'),
         new OA\Property(property: 'registration_number', type: 'string', maxLength: 100, example: 'REG-2026-001'),
         new OA\Property(property: 'tax_id', type: 'string', maxLength: 100, nullable: true, example: 'TIN-20493'),

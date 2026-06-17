@@ -12,7 +12,7 @@ class EnsureUserWorkspace
     /**
      * Restrict routes to users whose workspace (primary business type) matches.
      *
-     * @param  string  $workspace  One of: farmer, processor, logistics
+     * @param  string  $workspace  One of: farmer, processor, logistics, butcher
      */
     public function handle(Request $request, Closure $next, string $workspace): Response
     {
@@ -24,6 +24,7 @@ class EnsureUserWorkspace
         $allowed = match ($workspace) {
             Business::TYPE_FARMER => [Business::TYPE_FARMER],
             Business::TYPE_LOGISTICS => [Business::TYPE_LOGISTICS],
+            Business::TYPE_BUTCHER => [Business::TYPE_BUTCHER],
             Business::TYPE_PROCESSOR => [Business::TYPE_PROCESSOR],
             default => [],
         };

@@ -45,4 +45,11 @@ class BusinessFactory extends Factory
             'type' => Business::TYPE_LOGISTICS,
         ]);
     }
+
+    public function butcher(): static
+    {
+        return $this->state(fn () => [
+            'type' => Business::TYPE_BUTCHER,
+        ]);
+    }
 }

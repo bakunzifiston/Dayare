@@ -14,6 +14,8 @@ php artisan db:seed
 
 **Test login:** `test@example.com` or `tester@dayare.me` — password: `password`
 
+**Butcher workspace demo:** `owner.butcher@demo.rw` — password: `password` (business `SEED-MT-BU-001`)
+
 ---
 
 ## Seeding order and dependencies

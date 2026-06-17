@@ -76,7 +76,9 @@ class RegisteredUserController extends Controller
                         'registration_number' => 'PENDING-'.Str::uuid()->toString(),
                         'contact_phone' => '0000000000',
                         'email' => $request->email,
-                        'status' => Business::STATUS_ACTIVE,
+                        'status' => $request->business_type === Business::TYPE_BUTCHER
+                            ? Business::STATUS_PENDING
+                            : Business::STATUS_ACTIVE,
                         'owner_first_name' => $ownerFirst,
                         'owner_last_name' => $ownerLast,
                     ]);
@@ -119,6 +121,10 @@ class RegisteredUserController extends Controller
             && $user->accessibleProcessorBusinessIds()->isEmpty()) {
             return redirect()->route('businesses.create')
                 ->with('status', __('Account created. Now register your first business.'));
+        }
+
+        if ($user->tenantWorkspaceType() === Business::TYPE_BUTCHER) {
+            return redirect()->route('butcher.onboarding.index');
         }
 
         return redirect($user->tenantDashboardPath());

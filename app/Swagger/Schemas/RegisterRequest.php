@@ -15,7 +15,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'email', type: 'string', format: 'email', maxLength: 255, example: 'john@example.com'),
         new OA\Property(property: 'password', type: 'string', format: 'password', minLength: 8, example: 'Secret123!'),
         new OA\Property(property: 'password_confirmation', type: 'string', format: 'password', minLength: 8, example: 'Secret123!'),
-        new OA\Property(property: 'business_type', type: 'string', enum: ['farmer', 'processor', 'logistics'], example: 'processor'),
+        new OA\Property(property: 'business_type', type: 'string', enum: ['farmer', 'processor', 'logistics', 'butcher'], example: 'processor'),
         new OA\Property(property: 'device_name', type: 'string', nullable: true, maxLength: 120, example: 'Android-Phone'),
     ],
     type: 'object',
