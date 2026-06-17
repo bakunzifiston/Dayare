@@ -19,7 +19,9 @@
                 <a href="#how-it-works" class="hover:text-bucha-primary transition-colors">{{ __('How it works') }}</a>
                 <a href="#ecosystem" class="hover:text-bucha-primary transition-colors">{{ __('Ecosystem') }}</a>
                 <a href="#platform-features" class="hover:text-bucha-primary transition-colors">{{ __('Features') }}</a>
-                <a href="#products" class="hover:text-bucha-primary transition-colors">{{ __('Products') }}</a>
+                @if (config('features.shop'))
+                    <a href="#products" class="hover:text-bucha-primary transition-colors">{{ __('Products') }}</a>
+                @endif
                 @if (Route::has('animal.passport.lookup'))
                     <a href="{{ route('animal.passport.lookup') }}" class="hover:text-bucha-primary transition-colors">{{ __('Trace Animal') }}</a>
                 @endif
@@ -72,9 +74,11 @@
                             <a href="{{ route('contact-us') }}" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
                                 {{ __('Contact Us') }}
                             </a>
-                            <a href="{{ route('shop.index') }}" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
-                                {{ __('Shop Now') }}
-                            </a>
+                            @if (config('features.shop'))
+                                <a href="{{ route('shop.index') }}" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
+                                    {{ __('Shop Now') }}
+                                </a>
+                            @endif
                             @if (Route::has('animal.passport.lookup'))
                                 <a href="{{ route('animal.passport.lookup') }}" class="inline-flex items-center px-5 py-3 rounded-bucha border-2 border-white bg-transparent text-white hover:bg-white/15 font-semibold text-sm tracking-wide transition-colors">
                                     {{ __('Trace Animal') }}
@@ -321,6 +325,7 @@
             </div>
         </section>
 
+        @if (config('features.shop'))
         {{-- PRODUCTS --}}
         <section id="products" class="py-14 sm:py-16 bg-white border-y border-slate-200/80">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -358,6 +363,7 @@
                 </div>
             </div>
         </section>
+        @endif
 
         {{-- FINAL CTA --}}
         <section id="final-cta" class="py-14 sm:py-16 bg-gradient-to-br from-bucha-charcoal to-bucha-primary">

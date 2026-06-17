@@ -14,7 +14,9 @@
                     <a href="{{ route('home') }}" class="text-white/80 hover:text-white">{{ __('Home') }}</a>
                     <a href="{{ route('home') }}#ecosystem" class="text-white/80 hover:text-white">{{ __('Ecosystem') }}</a>
                     <a href="{{ route('home') }}#how-it-works" class="text-white/80 hover:text-white">{{ __('How it works') }}</a>
-                    <a href="{{ route('home') }}#products" class="text-white/80 hover:text-white">{{ __('Products') }}</a>
+                    @if (config('features.shop'))
+                        <a href="{{ route('home') }}#products" class="text-white/80 hover:text-white">{{ __('Products') }}</a>
+                    @endif
                     <a href="{{ route('contact-us') }}" class="text-white/80 hover:text-white">{{ __('Contact Us') }}</a>
                     <a href="{{ route('register') }}" class="text-white/80 hover:text-white">{{ __('Become a Partner') }}</a>
                 </div>

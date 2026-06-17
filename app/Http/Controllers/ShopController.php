@@ -8,6 +8,17 @@ use Illuminate\View\View;
 
 class ShopController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            if (! config('features.shop', false)) {
+                return redirect()->route('home');
+            }
+
+            return $next($request);
+        });
+    }
+
     public function index(Request $request): View
     {
         return view('shop', [
