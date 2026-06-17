@@ -28,19 +28,9 @@
                     <p class="mt-1 text-xs text-slate-500">{{ __('Active, non-expired certificates') }}</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-white p-4">
-                    <p class="text-[11px] uppercase tracking-wide text-slate-500">{{ __('Operational Readiness') }}</p>
-                    <p class="mt-2 text-2xl font-bold {{ $analytics['operational_readiness'] ? 'text-emerald-600' : 'text-amber-600' }}">
-                        {{ $analytics['operational_readiness'] ? __('Ready') : __('Not ready') }}
-                    </p>
-                    <p class="mt-1 text-xs text-slate-500">
-                        @if ($analytics['is_processor'])
-                            {{ __('Slaughter + certificate activity in last 30 days') }}
-                        @elseif ($analytics['is_farmer'])
-                            {{ __('Intake or delivery activity in last 30 days') }}
-                        @else
-                            {{ __('Recent operational activity') }}
-                        @endif
-                    </p>
+                    <p class="text-[11px] uppercase tracking-wide text-slate-500">{{ __('Users') }}</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-900">{{ number_format($analytics['user_count']) }}</p>
+                    <p class="mt-1 text-xs text-slate-500">{{ __('Owner and team accounts on this business') }}</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-white p-4">
                     <p class="text-[11px] uppercase tracking-wide text-slate-500">{{ __('Profile completeness (Registration)') }}</p>

@@ -4,6 +4,7 @@ namespace App\Services\SuperAdmin;
 
 use App\Models\AnimalIntake;
 use App\Models\Business;
+use App\Models\BusinessUser;
 use App\Models\Certificate;
 use App\Models\DeliveryConfirmation;
 use App\Models\Demand;
@@ -22,8 +23,7 @@ class SuperAdminVibeAnalyticsService
      *   trend: array{charts: array<string, mixed>},
      *   insights: list<string>,
      *   certificate_validity_rate: float,
-     *   operational_readiness: bool,
-     *   operational_readiness_score: float,
+     *   user_count: int,
      *   last_active_at: ?Carbon,
      *   last_active_label: string,
      *   is_processor: bool,
@@ -66,7 +66,7 @@ class SuperAdminVibeAnalyticsService
             ? round(($compliantCertificates / $certificatesIssued) * 100, 1)
             : 0.0;
 
-        $operationalReadiness = $this->operationalReadiness($business, $facilityIds, $isProcessor, $isFarmer);
+        $userCount = $this->userCount($business);
         $lastActive = $this->lastActiveAt($business, $facilityIds, $isProcessor);
 
         $beforeTurnover = (float) (Business::baselineRevenueMidpointRwf(
@@ -87,13 +87,8 @@ class SuperAdminVibeAnalyticsService
         $insights = [
             __('Demand fulfillment is :value%.', ['value' => number_format($demandFulfillmentRate, 1)]),
             __('Certificate validity rate is :value%.', ['value' => number_format($certificateValidityRate, 1)]),
+            __(':count user account(s) linked to this business.', ['count' => $userCount]),
         ];
-
-        if ($isProcessor) {
-            $insights[] = $operationalReadiness
-                ? __('Operational readiness: active slaughter and certification in the last 30 days.')
-                : __('Operational readiness: no recent slaughter and certification activity in the last 30 days.');
-        }
 
         if ($lastActive !== null) {
             $insights[] = __('Last activity on :date.', ['date' => $lastActive->format('M j, Y')]);
@@ -127,8 +122,7 @@ class SuperAdminVibeAnalyticsService
             'trend' => $trend,
             'insights' => $insights,
             'certificate_validity_rate' => $certificateValidityRate,
-            'operational_readiness' => $operationalReadiness,
-            'operational_readiness_score' => $operationalReadiness ? 100.0 : 0.0,
+            'user_count' => $userCount,
             'last_active_at' => $lastActive,
             'last_active_label' => $lastActive?->diffForHumans() ?? __('No recorded activity'),
             'is_processor' => $isProcessor,
@@ -189,7 +183,7 @@ class SuperAdminVibeAnalyticsService
             'business_name',
             'business_type',
             'certificate_validity_rate',
-            'operational_readiness',
+            'user_count',
             'profile_completeness_registration_pct',
             'profile_completeness_operational_pct',
             'profile_completeness_overall_pct',
@@ -218,7 +212,7 @@ class SuperAdminVibeAnalyticsService
             $business->business_name,
             $business->type,
             $analytics['certificate_validity_rate'],
-            $analytics['operational_readiness'] ? 'yes' : 'no',
+            $analytics['user_count'],
             $completeness['registration']['percent'],
             $completeness['operational']['percent'],
             $completeness['overall']['percent'],
@@ -234,39 +228,17 @@ class SuperAdminVibeAnalyticsService
         ];
     }
 
-    private function operationalReadiness(Business $business, Collection $facilityIds, bool $isProcessor, bool $isFarmer): bool
+    private function userCount(Business $business): int
     {
-        $since = now()->subDays(30)->startOfDay();
+        $userIds = BusinessUser::query()
+            ->where('business_id', $business->id)
+            ->pluck('user_id');
 
-        if ($isProcessor) {
-            $planIds = \App\Models\SlaughterPlan::query()->whereIn('facility_id', $facilityIds)->pluck('id');
-            $recentSlaughter = SlaughterExecution::query()
-                ->whereIn('slaughter_plan_id', $planIds)
-                ->where('slaughter_time', '>=', $since)
-                ->exists();
-            $recentCertificate = Certificate::query()
-                ->whereIn('facility_id', $facilityIds)
-                ->where('issued_at', '>=', $since)
-                ->exists();
-
-            return $recentSlaughter && $recentCertificate;
+        if ($business->user_id) {
+            $userIds = $userIds->push((int) $business->user_id);
         }
 
-        if ($isFarmer) {
-            $recentIntake = AnimalIntake::query()
-                ->whereIn('facility_id', $facilityIds)
-                ->whereDate('intake_date', '>=', $since)
-                ->exists();
-            $recentDelivery = DeliveryConfirmation::query()
-                ->whereIn('receiving_facility_id', $facilityIds)
-                ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
-                ->whereDate('received_date', '>=', $since)
-                ->exists();
-
-            return $recentIntake || $recentDelivery;
-        }
-
-        return false;
+        return $userIds->unique()->filter()->count();
     }
 
     private function lastActiveAt(Business $business, Collection $facilityIds, bool $isProcessor): ?Carbon
