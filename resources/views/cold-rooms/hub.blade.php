@@ -187,26 +187,38 @@
                 @endforelse
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-                <a href="{{ route('warehouse-storages.index') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700">
-                    <i class="ti ti-building-warehouse text-gray-400" aria-hidden="true"></i>
-                    {{ __('Warehouse storage') }}
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <a href="{{ route('cold-rooms.manage.index') }}" class="group flex flex-col rounded-2xl border-2 border-bucha-primary/35 bg-white p-6 shadow-md ring-1 ring-bucha-primary/10 transition hover:border-bucha-primary hover:shadow-lg">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-bucha-primary/15 text-bucha-primary">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Manage cold rooms') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Register rooms at each storage facility and attach a temperature standard.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open room list') }} →</span>
                 </a>
-                <a href="{{ route('certificates.hub') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700">
-                    <i class="ti ti-certificate text-gray-400" aria-hidden="true"></i>
-                    {{ __('Certificates') }}
+                <a href="{{ route('warehouse-storages.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Storage records') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('List, create, and edit cold room storage. Log temperatures per storage record.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open storage') }} →</span>
                 </a>
-                <a href="{{ route('batches.hub') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700">
-                    <i class="ti ti-box text-gray-400" aria-hidden="true"></i>
-                    {{ __('Batches') }}
+                <a href="{{ route('certificates.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Certificates') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Release certified batches from cold storage for transport.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Certification home') }} →</span>
                 </a>
-                <a href="{{ route('cold-room-standards.index') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700">
-                    <i class="ti ti-settings text-gray-400" aria-hidden="true"></i>
-                    {{ __('Standards') }}
+                <a href="{{ route('cold-room-standards.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Temperature standards') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Allowed °C ranges and tolerance before batches are marked at risk.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Manage standards') }} →</span>
                 </a>
             </div>
         </div>

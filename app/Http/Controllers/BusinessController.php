@@ -29,12 +29,34 @@ class BusinessController extends Controller
         $totalFacilities = Facility::whereIn('business_id', $user->accessibleBusinessIds())->count();
         $businessesWithFacilitiesCount = $user->businesses()->has('facilities')->count();
 
+        $filters = [
+            'search' => trim((string) $request->query('search', '')),
+            'status' => (string) $request->query('status', ''),
+        ];
+
+        $businesses = $user->businesses()
+            ->withCount('facilities')
+            ->when($filters['search'] !== '', function ($query) use ($filters) {
+                $search = '%'.$filters['search'].'%';
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('business_name', 'like', $search)
+                        ->orWhere('registration_number', 'like', $search)
+                        ->orWhere('email', 'like', $search);
+                });
+            })
+            ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
         return view('businesses.hub', compact(
             'totalBusinesses',
             'activeCount',
             'suspendedCount',
             'totalFacilities',
             'businessesWithFacilitiesCount',
+            'businesses',
+            'filters',
         ));
     }
 

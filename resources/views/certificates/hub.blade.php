@@ -204,26 +204,38 @@
                 @endforelse
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-                <a href="{{ route('batches.hub') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 shadow-sm">
-                    <i class="ti ti-box text-gray-400" aria-hidden="true"></i>
-                    {{ __('Batches') }}
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <a href="{{ route('certificates.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('All certificates') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Browse, open QR trace links, edit or revoke.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open list') }} →</span>
                 </a>
-                <a href="{{ route('post-mortem-inspections.hub') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 shadow-sm">
-                    <i class="ti ti-activity text-gray-400" aria-hidden="true"></i>
-                    {{ __('Post-mortem') }}
+                <a href="{{ route('post-mortem-inspections.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-4 0V3m0 2v4m0-4h4m-4 0H9"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Post-mortem') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Approve quantity here before a batch can be certified.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Post-mortem home') }} →</span>
                 </a>
-                <a href="{{ route('transport-trips.hub') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 shadow-sm">
-                    <i class="ti ti-truck text-gray-400" aria-hidden="true"></i>
-                    {{ __('Transport') }}
+                <a href="{{ route('batches.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Batches') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Trace batch codes back to slaughter execution.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Batches home') }} →</span>
                 </a>
-                <a href="{{ route('cold-rooms.hub') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 shadow-sm">
-                    <i class="ti ti-snowflake text-gray-400" aria-hidden="true"></i>
-                    {{ __('Cold rooms') }}
+                <a href="{{ route('transport-trips.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Transport') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Record trips from active certificates to their destination.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Transport home') }} →</span>
                 </a>
             </div>
         </div>

@@ -197,26 +197,38 @@
                 @endforelse
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <a href="{{ route('slaughter-plans.hub') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 shadow-sm">
-                    <i class="ti ti-calendar-event text-gray-400" aria-hidden="true"></i>
-                    {{ __('Slaughter plans') }}
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <a href="{{ route('slaughter-executions.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('All executions') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Search the full list, open an execution, edit or remove.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open list') }} →</span>
                 </a>
-                <a href="{{ route('ante-mortem-inspections.index') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 shadow-sm">
-                    <i class="ti ti-stethoscope text-gray-400" aria-hidden="true"></i>
-                    {{ __('Ante-mortem') }}
+                <a href="{{ route('slaughter-plans.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Slaughter planning') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Executions are recorded against approved slaughter plans.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Planning home') }} →</span>
                 </a>
-                <a href="{{ route('batches.hub') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 shadow-sm">
-                    <i class="ti ti-box text-gray-400" aria-hidden="true"></i>
-                    {{ __('Batches') }}
+                <a href="{{ route('batches.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Batches') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Create batches from completed executions for post-mortem.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Batches home') }} →</span>
                 </a>
-                <a href="{{ route('slaughter-executions.index') }}"
-                   class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 shadow-sm">
-                    <i class="ti ti-list text-gray-400" aria-hidden="true"></i>
-                    {{ __('Full list') }}
+                <a href="{{ route('ante-mortem-inspections.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Ante-mortem') }}</h2>
+                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Pre-slaughter inspection must pass before execution.') }}</p>
+                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open ante-mortem') }} →</span>
                 </a>
             </div>
         </div>
