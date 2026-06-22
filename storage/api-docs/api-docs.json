@@ -2224,7 +2224,8 @@
                                         "enum": [
                                             "farmer",
                                             "processor",
-                                            "logistics"
+                                            "logistics",
+                                            "butcher"
                                         ]
                                     },
                                     "business_name": {
@@ -2957,7 +2958,7 @@
                     },
                     "intake_date": {
                         "type": "string",
-                        "format": "date"
+                        "format": "date-time"
                     },
                     "supplier_firstname": {
                         "type": "string",
@@ -3021,7 +3022,7 @@
                     },
                     "intake_date": {
                         "type": "string",
-                        "format": "date"
+                        "format": "date-time"
                     },
                     "species": {
                         "type": "string",
@@ -3158,7 +3159,7 @@
                     },
                     "intake_date": {
                         "type": "string",
-                        "format": "date"
+                        "format": "date-time"
                     },
                     "supplier_firstname": {
                         "type": "string",
@@ -3561,7 +3562,7 @@
                 "type": "object"
             },
             "Business": {
-                "description": "Tenant business (farmer, processor, or logistics). FK: user_id (owner linkage).",
+                "description": "Tenant business (farmer, processor, logistics, or butcher). FK: user_id (owner linkage).",
                 "required": [
                     "id",
                     "type",
@@ -3583,7 +3584,8 @@
                         "enum": [
                             "farmer",
                             "processor",
-                            "logistics"
+                            "logistics",
+                            "butcher"
                         ]
                     },
                     "business_name": {
@@ -3711,7 +3713,8 @@
                         "enum": [
                             "farmer",
                             "processor",
-                            "logistics"
+                            "logistics",
+                            "butcher"
                         ]
                     },
                     "business_name": {
@@ -4104,6 +4107,18 @@
                         "format": "float",
                         "nullable": true
                     },
+                    "received_unit": {
+                        "type": "string",
+                        "example": "kg",
+                        "enum": [
+                            "units",
+                            "kg",
+                            "g",
+                            "tonnes",
+                            "carcasses",
+                            "boxes"
+                        ]
+                    },
                     "received_date": {
                         "type": "string",
                         "format": "date",
@@ -4153,6 +4168,18 @@
                         "type": "integer",
                         "example": 24,
                         "minimum": 0
+                    },
+                    "received_unit": {
+                        "type": "string",
+                        "example": "kg",
+                        "enum": [
+                            "units",
+                            "kg",
+                            "g",
+                            "tonnes",
+                            "carcasses",
+                            "boxes"
+                        ]
                     },
                     "received_date": {
                         "type": "string",
@@ -4495,7 +4522,8 @@
                         "enum": [
                             "farmer",
                             "processor",
-                            "logistics"
+                            "logistics",
+                            "butcher"
                         ]
                     },
                     "device_name": {
@@ -4801,7 +4829,7 @@
                 "type": "object"
             },
             "TransportTripCreateRequest": {
-                "description": "Create transport trip. Certificate and facilities must be in workspace scope; optional warehouse storage must be released.",
+                "description": "Create transport trip. Requires an active, non-expired certificate in workspace scope.",
                 "required": [
                     "certificate_id",
                     "origin_facility_id",
@@ -4816,12 +4844,8 @@
                         "type": "integer",
                         "example": 101
                     },
-                    "warehouse_storage_id": {
-                        "type": "integer",
-                        "example": 55,
-                        "nullable": true
-                    },
                     "batch_id": {
+                        "description": "Optional; auto-filled from certificate when omitted",
                         "type": "integer",
                         "example": 88,
                         "nullable": true
