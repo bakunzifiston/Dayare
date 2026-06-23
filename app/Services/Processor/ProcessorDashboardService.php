@@ -33,26 +33,44 @@ class ProcessorDashboardService
     public function buildForRole(int $businessId, string $role, ?User $user = null, ?Request $request = null): array
     {
         $ctx = ProcessorDashboardContext::forBusiness($businessId);
-        $filters = $this->resolveDashboardFilters($request ?? request());
+        $request = $request ?? request();
+        $filters = $this->resolveDashboardFilters($request);
+        if (in_array($role, [
+            BusinessUser::ROLE_INSPECTOR,
+            BusinessUser::ROLE_OPERATIONS_MANAGER,
+            BusinessUser::ROLE_ACCOUNTANT,
+            BusinessUser::ROLE_TRANSPORT_MANAGER,
+        ], true) && ! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            $filters = $this->dashboardFiltersForPreset('month');
+        }
 
         $data = match ($role) {
-            BusinessUser::ROLE_OPERATIONS_MANAGER => $this->buildOpsManager($ctx),
+            BusinessUser::ROLE_OPERATIONS_MANAGER => $this->buildOpsManager($ctx, $filters),
             BusinessUser::ROLE_COMPLIANCE_OFFICER => $this->buildComplianceOfficer($ctx),
-            BusinessUser::ROLE_INSPECTOR => $this->buildInspector($ctx, $user),
-            BusinessUser::ROLE_TRANSPORT_MANAGER => $this->buildTransportManager($ctx),
-            BusinessUser::ROLE_ACCOUNTANT => $this->buildAccountant($businessId, $ctx),
+            BusinessUser::ROLE_INSPECTOR => $this->buildInspector($ctx, $user, $filters),
+            BusinessUser::ROLE_TRANSPORT_MANAGER => $this->buildTransportManager($ctx, $filters),
+            BusinessUser::ROLE_ACCOUNTANT => $this->buildAccountant($businessId, $ctx, $filters),
             default => $this->buildOrgAdmin($ctx, $user, $filters),
         };
 
+        $roleKey = (string) ($data['roleKey'] ?? '');
+        $usesPeriodFilter = in_array($roleKey, [
+            BusinessUser::ROLE_ORG_ADMIN,
+            BusinessUser::ROLE_INSPECTOR,
+            BusinessUser::ROLE_OPERATIONS_MANAGER,
+            BusinessUser::ROLE_ACCOUNTANT,
+            BusinessUser::ROLE_TRANSPORT_MANAGER,
+        ], true);
+
         $data['charts'] = app(ProcessorDashboardCharts::class)->forRole(
-            (string) $data['roleKey'],
+            $roleKey,
             $ctx,
             $businessId,
-            ($data['roleKey'] ?? '') === BusinessUser::ROLE_ORG_ADMIN ? $filters : null,
-            ($data['roleKey'] ?? '') === BusinessUser::ROLE_ORG_ADMIN ? $user : null,
+            $usesPeriodFilter ? $filters : null,
+            $usesPeriodFilter ? $user : null,
         );
 
-        if (($data['roleKey'] ?? '') === BusinessUser::ROLE_ORG_ADMIN) {
+        if ($usesPeriodFilter) {
             $data['filters'] = $filters;
             $data['showPeriodFilter'] = true;
         }
@@ -157,62 +175,62 @@ class ProcessorDashboardService
         ];
     }
 
-    private function buildOpsManager(ProcessorDashboardContext $ctx): array
+    private function buildOpsManager(ProcessorDashboardContext $ctx, array $filters): array
     {
-        $plansToday = (int) SlaughterPlan::query()
+        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
+
+        $animalsReceived = $this->intakeAnimalsReceived($ctx, $filters);
+        $plansQuery = SlaughterPlan::query()->whereIn('id', $ctx->planIds);
+        $this->applyDashboardDateFilter($plansQuery, 'slaughter_date', $filters);
+        $plansInPeriod = (int) (clone $plansQuery)->count();
+        $antePending = (int) SlaughterPlan::query()
             ->whereIn('id', $ctx->planIds)
-            ->whereDate('slaughter_date', $ctx->today)
-            ->count();
-        $executionsToday = (int) SlaughterExecution::query()
-            ->whereIn('id', $ctx->executionIds)
-            ->whereDate('created_at', $ctx->today)
-            ->count();
-        $inspectorsOnDuty = (int) Inspector::query()
-            ->whereIn('facility_id', $ctx->facilityIds)
-            ->where('status', Inspector::STATUS_ACTIVE)
-            ->where(function ($q) use ($ctx): void {
-                $q->whereHas('slaughterPlans', fn ($p) => $p->whereDate('slaughter_date', $ctx->today))
-                    ->orWhereHas('batches', fn ($b) => $b->whereDate('created_at', $ctx->today));
-            })
+            ->whereDoesntHave('anteMortemInspections')
             ->count();
 
-        $intakeCount = $this->animalsInIntake($ctx);
-        $plansActive = (int) SlaughterPlan::query()->whereIn('id', $ctx->planIds)->whereIn('status', [SlaughterPlan::STATUS_PLANNED, SlaughterPlan::STATUS_APPROVED])->count();
-        $antePending = (int) SlaughterPlan::query()->whereIn('id', $ctx->planIds)->whereDoesntHave('anteMortemInspections')->count();
-        $batchesToday = $this->batchesToday($ctx);
-        $batchesCertified = (int) Batch::query()->whereIn('id', $ctx->batchIds)->whereDate('created_at', $ctx->today)->whereHas('certificate')->count();
-        $inspectorTotal = (int) Inspector::query()->whereIn('facility_id', $ctx->facilityIds)->where('status', Inspector::STATUS_ACTIVE)->count();
-        $coveragePct = $inspectorTotal > 0 ? (int) round($inspectorsOnDuty / $inspectorTotal * 100) : 0;
-        $blockedPlan = SlaughterPlan::query()->whereIn('id', $ctx->planIds)->whereDoesntHave('anteMortemInspections')->orderBy('slaughter_date')->first();
+        $executionsQuery = SlaughterExecution::query()
+            ->whereIn('slaughter_plan_id', $ctx->planIds)
+            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereNotNull('slaughter_time');
+        $this->applyDashboardDateFilter($executionsQuery, 'slaughter_time', $filters);
+        $animalsExecuted = (int) (clone $executionsQuery)->sum('actual_animals_slaughtered');
+
+        $batchQuery = Batch::query()->whereIn('id', $ctx->batchIds);
+        $this->applyDashboardDateFilter($batchQuery, 'created_at', $filters);
+        $batchesInPeriod = (int) (clone $batchQuery)->count();
+        $batchesCertified = (int) Batch::query()
+            ->whereIn('id', $ctx->batchIds)
+            ->whereHas('certificate')
+            ->when($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null, function ($query) use ($filters): void {
+                $query->whereBetween('created_at', [
+                    $filters['start']->copy()->startOfDay(),
+                    $filters['end']->copy()->endOfDay(),
+                ]);
+            })
+            ->count();
+        $certRate = $batchesInPeriod > 0 ? (int) round($batchesCertified / $batchesInPeriod * 100) : 0;
 
         return [
             'roleKey' => BusinessUser::ROLE_OPERATIONS_MANAGER,
-            'headerBadge' => ['label' => __('Operations only'), 'variant' => 'neutral'],
-            'insight' => $this->opsManagerInsight($ctx, $blockedPlan, $antePending, $batchesToday - $batchesCertified),
+            'headerBadge' => ['label' => __('Operations'), 'variant' => 'neutral'],
             'kpiCards' => [
-                $this->kpi(__('Animals in intake'), $intakeCount, __(':count plans active', ['count' => $plansActive]), 'info', 'box'),
-                $this->kpi(__('Plans scheduled'), $plansToday, __(':count AM pending', ['count' => $antePending]), $antePending > 0 ? 'warning' : 'positive', 'calendar'),
-                $this->kpi(__('Batches today'), $batchesToday, __(':count certified', ['count' => $batchesCertified]), 'positive', 'box'),
-                $this->kpi(__('Inspector coverage'), $coveragePct.'%', __(':assigned/:total assigned', ['assigned' => $inspectorsOnDuty, 'total' => $inspectorTotal]), $coveragePct >= 75 ? 'positive' : 'warning', 'users'),
-                $this->kpi(__('Throughput efficiency'), '82%', '-3% '.__('wow'), 'negative', 'chart-line'),
+                $this->kpi(__('Animals received'), $animalsReceived, $periodHint, 'info', 'arrow-down'),
+                $this->kpi(__('Slaughter plans'), $plansInPeriod, __(':count AM pending', ['count' => $antePending]), $antePending > 0 ? 'warning' : 'positive', 'calendar'),
+                $this->kpi(__('Animals executed'), $animalsExecuted, $periodHint, 'positive', 'player-play'),
+                $this->kpi(__('Batches created'), $batchesInPeriod, __(':count certified', ['count' => $batchesCertified]), 'positive', 'box'),
+                $this->kpi(__('Certification rate'), $certRate.'%', $periodHint, $certRate >= 90 ? 'positive' : 'warning', 'certificate'),
             ],
-            'leftPanel' => [
-                'title' => __('Slaughter pipeline'),
-                'subtitle' => __("Today's operational flow"),
-                'type' => 'pipeline',
-                'items' => [
-                    $this->pipelineStep(__('Intake'), 'arrow-down', $intakeCount, 'animal-intakes.hub'),
-                    $this->pipelineStep(__('Plans'), 'calendar', $plansActive, 'slaughter-plans.index'),
-                    $this->pipelineStep(__('Ante-mortem'), 'clipboard-list', $antePending, 'ante-mortem-inspections.index'),
-                    $this->pipelineStep(__('Executions'), 'player-play', $executionsToday, 'slaughter-executions.hub'),
-                    $this->pipelineStep(__('Batches'), 'box', $batchesToday, 'batches.hub'),
+            'workTable' => [
+                'title' => __('Slaughter plans'),
+                'subtitle' => __('Plans scheduled for the selected period.'),
+                'headers' => [
+                    'primary' => __('Plan'),
+                    'updated' => __('Slaughter date'),
                 ],
-            ],
-            'rightPanel' => [
-                'title' => __('Inspector assignments'),
-                'subtitle' => __('Facility coverage today'),
-                'type' => 'inspectors',
-                'items' => $this->inspectorAssignmentRows($ctx),
+                'emptyMessage' => __('No plans in this period.'),
+                'rows' => $this->opsManagerPlanTableRows($ctx, $filters),
+                'footerRoute' => 'slaughter-plans.hub',
+                'footerLabel' => __('View all plans'),
             ],
             'quickActions' => [
                 $this->action(__('New intake'), 'arrow-down', 'animal-intakes.create', BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE),
@@ -273,145 +291,109 @@ class ProcessorDashboardService
         ];
     }
 
-    private function buildInspector(ProcessorDashboardContext $ctx, ?User $user): array
+    private function buildInspector(ProcessorDashboardContext $ctx, ?User $user, array $filters): array
     {
         $inspector = $this->resolveInspectorForUser($ctx, $user);
         $inspectorId = $inspector?->id;
+        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
 
         $batchQuery = Batch::query()->whereIn('id', $ctx->batchIds);
         if ($inspectorId) {
             $batchQuery->where('inspector_id', $inspectorId);
         }
+        $this->applyDashboardDateFilter($batchQuery, 'created_at', $filters);
 
         $assignedBatches = (int) (clone $batchQuery)->count();
-        $pmPendingBatches = (int) (clone $batchQuery)->whereDoesntHave('postMortemInspection')->count();
-        $amToday = (int) AnteMortemInspection::query()
+        $pmPendingBatches = (int) Batch::query()
+            ->whereIn('id', $ctx->batchIds)
+            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId))
+            ->whereDoesntHave('postMortemInspection')
+            ->count();
+
+        $amQuery = AnteMortemInspection::query()
             ->whereIn('slaughter_plan_id', $ctx->planIds)
-            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId))
-            ->whereDate('inspection_date', $ctx->today)
-            ->count();
-        $amComplete = (int) AnteMortemInspection::query()
-            ->whereIn('slaughter_plan_id', $ctx->planIds)
-            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId))
-            ->whereDate('inspection_date', $ctx->today)
-            ->where('number_examined', '>', 0)
-            ->whereRaw('(number_approved + number_rejected) = number_examined')
-            ->count();
-        $pmToday = (int) PostMortemInspection::query()
+            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId));
+        $this->applyDashboardDateFilter($amQuery, 'inspection_date', $filters);
+        $amCount = (int) (clone $amQuery)->count();
+
+        $pmQuery = PostMortemInspection::query()
             ->whereIn('batch_id', $ctx->batchIds)
-            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId))
-            ->whereDate('inspection_date', $ctx->today)
-            ->count();
-        $pmComplete = (int) PostMortemInspection::query()
-            ->whereIn('batch_id', $ctx->batchIds)
-            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId))
-            ->whereDate('inspection_date', $ctx->today)
-            ->whereIn('result', [
-                PostMortemInspection::RESULT_APPROVED,
-                PostMortemInspection::RESULT_PARTIAL,
-                PostMortemInspection::RESULT_REJECTED,
-            ])
-            ->count();
-        $certsToday = (int) Certificate::query()
+            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId));
+        $this->applyDashboardDateFilter($pmQuery, 'inspection_date', $filters);
+        $pmCount = (int) (clone $pmQuery)->count();
+
+        $certQuery = Certificate::query()
             ->whereIn('id', $ctx->certificateIds)
+            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId));
+        $this->applyDashboardDateFilter($certQuery, 'issued_at', $filters);
+        $certsIssued = (int) (clone $certQuery)->count();
+
+        $readyToCertify = (int) Batch::query()
+            ->whereIn('id', $ctx->batchIds)
             ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId))
-            ->whereDate('issued_at', $ctx->today)
+            ->whereHas('postMortemInspection')
+            ->whereDoesntHave('certificate')
             ->count();
-        $rejectedBatches = (int) (clone $batchQuery)->where('status', Batch::STATUS_REJECTED)->count();
-        $rejectionRate = $assignedBatches > 0 ? (int) round($rejectedBatches / $assignedBatches * 100) : 0;
 
         return [
             'roleKey' => BusinessUser::ROLE_INSPECTOR,
-            'headerBadge' => ['label' => __('Own workload'), 'variant' => 'success'],
-            'insight' => $this->inspectorInsight($ctx, $inspectorId),
+            'headerBadge' => ['label' => __('Inspector'), 'variant' => 'info'],
             'kpiCards' => [
-                $this->kpi(__('Assigned batches'), $assignedBatches, __(':count awaiting PM', ['count' => $pmPendingBatches]), 'info', 'box'),
-                $this->kpi(__('AM inspections'), $amToday, __(':count complete', ['count' => $amComplete]), 'positive', 'clipboard-list'),
-                $this->kpi(__('PM inspections'), $pmToday, __(':count complete', ['count' => $pmComplete]), 'positive', 'clipboard-list'),
-                $this->kpi(__('Certs issued today'), $certsToday, __('Issued today'), 'positive', 'certificate'),
-                $this->kpi(__('Rejection rate'), $rejectionRate.'%', __(':count batch', ['count' => $rejectedBatches]), $rejectionRate > 10 ? 'warning' : 'info', 'alert-triangle'),
+                $this->kpi(__('Assigned batches'), $assignedBatches, $periodHint, 'info', 'box'),
+                $this->kpi(__('AM inspections'), $amCount, $periodHint, 'positive', 'clipboard-list'),
+                $this->kpi(__('PM inspections'), $pmCount, $periodHint, 'positive', 'clipboard-list'),
+                $this->kpi(__('Certificates issued'), $certsIssued, $periodHint, 'positive', 'certificate'),
+                $this->kpi(__('PM pending'), $pmPendingBatches, __(':count ready to certify', ['count' => $readyToCertify]), $pmPendingBatches > 0 ? 'warning' : 'positive', 'alert-triangle'),
             ],
-            'leftPanel' => [
-                'title' => __('Inspection queue'),
-                'subtitle' => __('Upcoming actions'),
-                'type' => 'inspection_queue',
-                'items' => $this->inspectionQueueRows($ctx, $inspectorId),
-            ],
-            'rightPanel' => [
+            'workTable' => [
                 'title' => __('Assigned batches'),
-                'subtitle' => __('Production batches in your queue'),
-                'type' => 'batches',
-                'items' => $this->myBatchRows($ctx, $inspectorId),
+                'subtitle' => __('Your inspection workload for the selected period.'),
+                'rows' => $this->inspectorBatchTableRows($ctx, $inspectorId, $filters),
+                'footerRoute' => 'batches.hub',
+                'footerLabel' => __('View all batches'),
             ],
             'quickActions' => [
                 $this->action(__('Record AM'), 'clipboard-list', 'ante-mortem-inspections.create', BusinessUser::PERMISSION_RECORD_ANTE_MORTEM),
                 $this->action(__('Record PM'), 'clipboard', 'post-mortem-inspections.create', BusinessUser::PERMISSION_RECORD_POST_MORTEM),
                 $this->action(__('Issue certificate'), 'certificate', 'certificates.create', BusinessUser::PERMISSION_ISSUE_CERTIFICATE),
                 $this->action(__('My batches'), 'box', 'batches.hub', BusinessUser::PERMISSION_VIEW_ASSIGNED_BATCHES),
-                $this->action(__('All inspections'), 'clipboard-list', 'ante-mortem-inspections.index', BusinessUser::PERMISSION_VIEW_INSPECTIONS),
-                $this->action(__('Export certs'), 'certificate', 'certificates.export', BusinessUser::PERMISSION_VIEW_CERTIFICATES),
             ],
         ];
     }
 
-    private function buildTransportManager(ProcessorDashboardContext $ctx): array
+    private function buildTransportManager(ProcessorDashboardContext $ctx, array $filters): array
     {
-        $activeTrips = (int) TransportTrip::query()
-            ->whereIn('id', $ctx->tripIds)
-            ->whereIn('status', [TransportTrip::STATUS_PENDING, TransportTrip::STATUS_IN_TRANSIT, TransportTrip::STATUS_ARRIVED])
-            ->count();
-        $enRoute = (int) TransportTrip::query()
-            ->whereIn('id', $ctx->tripIds)
-            ->where('status', TransportTrip::STATUS_IN_TRANSIT)
-            ->count();
-        $confirmedToday = (int) DeliveryConfirmation::query()
-            ->whereIn('transport_trip_id', $ctx->tripIds)
-            ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
-            ->whereDate('received_date', $ctx->today)
-            ->count();
-        $unconfirmedToday = (int) TransportTrip::query()
-            ->whereIn('id', $ctx->tripIds)
-            ->whereDate('departure_date', $ctx->today)
-            ->where(function ($q): void {
-                $q->whereDoesntHave('deliveryConfirmation')
-                    ->orWhereHas('deliveryConfirmation', fn ($d) => $d->where('confirmation_status', DeliveryConfirmation::STATUS_PENDING));
-            })
-            ->count();
+        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
+
+        $tripsInPeriod = $this->tripsInPeriodCount($ctx, $filters);
+        $confirmedInPeriod = $this->confirmedDeliveriesInPeriod($ctx, $filters);
+        $pendingInPeriod = $this->pendingConfirmationsInPeriod($ctx, $filters);
+        $inTransitInPeriod = $this->inTransitTripsInPeriod($ctx, $filters);
         $exportDocsMissing = $this->exportDocsMissingCount($ctx);
-        $onTimeRate = $this->onTimeDeliveryRate($ctx);
-        $confirmedMtd = (int) DeliveryConfirmation::query()
-            ->whereIn('transport_trip_id', $ctx->tripIds)
-            ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
-            ->whereMonth('received_date', now()->month)
-            ->count();
-        $confirmedLastMonth = (int) DeliveryConfirmation::query()
-            ->whereIn('transport_trip_id', $ctx->tripIds)
-            ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
-            ->whereMonth('received_date', now()->subMonth()->month)
-            ->count();
+        $onTimeRate = $this->onTimeDeliveryRateForPeriod($ctx, $filters);
 
         return [
             'roleKey' => BusinessUser::ROLE_TRANSPORT_MANAGER,
-            'headerBadge' => ['label' => __('Transport + delivery'), 'variant' => 'info'],
-            'insight' => $this->transportInsight($ctx, $exportDocsMissing),
+            'headerBadge' => ['label' => __('Transport'), 'variant' => 'info'],
             'kpiCards' => [
-                $this->kpi(__('Active trips'), $activeTrips, __(':count en route', ['count' => $enRoute]), 'info', 'truck'),
-                $this->kpi(__('Confirmed today'), $confirmedToday, __(':count unconfirmed', ['count' => $unconfirmedToday]), $unconfirmedToday > 0 ? 'warning' : 'positive', 'check'),
-                $this->kpi(__('Export docs missing'), $exportDocsMissing, __('Nairobi trip'), $exportDocsMissing > 0 ? 'warning' : 'positive', 'clipboard'),
-                $this->kpi(__('On-time rate'), $onTimeRate.'%', '-5% '.__('mom'), 'negative', 'clock'),
-                $this->kpi(__('Confirmed MTD'), $confirmedMtd, '+'.max(0, $confirmedMtd - $confirmedLastMonth).' '.__('vs last month'), 'positive', 'calendar'),
+                $this->kpi(__('Trips'), $tripsInPeriod, $periodHint, 'info', 'truck'),
+                $this->kpi(__('Confirmed deliveries'), $confirmedInPeriod, $periodHint, 'positive', 'check'),
+                $this->kpi(__('Pending confirmations'), $pendingInPeriod, __(':count in transit', ['count' => $inTransitInPeriod]), $pendingInPeriod > 0 ? 'warning' : 'positive', 'clock'),
+                $this->kpi(__('Export docs missing'), $exportDocsMissing, __('Active export trips'), $exportDocsMissing > 0 ? 'warning' : 'positive', 'clipboard'),
+                $this->kpi(__('On-time rate'), $onTimeRate.'%', $periodHint, $onTimeRate >= 90 ? 'positive' : 'warning', 'truck'),
             ],
-            'leftPanel' => [
-                'title' => __('Active trips'),
-                'subtitle' => __('Live dispatch board'),
-                'type' => 'trips',
-                'items' => $this->activeTripRows($ctx, 4),
-            ],
-            'rightPanel' => [
-                'title' => __('Pending confirmations'),
-                'subtitle' => __('Delivery follow-up'),
-                'type' => 'deliveries',
-                'items' => $this->pendingConfirmationRows($ctx, 4),
+            'workTable' => [
+                'title' => __('Transport trips'),
+                'subtitle' => __('Trips scheduled for the selected period.'),
+                'headers' => [
+                    'primary' => __('Trip'),
+                    'secondary' => __('Destination'),
+                    'updated' => __('Departure'),
+                ],
+                'emptyMessage' => __('No trips in this period.'),
+                'rows' => $this->transportTripTableRows($ctx, $filters),
+                'footerRoute' => 'transport-trips.hub',
+                'footerLabel' => __('View all trips'),
             ],
             'quickActions' => [
                 $this->action(__('New trip'), 'truck', 'transport-trips.create', BusinessUser::PERMISSION_CREATE_TRANSPORT_TRIP),
@@ -424,13 +406,13 @@ class ProcessorDashboardService
         ];
     }
 
-    private function buildAccountant(int $businessId, ProcessorDashboardContext $ctx): array
+    private function buildAccountant(int $businessId, ProcessorDashboardContext $ctx, array $filters): array
     {
+        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
         $now = now();
-        $weekEnd = $now->copy()->endOfWeek();
+        $fmt = static fn (float $n): string => number_format($n, 0, '.', ',').' '.__('RWF');
 
         $arOutstanding = $this->sumOutstandingBalance('finance_invoices', $businessId);
-
         $arOverdue = (int) FinanceInvoice::query()
             ->where('business_id', $businessId)
             ->whereNotNull('due_date')
@@ -438,48 +420,42 @@ class ProcessorDashboardService
             ->whereRaw('amount_paid < total_amount')
             ->count();
 
-        $apDueWeek = $this->sumOutstandingBalance('finance_payables', $businessId, function ($query) use ($now, $weekEnd): void {
-            $query->whereNotNull('due_date')
-                ->whereBetween('due_date', [$now->startOfDay(), $weekEnd])
-                ->whereRaw('amount_paid < total_amount');
-        });
-
-        $apUrgent = (int) FinancePayable::query()
+        $apOutstanding = $this->sumOutstandingBalance('finance_payables', $businessId);
+        $apOverdue = (int) FinancePayable::query()
             ->where('business_id', $businessId)
             ->whereNotNull('due_date')
-            ->whereBetween('due_date', [$now->startOfDay(), $now->copy()->addDays(2)->endOfDay()])
+            ->where('due_date', '<', $now->startOfDay())
             ->whereRaw('amount_paid < total_amount')
             ->count();
 
-        $revenueMtd = $this->revenueMtd($businessId);
-        $revenueLastMonth = $this->revenueForMonth($businessId, $now->copy()->subMonth());
-        $revenueMom = $this->percentChange($revenueMtd, $revenueLastMonth);
-        $collectionRate = $this->invoiceCollectionRate($businessId);
+        $revenue = $this->invoiceRevenueInPeriod($businessId, $filters);
+        $revenueDisplay = $revenue >= 1_000_000 ? $this->formatMillions($revenue) : $fmt($revenue);
 
-        $fmt = static fn (float $n): string => number_format($n, 0, '.', ',').' '.__('RWF');
+        $invoicesIssued = $this->invoicesIssuedInPeriod($businessId, $filters);
+        $collectionRate = $this->invoiceCollectionRateForPeriod($businessId, $filters);
 
         return [
             'roleKey' => BusinessUser::ROLE_ACCOUNTANT,
-            'headerBadge' => ['label' => __('Finance only'), 'variant' => 'finance'],
-            'insight' => $this->accountantInsight($businessId, $collectionRate, $arOverdue),
+            'headerBadge' => ['label' => __('Finance'), 'variant' => 'finance'],
             'kpiCards' => [
+                $this->kpi(__('Revenue'), $revenueDisplay, $periodHint, 'positive', 'currency-dollar'),
                 $this->kpi(__('AR outstanding'), $fmt($arOutstanding), __(':count overdue', ['count' => $arOverdue]), $arOverdue > 0 ? 'warning' : 'positive', 'receipt'),
-                $this->kpi(__('AP due this week'), $fmt($apDueWeek), __(':count urgent', ['count' => $apUrgent]), $apUrgent > 0 ? 'warning' : 'info', 'receipt'),
-                $this->kpi(__('Revenue MTD'), $this->formatMillions($revenueMtd), ($revenueMom >= 0 ? '+' : '').$revenueMom.'% '.__('mom'), $revenueMom >= 0 ? 'positive' : 'negative', 'currency-dollar'),
-                $this->kpi(__('Invoice collection rate'), $collectionRate.'%', __('target 90%'), $collectionRate >= 90 ? 'positive' : 'warning', 'chart-line'),
-                $this->kpi(__('Cost per kg'), __('RWF 940'), '+6% '.__('mom'), 'negative', 'currency-dollar'),
+                $this->kpi(__('AP outstanding'), $fmt($apOutstanding), __(':count overdue', ['count' => $apOverdue]), $apOverdue > 0 ? 'warning' : 'info', 'receipt'),
+                $this->kpi(__('Invoices issued'), $invoicesIssued, $periodHint, 'info', 'clipboard'),
+                $this->kpi(__('Collection rate'), $collectionRate.'%', __('target 90%'), $collectionRate >= 90 ? 'positive' : 'warning', 'chart-line'),
             ],
-            'leftPanel' => [
+            'workTable' => [
                 'title' => __('AR invoices'),
-                'subtitle' => __('Recent receivables'),
-                'type' => 'invoices',
-                'items' => $this->invoiceRows($businessId),
-            ],
-            'rightPanel' => [
-                'title' => __('AP payables'),
-                'subtitle' => __('Upcoming obligations'),
-                'type' => 'payables',
-                'items' => $this->payableRows($businessId),
+                'subtitle' => __('Invoices issued for the selected period.'),
+                'headers' => [
+                    'primary' => __('Invoice'),
+                    'secondary' => __('Client'),
+                    'updated' => __('Issued'),
+                ],
+                'emptyMessage' => __('No invoices in this period.'),
+                'rows' => $this->accountantInvoiceTableRows($businessId, $filters),
+                'footerRoute' => 'finance.invoices.index',
+                'footerLabel' => __('View all invoices'),
             ],
             'quickActions' => [
                 $this->action(__('Finance overview'), 'layout-dashboard', 'finance.dashboard', BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD),
@@ -517,8 +493,41 @@ class ProcessorDashboardService
             'end' => null,
             'range_label' => __('All time'),
             'executions_label' => __('Animals executed'),
+            'period_hint' => __('Inspections (all time)'),
             'has_custom_range' => false,
             'is_filtered' => false,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: Carbon,
+     *     end: Carbon,
+     *     range_label: string,
+     *     executions_label: string,
+     *     period_hint: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function dashboardFiltersForPreset(string $period): array
+    {
+        $preset = $this->dashboardPresetRangeForPeriod($period);
+
+        return [
+            'period' => $period,
+            'date_from' => $preset['date_from'],
+            'date_to' => $preset['date_to'],
+            'start' => $preset['start'],
+            'end' => $preset['end'],
+            'range_label' => $preset['range_label'],
+            'executions_label' => $preset['executions_label'],
+            'period_hint' => $preset['period_hint'],
+            'has_custom_range' => false,
+            'is_filtered' => true,
         ];
     }
 
@@ -529,24 +538,27 @@ class ProcessorDashboardService
     {
         $now = now();
 
-        [$start, $end, $rangeLabel, $executionsLabel] = match ($period) {
+        [$start, $end, $rangeLabel, $executionsLabel, $periodHint] = match ($period) {
             'day' => [
                 $now->copy()->startOfDay(),
                 $now->copy()->endOfDay(),
                 $now->format('M j, Y'),
                 __('Executed today'),
+                __('Inspections today'),
             ],
             'year' => [
                 $now->copy()->startOfYear(),
                 $now->copy()->endOfYear(),
                 (string) $now->year,
                 __('Executed this year'),
+                __('Inspections this year'),
             ],
             'month' => [
                 $now->copy()->startOfMonth(),
                 $now->copy()->endOfMonth(),
                 $now->format('F Y'),
                 __('Executed this month'),
+                __('Inspections this month'),
             ],
             default => throw new \InvalidArgumentException('Invalid preset period.'),
         };
@@ -558,6 +570,7 @@ class ProcessorDashboardService
             'date_to' => $end->toDateString(),
             'range_label' => $rangeLabel,
             'executions_label' => $executionsLabel,
+            'period_hint' => $periodHint,
         ];
     }
 
@@ -609,25 +622,14 @@ class ProcessorDashboardService
                 'end' => $end,
                 'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
                 'executions_label' => __('Executed in range'),
+                'period_hint' => __('Inspections in range'),
                 'has_custom_range' => true,
                 'is_filtered' => true,
             ];
         }
 
         if (in_array($period, ['day', 'month', 'year'], true)) {
-            $preset = $this->dashboardPresetRangeForPeriod($period);
-
-            return [
-                'period' => $period,
-                'date_from' => $preset['date_from'],
-                'date_to' => $preset['date_to'],
-                'start' => $preset['start'],
-                'end' => $preset['end'],
-                'range_label' => $preset['range_label'],
-                'executions_label' => $preset['executions_label'],
-                'has_custom_range' => false,
-                'is_filtered' => true,
-            ];
+            return $this->dashboardFiltersForPreset($period);
         }
 
         return $this->dashboardFiltersAllTime();
@@ -654,6 +656,486 @@ class ProcessorDashboardService
         $counts = $counts instanceof \Illuminate\Support\Collection ? $counts->all() : $counts;
 
         return (int) ($counts[$species] ?? $counts[strtolower($species)] ?? 0);
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function applyDashboardDateFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, array $filters): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $query->whereBetween($column, [
+                $filters['start']->copy()->startOfDay(),
+                $filters['end']->copy()->endOfDay(),
+            ]);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function applyFinanceDateFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, array $filters): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $start = $filters['start']->copy()->startOfDay();
+            $end = $filters['end']->copy()->endOfDay();
+
+            $query->where(function ($q) use ($column, $start, $end): void {
+                $q->whereBetween($column, [$start, $end])
+                    ->orWhere(function ($fallback) use ($column, $start, $end): void {
+                        $fallback->whereNull($column)->whereBetween('created_at', [$start, $end]);
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function applyTripDateFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, array $filters): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $start = $filters['start']->copy()->startOfDay();
+            $end = $filters['end']->copy()->endOfDay();
+
+            $query->where(function ($q) use ($column, $start, $end): void {
+                $q->whereBetween($column, [$start, $end])
+                    ->orWhere(function ($fallback) use ($column, $start, $end): void {
+                        $fallback->whereNull($column)->whereBetween('created_at', [$start, $end]);
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function tripsInPeriodCount(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = TransportTrip::query()->whereIn('id', $ctx->tripIds);
+        $this->applyTripDateFilter($query, 'departure_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function confirmedDeliveriesInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = DeliveryConfirmation::query()
+            ->whereIn('transport_trip_id', $ctx->tripIds)
+            ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
+            ->whereNotNull('received_date');
+        $this->applyDashboardDateFilter($query, 'received_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function pendingConfirmationsInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = TransportTrip::query()
+            ->whereIn('id', $ctx->tripIds)
+            ->where(function ($q): void {
+                $q->whereDoesntHave('deliveryConfirmation')
+                    ->orWhereHas('deliveryConfirmation', fn ($d) => $d->where('confirmation_status', '!=', DeliveryConfirmation::STATUS_CONFIRMED));
+            });
+        $this->applyTripDateFilter($query, 'departure_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function inTransitTripsInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = TransportTrip::query()
+            ->whereIn('id', $ctx->tripIds)
+            ->where('status', TransportTrip::STATUS_IN_TRANSIT);
+        $this->applyTripDateFilter($query, 'departure_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function onTimeDeliveryRateForPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = DeliveryConfirmation::query()
+            ->whereIn('transport_trip_id', $ctx->tripIds)
+            ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
+            ->whereNotNull('received_date');
+        $this->applyDashboardDateFilter($query, 'received_date', $filters);
+
+        $total = (int) (clone $query)->count();
+        if ($total === 0) {
+            return 0;
+        }
+
+        $onTime = (int) (clone $query)
+            ->whereHas('transportTrip', function ($tripQuery): void {
+                $tripQuery->whereNotNull('arrival_date')
+                    ->whereColumn('delivery_confirmations.received_date', '<=', 'transport_trips.arrival_date');
+            })
+            ->count();
+
+        return (int) round($onTime / $total * 100);
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array<int, array{
+     *     id: string,
+     *     species: string,
+     *     status: string,
+     *     status_tone: string,
+     *     updated_at: string,
+     *     route: string,
+     *     route_params: array<string, int>
+     * }>
+     */
+    private function transportTripTableRows(ProcessorDashboardContext $ctx, array $filters): array
+    {
+        $domestic = strtoupper((string) config('processor.domestic_country', 'RW'));
+
+        $query = TransportTrip::query()
+            ->whereIn('id', $ctx->tripIds)
+            ->with(['deliveryConfirmation.exportDocuments', 'destinationFacility']);
+        $this->applyTripDateFilter($query, 'departure_date', $filters);
+
+        return $query
+            ->orderBy('departure_date')
+            ->limit(50)
+            ->get()
+            ->map(function (TransportTrip $trip) use ($domestic): array {
+                $isExport = filled($trip->destination_country) && strtoupper((string) $trip->destination_country) !== $domestic;
+                $docsMissing = $isExport && $this->tripDocsMissing($trip);
+                $confirmed = $trip->deliveryConfirmation?->confirmation_status === DeliveryConfirmation::STATUS_CONFIRMED;
+
+                if ($docsMissing) {
+                    $status = __('Docs missing');
+                    $statusTone = 'amber';
+                } elseif ($confirmed) {
+                    $status = __('Confirmed');
+                    $statusTone = 'green';
+                } elseif ($trip->status === TransportTrip::STATUS_IN_TRANSIT) {
+                    $status = __('En route');
+                    $statusTone = 'blue';
+                } elseif ($trip->status === TransportTrip::STATUS_COMPLETED) {
+                    $status = __('Completed');
+                    $statusTone = 'green';
+                } elseif ($trip->status === TransportTrip::STATUS_ARRIVED) {
+                    $status = __('Arrived');
+                    $statusTone = 'blue';
+                } else {
+                    $status = __('Scheduled');
+                    $statusTone = 'slate';
+                }
+
+                return [
+                    'id' => __('Trip #:id', ['id' => $trip->id]),
+                    'species' => $trip->destination_display,
+                    'status' => $status,
+                    'status_tone' => $statusTone,
+                    'updated_at' => $trip->departure_date?->format('d M Y') ?? $trip->created_at?->format('d M Y') ?? '—',
+                    'route' => 'transport-trips.show',
+                    'route_params' => ['transport_trip' => $trip->id],
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function invoiceRevenueInPeriod(int $businessId, array $filters): float
+    {
+        $query = FinanceInvoice::query()->where('business_id', $businessId);
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+
+        return (float) $query->sum('total_amount');
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function invoicesIssuedInPeriod(int $businessId, array $filters): int
+    {
+        $query = FinanceInvoice::query()->where('business_id', $businessId);
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function invoiceCollectionRateForPeriod(int $businessId, array $filters): int
+    {
+        $query = FinanceInvoice::query()->where('business_id', $businessId);
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+        $total = (float) (clone $query)->sum('total_amount');
+
+        if ($total <= 0) {
+            return 0;
+        }
+
+        $paid = (float) (clone $query)->sum('amount_paid');
+
+        return (int) round($paid / $total * 100);
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array<int, array{
+     *     id: string,
+     *     species: string,
+     *     status: string,
+     *     status_tone: string,
+     *     updated_at: string,
+     *     route: string,
+     *     route_params: array<string, int>
+     * }>
+     */
+    private function accountantInvoiceTableRows(int $businessId, array $filters): array
+    {
+        $query = FinanceInvoice::query()
+            ->where('business_id', $businessId)
+            ->with('client');
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+
+        return $query
+            ->latest('issued_at')
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->map(function (FinanceInvoice $invoice): array {
+                $outstanding = max(0, (float) $invoice->total_amount - (float) $invoice->amount_paid);
+                $overdue = $invoice->due_date && $invoice->due_date->isPast() && $outstanding > 0;
+                $paid = $outstanding <= 0;
+
+                return [
+                    'id' => (string) ($invoice->invoice_number ?? __('Invoice #:id', ['id' => $invoice->id])),
+                    'species' => $invoice->client?->name ?? '—',
+                    'status' => $paid ? __('Paid') : ($overdue ? __('Overdue') : __('Pending')),
+                    'status_tone' => $paid ? 'green' : ($overdue ? 'amber' : 'blue'),
+                    'updated_at' => $invoice->issued_at?->format('d M Y') ?? $invoice->created_at?->format('d M Y') ?? '—',
+                    'route' => 'finance.invoices.edit',
+                    'route_params' => ['invoice' => $invoice->id],
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array<int, array{
+     *     id: string,
+     *     species: string,
+     *     status: string,
+     *     status_tone: string,
+     *     updated_at: string,
+     *     route: string,
+     *     route_params: array<string, int>
+     * }>
+     */
+    private function inspectorBatchTableRows(ProcessorDashboardContext $ctx, ?int $inspectorId, array $filters): array
+    {
+        $query = Batch::query()
+            ->whereIn('id', $ctx->batchIds)
+            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId))
+            ->with(['slaughterExecution.slaughterPlan', 'certificate', 'postMortemInspection']);
+        $this->applyDashboardDateFilter($query, 'created_at', $filters);
+
+        $batches = $query
+            ->latest('updated_at')
+            ->limit(50)
+            ->get()
+            ->sortBy(function (Batch $batch): int {
+                if (! $batch->postMortemInspection) {
+                    return 0;
+                }
+
+                if ($batch->certificate === null) {
+                    return 1;
+                }
+
+                return 2;
+            })
+            ->values();
+
+        if ($batches->isEmpty()) {
+            return [];
+        }
+
+        return $batches->map(function (Batch $batch): array {
+            $species = (string) ($batch->slaughterExecution?->slaughterPlan?->species ?? $batch->species ?? '—');
+            $certified = $batch->certificate !== null;
+            $pmPending = ! $batch->postMortemInspection;
+
+            return [
+                'id' => (string) ($batch->batch_code ?? __('Batch #:id', ['id' => $batch->id])),
+                'species' => $species,
+                'status' => $certified
+                    ? __('Certified')
+                    : ($pmPending ? __('PM pending') : __('Ready to certify')),
+                'status_tone' => $certified ? 'green' : ($pmPending ? 'amber' : 'blue'),
+                'updated_at' => $batch->updated_at?->format('d M Y H:i') ?? '—',
+                'route' => 'batches.show',
+                'route_params' => ['batch' => $batch->id],
+            ];
+        })->all();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array<int, array{
+     *     id: string,
+     *     species: string,
+     *     status: string,
+     *     status_tone: string,
+     *     updated_at: string,
+     *     route: string,
+     *     route_params: array<string, int>
+     * }>
+     */
+    private function opsManagerPlanTableRows(ProcessorDashboardContext $ctx, array $filters): array
+    {
+        $query = SlaughterPlan::query()
+            ->whereIn('id', $ctx->planIds)
+            ->withCount(['anteMortemInspections', 'slaughterExecutions']);
+        $this->applyDashboardDateFilter($query, 'slaughter_date', $filters);
+
+        return $query
+            ->orderBy('slaughter_date')
+            ->limit(50)
+            ->get()
+            ->map(function (SlaughterPlan $plan): array {
+                $hasExecution = (int) $plan->slaughter_executions_count > 0;
+                $hasAm = (int) $plan->ante_mortem_inspections_count > 0;
+
+                if ($hasExecution) {
+                    $status = __('Executed');
+                    $statusTone = 'green';
+                } elseif (! $hasAm) {
+                    $status = __('AM pending');
+                    $statusTone = 'amber';
+                } elseif ($plan->status === SlaughterPlan::STATUS_APPROVED) {
+                    $status = __('Approved');
+                    $statusTone = 'green';
+                } else {
+                    $status = __('Planned');
+                    $statusTone = 'slate';
+                }
+
+                return [
+                    'id' => __('Plan #:id', ['id' => $plan->id]),
+                    'species' => (string) ($plan->species ?? '—'),
+                    'status' => $status,
+                    'status_tone' => $statusTone,
+                    'updated_at' => $plan->slaughter_date?->format('d M Y') ?? '—',
+                    'route' => 'slaughter-plans.show',
+                    'route_params' => ['slaughter_plan' => $plan->id],
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function intakeAnimalsReceived(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = AnimalIntake::query()
+            ->with('items:id,animal_intake_id,species')
+            ->whereIn('facility_id', $ctx->facilityIds)
+            ->where('is_draft', false)
+            ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
+            ->whereNotNull('intake_date');
+        $this->applyDashboardDateFilter($query, 'intake_date', $filters);
+
+        return (int) $query->get()->sum(function (AnimalIntake $intake): int {
+            if ($intake->items->isNotEmpty()) {
+                return $intake->items->count();
+            }
+
+            return (int) $intake->number_of_animals;
+        });
     }
 
     private function action(string $label, string $icon, string $route, string $permission): array

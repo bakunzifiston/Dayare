@@ -69,6 +69,10 @@ function drawChart(canvas, spec) {
     const options = baseOptions(spec.height);
     if (type === 'bar') {
         options.scales.y.beginAtZero = true;
+        options.plugins.legend = {
+            display: (spec.datasets || []).length > 1,
+            position: 'bottom',
+        };
     }
     if (spec.yMin !== undefined) options.scales.y.min = spec.yMin;
     if (spec.yMax !== undefined) options.scales.y.max = spec.yMax;
@@ -104,19 +108,43 @@ function drawChart(canvas, spec) {
     };
 
     if (type === 'donut' || type === 'pie') {
+        const pieLabels = spec.labels || [];
+        const pieData = spec.data || [];
+        const pieColors = spec.colors || DEFAULT_CHART_COLORS.series;
+        const slices = pieLabels
+            .map((label, index) => ({
+                label,
+                value: Number(pieData[index] ?? 0),
+                color: pieColors[index] ?? DEFAULT_CHART_COLORS.series[index % DEFAULT_CHART_COLORS.series.length],
+            }))
+            .filter((slice) => slice.value > 0);
+
         config.options = {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const value = context.parsed ?? 0;
+                            const total = (context.dataset.data || []).reduce((sum, n) => sum + n, 0);
+                            const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                            return `${context.label}: ${value} (${pct}%)`;
+                        },
+                    },
+                },
+            },
             ...(type === 'donut' ? { cutout: '68%' } : {}),
         };
         config.data = {
-            labels: spec.labels || [],
+            labels: slices.map((slice) => slice.label),
             datasets: [{
-                data: spec.data || [],
-                backgroundColor: spec.colors || DEFAULT_CHART_COLORS.series,
-                borderWidth: 0,
-                hoverOffset: 4,
+                data: slices.map((slice) => slice.value),
+                backgroundColor: slices.map((slice) => slice.color),
+                borderWidth: 2,
+                borderColor: '#ffffff',
+                hoverOffset: 6,
             }],
         };
     }

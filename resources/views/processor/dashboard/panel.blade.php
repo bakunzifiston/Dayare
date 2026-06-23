@@ -59,11 +59,23 @@
             <div class="hub-period-filter__actions">
                 <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
                 @if ($filters['is_filtered'])
-                    <a href="{{ route('dashboard') }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
+                    <a href="{{ route('dashboard', in_array($ops['roleKey'] ?? '', [\App\Models\BusinessUser::ROLE_INSPECTOR, \App\Models\BusinessUser::ROLE_OPERATIONS_MANAGER, \App\Models\BusinessUser::ROLE_ACCOUNTANT, \App\Models\BusinessUser::ROLE_TRANSPORT_MANAGER], true) ? ['period' => 'all'] : []) }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
                 @endif
             </div>
         </div>
-        <p class="hub-period-filter__hint">{{ __('Slaughter executions') }} · {{ $filters['range_label'] }}</p>
+        <p class="hub-period-filter__hint">
+            @if (($ops['roleKey'] ?? '') === \App\Models\BusinessUser::ROLE_INSPECTOR)
+                {{ $filters['period_hint'] ?? __('Inspections') }} · {{ $filters['range_label'] }}
+            @elseif (($ops['roleKey'] ?? '') === \App\Models\BusinessUser::ROLE_OPERATIONS_MANAGER)
+                {{ __('Operations') }} · {{ $filters['range_label'] }}
+            @elseif (($ops['roleKey'] ?? '') === \App\Models\BusinessUser::ROLE_ACCOUNTANT)
+                {{ __('Finance') }} · {{ $filters['range_label'] }}
+            @elseif (($ops['roleKey'] ?? '') === \App\Models\BusinessUser::ROLE_TRANSPORT_MANAGER)
+                {{ __('Transport') }} · {{ $filters['range_label'] }}
+            @else
+                {{ __('Slaughter executions') }} · {{ $filters['range_label'] }}
+            @endif
+        </p>
     </form>
 @endif
 
@@ -97,7 +109,7 @@
 @if (count($charts) > 0)
     <section class="proc-dash__charts" aria-label="{{ __('Charts') }}">
         @foreach ($charts as $chart)
-            <div class="proc-dash__chart-card">
+            <div @class(['proc-dash__chart-card', 'proc-dash__chart-card--full' => ! empty($chart['fullWidth'])])>
                 <p class="proc-dash__chart-title">{{ $chart['title'] }}</p>
                 @if (! empty($chart['legend']))
                     <div class="proc-dash__chart-legend">
@@ -109,6 +121,21 @@
                         @endforeach
                     </div>
                 @endif
+                @php
+                    if (($chart['type'] ?? '') === 'pie') {
+                        $chartDataTotal = array_sum($chart['data'] ?? []);
+                    } elseif (! empty($chart['stacked']) && ! empty($chart['datasets'])) {
+                        $chartDataTotal = array_sum(array_map(
+                            fn (array $dataset) => array_sum($dataset['data'] ?? []),
+                            $chart['datasets'],
+                        ));
+                    } else {
+                        $chartDataTotal = null;
+                    }
+                @endphp
+                @if ($chartDataTotal === 0)
+                    <div class="proc-dash__chart-empty">{{ $chart['emptyMessage'] ?? __('No inspection activity for this period.') }}</div>
+                @else
                 <div class="proc-dash__chart-wrap" style="position: relative; height: {{ (int) ($chart['height'] ?? 160) }}px">
                     <canvas
                         id="{{ $chart['id'] }}"
@@ -116,11 +143,68 @@
                         aria-label="{{ $chart['ariaLabel'] ?? $chart['title'] }}"
                     >{{ $chart['ariaLabel'] ?? $chart['title'] }}</canvas>
                 </div>
+                @endif
             </div>
         @endforeach
     </section>
 @endif
 
+@php $workTable = $ops['workTable'] ?? null; @endphp
+
+@if ($workTable)
+    <section class="proc-dash__table-section" aria-label="{{ $workTable['title'] ?? '' }}">
+        <div class="proc-dash__table-head">
+            <div>
+                <h3 class="proc-dash__card-title">{{ $workTable['title'] }}</h3>
+                @if (! empty($workTable['subtitle']))
+                    <p class="proc-dash__card-sub">{{ $workTable['subtitle'] }}</p>
+                @endif
+            </div>
+            @if (! empty($workTable['footerRoute']))
+                <a href="{{ route($workTable['footerRoute'], $workTable['footerRouteParams'] ?? []) }}" class="proc-dash__card-link proc-dash__card-link--head">
+                    {{ $workTable['footerLabel'] ?? __('View all') }}
+                </a>
+            @endif
+        </div>
+
+        @if (empty($workTable['rows']))
+            <div class="proc-dash__table-empty">{{ $workTable['emptyMessage'] ?? __('No batches in this period.') }}</div>
+        @else
+            <div class="proc-dash__table-wrap">
+                <table class="proc-dash__table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>{{ $workTable['headers']['primary'] ?? __('Batch') }}</th>
+                            <th>{{ $workTable['headers']['secondary'] ?? __('Species') }}</th>
+                            <th>{{ __('Status') }}</th>
+                            <th>{{ $workTable['headers']['updated'] ?? __('Updated') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($workTable['rows'] as $index => $row)
+                            <tr>
+                                <td class="proc-dash__table-rank">{{ $index + 1 }}</td>
+                                <td>
+                                    <a href="{{ route($row['route'], $row['route_params'] ?? []) }}" class="proc-dash__table-link">
+                                        {{ $row['id'] }}
+                                    </a>
+                                </td>
+                                <td>{{ $row['species'] }}</td>
+                                <td>
+                                    <span class="proc-dash__badge-pill proc-dash__badge-pill--{{ $badgeVariants[$row['status_tone']] ?? 'info' }}">
+                                        {{ $row['status'] }}
+                                    </span>
+                                </td>
+                                <td class="proc-dash__table-muted">{{ $row['updated_at'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
+@elseif (! empty($left['title']) || ! empty($right['title']))
 <section class="proc-dash__cols">
     <div class="proc-dash__card">
         <h3 class="proc-dash__card-title">{{ $left['title'] ?? '' }}</h3>
@@ -279,3 +363,4 @@
         @endif
     </div>
 </section>
+@endif

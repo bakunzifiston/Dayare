@@ -7,10 +7,16 @@ use App\Models\AnimalIntakeItem;
 use App\Models\AnteMortemInspection;
 use App\Models\Batch;
 use App\Models\Certificate;
+use App\Models\DeliveryConfirmation;
 use App\Models\Facility;
+use App\Models\FinanceCostAllocation;
+use App\Models\FinanceInvoice;
+use App\Models\FinancePayable;
+use App\Models\Inspector;
 use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
+use App\Models\TransportTrip;
 use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -24,11 +30,11 @@ class ProcessorDashboardCharts
     public function forRole(string $roleKey, ProcessorDashboardContext $ctx, int $businessId, ?array $filters = null, ?User $user = null): array
     {
         return match ($roleKey) {
-            'operations_manager' => $this->opsManager($ctx),
+            'operations_manager' => $this->opsManager($ctx, $filters),
             'compliance_officer' => $this->complianceOfficer($ctx),
-            'inspector' => $this->inspector($ctx),
-            'transport_manager' => $this->transportManager($ctx),
-            'accountant' => $this->accountant($businessId),
+            'inspector' => $this->inspector($ctx, $filters, $user),
+            'transport_manager' => $this->transportManager($ctx, $filters),
+            'accountant' => $this->accountant($businessId, $filters),
             default => $this->orgAdmin($ctx, $filters, $user),
         };
     }
@@ -86,18 +92,76 @@ class ProcessorDashboardCharts
     }
 
     /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }|null  $filters
      * @return array<int, array<string, mixed>>
      */
-    private function opsManager(ProcessorDashboardContext $ctx): array
+    private function opsManager(ProcessorDashboardContext $ctx, ?array $filters = null): array
     {
-        $days = $this->lastWeekdayLabels();
-        $intake = $this->dailyIntakeCounts($ctx, $days);
+        $filters = $filters ?? ['is_filtered' => false, 'start' => null, 'end' => null];
+
+        $intakeTotal = $this->opsIntakeHeadCount($ctx, $filters);
+        $plansTotal = $this->filteredQueryCount(
+            SlaughterPlan::query()->whereIn('id', $ctx->planIds),
+            'slaughter_date',
+            $filters,
+        );
+        $executionsTotal = $this->opsExecutionAnimals($ctx, $filters);
+        $batchesTotal = $this->filteredQueryCount(
+            Batch::query()->whereIn('id', $ctx->batchIds),
+            'created_at',
+            $filters,
+        );
+
+        $labels = [__('Intake'), __('Plans'), __('Executions'), __('Batches')];
+        $data = [$intakeTotal, $plansTotal, $executionsTotal, $batchesTotal];
+        $colors = [
+            $this->speciesColor('cattle'),
+            $this->speciesColor('goat'),
+            $this->speciesColor('sheep'),
+            $this->brandColor('primary'),
+        ];
 
         return [
-            $this->barChart('ops-intake', __('Daily animal intake'), 170, __('Daily animal intake Monday through Sunday'), $days, [
-                ['label' => __('Head'), 'data' => $intake, 'backgroundColor' => $this->brandColor('primary')],
-            ]),
-            $this->lineWithTarget('ops-cert-rate', __('Batch certification rate'), 150, __('Weekly batch certification rate with 90% target'), ['W1', 'W2', 'W3', 'W4'], [88, 92, 85, 75], 90, 60, 100),
+            $this->barChart(
+                'ops-pipeline',
+                __('Operational pipeline'),
+                220,
+                __('Animals received, plans, executions, and batches for the selected period'),
+                $labels,
+                [[
+                    'label' => __('Volume'),
+                    'data' => $data,
+                    'backgroundColor' => $colors,
+                ]],
+                null,
+                collect($labels)->map(fn (string $label, int $index) => [
+                    'color' => $colors[$index] ?? $this->brandColor('primary'),
+                    'label' => $label,
+                ])->all(),
+            ),
+            array_merge(
+                $this->pieChart(
+                    'ops-pipeline-pie',
+                    __('Pipeline share'),
+                    220,
+                    __('Share of intake, plans, executions, and batches'),
+                    $labels,
+                    $data,
+                    $colors,
+                ),
+                ['emptyMessage' => __('No pipeline activity for this period.')],
+            ),
+            array_merge(
+                $this->facilitySpeciesIntakeTrend($ctx, $filters, 'ops-species-trend'),
+                [
+                    'fullWidth' => true,
+                    'emptyMessage' => __('No animal intake for this period.'),
+                ],
+            ),
         ];
     }
 
@@ -119,48 +183,843 @@ class ProcessorDashboardCharts
     }
 
     /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }|null  $filters
      * @return array<int, array<string, mixed>>
      */
-    private function inspector(ProcessorDashboardContext $ctx): array
+    private function inspector(ProcessorDashboardContext $ctx, ?array $filters = null, ?User $user = null): array
     {
-        $days = $this->lastWeekdayLabels();
+        $filters = $filters ?? ['is_filtered' => false, 'start' => null, 'end' => null];
+        $inspectorId = $this->resolveInspectorId($ctx, $user);
+
+        $amTotal = $this->filteredQueryCount(
+            AnteMortemInspection::query()
+                ->whereIn('slaughter_plan_id', $ctx->planIds)
+                ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId)),
+            'inspection_date',
+            $filters,
+        );
+        $pmTotal = $this->filteredQueryCount(
+            PostMortemInspection::query()
+                ->whereIn('batch_id', $ctx->batchIds)
+                ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId)),
+            'inspection_date',
+            $filters,
+        );
+        $certTotal = $this->filteredQueryCount(
+            Certificate::query()
+                ->whereIn('id', $ctx->certificateIds)
+                ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId)),
+            'issued_at',
+            $filters,
+        );
+
+        $labels = [__('AM'), __('PM'), __('Certs')];
+        $data = [$amTotal, $pmTotal, $certTotal];
+        $colors = [
+            $this->speciesColor('cattle'),
+            $this->speciesColor('goat'),
+            $this->speciesColor('sheep'),
+        ];
 
         return [
-            $this->barChart('inspector-workload', __('Daily workload'), 160, __('Daily ante-mortem, post-mortem, and certificate workload'), $days, [
-                ['label' => __('AM'), 'data' => $this->dailyAmCounts($ctx, $days), 'backgroundColor' => $this->speciesColor('cattle')],
-                ['label' => __('PM'), 'data' => $this->dailyPmCounts($ctx, $days), 'backgroundColor' => $this->speciesColor('goat')],
-                ['label' => __('Certs'), 'data' => $this->dailyCertCounts($ctx, $days), 'backgroundColor' => $this->speciesColor('sheep')],
-            ]),
-            $this->donutChart('inspector-outcomes', __('Inspection outcomes'), 130, __('Inspection outcomes this month'), [__('Pass'), __('Conditional'), __('Rejected')], [84, 8, 8], [$this->brandColor('success'), $this->brandColor('warning'), $this->brandColor('primary')]),
+            $this->barChart(
+                'inspector-workload',
+                __('Inspection workload'),
+                220,
+                __('Ante-mortem, post-mortem, and certificates for the selected period'),
+                $labels,
+                [[
+                    'label' => __('Activities'),
+                    'data' => $data,
+                    'backgroundColor' => $colors,
+                ]],
+                null,
+                collect($labels)->map(fn (string $label, int $index) => [
+                    'color' => $colors[$index] ?? $this->brandColor('primary'),
+                    'label' => $label,
+                ])->all(),
+            ),
+            $this->pieChart(
+                'inspector-workload-pie',
+                __('Workload share'),
+                220,
+                __('Share of ante-mortem, post-mortem, and certificates'),
+                $labels,
+                $data,
+                $colors,
+            ),
+            array_merge(
+                $this->facilitySpeciesIntakeTrend($ctx, $filters, 'inspector-species-trend'),
+                [
+                    'fullWidth' => true,
+                    'emptyMessage' => __('No animal intake for this period.'),
+                ],
+            ),
         ];
     }
 
     /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function filteredQueryCount(\Illuminate\Database\Eloquent\Builder $query, string $dateColumn, array $filters): int
+    {
+        $query->whereNotNull($dateColumn);
+
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $query->whereBetween($dateColumn, [
+                $filters['start']->copy()->startOfDay(),
+                $filters['end']->copy()->endOfDay(),
+            ]);
+        }
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function opsIntakeHeadCount(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = AnimalIntake::query()
+            ->with('items:id,animal_intake_id,species')
+            ->whereIn('facility_id', $ctx->facilityIds)
+            ->where('is_draft', false)
+            ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
+            ->whereNotNull('intake_date');
+
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $query->whereBetween('intake_date', [
+                $filters['start']->copy()->startOfDay(),
+                $filters['end']->copy()->endOfDay(),
+            ]);
+        }
+
+        return (int) $query->get()->sum(function (AnimalIntake $intake): int {
+            if ($intake->items->isNotEmpty()) {
+                return $intake->items->count();
+            }
+
+            return (int) $intake->number_of_animals;
+        });
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function opsExecutionAnimals(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = SlaughterExecution::query()
+            ->whereIn('slaughter_plan_id', $ctx->planIds)
+            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereNotNull('slaughter_time');
+
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $query->whereBetween('slaughter_time', [
+                $filters['start']->copy()->startOfDay(),
+                $filters['end']->copy()->endOfDay(),
+            ]);
+        }
+
+        return (int) $query->sum('actual_animals_slaughtered');
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     * @return array<string, mixed>
+     */
+    private function facilitySpeciesIntakeTrend(ProcessorDashboardContext $ctx, array $filters, string $slug): array
+    {
+        [$start, $end, $groupByMonth] = $this->intakeTrendRange($filters);
+        [$periodKeys, $labels] = $this->buildTrendPeriods($start, $end, $groupByMonth);
+
+        $counts = [
+            AnimalIntake::SPECIES_CATTLE => array_fill_keys($periodKeys, 0),
+            AnimalIntake::SPECIES_GOAT => array_fill_keys($periodKeys, 0),
+            AnimalIntake::SPECIES_SHEEP => array_fill_keys($periodKeys, 0),
+        ];
+
+        if ($ctx->facilityIds->isNotEmpty()) {
+            $intakes = AnimalIntake::query()
+                ->with(['items:id,animal_intake_id,species'])
+                ->whereIn('facility_id', $ctx->facilityIds)
+                ->where('is_draft', false)
+                ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
+                ->whereNotNull('intake_date')
+                ->whereBetween('intake_date', [$start, $end])
+                ->get(['id', 'species', 'number_of_animals', 'intake_date']);
+
+            foreach ($intakes as $intake) {
+                $intakeDate = $intake->intake_date;
+                if ($intakeDate === null) {
+                    continue;
+                }
+
+                $periodKey = $groupByMonth
+                    ? Carbon::parse($intakeDate)->format('Y-m')
+                    : Carbon::parse($intakeDate)->format('Y-m-d');
+
+                foreach ($this->headCountsBySpeciesFromIntake($intake) as $species => $headCount) {
+                    if (! isset($counts[$species][$periodKey])) {
+                        continue;
+                    }
+
+                    $counts[$species][$periodKey] += $headCount;
+                }
+            }
+        }
+
+        $datasets = [
+            $this->coloredBarDataset(
+                __('Cattle'),
+                array_map(fn (string $key) => (int) $counts[AnimalIntake::SPECIES_CATTLE][$key], $periodKeys),
+                $this->speciesColor('cattle'),
+            ),
+            $this->coloredBarDataset(
+                __('Goat'),
+                array_map(fn (string $key) => (int) $counts[AnimalIntake::SPECIES_GOAT][$key], $periodKeys),
+                $this->speciesColor('goat'),
+            ),
+            $this->coloredBarDataset(
+                __('Sheep'),
+                array_map(fn (string $key) => (int) $counts[AnimalIntake::SPECIES_SHEEP][$key], $periodKeys),
+                $this->speciesColor('sheep'),
+            ),
+        ];
+
+        return $this->stackedBarChart(
+            $slug,
+            __('Trend species received'),
+            220,
+            __('Animal intake by cattle, goat, and sheep over the selected period'),
+            $labels,
+            $datasets,
+        );
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     * @return array{0: Carbon, 1: Carbon, 2: bool}
+     */
+    private function intakeTrendRange(array $filters): array
+    {
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $start = $filters['start']->copy()->startOfDay();
+            $end = $filters['end']->copy()->endOfDay();
+        } else {
+            $end = now()->endOfDay();
+            $start = now()->subMonths(5)->startOfMonth()->startOfDay();
+        }
+
+        return [$start, $end, $start->diffInDays($end) > 60];
+    }
+
+    /**
+     * @return array{0: list<string>, 1: list<string>}
+     */
+    private function buildTrendPeriods(Carbon $start, Carbon $end, bool $groupByMonth): array
+    {
+        $periodKeys = [];
+        $labels = [];
+
+        if ($groupByMonth) {
+            $cursor = $start->copy()->startOfMonth();
+            while ($cursor->lte($end)) {
+                $periodKeys[] = $cursor->format('Y-m');
+                $labels[] = $cursor->translatedFormat('M Y');
+                $cursor->addMonth();
+            }
+        } else {
+            $cursor = $start->copy()->startOfDay();
+            while ($cursor->lte($end)) {
+                $periodKeys[] = $cursor->format('Y-m-d');
+                $labels[] = $cursor->format('M j');
+                $cursor->addDay();
+            }
+        }
+
+        return [$periodKeys, $labels];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function headCountsBySpeciesFromIntake(AnimalIntake $intake): array
+    {
+        if ($intake->relationLoaded('items') && $intake->items->isNotEmpty()) {
+            return $intake->items
+                ->groupBy(fn ($item) => (string) $item->species)
+                ->map(fn ($group) => $group->count())
+                ->all();
+        }
+
+        $species = (string) ($intake->species ?? '');
+        $count = (int) $intake->number_of_animals;
+
+        if ($species === '' || $count <= 0) {
+            return [];
+        }
+
+        return [$species => $count];
+    }
+
+    private function resolveInspectorId(ProcessorDashboardContext $ctx, ?User $user): ?int
+    {
+        if ($user === null || $user->email === null) {
+            return null;
+        }
+
+        return Inspector::query()
+            ->whereIn('facility_id', $ctx->facilityIds)
+            ->where('email', $user->email)
+            ->value('id');
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }|null  $filters
      * @return array<int, array<string, mixed>>
      */
-    private function transportManager(ProcessorDashboardContext $ctx): array
+    private function transportManager(ProcessorDashboardContext $ctx, ?array $filters = null): array
     {
+        $filters = $filters ?? ['is_filtered' => false, 'start' => null, 'end' => null];
+
+        $tripsTotal = $this->transportTripsInPeriod($ctx, $filters);
+        $confirmedTotal = $this->transportConfirmedInPeriod($ctx, $filters);
+        $pendingTotal = $this->transportPendingInPeriod($ctx, $filters);
+        $inTransitTotal = $this->transportInTransitInPeriod($ctx, $filters);
+
+        $labels = [__('Trips'), __('Confirmed'), __('Pending'), __('In transit')];
+        $data = [$tripsTotal, $confirmedTotal, $pendingTotal, $inTransitTotal];
+        $colors = [
+            $this->brandColor('primary'),
+            $this->brandColor('success'),
+            $this->brandColor('warning'),
+            $this->brandColor('muted'),
+        ];
+
         return [
-            $this->stackedBarChart('transport-deliveries', __('Weekly deliveries'), 160, __('Domestic and export deliveries over six weeks'), ['W1', 'W2', 'W3', 'W4', 'W5', 'W6'], [
-                ['label' => __('Domestic'), 'data' => [8, 9, 7, 10, 9, 11], 'backgroundColor' => $this->brandColor('primary')],
-                ['label' => __('Export'), 'data' => [2, 1, 3, 2, 1, 2], 'backgroundColor' => $this->brandColor('warning')],
-            ]),
-            $this->lineChart('transport-ontime', __('On-time delivery rate'), 150, __('Monthly on-time delivery rate January through June'), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], [91, 88, 93, 85, 82, 87], $this->brandColor('primary'), 70, 100, 'percent'),
+            $this->barChart(
+                'transport-pipeline',
+                __('Delivery pipeline'),
+                220,
+                __('Trips, confirmations, pending deliveries, and in-transit trips for the selected period'),
+                $labels,
+                [[
+                    'label' => __('Volume'),
+                    'data' => $data,
+                    'backgroundColor' => $colors,
+                ]],
+                null,
+                collect($labels)->map(fn (string $label, int $index) => [
+                    'color' => $colors[$index] ?? $this->brandColor('primary'),
+                    'label' => $label,
+                ])->all(),
+            ),
+            array_merge(
+                $this->pieChart(
+                    'transport-pipeline-pie',
+                    __('Delivery share'),
+                    220,
+                    __('Share of trips, confirmations, pending, and in-transit activity'),
+                    $labels,
+                    $data,
+                    $colors,
+                ),
+                ['emptyMessage' => __('No transport activity for this period.')],
+            ),
+            array_merge(
+                $this->transportDomesticExportTrend($ctx, $filters),
+                [
+                    'fullWidth' => true,
+                    'emptyMessage' => __('No trips in this period.'),
+                ],
+            ),
         ];
     }
 
     /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     * @return array<string, mixed>
+     */
+    private function transportDomesticExportTrend(ProcessorDashboardContext $ctx, array $filters): array
+    {
+        [$start, $end, $groupByMonth] = $this->intakeTrendRange($filters);
+        [$periodKeys, $labels] = $this->buildTrendPeriods($start, $end, $groupByMonth);
+        $domestic = strtoupper((string) config('processor.domestic_country', 'RW'));
+
+        $domesticCounts = array_fill_keys($periodKeys, 0);
+        $exportCounts = array_fill_keys($periodKeys, 0);
+
+        $trips = TransportTrip::query()
+            ->whereIn('id', $ctx->tripIds)
+            ->where(function ($query) use ($start, $end): void {
+                $query->whereBetween('departure_date', [$start, $end])
+                    ->orWhere(function ($fallback) use ($start, $end): void {
+                        $fallback->whereNull('departure_date')->whereBetween('created_at', [$start, $end]);
+                    });
+            })
+            ->get(['departure_date', 'created_at', 'destination_country']);
+
+        foreach ($trips as $trip) {
+            $date = $trip->departure_date ?? $trip->created_at;
+            if ($date === null) {
+                continue;
+            }
+
+            $periodKey = $groupByMonth
+                ? Carbon::parse($date)->format('Y-m')
+                : Carbon::parse($date)->format('Y-m-d');
+
+            if (! isset($domesticCounts[$periodKey])) {
+                continue;
+            }
+
+            $isExport = filled($trip->destination_country) && strtoupper((string) $trip->destination_country) !== $domestic;
+            if ($isExport) {
+                $exportCounts[$periodKey]++;
+            } else {
+                $domesticCounts[$periodKey]++;
+            }
+        }
+
+        return $this->stackedBarChart(
+            'transport-domestic-export-trend',
+            __('Domestic vs export trips'),
+            220,
+            __('Trip volume by domestic and export destinations over the selected period'),
+            $labels,
+            [
+                $this->coloredBarDataset(
+                    __('Domestic'),
+                    array_map(fn (string $key) => (int) $domesticCounts[$key], $periodKeys),
+                    $this->brandColor('primary'),
+                ),
+                $this->coloredBarDataset(
+                    __('Export'),
+                    array_map(fn (string $key) => (int) $exportCounts[$key], $periodKeys),
+                    $this->brandColor('warning'),
+                ),
+            ],
+        );
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function transportTripsInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = TransportTrip::query()->whereIn('id', $ctx->tripIds);
+        $this->applyTripDateFilter($query, 'departure_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function transportConfirmedInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = DeliveryConfirmation::query()
+            ->whereIn('transport_trip_id', $ctx->tripIds)
+            ->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)
+            ->whereNotNull('received_date');
+        $this->applyTripDateFilter($query, 'received_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function transportPendingInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = TransportTrip::query()
+            ->whereIn('id', $ctx->tripIds)
+            ->where(function ($q): void {
+                $q->whereDoesntHave('deliveryConfirmation')
+                    ->orWhereHas('deliveryConfirmation', fn ($d) => $d->where('confirmation_status', '!=', DeliveryConfirmation::STATUS_CONFIRMED));
+            });
+        $this->applyTripDateFilter($query, 'departure_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function transportInTransitInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = TransportTrip::query()
+            ->whereIn('id', $ctx->tripIds)
+            ->where('status', TransportTrip::STATUS_IN_TRANSIT);
+        $this->applyTripDateFilter($query, 'departure_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function applyTripDateFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, array $filters): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $start = $filters['start']->copy()->startOfDay();
+            $end = $filters['end']->copy()->endOfDay();
+
+            $query->where(function ($q) use ($column, $start, $end): void {
+                $q->whereBetween($column, [$start, $end])
+                    ->orWhere(function ($fallback) use ($column, $start, $end): void {
+                        $fallback->whereNull($column)->whereBetween('created_at', [$start, $end]);
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }|null  $filters
      * @return array<int, array<string, mixed>>
      */
-    private function accountant(int $businessId): array
+    private function accountant(int $businessId, ?array $filters = null): array
     {
-        return [
-            $this->barChart('finance-revenue-cost', __('Monthly revenue vs cost'), 170, __('Monthly revenue and cost in RWF millions'), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], [
-                ['label' => __('Revenue'), 'data' => [22, 24, 26, 25, 27, 28], 'backgroundColor' => $this->brandColor('success')],
-                ['label' => __('Cost'), 'data' => [17, 18, 19, 20, 21, 22], 'backgroundColor' => $this->brandColor('primary')],
-            ], 'millions'),
-            $this->donutChart('finance-ar', __('AR invoice status'), 150, __('Accounts receivable invoice status'), [__('Paid'), __('Pending'), __('Overdue')], [78, 14, 8], [$this->brandColor('success'), $this->brandColor('warning'), $this->brandColor('primary')]),
+        $filters = $filters ?? ['is_filtered' => false, 'start' => null, 'end' => null];
+
+        $revenueTotal = $this->financeRevenueTotal($businessId, $filters);
+        $payablesTotal = $this->financePayablesTotal($businessId, $filters);
+        $collectedTotal = $this->financeCollectedTotal($businessId, $filters);
+        $allocationsTotal = $this->financeAllocationsTotal($businessId, $filters);
+
+        $pipelineLabels = [__('Revenue'), __('Payables'), __('Collected'), __('Allocations')];
+        $pipelineData = [$revenueTotal, $payablesTotal, $collectedTotal, $allocationsTotal];
+        $pipelineColors = [
+            $this->brandColor('success'),
+            $this->brandColor('primary'),
+            $this->brandColor('warning'),
+            $this->brandColor('muted'),
         ];
+
+        $arStatus = $this->financeArStatusCounts($businessId, $filters);
+        $arLabels = [__('Paid'), __('Pending'), __('Overdue')];
+        $arData = [$arStatus['paid'], $arStatus['pending'], $arStatus['overdue']];
+        $arColors = [
+            $this->brandColor('success'),
+            $this->brandColor('warning'),
+            $this->brandColor('primary'),
+        ];
+
+        return [
+            $this->barChart(
+                'finance-pipeline',
+                __('Finance pipeline'),
+                220,
+                __('Revenue, payables, collections, and cost allocations for the selected period'),
+                $pipelineLabels,
+                [[
+                    'label' => __('RWF'),
+                    'data' => $pipelineData,
+                    'backgroundColor' => $pipelineColors,
+                ]],
+                null,
+                collect($pipelineLabels)->map(fn (string $label, int $index) => [
+                    'color' => $pipelineColors[$index] ?? $this->brandColor('primary'),
+                    'label' => $label,
+                ])->all(),
+            ),
+            array_merge(
+                $this->pieChart(
+                    'finance-ar-status',
+                    __('AR invoice status'),
+                    220,
+                    __('Paid, pending, and overdue invoices for the selected period'),
+                    $arLabels,
+                    $arData,
+                    $arColors,
+                ),
+                ['emptyMessage' => __('No invoices for this period.')],
+            ),
+            array_merge(
+                $this->accountantFinanceTrend($businessId, $filters),
+                [
+                    'fullWidth' => true,
+                    'emptyMessage' => __('No finance activity for this period.'),
+                ],
+            ),
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     * @return array<string, mixed>
+     */
+    private function accountantFinanceTrend(int $businessId, array $filters): array
+    {
+        [$start, $end, $groupByMonth] = $this->intakeTrendRange($filters);
+        [$periodKeys, $labels] = $this->buildTrendPeriods($start, $end, $groupByMonth);
+
+        $revenueCounts = array_fill_keys($periodKeys, 0.0);
+        $payableCounts = array_fill_keys($periodKeys, 0.0);
+
+        $invoices = FinanceInvoice::query()
+            ->where('business_id', $businessId)
+            ->where(function ($query) use ($start, $end): void {
+                $query->whereBetween('issued_at', [$start, $end])
+                    ->orWhere(function ($fallback) use ($start, $end): void {
+                        $fallback->whereNull('issued_at')->whereBetween('created_at', [$start, $end]);
+                    });
+            })
+            ->get(['total_amount', 'issued_at', 'created_at']);
+
+        foreach ($invoices as $invoice) {
+            $date = $invoice->issued_at ?? $invoice->created_at;
+            if ($date === null) {
+                continue;
+            }
+
+            $periodKey = $groupByMonth
+                ? Carbon::parse($date)->format('Y-m')
+                : Carbon::parse($date)->format('Y-m-d');
+
+            if (! isset($revenueCounts[$periodKey])) {
+                continue;
+            }
+
+            $revenueCounts[$periodKey] += (float) $invoice->total_amount;
+        }
+
+        $payables = FinancePayable::query()
+            ->where('business_id', $businessId)
+            ->where(function ($query) use ($start, $end): void {
+                $query->whereBetween('issued_at', [$start, $end])
+                    ->orWhere(function ($fallback) use ($start, $end): void {
+                        $fallback->whereNull('issued_at')->whereBetween('created_at', [$start, $end]);
+                    });
+            })
+            ->get(['total_amount', 'issued_at', 'created_at']);
+
+        foreach ($payables as $payable) {
+            $date = $payable->issued_at ?? $payable->created_at;
+            if ($date === null) {
+                continue;
+            }
+
+            $periodKey = $groupByMonth
+                ? Carbon::parse($date)->format('Y-m')
+                : Carbon::parse($date)->format('Y-m-d');
+
+            if (! isset($payableCounts[$periodKey])) {
+                continue;
+            }
+
+            $payableCounts[$periodKey] += (float) $payable->total_amount;
+        }
+
+        $toMillions = static fn (float $amount): float => round($amount / 1_000_000, 1);
+
+        return $this->barChart(
+            'finance-revenue-payables-trend',
+            __('Revenue vs payables trend'),
+            220,
+            __('Monthly revenue and payables in RWF millions'),
+            $labels,
+            [
+                $this->coloredBarDataset(
+                    __('Revenue'),
+                    array_map(fn (string $key) => $toMillions($revenueCounts[$key]), $periodKeys),
+                    $this->brandColor('success'),
+                ),
+                $this->coloredBarDataset(
+                    __('Payables'),
+                    array_map(fn (string $key) => $toMillions($payableCounts[$key]), $periodKeys),
+                    $this->brandColor('primary'),
+                ),
+            ],
+            'millions',
+            [
+                ['color' => $this->brandColor('success'), 'label' => __('Revenue')],
+                ['color' => $this->brandColor('primary'), 'label' => __('Payables')],
+            ],
+        );
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function financeRevenueTotal(int $businessId, array $filters): int
+    {
+        $query = FinanceInvoice::query()->where('business_id', $businessId);
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+
+        return (int) round((float) $query->sum('total_amount'));
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function financePayablesTotal(int $businessId, array $filters): int
+    {
+        $query = FinancePayable::query()->where('business_id', $businessId);
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+
+        return (int) round((float) $query->sum('total_amount'));
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function financeCollectedTotal(int $businessId, array $filters): int
+    {
+        $query = FinanceInvoice::query()->where('business_id', $businessId);
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+
+        return (int) round((float) $query->sum('amount_paid'));
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function financeAllocationsTotal(int $businessId, array $filters): int
+    {
+        $query = FinanceCostAllocation::query()->where('business_id', $businessId);
+
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $query->whereBetween('allocation_date', [
+                $filters['start']->copy()->startOfDay()->toDateString(),
+                $filters['end']->copy()->endOfDay()->toDateString(),
+            ]);
+        }
+
+        return (int) round((float) $query->sum('amount'));
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     * @return array{paid: int, pending: int, overdue: int}
+     */
+    private function financeArStatusCounts(int $businessId, array $filters): array
+    {
+        $query = FinanceInvoice::query()->where('business_id', $businessId);
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+
+        $counts = ['paid' => 0, 'pending' => 0, 'overdue' => 0];
+
+        foreach ($query->get(['total_amount', 'amount_paid', 'due_date']) as $invoice) {
+            $outstanding = max(0, (float) $invoice->total_amount - (float) $invoice->amount_paid);
+
+            if ($outstanding <= 0) {
+                $counts['paid']++;
+            } elseif ($invoice->due_date && $invoice->due_date->isPast()) {
+                $counts['overdue']++;
+            } else {
+                $counts['pending']++;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function applyFinanceDateFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, array $filters): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $start = $filters['start']->copy()->startOfDay();
+            $end = $filters['end']->copy()->endOfDay();
+
+            $query->where(function ($q) use ($column, $start, $end): void {
+                $q->whereBetween($column, [$start, $end])
+                    ->orWhere(function ($fallback) use ($column, $start, $end): void {
+                        $fallback->whereNull($column)->whereBetween('created_at', [$start, $end]);
+                    });
+            });
+        }
+
+        return $query;
     }
 
     /**

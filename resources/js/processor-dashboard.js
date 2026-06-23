@@ -14,7 +14,7 @@ window.procDashSw = function (role) {
     }, 50);
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+function initProcessorDashboardCharts() {
     const activeTab = document.querySelector('.proc-dash__tab.active');
     const activePanel = document.querySelector('.proc-dash__role-panel:not([hidden])');
     const role = activeTab?.dataset.role
@@ -33,4 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         drawProcessorCharts(role, window.processorDashboardCharts[role] || []);
     }, 50);
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProcessorDashboardCharts);
+} else {
+    initProcessorDashboardCharts();
+}
