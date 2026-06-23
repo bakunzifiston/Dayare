@@ -32,41 +32,71 @@ function initDashboardCharts() {
     const { labels, datasets: rawDatasets, type = 'bar' } = chartCfg;
     const stacked = !!chartCfg.stacked;
     const yTickPrecision = chartCfg.yTickPrecision ?? 0;
+    const indexAxis = chartCfg.indexAxis || 'x';
+    const isCircular = type === 'pie' || type === 'doughnut';
     const colors = [colorPalette.primary, colorPalette.green, colorPalette.slate, colorPalette.burgundy];
     const bgColors = [colorPalette.primaryBg, colorPalette.greenBg, colorPalette.slateBg, colorPalette.burgundyBg];
 
     const datasets = (rawDatasets || []).map((ds, i) => ({
       label: ds.label,
       data: ds.data,
-      backgroundColor: type === 'bar' ? (ds.backgroundColor || bgColors[i % bgColors.length]) : (ds.backgroundColor || colors[i % colors.length]),
-      borderColor: ds.borderColor || colors[i % colors.length],
-      borderWidth: type === 'line' ? 2 : 1,
+      backgroundColor: Array.isArray(ds.backgroundColor)
+        ? ds.backgroundColor
+        : (type === 'bar' ? (ds.backgroundColor ?? bgColors[i % bgColors.length]) : (ds.backgroundColor ?? colors[i % colors.length])),
+      borderColor: isCircular ? '#ffffff' : (ds.borderColor || colors[i % colors.length]),
+      borderWidth: isCircular ? 2 : (type === 'line' ? 2 : 1),
       fill: type === 'line' ? (ds.fill !== false) : false,
       tension: type === 'line' ? 0.3 : 0,
+      hoverOffset: isCircular ? 6 : 0,
     }));
 
     const options = {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom' },
-      },
-      scales: {
-        x: {
-          stacked,
+        legend: {
+          position: 'bottom',
+          display: isCircular || rawDatasets.length > 1,
         },
-        y: {
-          beginAtZero: true,
-          stacked,
-          ticks: {
-            precision: yTickPrecision,
-          },
-        },
+        tooltip: isCircular
+          ? {
+              callbacks: {
+                label(context) {
+                  const value = context.parsed ?? 0;
+                  const total = context.dataset.data.reduce((sum, n) => sum + n, 0);
+                  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                  return `${context.label}: ${value.toLocaleString()} (${pct}%)`;
+                },
+              },
+            }
+          : {},
       },
+      ...(isCircular
+        ? {}
+        : {
+            indexAxis,
+            scales: {
+              x: {
+                stacked,
+                ticks: {
+                  maxRotation: 45,
+                  minRotation: 0,
+                  autoSkip: false,
+                },
+              },
+              y: {
+                beginAtZero: true,
+                stacked,
+                ticks: {
+                  precision: yTickPrecision,
+                },
+              },
+            },
+          }),
     };
 
     new Chart(el, {
-      type,
+      type: isCircular && type === 'doughnut' ? 'doughnut' : type,
       data: { labels, datasets },
       options,
     });

@@ -16,7 +16,7 @@ class TenantEnvironmentTest extends TestCase
     {
         $superAdmin = User::factory()->create([
             'is_super_admin' => true,
-            'super_admin_permissions' => [User::SUPER_ADMIN_MODULE_USER_MANAGEMENT],
+            'super_admin_permissions' => [User::SUPER_ADMIN_MODULE_USERS],
         ]);
 
         $tenant = User::factory()->create(['tenant_environment' => User::TENANT_ENVIRONMENT_LIVE]);

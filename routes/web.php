@@ -87,6 +87,7 @@ use App\Http\Controllers\SpeciesController;
 use App\Http\Controllers\SuperAdminConfigurationController;
 use App\Http\Controllers\SuperAdminComplianceController;
 use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\SuperAdminTenantController;
 use App\Http\Controllers\SuperAdminUserController;
 use App\Http\Controllers\SuperAdmin\RicaController;
 use App\Http\Controllers\SuperAdminVibeProgrammeController;
@@ -698,6 +699,9 @@ Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->nam
     Route::get('compliance', [SuperAdminComplianceController::class, 'index'])
         ->middleware('super_admin.module:dashboard')
         ->name('compliance.index');
+    Route::get('tenants', [SuperAdminTenantController::class, 'index'])
+        ->middleware('super_admin.module:users')
+        ->name('tenants.index');
     Route::get('configuration', [SuperAdminConfigurationController::class, 'index'])
         ->middleware('super_admin.module:configuration')
         ->name('configurations.index');
@@ -723,13 +727,13 @@ Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->nam
         ->middleware('super_admin.module:user_management')
         ->except(['show']);
     Route::delete('tenants/bulk-delete', [SuperAdminUserController::class, 'destroyTenantsBulk'])
-        ->middleware('super_admin.module:user_management')
+        ->middleware('super_admin.module:users')
         ->name('tenants.bulk-destroy');
     Route::delete('tenants/{tenant}', [SuperAdminUserController::class, 'destroyTenant'])
-        ->middleware('super_admin.module:user_management')
+        ->middleware('super_admin.module:users')
         ->name('tenants.destroy');
     Route::patch('tenants/{tenant}/tenant-environment', [SuperAdminUserController::class, 'updateTenantEnvironment'])
-        ->middleware('super_admin.module:user_management')
+        ->middleware('super_admin.module:users')
         ->name('tenants.environment');
 });
 

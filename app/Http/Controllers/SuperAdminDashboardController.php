@@ -2,23 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AdministrativeDivision;
-use App\Models\AnimalIntake;
 use App\Models\Business;
 use App\Services\SuperAdmin\SuperAdminComplianceService;
-use App\Models\BusinessUser;
+use App\Services\SuperAdmin\SuperAdminSlaughterDashboardService;
 use App\Support\TenantEnvironmentScope;
-use App\Models\Client;
-use App\Models\DeliveryConfirmation;
-use App\Models\Demand;
 use App\Models\Facility;
-use App\Models\Inspector;
-use App\Models\SlaughterExecution;
-use App\Models\Supplier;
 use App\Models\User;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -26,60 +15,34 @@ class SuperAdminDashboardController extends Controller
 {
     public function __construct(
         private readonly SuperAdminComplianceService $complianceService,
+        private readonly SuperAdminSlaughterDashboardService $slaughterDashboard,
     ) {}
 
     public function index(Request $request): View
     {
-        $tenantEnvironmentFilter = TenantEnvironmentScope::resolveFromRequest($request);
-        TenantEnvironmentScope::setFilter($tenantEnvironmentFilter);
+        TenantEnvironmentScope::setFilter(User::TENANT_ENVIRONMENT_LIVE);
 
-        $platformKpis = $this->platformKpis();
-        $workspaceKpis = $this->workspaceKpis();
-        $tenantRows = $this->tenantRows();
-        $tenantUserRows = $this->tenantUserRows();
+        $filters = $this->slaughterDashboard->resolveHubFilters($request);
 
         $complianceSummary = $this->complianceService->summaryBar();
-        $pipelineAlerts = $this->complianceService->pipelineAlertCards();
         $administrativeAlerts = $this->complianceService->administrativeAlertCards();
-
-        $demandTrends = $this->demandTrends();
+        $workspaceKpis = array_merge($this->workspaceKpis(), [
+            'active_facilities' => $complianceSummary['active_facilities'],
+        ]);
+        $speciesSlaughtered = $this->slaughterDashboard->speciesSlaughteredCounts($filters);
+        $facilitySlaughterRows = $this->slaughterDashboard->facilitySlaughterRows($filters);
         $charts = [
-            'slaughter_activity' => $this->chartSlaughterActivity(),
-            'species_distribution' => $this->chartSpeciesDistribution(),
-            'demand_vs_supply' => $this->chartDemandVsSupply(),
-            'deliveries_by_region' => $this->chartDeliveriesByRegion(),
-            'demand_trends' => [
-                'labels' => $demandTrends['labels'],
-                'datasets' => [['label' => __('Demand requests'), 'data' => $demandTrends['data']]],
-                'type' => 'bar',
-            ],
+            'species_animal_intake_trend' => $this->slaughterDashboard->chartSpeciesAnimalIntakeTrend($filters),
+            'species_slaughter_pie' => $this->slaughterDashboard->chartSpeciesSlaughterPie($speciesSlaughtered),
         ];
-
-        $crmInsights = [
-            'top_suppliers' => $this->topSuppliersByVolume(),
-            'supplier_rejection_rate' => $this->supplierRejectionRate(),
-            'top_customers' => $this->topCustomersByVolume(),
-        ];
-
-        $allUsers = User::withCount('businesses')
-            ->with(['businesses:id,user_id,type'])
-            ->orderBy('name')
-            ->get();
-        $allBusinesses = Business::with(['user', 'facilities'])->orderBy('business_name')->get();
 
         return view('super-admin.dashboard', compact(
-            'platformKpis',
             'workspaceKpis',
-            'tenantRows',
-            'tenantUserRows',
-            'complianceSummary',
-            'pipelineAlerts',
+            'speciesSlaughtered',
+            'facilitySlaughterRows',
             'administrativeAlerts',
+            'filters',
             'charts',
-            'crmInsights',
-            'allUsers',
-            'allBusinesses',
-            'tenantEnvironmentFilter',
         ));
     }
 
@@ -90,288 +53,8 @@ class SuperAdminDashboardController extends Controller
         return [
             'tenants' => (int) (clone $businessQuery)->distinct('user_id')->count('user_id'),
             'businesses' => (clone $businessQuery)->count(),
-            'users' => User::count(),
-            'delete_actions' => $this->totalDeleteActions(),
-        ];
-    }
-
-    private function tenantRows()
-    {
-        return User::query()
-            ->whereHas('businesses')
-            ->withCount('businesses')
-            ->with(['businesses.memberUsers:id'])
-            ->orderByRaw("CASE WHEN COALESCE(tenant_environment, ?) = ? THEN 1 ELSE 0 END", [
-                User::TENANT_ENVIRONMENT_LIVE,
-                User::TENANT_ENVIRONMENT_TEST,
-            ])
-            ->orderBy('name')
-            ->get()
-            ->map(function (User $tenant) {
-                $memberIds = $tenant->businesses
-                    ->flatMap(fn (Business $business) => $business->memberUsers->pluck('id'));
-                $userCount = $memberIds
-                    ->push($tenant->id)
-                    ->unique()
-                    ->count();
-
-                $staffCount = $tenant->businesses
-                    ->flatMap(fn (Business $business) => $business->memberUsers->pluck('id'))
-                    ->unique()
-                    ->count();
-
-                return [
-                    'id' => (int) $tenant->id,
-                    'tenant_name' => $tenant->name,
-                    'tenant_email' => $tenant->email,
-                    'tenant_environment' => (string) ($tenant->tenant_environment ?? User::TENANT_ENVIRONMENT_LIVE),
-                    'staff_count' => (int) $staffCount,
-                    'business_names' => $tenant->businesses
-                        ->pluck('business_name')
-                        ->filter()
-                        ->unique()
-                        ->values()
-                        ->all(),
-                    'business_types' => $tenant->businesses
-                        ->pluck('type')
-                        ->filter()
-                        ->map(fn ($type) => ucfirst((string) $type))
-                        ->unique()
-                        ->values()
-                        ->all(),
-                    'businesses_count' => (int) $tenant->businesses_count,
-                    'users_count' => (int) $userCount,
-                ];
-            });
-    }
-
-    private function tenantUserRows()
-    {
-        $businesses = TenantEnvironmentScope::applyToBusinesses(Business::query())
-            ->with([
-                'user:id,name,email,tenant_environment',
-                'memberUsers:id,name,email',
-            ])
-            ->orderBy('business_name')
-            ->get(['id', 'business_name', 'user_id']);
-
-        $rows = collect();
-
-        foreach ($businesses as $business) {
-            if ($business->user !== null) {
-                $rows->push([
-                    'name' => $business->user->name,
-                    'email' => $business->user->email,
-                    'role' => BusinessUser::ROLE_ORG_ADMIN,
-                    'tenant' => $business->business_name,
-                ]);
-            }
-
-            foreach ($business->memberUsers as $member) {
-                $rows->push([
-                    'name' => $member->name,
-                    'email' => $member->email,
-                    'role' => (string) ($member->pivot?->role ?? __('User')),
-                    'tenant' => $business->business_name,
-                ]);
-            }
-        }
-
-        return $rows
-            ->sortBy(['tenant', 'name'])
-            ->values();
-    }
-
-    private function totalDeleteActions(): int
-    {
-        if (Schema::hasTable('activity_log')) {
-            return (int) DB::table('activity_log')
-                ->where(function ($query) {
-                    $query->where('description', 'deleted')
-                        ->orWhere('event', 'deleted');
-                })
-                ->count();
-        }
-
-        if (Schema::hasTable('audit_logs')) {
-            return (int) DB::table('audit_logs')
-                ->where(function ($query) {
-                    $query->where('action', 'delete')
-                        ->orWhere('event', 'deleted');
-                })
-                ->count();
-        }
-
-        return 0;
-    }
-
-    private function platformKpis(): array
-    {
-        return [
-            'businesses' => TenantEnvironmentScope::applyToBusinesses(Business::query())->count(),
             'facilities' => TenantEnvironmentScope::applyToFacilities(Facility::query())->count(),
             'users' => User::count(),
-            'inspectors' => TenantEnvironmentScope::applyToInspectors(Inspector::query())->count(),
-        ];
-    }
-
-    private function chartSlaughterActivity(): array
-    {
-        $days = 14;
-        $start = now()->subDays($days)->startOfDay();
-        $executions = TenantEnvironmentScope::applyToSlaughterExecutions(SlaughterExecution::query())
-            ->whereNotNull('slaughter_time')
-            ->where('slaughter_time', '>=', $start)
-            ->get();
-        $byDate = $executions->groupBy(fn ($e) => Carbon::parse($e->slaughter_time)->toDateString())
-            ->map(fn ($g) => $g->sum('actual_animals_slaughtered'));
-        $labels = [];
-        $data = [];
-        for ($i = $days; $i >= 0; $i--) {
-            $d = now()->subDays($i)->toDateString();
-            $labels[] = Carbon::parse($d)->format('M j');
-            $data[] = (int) ($byDate[$d] ?? 0);
-        }
-        return [
-            'labels' => $labels,
-            'datasets' => [['label' => __('Animals slaughtered'), 'data' => $data]],
-            'type' => 'bar',
-        ];
-    }
-
-    private function chartSpeciesDistribution(): array
-    {
-        $groups = TenantEnvironmentScope::applyToAnimalIntakes(AnimalIntake::query())
-            ->select('species')
-            ->selectRaw('COALESCE(SUM(number_of_animals), 0) as total')
-            ->groupBy('species')
-            ->orderByDesc('total')
-            ->get();
-        return [
-            'labels' => $groups->pluck('species')->map(fn ($s) => $s ?: __('Other'))->values()->all(),
-            'datasets' => [['label' => __('Animals'), 'data' => $groups->pluck('total')->map(fn ($n) => (int) $n)->values()->all()]],
-            'type' => 'doughnut',
-        ];
-    }
-
-    private function chartDemandVsSupply(): array
-    {
-        $months = 6;
-        $start = now()->subMonths($months)->startOfMonth();
-        $monthKeys = [];
-        for ($i = $months - 1; $i >= 0; $i--) {
-            $monthKeys[] = now()->subMonths($i)->format('Y-m');
-        }
-        $demands = TenantEnvironmentScope::applyToDemands(Demand::query())->where('created_at', '>=', $start)->get();
-        $demandByMonth = $demands->groupBy(fn ($d) => Carbon::parse($d->created_at)->format('Y-m'))->map->count()->all();
-        $executions = TenantEnvironmentScope::applyToSlaughterExecutions(SlaughterExecution::query())
-            ->where('slaughter_time', '>=', $start)
-            ->get();
-        $supplyByMonth = $executions->groupBy(fn ($e) => Carbon::parse($e->slaughter_time)->format('Y-m'))
-            ->map(fn ($g) => $g->sum('actual_animals_slaughtered'))->all();
-        $fill = fn ($arr) => array_map(fn ($k) => (int) ($arr[$k] ?? 0), $monthKeys);
-        $labels = array_map(fn ($k) => Carbon::createFromFormat('Y-m', $k)->translatedFormat('M Y'), $monthKeys);
-        return [
-            'labels' => $labels,
-            'datasets' => [
-                ['label' => __('Demand requests'), 'data' => $fill($demandByMonth)],
-                ['label' => __('Animals slaughtered (supply)'), 'data' => $fill($supplyByMonth)],
-            ],
-            'type' => 'line',
-        ];
-    }
-
-    private function chartDeliveriesByRegion(): array
-    {
-        $deliveries = TenantEnvironmentScope::applyToDeliveryConfirmations(DeliveryConfirmation::query())
-            ->with(['client', 'receivingFacility'])
-            ->get();
-        $districtCounts = [];
-        foreach ($deliveries as $d) {
-            $districtId = $d->client?->district_id ?? $d->receivingFacility?->district_id;
-            if ($districtId) {
-                $districtCounts[$districtId] = ($districtCounts[$districtId] ?? 0) + 1;
-            }
-        }
-        if (empty($districtCounts)) {
-            return ['labels' => [], 'datasets' => [['label' => __('Deliveries'), 'data' => []]], 'type' => 'bar'];
-        }
-        arsort($districtCounts);
-        $districtIds = array_keys($districtCounts);
-        $names = AdministrativeDivision::whereIn('id', $districtIds)->pluck('name', 'id');
-        $labels = array_map(fn ($id) => $names[$id] ?? (string) $id, $districtIds);
-        $data = array_values(array_map('intval', $districtCounts));
-        return [
-            'labels' => $labels,
-            'datasets' => [['label' => __('Deliveries'), 'data' => $data]],
-            'type' => 'bar',
-        ];
-    }
-
-    private function topSuppliersByVolume(int $limit = 10): array
-    {
-        $rows = TenantEnvironmentScope::applyToAnimalIntakes(AnimalIntake::query())
-            ->whereNotNull('supplier_id')
-            ->selectRaw('supplier_id, COALESCE(SUM(number_of_animals), 0) as total')
-            ->groupBy('supplier_id')
-            ->orderByDesc('total')
-            ->limit($limit)
-            ->get();
-        $supplierIds = $rows->pluck('supplier_id')->unique();
-        $suppliers = Supplier::whereIn('id', $supplierIds)->get()->keyBy('id');
-        return $rows->map(function ($r) use ($suppliers) {
-            $s = $suppliers->get($r->supplier_id);
-            $name = $s ? trim(($s->first_name ?? '') . ' ' . ($s->last_name ?? '')) : (string) $r->supplier_id;
-            return ['name' => $name ?: __('Unknown'), 'volume' => (int) $r->total];
-        })->values()->all();
-    }
-
-    private function supplierRejectionRate(): array
-    {
-        $total = TenantEnvironmentScope::applyToAnimalIntakes(AnimalIntake::query())->count();
-        if ($total === 0) {
-            return ['rate' => 0, 'rejected' => 0, 'total' => 0];
-        }
-        $rejected = TenantEnvironmentScope::applyToAnimalIntakes(AnimalIntake::query())
-            ->where('status', AnimalIntake::STATUS_REJECTED)
-            ->count();
-        return [
-            'rate' => round(($rejected / $total) * 100, 1),
-            'rejected' => $rejected,
-            'total' => $total,
-        ];
-    }
-
-    private function topCustomersByVolume(int $limit = 10): array
-    {
-        $rows = TenantEnvironmentScope::applyToDeliveryConfirmations(DeliveryConfirmation::query())
-            ->whereNotNull('client_id')
-            ->selectRaw('client_id, COALESCE(SUM(received_quantity), 0) as total')
-            ->groupBy('client_id')
-            ->orderByDesc('total')
-            ->limit($limit)
-            ->get();
-        $clientIds = $rows->pluck('client_id')->unique();
-        $clients = Client::whereIn('id', $clientIds)->get()->keyBy('id');
-        return $rows->map(function ($r) use ($clients) {
-            $c = $clients->get($r->client_id);
-            return ['name' => $c ? $c->name : __('Unknown'), 'volume' => (float) $r->total];
-        })->values()->all();
-    }
-
-    private function demandTrends(): array
-    {
-        $months = 6;
-        $start = now()->subMonths($months)->startOfMonth();
-        $monthKeys = [];
-        for ($i = $months - 1; $i >= 0; $i--) {
-            $monthKeys[] = now()->subMonths($i)->format('Y-m');
-        }
-        $demands = TenantEnvironmentScope::applyToDemands(Demand::query())->where('created_at', '>=', $start)->get();
-        $byMonth = $demands->groupBy(fn ($d) => Carbon::parse($d->created_at)->format('Y-m'))->map->count()->all();
-        return [
-            'labels' => array_map(fn ($k) => Carbon::createFromFormat('Y-m', $k)->translatedFormat('M Y'), $monthKeys),
-            'data' => array_map(fn ($k) => (int) ($byMonth[$k] ?? 0), $monthKeys),
         ];
     }
 }

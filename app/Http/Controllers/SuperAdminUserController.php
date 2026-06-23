@@ -44,6 +44,10 @@ class SuperAdminUserController extends Controller
                 'label' => __('Admin users'),
                 'description' => __('Create and manage super admin accounts and module access.'),
             ],
+            User::SUPER_ADMIN_MODULE_USERS => [
+                'label' => __('Users'),
+                'description' => __('View tenants, registered businesses, and workspace user accounts.'),
+            ],
         ];
     }
 
@@ -173,7 +177,7 @@ class SuperAdminUserController extends Controller
     {
         if ($tenant->isSuperAdmin()) {
             return redirect()
-                ->route('super-admin.dashboard')
+                ->route('super-admin.tenants.index')
                 ->with('error', __('Super admin accounts cannot be marked as test tenants.'));
         }
 
@@ -198,20 +202,20 @@ class SuperAdminUserController extends Controller
     {
         if ($tenant->isSuperAdmin()) {
             return redirect()
-                ->route('super-admin.dashboard')
+                ->route('super-admin.tenants.index')
                 ->with('error', __('Super admin accounts cannot be deleted as tenants.'));
         }
 
         if ((int) $tenant->id === (int) $request->user()?->id) {
             return redirect()
-                ->route('super-admin.dashboard')
+                ->route('super-admin.tenants.index')
                 ->with('error', __('You cannot delete your own account.'));
         }
 
         $result = DB::transaction(fn () => $this->deleteTenantCascade($tenant, $request->user()));
 
         return redirect()
-            ->route('super-admin.dashboard')
+            ->route('super-admin.tenants.index')
             ->with('status', __('Tenant :name deleted. :businesses businesses, :staff staff accounts, and all associated data were permanently removed.', [
                 'name' => $result['tenant_name'],
                 'businesses' => $result['business_count'],
@@ -234,7 +238,7 @@ class SuperAdminUserController extends Controller
         $currentUserId = (int) ($request->user()?->id ?? 0);
         if ($selectedIds->contains($currentUserId)) {
             return redirect()
-                ->route('super-admin.dashboard')
+                ->route('super-admin.tenants.index')
                 ->with('error', __('You cannot delete your own account.'));
         }
 
@@ -245,7 +249,7 @@ class SuperAdminUserController extends Controller
 
         if ($tenants->isEmpty()) {
             return redirect()
-                ->route('super-admin.dashboard')
+                ->route('super-admin.tenants.index')
                 ->with('error', __('No valid tenant accounts were selected.'));
         }
 
@@ -256,7 +260,7 @@ class SuperAdminUserController extends Controller
         });
 
         return redirect()
-            ->route('super-admin.dashboard')
+            ->route('super-admin.tenants.index')
             ->with('status', __(':count selected tenant(s) deleted. Associated businesses, staff accounts, and all related data were permanently removed.', [
                 'count' => $tenants->count(),
             ]));

@@ -155,6 +155,7 @@
     if ($isSuperAdmin && $user) {
         $superAdminNav = [
             ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_DASHBOARD],
+            ['label' => __('Users'), 'route' => 'super-admin.tenants.index', 'icon' => 'user', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_USERS],
             ['label' => __('VIBE Programme'), 'route' => 'super-admin.vibe-programme.index', 'icon' => 'dashboard', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_VIBE_PROGRAMME],
             ['label' => __('RICA'), 'route' => 'rica.hub', 'icon' => 'shield-check', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_RICA, 'routeIs' => ['rica.*']],
             ['label' => __('Global configuration'), 'route' => 'super-admin.configurations.index', 'icon' => 'settings', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_CONFIGURATION],

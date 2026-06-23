@@ -85,7 +85,7 @@ class TenantEnvironmentScope
             return $query;
         }
 
-        return $query->where('tenant_environment', $filter);
+        return self::applyTenantEnvironmentConstraint($query, $filter);
     }
 
     /**
@@ -102,7 +102,7 @@ class TenantEnvironmentScope
 
         return $query->whereHas(
             'user',
-            fn (Builder $userQuery) => $userQuery->where('tenant_environment', $filter)
+            fn (Builder $userQuery) => self::applyTenantEnvironmentConstraint($userQuery, $filter)
         );
     }
 
@@ -120,7 +120,7 @@ class TenantEnvironmentScope
 
         return $query->whereHas(
             'business.user',
-            fn (Builder $userQuery) => $userQuery->where('tenant_environment', $filter)
+            fn (Builder $userQuery) => self::applyTenantEnvironmentConstraint($userQuery, $filter)
         );
     }
 
@@ -192,10 +192,10 @@ class TenantEnvironmentScope
         return $query->where(function (Builder $scoped) use ($filter): void {
             $scoped->whereHas(
                 'batch.slaughterExecution.slaughterPlan.facility.business.user',
-                fn (Builder $userQuery) => $userQuery->where('tenant_environment', $filter)
+                fn (Builder $userQuery) => self::applyTenantEnvironmentConstraint($userQuery, $filter)
             )->orWhereHas(
                 'warehouseFacility.business.user',
-                fn (Builder $userQuery) => $userQuery->where('tenant_environment', $filter)
+                fn (Builder $userQuery) => self::applyTenantEnvironmentConstraint($userQuery, $filter)
             );
         });
     }
@@ -334,7 +334,23 @@ class TenantEnvironmentScope
 
         return $query->whereHas(
             $relation,
-            fn (Builder $userQuery) => $userQuery->where('tenant_environment', $filter)
+            fn (Builder $userQuery) => self::applyTenantEnvironmentConstraint($userQuery, $filter)
         );
+    }
+
+    /**
+     * @param  Builder<\App\Models\User>  $query
+     * @return Builder<\App\Models\User>
+     */
+    private static function applyTenantEnvironmentConstraint(Builder $query, string $filter): Builder
+    {
+        if ($filter === User::TENANT_ENVIRONMENT_LIVE) {
+            return $query->where(function (Builder $scoped): void {
+                $scoped->where('tenant_environment', User::TENANT_ENVIRONMENT_LIVE)
+                    ->orWhereNull('tenant_environment');
+            });
+        }
+
+        return $query->where('tenant_environment', $filter);
     }
 }

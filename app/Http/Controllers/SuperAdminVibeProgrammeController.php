@@ -32,7 +32,6 @@ class SuperAdminVibeProgrammeController extends Controller
             'active_businesses' => (clone $globalSummaryQuery)->where('status', Business::STATUS_ACTIVE)->count(),
             'pathway_active' => (clone $globalSummaryQuery)->where('pathway_status', 'active')->count(),
             'pathway_verification' => (clone $globalSummaryQuery)->where('pathway_status', 'verification')->count(),
-            'filtered_businesses' => (clone $this->filteredBusinessesQuery($request))->count(),
         ];
 
         return view('super-admin.vibe-programme.index', [

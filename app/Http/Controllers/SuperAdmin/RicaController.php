@@ -11,6 +11,7 @@ use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
 use App\Services\SuperAdmin\RicaReportService;
+use App\Services\SuperAdmin\SuperAdminSlaughterDashboardService;
 use App\Support\TenantEnvironmentScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,7 @@ class RicaController extends Controller
 {
     public function __construct(
         private readonly RicaReportService $reportService,
+        private readonly SuperAdminSlaughterDashboardService $slaughterDashboard,
     ) {}
 
     /**
@@ -46,51 +48,92 @@ class RicaController extends Controller
     {
         TenantEnvironmentScope::setFilter(TenantEnvironmentScope::resolveFromRequest($request));
 
+        $filters = $this->slaughterDashboard->resolveHubFilters($request);
+
         $facilityIds = TenantEnvironmentScope::applyToFacilities(
             Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)
         )->pluck('id');
         $planIds = $this->planIdsForFacilities($facilityIds);
 
-        $monthExecutionFilter = fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
-            ->whereMonth('slaughter_time', now()->month)
-            ->whereYear('slaughter_time', now()->year);
-
-        $hubStats = [
-            'total_slaughterhouses' => $facilityIds->count(),
-            'total_operators' => Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)
-                ->distinct()
-                ->count('business_id'),
-            'animals_slaughtered_month' => SlaughterExecutionItem::whereHas('execution', $monthExecutionFilter)->count(),
-            'meat_kg_month' => (float) SlaughterExecutionItem::whereHas('execution', $monthExecutionFilter)->sum('meat_quantity_kg'),
-            'condemned_month' => PostMortemInspectionItem::whereHas(
-                'inspection.batch.slaughterExecution',
-                fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
-                    ->whereMonth('slaughter_time', now()->month)
-                    ->whereYear('slaughter_time', now()->year)
-            )->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)
-                ->count(),
-            'certificates_month' => Certificate::whereHas(
-                'batch.slaughterExecution',
-                fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
-                    ->whereMonth('slaughter_time', now()->month)
-                    ->whereYear('slaughter_time', now()->year)
-            )->count(),
+        $hubStats = $this->hubStats($filters, $facilityIds, $planIds);
+        $speciesSlaughtered = $this->slaughterDashboard->speciesSlaughteredCounts($filters);
+        $facilitySlaughterRows = $this->slaughterDashboard->facilitySlaughterRows($filters, Facility::TYPE_SLAUGHTERHOUSE);
+        $charts = [
+            'species_animal_intake_trend' => $this->slaughterDashboard->chartSpeciesAnimalIntakeTrend($filters),
+            'species_slaughter_pie' => $this->slaughterDashboard->chartSpeciesSlaughterPie($speciesSlaughtered),
         ];
 
-        $recentExecutions = SlaughterExecution::whereIn('slaughter_plan_id', $planIds)
-            ->with(['slaughterPlan.facility.business'])
-            ->orderByDesc('slaughter_time')
-            ->limit(10)
-            ->get();
+        return view('superadmin.rica.hub', compact(
+            'hubStats',
+            'speciesSlaughtered',
+            'facilitySlaughterRows',
+            'filters',
+            'charts',
+        ))->with('tenantEnvironmentFilter', TenantEnvironmentScope::current());
+    }
 
-        $slaughterhouses = $this->slaughterhouseQuery()
-            ->withCount('slaughterPlans')
-            ->orderBy('facility_name')
-            ->limit(6)
-            ->get();
+    /**
+     * @param  Collection<int, int|string>  $facilityIds
+     * @param  Collection<int, int|string>  $planIds
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array{
+     *     total_slaughterhouses: int,
+     *     total_operators: int,
+     *     animals_slaughtered: int,
+     *     meat_kg: float,
+     *     condemned: int,
+     *     certificates: int
+     * }
+     */
+    private function hubStats(array $filters, Collection $facilityIds, Collection $planIds): array
+    {
+        $executionFilter = function ($query) use ($planIds, $filters): void {
+            $query->whereIn('slaughter_plan_id', $planIds)
+                ->where('status', SlaughterExecution::STATUS_COMPLETED)
+                ->whereNotNull('slaughter_time');
 
-        return view('superadmin.rica.hub', compact('hubStats', 'recentExecutions', 'slaughterhouses'))
-            ->with('tenantEnvironmentFilter', TenantEnvironmentScope::current());
+            if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+                $query->whereBetween('slaughter_time', [
+                    $filters['start']->copy()->startOfDay(),
+                    $filters['end']->copy()->endOfDay(),
+                ]);
+            }
+        };
+
+        $execItemsBase = SlaughterExecutionItem::whereHas('execution', $executionFilter);
+
+        return [
+            'total_slaughterhouses' => $facilityIds->count(),
+            'total_operators' => (int) TenantEnvironmentScope::applyToFacilities(
+                Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)
+            )->distinct()->count('business_id'),
+            'animals_slaughtered' => (int) SlaughterExecution::whereHas('slaughterPlan', fn ($q) => $q
+                ->whereIn('facility_id', $facilityIds))
+                ->where('status', SlaughterExecution::STATUS_COMPLETED)
+                ->whereNotNull('slaughter_time')
+                ->when(
+                    $filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null,
+                    fn ($q) => $q->whereBetween('slaughter_time', [
+                        $filters['start']->copy()->startOfDay(),
+                        $filters['end']->copy()->endOfDay(),
+                    ])
+                )
+                ->sum('actual_animals_slaughtered'),
+            'meat_kg' => (float) (clone $execItemsBase)->sum('meat_quantity_kg'),
+            'condemned' => PostMortemInspectionItem::whereHas(
+                'inspection.batch.slaughterExecution',
+                $executionFilter
+            )->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)
+                ->count(),
+            'certificates' => Certificate::whereHas(
+                'batch.slaughterExecution',
+                $executionFilter
+            )->count(),
+        ];
     }
 
     public function index(Request $request): View

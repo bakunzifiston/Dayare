@@ -1,223 +1,224 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-                <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-100" aria-hidden="true">
-                    <span class="[&>svg]:h-5 [&>svg]:w-5">
-                        @include('layouts.partials.sidebar-icon', ['icon' => 'shield-check'])
-                    </span>
-                </span>
-                <div class="min-w-0">
-                    <h2 class="font-semibold text-xl text-slate-800 leading-tight">{{ __('RICA oversight') }}</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">
-                        {{ __('Regulatory oversight of all registered slaughterhouses.') }}
-                    </p>
-                </div>
+            <div class="flex items-center gap-3">
+                <span class="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">{{ __('RICA') }}</span>
+                <h1 class="text-xl font-semibold text-slate-800 tracking-tight">
+                    {{ __('Oversight dashboard') }}
+                </h1>
             </div>
             <div class="flex shrink-0 flex-wrap gap-2">
                 <a href="{{ route('rica.slaughterhouses.index') }}"
-                   class="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                    <span class="[&>svg]:h-4 [&>svg]:w-4 text-slate-500" aria-hidden="true">
-                        @include('layouts.partials.sidebar-icon', ['icon' => 'building'])
-                    </span>
+                   class="inline-flex items-center px-3 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     {{ __('All slaughterhouses') }}
                 </a>
-                <a href="{{ route('rica.reports') }}"
-                   class="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
-                    <span class="[&>svg]:h-4 [&>svg]:w-4" aria-hidden="true">
-                        @include('layouts.partials.sidebar-icon', ['icon' => 'chart'])
-                    </span>
+                <a href="{{ route('rica.reports', request()->only('tenant_environment')) }}"
+                   class="inline-flex items-center px-3 py-2 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
                     {{ __('Reports') }}
                 </a>
             </div>
         </div>
     </x-slot>
 
-    <div class="max-w-7xl mx-auto space-y-6">
-        <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <x-kpi-card
-                stat
-                glyph="building"
-                color="slate"
-                :title="__('Registered slaughterhouses')"
-                :value="$hubStats['total_slaughterhouses']"
-                :href="route('rica.slaughterhouses.index')"
+    <div class="py-6">
+        <div class="max-w-7xl mx-auto space-y-6">
+            <x-super-admin.tenant-environment-filter
+                :action="route('rica.hub')"
+                :current="$tenantEnvironmentFilter ?? null"
             />
-            <x-kpi-card
-                stat
-                glyph="users"
-                color="blue"
-                :title="__('Licensed operators')"
-                :value="$hubStats['total_operators']"
-            />
-            <x-kpi-card
-                stat
-                glyph="intake"
-                color="blue"
-                :title="__('Animals slaughtered this month')"
-                :value="$hubStats['animals_slaughtered_month']"
-            />
-            <x-kpi-card
-                stat
-                glyph="weight"
-                color="slate"
-                :title="__('Total meat yield this month')"
-                :value="number_format($hubStats['meat_kg_month'], 2).' kg'"
-            />
-            <x-kpi-card
-                stat
-                glyph="alert"
-                :color="$hubStats['condemned_month'] > 0 ? 'bucha' : 'slate'"
-                :title="__('Animals condemned this month')"
-                :value="$hubStats['condemned_month']"
-            />
-            <x-kpi-card
-                stat
-                glyph="certificate"
-                color="green"
-                :title="__('Certificates issued this month')"
-                :value="$hubStats['certificates_month']"
-            />
-        </section>
 
-        <section class="rounded-xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-            <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 bg-slate-50/70">
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200" aria-hidden="true">
-                        <span class="[&>svg]:h-4 [&>svg]:w-4">
-                            @include('layouts.partials.sidebar-icon', ['icon' => 'building'])
-                        </span>
-                    </span>
-                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Registered slaughterhouses') }}</h3>
+            <form method="get" action="{{ route('rica.hub') }}" class="hub-period-filter">
+                @foreach (request()->only(['tenant_environment']) as $name => $value)
+                    <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+                @endforeach
+                <div class="hub-period-filter__bar">
+                    <div class="hub-period-filter__toggles" role="group" aria-label="{{ __('Slaughter period') }}">
+                        @foreach (['all' => __('All'), 'day' => __('Daily'), 'month' => __('Monthly'), 'year' => __('Yearly')] as $periodKey => $periodLabel)
+                            <label class="hub-period-filter__toggle">
+                                <input type="radio" name="period" value="{{ $periodKey }}" @checked($filters['period'] === $periodKey)>
+                                <span>{{ $periodLabel }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+
+                    <div class="hub-period-filter__range">
+                        <label for="filter_date_from" class="hub-period-filter__range-label">{{ __('From') }}</label>
+                        <input id="filter_date_from" type="date" name="date_from" value="{{ $filters['date_from'] }}" class="hub-period-filter__input" aria-label="{{ __('Date from') }}">
+                        <span class="hub-period-filter__sep" aria-hidden="true">–</span>
+                        <label for="filter_date_to" class="hub-period-filter__range-label">{{ __('To') }}</label>
+                        <input id="filter_date_to" type="date" name="date_to" value="{{ $filters['date_to'] }}" class="hub-period-filter__input" aria-label="{{ __('Date to') }}">
+                    </div>
+
+                    <div class="hub-period-filter__actions">
+                        <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
+                        @if ($filters['period'] !== 'all' || $filters['has_custom_range'])
+                            <a href="{{ route('rica.hub', request()->only('tenant_environment')) }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
+                        @endif
+                    </div>
                 </div>
-                @if ($hubStats['total_slaughterhouses'] > 6)
-                    <a href="{{ route('rica.slaughterhouses.index') }}" class="text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy shrink-0">
-                        {{ __('View all :count →', ['count' => number_format($hubStats['total_slaughterhouses'])]) }}
-                    </a>
-                @endif
+                <p class="hub-period-filter__hint">{{ $filters['slaughter_label'] }} · {{ $filters['range_label'] }}</p>
+            </form>
+
+            <div class="profile-kpi-grid">
+                <x-entity.kpi-stat :label="__('Registered slaughterhouses')" :value="number_format($hubStats['total_slaughterhouses'])" accent>
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Licensed operators')" :value="number_format($hubStats['total_operators'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Animals slaughtered')" :value="number_format($hubStats['animals_slaughtered'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Meat yield (kg)')" :value="number_format($hubStats['meat_kg'], 2)">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Animals condemned')" :value="number_format($hubStats['condemned'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Certificates issued')" :value="number_format($hubStats['certificates'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                @forelse ($slaughterhouses as $facility)
-                    <a href="{{ route('rica.slaughterhouses.show', $facility) }}"
-                       class="group flex h-full flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all hover:border-bucha-primary/25 hover:bg-slate-50/50 hover:shadow-md">
-                        <div class="flex items-start gap-3">
-                            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-100" aria-hidden="true">
-                                <span class="[&>svg]:h-4 [&>svg]:w-4">
-                                    @include('layouts.partials.sidebar-icon', ['icon' => 'building'])
-                                </span>
-                            </span>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-semibold text-slate-900 group-hover:text-bucha-primary truncate">
-                                    {{ $facility->facility_name }}
-                                </p>
-                                <p class="text-xs text-slate-500 mt-0.5 truncate">
-                                    {{ $facility->business->business_name ?? '—' }}
-                                </p>
+            <section class="space-y-4">
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Slaughter by species') }}</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">{{ __('Completed slaughter head counts across registered slaughterhouses.') }}</p>
+                </div>
+
+                <div class="profile-kpi-grid">
+                    <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($speciesSlaughtered['cattle_slaughtered'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Goat')" :value="number_format($speciesSlaughtered['goat_slaughtered'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Sheep')" :value="number_format($speciesSlaughtered['sheep_slaughtered'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                        <h3 class="text-sm font-medium text-slate-700 mb-1">{{ __('Species animal intake') }}</h3>
+                        <p class="text-xs text-slate-500 mb-4">{{ __('Head counts by cattle, goat, and sheep over the selected period.') }}</p>
+                        <div class="h-64">
+                            <canvas id="chart-species-animal-intake-trend" aria-label="{{ __('Species animal intake') }}"></canvas>
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                        <h3 class="text-sm font-medium text-slate-700 mb-1">{{ __('Species slaughtered') }}</h3>
+                        <p class="text-xs text-slate-500 mb-4">{{ __('Cattle, goat, and sheep in the selected period.') }}</p>
+                        @php
+                            $speciesPieLabels = $charts['species_slaughter_pie']['labels'] ?? [];
+                        @endphp
+                        @if (count($speciesPieLabels) === 0)
+                            <p class="text-sm text-slate-500 py-8 text-center">{{ __('No slaughter data for this period.') }}</p>
+                        @else
+                            <div class="h-64">
+                                <canvas id="chart-species-slaughter-pie" aria-label="{{ __('Species slaughtered') }}"></canvas>
                             </div>
-                        </div>
-                        <div class="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                            <span class="inline-flex items-center gap-1 text-xs text-slate-500">
-                                <span class="[&>svg]:h-3.5 [&>svg]:w-3.5" aria-hidden="true">
-                                    @include('layouts.partials.sidebar-icon', ['icon' => 'clipboard-list'])
-                                </span>
-                                {{ trans_choice(':count plan|:count plans', $facility->slaughter_plans_count, ['count' => $facility->slaughter_plans_count]) }}
-                            </span>
-                            <span class="text-xs font-medium text-bucha-primary opacity-0 transition-opacity group-hover:opacity-100">
-                                {{ __('View records →') }}
-                            </span>
-                        </div>
+                        @endif
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <div class="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Slaughter by slaughterhouse') }}</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">{{ __('Animals slaughtered per registered slaughterhouse for the selected period.') }}</p>
+                    </div>
+                    <a href="{{ route('rica.slaughterhouses.index', request()->only('tenant_environment')) }}"
+                       class="text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
+                        {{ __('View all slaughterhouses →') }}
                     </a>
-                @empty
-                    <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
-                        <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-3" aria-hidden="true">
-                            <span class="[&>svg]:h-6 [&>svg]:w-6">
-                                @include('layouts.partials.sidebar-icon', ['icon' => 'building'])
-                            </span>
-                        </span>
-                        <p class="text-sm text-slate-500">{{ __('No slaughterhouses registered yet.') }}</p>
-                    </div>
-                @endforelse
-            </div>
-        </section>
+                </div>
 
-        <section class="rounded-xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-            <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/70">
-                <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200" aria-hidden="true">
-                    <span class="[&>svg]:h-4 [&>svg]:w-4">
-                        @include('layouts.partials.sidebar-icon', ['icon' => 'play'])
-                    </span>
-                </span>
-                <h3 class="text-sm font-semibold text-slate-900">{{ __('Recent slaughter activity') }}</h3>
-            </div>
-
-            @forelse ($recentExecutions as $execution)
-                @php
-                    $facility = $execution->slaughterPlan?->facility;
-                    $operator = $facility?->business;
-                    [$statusIcon, $statusColor] = match ($execution->status) {
-                        \App\Models\SlaughterExecution::STATUS_COMPLETED => ['check', 'bg-emerald-50 text-emerald-700 ring-emerald-100'],
-                        \App\Models\SlaughterExecution::STATUS_IN_PROGRESS => ['play', 'bg-blue-50 text-blue-700 ring-blue-100'],
-                        default => ['clock', 'bg-slate-100 text-slate-500 ring-slate-200'],
-                    };
-                @endphp
-                <div class="flex items-center gap-4 px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70 transition-colors">
-                    <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset {{ $statusColor }}" aria-hidden="true">
-                        <span class="[&>svg]:h-4 [&>svg]:w-4">
-                            @include('layouts.partials.sidebar-icon', ['icon' => $statusIcon])
-                        </span>
-                    </span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-slate-800 truncate">
-                            {{ $facility?->facility_name ?? '—' }}
-                            <span class="font-normal text-slate-400">· {{ $operator?->business_name ?? '—' }}</span>
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
+                    <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                        <p class="text-sm text-slate-600">
+                            {{ __(':count slaughterhouses', ['count' => number_format($facilitySlaughterRows->count())]) }}
                         </p>
-                        <p class="text-xs text-slate-500 mt-0.5">
-                            {{ $execution->slaughter_time?->format('d M Y H:i') ?? '—' }}
-                            · {{ number_format((int) $execution->actual_animals_slaughtered) }} {{ __('animals') }}
+                        <p class="text-sm font-medium text-slate-800 tabular-nums">
+                            {{ __('Total') }}:
+                            <span class="text-bucha-primary">{{ number_format($facilitySlaughterRows->sum('animals_slaughtered')) }}</span>
+                            {{ __('animals') }}
                         </p>
                     </div>
-                    @if ($facility)
-                        <a href="{{ route('rica.slaughterhouses.show', $facility) }}"
-                           class="inline-flex items-center gap-1 text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy shrink-0">
-                            {{ __('View') }}
-                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                            </svg>
-                        </a>
+
+                    @if ($facilitySlaughterRows->isEmpty())
+                        <div class="p-8 text-center text-sm text-slate-500">{{ __('No slaughterhouses found.') }}</div>
+                    @else
+                        <div class="overflow-x-auto max-h-[28rem]">
+                            <table class="min-w-full text-sm">
+                                <thead class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur border-b border-slate-200">
+                                    <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                        <th class="px-6 py-3 w-12">#</th>
+                                        <th class="px-6 py-3">{{ __('Slaughterhouse') }}</th>
+                                        <th class="px-6 py-3">{{ __('Operator') }}</th>
+                                        <th class="px-6 py-3 text-right">{{ __('Animals slaughtered') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    @foreach ($facilitySlaughterRows as $index => $row)
+                                        <tr @class([
+                                            'transition-colors',
+                                            'hover:bg-slate-50/70' => $row['animals_slaughtered'] > 0,
+                                            'text-slate-400' => $row['animals_slaughtered'] === 0,
+                                        ])>
+                                            <td class="px-6 py-3.5 text-slate-400 tabular-nums">{{ $index + 1 }}</td>
+                                            <td class="px-6 py-3.5">
+                                                <a href="{{ route('rica.slaughterhouses.show', ['facility' => $row['id']]) }}"
+                                                   @class([
+                                                       'font-medium hover:text-bucha-primary hover:underline',
+                                                       'text-slate-900' => $row['animals_slaughtered'] > 0,
+                                                       'text-slate-500' => $row['animals_slaughtered'] === 0,
+                                                   ])>
+                                                    {{ $row['facility_name'] }}
+                                                </a>
+                                            </td>
+                                            <td class="px-6 py-3.5 text-slate-600">{{ $row['business_name'] }}</td>
+                                            <td class="px-6 py-3.5 text-right tabular-nums">
+                                                @if ($row['animals_slaughtered'] > 0)
+                                                    <span class="inline-flex items-center rounded-full bg-bucha-primary/10 px-2.5 py-0.5 text-xs font-semibold text-bucha-primary">
+                                                        {{ number_format($row['animals_slaughtered']) }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-slate-400">0</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
                     @endif
                 </div>
-            @empty
-                <div class="flex flex-col items-center justify-center py-12 text-center">
-                    <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-3" aria-hidden="true">
-                        <span class="[&>svg]:h-6 [&>svg]:w-6">
-                            @include('layouts.partials.sidebar-icon', ['icon' => 'clock'])
-                        </span>
-                    </span>
-                    <p class="text-sm text-slate-500">{{ __('No slaughter activity recorded yet.') }}</p>
-                </div>
-            @endforelse
-        </section>
-
-        <section class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            @foreach ([
-                ['route' => 'rica.slaughterhouses.index', 'label' => __('All slaughterhouses'), 'icon' => 'building', 'desc' => __('Browse every registered facility')],
-                ['route' => 'rica.reports', 'label' => __('Reports'), 'icon' => 'chart', 'desc' => __('Slaughter and inspection summaries')],
-                ['route' => 'super-admin.dashboard', 'label' => __('Platform dashboard'), 'icon' => 'dashboard', 'desc' => __('Return to super admin overview')],
-            ] as $link)
-                <a href="{{ route($link['route']) }}"
-                   class="group flex items-start gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all hover:border-bucha-primary/25 hover:bg-slate-50/60 hover:shadow-md">
-                    <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200 group-hover:bg-bucha-primary/10 group-hover:text-bucha-primary group-hover:ring-bucha-primary/20" aria-hidden="true">
-                        <span class="[&>svg]:h-5 [&>svg]:w-5">
-                            @include('layouts.partials.sidebar-icon', ['icon' => $link['icon']])
-                        </span>
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-semibold text-slate-800 group-hover:text-bucha-primary">{{ $link['label'] }}</p>
-                        <p class="text-xs text-slate-500 mt-0.5">{{ $link['desc'] }}</p>
-                    </div>
-                </a>
-            @endforeach
-        </section>
+            </section>
+        </div>
     </div>
+
+    @push('scripts')
+        <script>window.dashboardCharts = @json($charts);</script>
+        @vite('resources/js/dashboard-charts.js')
+    @endpush
 </x-app-layout>
