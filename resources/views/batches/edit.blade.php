@@ -147,7 +147,7 @@
 
                     <div class="flex gap-4">
                         <x-primary-button>{{ __('Update batch') }}</x-primary-button>
-                        <a href="{{ route('batches.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
+                        <a href="{{ route('batches.hub') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                             {{ __('Cancel') }}
                         </a>
                     </div>

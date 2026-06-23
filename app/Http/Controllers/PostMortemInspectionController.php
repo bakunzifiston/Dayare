@@ -15,6 +15,7 @@ use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
 use App\Support\PostMortemChecklist;
 use App\Support\PostMortemMeatTotals;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -344,22 +345,42 @@ class PostMortemInspectionController extends Controller
 
     /**
      * @param  Collection<int, int|string>  $batchIds
-     * @return array<string, int|float>
+     * @return array<string, int|float|string>
      */
-    private function buildPmHubStats(Collection $batchIds): array
+    private function buildPmHubStats(Collection $batchIds, array $filters): array
     {
-        return [
-            'total_inspections' => PostMortemInspection::whereIn('batch_id', $batchIds)->count(),
-            'animals_examined' => (int) PostMortemInspectionItem::whereHas(
-                'inspection',
-                fn ($q) => $q->whereIn('batch_id', $batchIds)
-            )->count(),
-            'condemned_this_week' => PostMortemInspectionItem::whereHas(
-                'inspection',
-                fn ($q) => $q->whereIn('batch_id', $batchIds)
-            )->condemned()
+        $scopeInspections = function ($query) use ($batchIds, $filters): void {
+            $query->whereIn('batch_id', $batchIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('inspection_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('inspection_date', '<=', $filters['end']->toDateString());
+            }
+        };
+
+        $condemnedCount = $filters['is_filtered']
+            ? PostMortemInspectionItem::query()
+                ->whereHas('inspection', $scopeInspections)
+                ->condemned()
+                ->count()
+            : PostMortemInspectionItem::query()
+                ->whereHas('inspection', fn ($query) => $query->whereIn('batch_id', $batchIds))
+                ->condemned()
                 ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
+                ->count();
+
+        return [
+            'inspections_label' => $filters['inspections_label'],
+            'total_inspections' => PostMortemInspection::query()
+                ->where($scopeInspections)
                 ->count(),
+            'animals_examined' => PostMortemInspectionItem::query()
+                ->whereHas('inspection', $scopeInspections)
+                ->count(),
+            'cattle_count' => $this->speciesExaminedCount($batchIds, $filters, SlaughterPlan::SPECIES_CATTLE),
+            'goat_count' => $this->speciesExaminedCount($batchIds, $filters, SlaughterPlan::SPECIES_GOAT),
+            'sheep_count' => $this->speciesExaminedCount($batchIds, $filters, SlaughterPlan::SPECIES_SHEEP),
+            'condemned_label' => $filters['is_filtered'] ? __('Condemned in period') : __('Condemned this week'),
+            'condemned_count' => $condemnedCount,
             'batches_without_pm' => Batch::whereIn('id', $batchIds)
                 ->whereDoesntHave('postMortemInspection')
                 ->where('status', '!=', 'rejected')
@@ -371,39 +392,58 @@ class PostMortemInspectionController extends Controller
         ];
     }
 
-    public function hub(Request $request): View
+    /**
+     * @param  Collection<int, int|string>  $batchIds
+     */
+    private function speciesExaminedCount(Collection $batchIds, array $filters, string $species): int
     {
-        // --- Hub ---
-        $batchIds = $this->userBatchIds($request);
+        $inspectionScope = function ($query) use ($batchIds, $filters): void {
+            $query->whereIn('batch_id', $batchIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('inspection_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('inspection_date', '<=', $filters['end']->toDateString());
+            }
+        };
 
-        $hubStats = $this->buildPmHubStats($batchIds);
+        $fromItems = (int) PostMortemInspectionItem::query()
+            ->whereHas('intakeItem', fn ($query) => $query->where('species', $species))
+            ->whereHas('inspection', $inspectionScope)
+            ->count();
 
-        $byResult = PostMortemInspection::whereIn('batch_id', $batchIds)
-            ->with(['batch.slaughterExecution.slaughterPlan.facility', 'batch.certificate', 'inspector', 'inspectionItems'])
-            ->orderByDesc('inspection_date')
-            ->get()
-            ->groupBy('result');
+        $fromLegacy = (int) PostMortemInspection::query()
+            ->whereDoesntHave('inspectionItems')
+            ->where($inspectionScope)
+            ->where(function ($query) use ($species): void {
+                $query->where('species', $species)
+                    ->orWhere(function ($query) use ($species): void {
+                        $query->whereNull('species')
+                            ->whereHas(
+                                'batch.slaughterExecution.slaughterPlan',
+                                fn ($plan) => $plan->where('species', $species),
+                            );
+                    });
+            })
+            ->sum('total_examined');
 
-        $recentInspections = PostMortemInspection::whereIn('batch_id', $batchIds)
-            ->with(['batch.slaughterExecution.slaughterPlan.facility', 'inspectionItems'])
-            ->orderByDesc('inspection_date')
-            ->limit(10)
-            ->get();
-
-        return view('post-mortem-inspections.hub', compact(
-            'hubStats',
-            'byResult',
-            'recentInspections',
-        ));
+        return $fromItems + $fromLegacy;
     }
 
-    public function index(Request $request): View
+    public function hub(Request $request): View
     {
         $batchIds = $this->userBatchIds($request);
+        $filters = $this->resolveHubFilters($request);
 
-        $hubStats = $this->buildPmHubStats($batchIds);
+        $scopeInspections = function ($query) use ($batchIds, $filters): void {
+            $query->whereIn('batch_id', $batchIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('inspection_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('inspection_date', '<=', $filters['end']->toDateString());
+            }
+        };
 
-        $query = PostMortemInspection::query()
+        $hubStats = $this->buildPmHubStats($batchIds, $filters);
+
+        $inspections = PostMortemInspection::query()
             ->with([
                 'batch.slaughterExecution.slaughterPlan.facility',
                 'batch.certificate',
@@ -411,59 +451,161 @@ class PostMortemInspectionController extends Controller
                 'inspectionItems.intakeItem',
                 'inspectionItems.batchItem',
             ])
-            ->whereIn('batch_id', $batchIds);
-
-        if ($request->filled('batch_id')) {
-            $batchId = (int) $request->query('batch_id');
-            if ($batchIds->contains($batchId)) {
-                $query->where('batch_id', $batchId);
-            }
-        }
-
-        if ($request->filled('result')) {
-            $result = (string) $request->query('result');
-            if (in_array($result, [
-                PostMortemInspection::RESULT_APPROVED,
-                PostMortemInspection::RESULT_PARTIAL,
-                PostMortemInspection::RESULT_REJECTED,
-            ], true)) {
-                $query->where('result', $result);
-            }
-        }
-
-        if ($request->query('has_per_animal') === '1') {
-            $query->has('inspectionItems');
-        } elseif ($request->query('has_per_animal') === '0') {
-            $query->doesntHave('inspectionItems');
-        }
-
-        if ($request->query('has_cert') === '1') {
-            $query->whereHas('batch', fn ($q) => $q->has('certificate'));
-        } elseif ($request->query('has_cert') === '0') {
-            $query->whereHas('batch', fn ($q) => $q->doesntHave('certificate'));
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('inspection_date', '>=', $request->query('date_from'));
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('inspection_date', '<=', $request->query('date_to'));
-        }
-
-        $inspections = $query
+            ->where($scopeInspections)
             ->orderByDesc('inspection_date')
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
 
-        $batches = Batch::query()
-            ->whereIn('id', $batchIds)
-            ->whereHas('postMortemInspection')
-            ->orderByDesc('created_at')
-            ->get(['id', 'batch_code']);
+        return view('post-mortem-inspections.hub', compact(
+            'hubStats',
+            'inspections',
+            'filters',
+        ));
+    }
 
-        return view('post-mortem-inspections.index', compact('hubStats', 'inspections', 'batches'));
+    public function index(Request $request): RedirectResponse
+    {
+        return redirect()->route('post-mortem-inspections.hub', $request->query());
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     inspections_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'inspections_label' => __('Total inspections'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
+
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, inspections_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
+
+        [$start, $end, $rangeLabel, $inspectionsLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Inspections today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Inspections this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Inspections this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'inspections_label' => $inspectionsLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     inspections_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'inspections_label' => __('Inspections in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'inspections_label' => $preset['inspections_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->hubFiltersAllTime();
     }
 
     public function create(Request $request): View
@@ -546,7 +688,7 @@ class PostMortemInspectionController extends Controller
             }
         });
 
-        return redirect()->route('post-mortem-inspections.index')
+        return redirect()->route('post-mortem-inspections.hub')
             ->with('status', __('Post-mortem inspection recorded successfully.'));
     }
 
@@ -639,7 +781,7 @@ class PostMortemInspectionController extends Controller
             }
         });
 
-        return redirect()->route('post-mortem-inspections.index')
+        return redirect()->route('post-mortem-inspections.hub')
             ->with('status', __('Post-mortem inspection updated successfully.'));
     }
 
@@ -648,7 +790,7 @@ class PostMortemInspectionController extends Controller
         $this->authorizeInspection($request, $postMortemInspection);
         $postMortemInspection->delete();
 
-        return redirect()->route('post-mortem-inspections.index')
+        return redirect()->route('post-mortem-inspections.hub')
             ->with('status', __('Post-mortem inspection removed.'));
     }
 }

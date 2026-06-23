@@ -669,7 +669,7 @@ class BatchTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->user)
-            ->get(route('batches.index'));
+            ->get(route('batches.hub'));
 
         $response->assertOk();
         $response->assertSee($ownBatch->batch_code);
@@ -722,7 +722,7 @@ class BatchTest extends TestCase
         $response = $this->actingAs($this->user)
             ->post(route('post-mortem-inspections.store'), $this->validPmPayloadFromInspectableAnimals($batch));
 
-        $response->assertRedirect(route('post-mortem-inspections.index'));
+        $response->assertRedirect(route('post-mortem-inspections.hub'));
 
         $this->assertDatabaseCount('batch_items', 5);
         $this->assertDatabaseCount('post_mortem_inspection_items', 5);

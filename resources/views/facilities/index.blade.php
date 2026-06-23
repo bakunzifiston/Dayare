@@ -1,71 +1,106 @@
+@php
+    use App\Models\Facility;
+@endphp
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Facilities') }} — {{ $business->business_name }}
-            </h2>
-            <div class="flex gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <a href="{{ route('businesses.show', $business) }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Business profile') }}</a>
+                <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">
+                    {{ __('Facilities') }} — {{ $business->business_name }}
+                </h2>
+            </div>
+            <div class="flex flex-wrap gap-2 shrink-0">
                 <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                    {{ __('Add Facility') }}
-                </a>
-                <a href="{{ route('businesses.show', $business) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-slate-50/80 transition-colors">
-                    {{ __('Back to Business') }}
+                    {{ __('Add facility') }}
                 </a>
             </div>
         </div>
     </x-slot>
 
-    <div class="py-12">
+    <div class="py-10">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="flex flex-nowrap items-center gap-3 mb-6 overflow-x-auto pb-1 rounded-xl border border-slate-200/60 bg-white px-4 py-3 shadow-sm">
-                <x-kpi-card inline title="{{ __('Total facilities') }}" :value="$kpis['total']" color="blue" />
-                <x-kpi-card inline title="{{ __('Active') }}" :value="$kpis['active']" color="green" />
-            </div>
-            @if (session('status'))
-                <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
-            @endif
+            <div class="profile-list-shell">
+                @if (session('status'))
+                    <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
+                @endif
 
-            @if ($facilities->isEmpty())
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
-                    <p class="mb-4">{{ __('No facilities for this business yet.') }}</p>
-                    <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                        {{ __('Add first facility') }}
-                    </a>
+                <div class="profile-kpi-grid profile-kpi-grid--3">
+                    <x-entity.kpi-stat :label="__('Total facilities')" :value="number_format($kpis['total'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Active')" :value="number_format($kpis['active'])" accent>
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Suspended')" :value="number_format($kpis['suspended'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-3L13.74 5a2 2 0 00-3.48 0L3.33 16a2 2 0 001.74 3z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
                 </div>
-            @else
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
-                    <ul class="divide-y divide-slate-100">
+
+                @if ($facilities->isEmpty())
+                    <div class="profile-empty">
+                        <p class="mb-4">{{ __('No facilities for this business yet.') }}</p>
+                        <a href="{{ route('businesses.facilities.create', $business) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                            {{ __('Add first facility') }}
+                        </a>
+                    </div>
+                @else
+                    <div class="profile-cards-grid">
                         @foreach ($facilities as $facility)
-                            <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
-                                <div>
-                                    <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}" class="font-medium text-slate-900 hover:text-bucha-primary">
-                                        {{ $facility->facility_name }}
-                                    </a>
-                                    <p class="text-sm text-slate-500">
-                                        {{ $facility->facility_type }} · {{ $facility->location_display }}
-                                    </p>
-                                    <p class="text-xs text-slate-400 mt-1">
-                                        {{ __('License') }}: {{ $facility->license_number ?? '—' }} · {{ ucfirst($facility->status) }}
-                                        @if ($facility->isLicenseExpired())
-                                            <span class="text-red-600">{{ __('(Expired)') }}</span>
-                                        @endif
-                                    </p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}" class="text-sm text-bucha-primary hover:text-indigo-900">{{ __('View') }}</a>
-                                    <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
-                                    <form method="post" action="{{ route('businesses.facilities.destroy', [$business, $facility]) }}" class="inline" onsubmit="return confirm('{{ __('Delete this facility?') }}');">
-                                        @csrf
-                                        @method('delete')
-                                        <button type="submit" class="text-sm text-red-600 hover:text-red-900">{{ __('Delete') }}</button>
-                                    </form>
-                                </div>
-                            </li>
+                            @php
+                                $statusTone = match ($facility->status) {
+                                    Facility::STATUS_ACTIVE => 'active',
+                                    Facility::STATUS_SUSPENDED => 'warning',
+                                    default => 'muted',
+                                };
+                                $initial = strtoupper(substr($facility->facility_name, 0, 1));
+                                $badgeLabel = $facility->isLicenseExpired()
+                                    ? __('License expired')
+                                    : strtoupper($facility->status);
+                                $badgeTone = $facility->isLicenseExpired() ? 'danger' : $statusTone;
+                            @endphp
+                            <x-entity.profile-card>
+                                <x-slot:avatar>{{ $initial }}</x-slot:avatar>
+                                <x-slot:title>
+                                    <a href="{{ route('businesses.facilities.show', [$business, $facility]) }}">{{ $facility->facility_name }}</a>
+                                </x-slot:title>
+                                <x-slot:subtitle>{{ $facility->location_display }}</x-slot:subtitle>
+                                <x-slot:badge>
+                                    <x-entity.status-pill :tone="$badgeTone" :label="$badgeLabel" />
+                                </x-slot:badge>
+
+                                <x-entity.profile-row :label="__('Facility type')">{{ $facility->facility_type ?: '—' }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('License number')">{{ $facility->license_number ?: '—' }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Daily capacity')">{{ $facility->daily_capacity ?: '—' }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('License issued')">{{ $facility->license_issue_date?->format('d M Y') ?? '—' }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('License expires')">{{ $facility->license_expiry_date?->format('d M Y') ?? '—' }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('GPS')">{{ $facility->gps ?: '—' }}</x-entity.profile-row>
+
+                                <x-slot:highlights>
+                                    <x-entity.profile-highlight :value="number_format($facility->inspectors_count)" :label="__('Inspectors')" />
+                                    <x-entity.profile-highlight :value="number_format($facility->employees_count)" :label="__('Employees')" />
+                                </x-slot:highlights>
+
+                                <x-slot:actions>
+                                    <x-entity.text-action :href="route('businesses.facilities.show', [$business, $facility])">{{ __('View') }}</x-entity.text-action>
+                                    <x-entity.text-action :href="route('businesses.facilities.edit', [$business, $facility])">{{ __('Edit') }}</x-entity.text-action>
+                                    <x-entity.text-action-delete
+                                        :action="route('businesses.facilities.destroy', [$business, $facility])"
+                                        :confirm="__('Are you sure you want to delete this facility? This cannot be undone.')"
+                                    >{{ __('Delete') }}</x-entity.text-action-delete>
+                                </x-slot:actions>
+                            </x-entity.profile-card>
                         @endforeach
-                    </ul>
-                    <div class="px-4 py-3 border-t border-slate-100">{{ $facilities->links() }}</div>
-                </div>
-            @endif
+                    </div>
+                    <div class="mt-4">{{ $facilities->links() }}</div>
+                @endif
+            </div>
         </div>
     </div>
 </x-app-layout>

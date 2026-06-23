@@ -11,6 +11,7 @@ use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\SlaughterPlan;
 use App\Support\AnteMortemChecklist;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -184,101 +185,238 @@ class AnteMortemInspectionController extends Controller
 
     public function index(Request $request): View
     {
-        $facilityIds = $this->userFacilityIds($request);
         $planIds = $this->userSlaughterPlanIds($request);
+        $filters = $this->resolveHubFilters($request);
 
-        $hubStats = [
-            'total_inspections' => AnteMortemInspection::query()
-                ->whereIn('slaughter_plan_id', $planIds)
-                ->count(),
-            'animals_examined' => (int) AnteMortemInspection::query()
-                ->whereIn('slaughter_plan_id', $planIds)
-                ->sum('number_examined'),
-            'rejected_this_week' => AnteMortemInspectionItem::query()
+        $scopeInspections = function ($query) use ($planIds, $filters): void {
+            $query->whereIn('slaughter_plan_id', $planIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('inspection_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('inspection_date', '<=', $filters['end']->toDateString());
+            }
+        };
+
+        $rejectedCount = $filters['is_filtered']
+            ? AnteMortemInspectionItem::query()
+                ->whereHas('inspection', $scopeInspections)
+                ->rejected()
+                ->count()
+            : AnteMortemInspectionItem::query()
                 ->whereHas('inspection', fn ($query) => $query->whereIn('slaughter_plan_id', $planIds))
                 ->rejected()
                 ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
+                ->count();
+
+        $hubStats = [
+            'inspections_label' => $filters['inspections_label'],
+            'total_inspections' => AnteMortemInspection::query()
+                ->where($scopeInspections)
                 ->count(),
+            'animals_examined' => (int) AnteMortemInspection::query()
+                ->where($scopeInspections)
+                ->sum('number_examined'),
+            'rejected_label' => $filters['is_filtered'] ? __('Rejected in period') : __('Rejected this week'),
+            'rejected_count' => $rejectedCount,
             'plans_without_am' => SlaughterPlan::query()
                 ->whereIn('id', $planIds)
                 ->whereDoesntHave('anteMortemInspections')
                 ->whereNotIn('status', ['executed'])
                 ->count(),
+            'cattle_count' => $this->speciesExaminedCount($planIds, $filters, SlaughterPlan::SPECIES_CATTLE),
+            'goat_count' => $this->speciesExaminedCount($planIds, $filters, SlaughterPlan::SPECIES_GOAT),
+            'sheep_count' => $this->speciesExaminedCount($planIds, $filters, SlaughterPlan::SPECIES_SHEEP),
         ];
 
-        $query = AnteMortemInspection::query()
+        $inspections = AnteMortemInspection::query()
             ->with([
                 'slaughterPlan.intake',
                 'slaughterPlan.facility',
                 'inspector',
                 'inspectionItems.intakeItem',
             ])
-            ->whereIn('slaughter_plan_id', $planIds);
-
-        if ($request->filled('facility_id')) {
-            $facilityId = (int) $request->query('facility_id');
-            if ($facilityIds->contains($facilityId)) {
-                $query->whereHas('slaughterPlan', fn ($planQuery) => $planQuery->where('facility_id', $facilityId));
-            }
-        }
-
-        if ($request->filled('species')) {
-            $query->where('species', $request->query('species'));
-        }
-
-        if ($request->filled('inspector_id')) {
-            $inspectorId = (int) $request->query('inspector_id');
-            if (Inspector::query()
-                ->whereKey($inspectorId)
-                ->whereIn('facility_id', $facilityIds)
-                ->exists()) {
-                $query->where('inspector_id', $inspectorId);
-            }
-        }
-
-        if ($request->filled('date_from')) {
-            $query->where('inspection_date', '>=', $request->query('date_from'));
-        }
-
-        if ($request->filled('date_to')) {
-            $query->where('inspection_date', '<=', $request->query('date_to'));
-        }
-
-        if ($request->filled('count_source')) {
-            $countSource = (string) $request->query('count_source');
-            if (in_array($countSource, [AnteMortemInspection::SOURCE_MANUAL, AnteMortemInspection::SOURCE_ITEMS], true)) {
-                $query->where('examined_count_source', $countSource);
-            }
-        }
-
-        if ($request->boolean('has_rejections')) {
-            $query->where('number_rejected', '>', 0);
-        }
-
-        $inspections = $query
+            ->where($scopeInspections)
             ->latest('inspection_date')
             ->latest('id')
             ->paginate(20)
             ->withQueryString();
 
-        $facilities = Facility::query()
-            ->whereIn('id', $facilityIds)
-            ->orderBy('facility_name')
-            ->get(['id', 'facility_name']);
-
-        $inspectors = Inspector::query()
-            ->whereIn('facility_id', $facilityIds)
-            ->where('status', 'active')
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get(['id', 'first_name', 'last_name']);
-
         return view('ante-mortem-inspections.index', compact(
             'hubStats',
             'inspections',
-            'facilities',
-            'inspectors',
+            'filters',
         ));
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, int>  $planIds
+     */
+    private function speciesExaminedCount(Collection $planIds, array $filters, string $species): int
+    {
+        $inspectionScope = function ($query) use ($planIds, $filters): void {
+            $query->whereIn('slaughter_plan_id', $planIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('inspection_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('inspection_date', '<=', $filters['end']->toDateString());
+            }
+        };
+
+        $fromItems = (int) AnteMortemInspectionItem::query()
+            ->whereHas('intakeItem', fn ($query) => $query->where('species', $species))
+            ->whereHas('inspection', $inspectionScope)
+            ->count();
+
+        $fromLegacy = (int) AnteMortemInspection::query()
+            ->whereDoesntHave('inspectionItems')
+            ->where($inspectionScope)
+            ->where(function ($query) use ($species): void {
+                $query->where('species', $species)
+                    ->orWhere(function ($query) use ($species): void {
+                        $query->whereNull('species')
+                            ->whereHas('slaughterPlan', fn ($plan) => $plan->where('species', $species));
+                    });
+            })
+            ->sum('number_examined');
+
+        return $fromItems + $fromLegacy;
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     inspections_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'inspections_label' => __('Total inspections'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
+
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, inspections_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
+
+        [$start, $end, $rangeLabel, $inspectionsLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Inspections today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Inspections this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Inspections this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'inspections_label' => $inspectionsLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     inspections_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'inspections_label' => __('Inspections in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'inspections_label' => $preset['inspections_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->hubFiltersAllTime();
     }
 
     public function create(Request $request): View

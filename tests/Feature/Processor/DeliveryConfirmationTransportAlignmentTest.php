@@ -25,7 +25,7 @@ class DeliveryConfirmationTransportAlignmentTest extends TestCase
                 'received_date' => now()->toDateString(),
                 'confirmation_status' => DeliveryConfirmation::STATUS_CONFIRMED,
             ])
-            ->assertRedirect(route('delivery-confirmations.index'));
+            ->assertRedirect(route('delivery-confirmations.hub'));
 
         $this->assertDatabaseHas('delivery_confirmations', [
             'transport_trip_id' => $fixture['trip']->id,

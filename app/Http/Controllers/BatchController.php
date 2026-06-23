@@ -11,6 +11,7 @@ use App\Models\Inspector;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -53,117 +54,216 @@ class BatchController extends Controller
 
     /**
      * @param  Collection<int, int|string>  $executionIds
-     * @return array<string, int|float>
+     * @return array<string, int|float|string>
      */
-    // --- Section 3 ---
-    private function buildBatchHubStats(Collection $executionIds): array
+    private function buildBatchHubStats(Collection $executionIds, array $filters): array
     {
+        $scopeBatches = function ($query) use ($executionIds, $filters): void {
+            $query->whereIn('slaughter_execution_id', $executionIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('created_at', '>=', $filters['start']->toDateString())
+                    ->whereDate('created_at', '<=', $filters['end']->toDateString());
+            }
+        };
+
         return [
-            'total_batches' => Batch::whereIn('slaughter_execution_id', $executionIds)->count(),
+            'batches_label' => $filters['batches_label'],
+            'total_batches' => Batch::query()
+                ->where($scopeBatches)
+                ->count(),
+            'total_quantity' => (float) Batch::query()
+                ->where($scopeBatches)
+                ->sum('quantity'),
             'pending_pm' => Batch::whereIn('slaughter_execution_id', $executionIds)
                 ->whereDoesntHave('postMortemInspection')
-                ->where('status', '!=', 'rejected')->count(),
+                ->where('status', '!=', 'rejected')
+                ->count(),
             'ready_for_cert' => Batch::whereIn('slaughter_execution_id', $executionIds)
                 ->eligibleForCertificate()
                 ->count(),
             'cold_chain_issues' => Batch::whereIn('slaughter_execution_id', $executionIds)
-                ->whereIn('cold_chain_status', ['at_risk', 'compromised'])->count(),
-            'total_quantity' => Batch::whereIn('slaughter_execution_id', $executionIds)
-                ->sum('quantity'),
+                ->whereIn('cold_chain_status', ['at_risk', 'compromised'])
+                ->count(),
         ];
     }
 
-    /** Batches module home: workflow summary and primary “create batch” action. */
     public function hub(Request $request): View
     {
-        // --- Section 3 ---
         $executionIds = $this->userExecutionIds($request);
+        $filters = $this->resolveHubFilters($request);
 
-        $hubStats = $this->buildBatchHubStats($executionIds);
+        $scopeBatches = function ($query) use ($executionIds, $filters): void {
+            $query->whereIn('slaughter_execution_id', $executionIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('created_at', '>=', $filters['start']->toDateString())
+                    ->whereDate('created_at', '<=', $filters['end']->toDateString());
+            }
+        };
 
-        $byStatus = Batch::whereIn('slaughter_execution_id', $executionIds)
-            ->with(['slaughterExecution.slaughterPlan.facility', 'postMortemInspection', 'certificate', 'items'])
-            ->orderByDesc('created_at')
-            ->get()
-            ->groupBy('status');
+        $hubStats = $this->buildBatchHubStats($executionIds, $filters);
 
-        $recentBatches = Batch::whereIn('slaughter_execution_id', $executionIds)
-            ->with(['slaughterExecution.slaughterPlan.facility', 'postMortemInspection', 'certificate', 'items'])
-            ->orderByDesc('created_at')
-            ->limit(10)
-            ->get();
+        $batches = Batch::query()
+            ->where($scopeBatches)
+            ->with([
+                'slaughterExecution.slaughterPlan.facility',
+                'inspector',
+                'postMortemInspection',
+                'certificate',
+                'items',
+            ])
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
 
         return view('batches.hub', compact(
             'hubStats',
-            'byStatus',
-            'recentBatches',
+            'batches',
+            'filters',
         ));
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): RedirectResponse
     {
-        $executionIds = $this->userExecutionIds($request);
-        $facilityIds = $this->userFacilityIds($request);
+        return redirect()->route('batches.hub', $request->query());
+    }
 
-        // --- Section 3 ---
-        $hubStats = $this->buildBatchHubStats($executionIds);
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     batches_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'batches_label' => __('Total batches'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
 
-        $query = Batch::query()
-            ->with(['slaughterExecution.slaughterPlan.facility', 'inspector', 'postMortemInspection', 'certificate', 'items'])
-            ->whereIn('slaughter_execution_id', $executionIds);
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, batches_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
 
-        if ($request->filled('facility_id')) {
-            $facilityId = (int) $request->query('facility_id');
-            if ($facilityIds->contains($facilityId)) {
-                $query->whereHas('slaughterExecution.slaughterPlan', fn ($q) => $q->where('facility_id', $facilityId));
+        [$start, $end, $rangeLabel, $batchesLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Batches today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Batches this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Batches this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'batches_label' => $batchesLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     batches_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
             }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'batches_label' => __('Batches in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
         }
 
-        if ($request->filled('status')) {
-            $status = (string) $request->query('status');
-            if (in_array($status, Batch::STATUSES, true)) {
-                $query->where('status', $status);
-            }
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'batches_label' => $preset['batches_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
         }
 
-        if ($request->filled('cold_chain_status')) {
-            $coldChain = (string) $request->query('cold_chain_status');
-            if (in_array($coldChain, Batch::COLD_CHAIN_STATUSES, true)) {
-                $query->where('cold_chain_status', $coldChain);
-            }
-        }
-
-        if ($request->query('has_pm') === '1') {
-            $query->has('postMortemInspection');
-        } elseif ($request->query('has_pm') === '0') {
-            $query->doesntHave('postMortemInspection');
-        }
-
-        if ($request->query('has_cert') === '1') {
-            $query->has('certificate');
-        } elseif ($request->query('has_cert') === '0') {
-            $query->doesntHave('certificate');
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->query('date_from'));
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->query('date_to'));
-        }
-
-        $batches = $query
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
-
-        $facilities = Facility::query()
-            ->whereIn('id', $facilityIds)
-            ->orderBy('facility_name')
-            ->get(['id', 'facility_name']);
-
-        return view('batches.index', compact('hubStats', 'batches', 'facilities'));
+        return $this->hubFiltersAllTime();
     }
 
     public function create(Request $request): View
@@ -446,7 +546,7 @@ class BatchController extends Controller
             }
         });
 
-        return redirect()->route('batches.index')
+        return redirect()->route('batches.hub')
             ->with('status', __('Batch updated successfully.'));
     }
 
@@ -455,7 +555,7 @@ class BatchController extends Controller
         $this->authorizeBatch($request, $batch);
         $batch->delete();
 
-        return redirect()->route('batches.index')
+        return redirect()->route('batches.hub')
             ->with('status', __('Batch removed.'));
     }
 }

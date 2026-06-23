@@ -13,6 +13,7 @@ use App\Models\Facility;
 use App\Models\TransportTrip;
 use App\Services\Processor\CertificateTransportDefaultsService;
 use App\Support\DomPdf;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,44 +32,197 @@ class TransportTripController extends Controller
 
     public function hub(Request $request): View
     {
+        $filters = $this->resolveHubFilters($request);
         $base = $this->scopedTripsQuery($request);
+        $hubStats = $this->buildHubStats($base, $filters);
 
-        return view('transport-trips.hub', [
-            'totalTrips' => (clone $base)->count(),
-            'pendingCount' => (clone $base)->where('status', TransportTrip::STATUS_PENDING)->count(),
-            'inTransitCount' => (clone $base)->where('status', TransportTrip::STATUS_IN_TRANSIT)->count(),
-            'arrivedCount' => (clone $base)->where('status', TransportTrip::STATUS_ARRIVED)->count(),
-            'completedCount' => (clone $base)->where('status', TransportTrip::STATUS_COMPLETED)->count(),
-            'tripsWithDeliveryConfirmationCount' => (clone $base)->has('deliveryConfirmation')->count(),
-            'facilities' => $this->facilityOptions($request),
-            'filters' => $request->only(['status', 'from', 'to', 'origin_facility_id', 'destination_facility_id']),
-        ]);
+        $trips = (clone $base)
+            ->with([
+                'certificate.batch',
+                'certificate.facility',
+                'originFacility',
+                'destinationFacility',
+                'deliveryConfirmation',
+            ])
+            ->when($filters['is_filtered'], function ($query) use ($filters) {
+                $query->whereDate('departure_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('departure_date', '<=', $filters['end']->toDateString());
+            })
+            ->latest('departure_date')
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        $exportQuery = $filters['is_filtered']
+            ? ['from' => $filters['date_from'], 'to' => $filters['date_to']]
+            : [];
+
+        return view('transport-trips.hub', compact('hubStats', 'trips', 'filters', 'exportQuery'));
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): RedirectResponse
     {
-        $certificateIds = $this->accessibleCertificateIds($request);
-        $query = $this->applyTripFilters($this->scopedTripsQuery($request)->with([
-            'certificate.batch',
-            'certificate.facility',
-            'originFacility',
-            'destinationFacility',
-        ]), $request);
+        return redirect()->route('transport-trips.hub', $request->query());
+    }
 
-        $trips = $query->latest('departure_date')->paginate(10)->withQueryString();
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     trips_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'trips_label' => __('Total trips'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
 
-        $base = TransportTrip::query()->whereIn('certificate_id', $certificateIds);
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, trips_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
 
-        return view('transport-trips.index', [
-            'trips' => $trips,
-            'kpis' => [
-                'total' => (clone $base)->count(),
-                'arrived' => (clone $base)->where('status', TransportTrip::STATUS_ARRIVED)->count(),
-                'completed' => (clone $base)->where('status', TransportTrip::STATUS_COMPLETED)->count(),
+        [$start, $end, $rangeLabel, $tripsLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Departures today'),
             ],
-            'facilities' => $this->facilityOptions($request),
-            'filters' => $request->only(['status', 'from', 'to', 'origin_facility_id', 'destination_facility_id']),
-        ]);
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Departures this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Departures this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'trips_label' => $tripsLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     trips_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'trips_label' => __('Departures in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'trips_label' => $preset['trips_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->hubFiltersAllTime();
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<TransportTrip>  $base
+     * @return array<string, int|string>
+     */
+    private function buildHubStats(\Illuminate\Database\Eloquent\Builder $base, array $filters): array
+    {
+        $scoped = (clone $base)->when($filters['is_filtered'], function ($query) use ($filters) {
+            $query->whereDate('departure_date', '>=', $filters['start']->toDateString())
+                ->whereDate('departure_date', '<=', $filters['end']->toDateString());
+        });
+
+        return [
+            'trips_label' => $filters['trips_label'],
+            'total_trips' => $scoped->count(),
+            'pending' => (clone $base)->where('status', TransportTrip::STATUS_PENDING)->count(),
+            'in_transit' => (clone $base)->where('status', TransportTrip::STATUS_IN_TRANSIT)->count(),
+            'arrived' => (clone $base)->where('status', TransportTrip::STATUS_ARRIVED)->count(),
+            'with_delivery_confirmation' => (clone $base)->has('deliveryConfirmation')->count(),
+        ];
     }
 
     public function export(ExportTransportTripsRequest $request): StreamedResponse|JsonResponse|Response

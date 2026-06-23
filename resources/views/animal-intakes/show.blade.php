@@ -19,7 +19,7 @@
                 @if ($intake->isPlannableForSlaughter() && $intake->remainingAnimalsAvailable() > 0)
                     <a href="{{ route('slaughter-plans.create') }}?animal_intake_id={{ $intake->id }}&facility_id={{ $intake->facility_id }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Schedule slaughter') }}</a>
                 @endif
-                <a href="{{ route('animal-intakes.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('All intakes') }}</a>
+                <a href="{{ route('animal-intakes.hub') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('All intakes') }}</a>
             </div>
         </div>
     </x-slot>

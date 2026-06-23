@@ -15,6 +15,7 @@ use App\Models\SlaughterPlan;
 use App\Models\WarehouseStorage;
 use App\Services\Processor\CertificatePdfService;
 use App\Support\DomPdf;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -108,14 +109,24 @@ class CertificateController extends Controller
     // --- Section 2 ---
 
     /**
-     * @return array<string, int>
+     * @param  \Illuminate\Support\Collection<int, int|string>  $batchIds
+     * @return array<string, int|string>
      */
-    private function buildCertHubStats(Request $request): array
+    private function buildCertHubStats($batchIds, array $filters): array
     {
-        $batchIds = $this->userBatchIds($request);
+        $scopeCertificates = function ($query) use ($batchIds, $filters): void {
+            $query->whereIn('batch_id', $batchIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('issued_at', '>=', $filters['start']->toDateString())
+                    ->whereDate('issued_at', '<=', $filters['end']->toDateString());
+            }
+        };
 
         return [
-            'total_issued' => Certificate::whereIn('batch_id', $batchIds)->count(),
+            'certificates_label' => $filters['certificates_label'],
+            'total_issued' => Certificate::query()
+                ->where($scopeCertificates)
+                ->count(),
             'active' => Certificate::whereIn('batch_id', $batchIds)
                 ->where('status', '!=', Certificate::STATUS_REVOKED)
                 ->where(fn ($q) => $q->whereNull('expiry_date')
@@ -135,29 +146,34 @@ class CertificateController extends Controller
         ];
     }
 
-    /** Certification module home: prerequisites summary and primary “issue certificate” action. */
     public function hub(Request $request): View
     {
-        // --- Section 2 ---
         $batchIds = $this->userBatchIds($request);
-        $hubStats = $this->buildCertHubStats($request);
+        $filters = $this->resolveHubFilters($request);
 
-        $byStatus = Certificate::whereIn('batch_id', $batchIds)
+        $scopeCertificates = function ($query) use ($batchIds, $filters): void {
+            $query->whereIn('batch_id', $batchIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('issued_at', '>=', $filters['start']->toDateString())
+                    ->whereDate('issued_at', '<=', $filters['end']->toDateString());
+            }
+        };
+
+        $hubStats = $this->buildCertHubStats($batchIds, $filters);
+
+        $certificates = Certificate::query()
+            ->where($scopeCertificates)
             ->with([
                 'batch.slaughterExecution.slaughterPlan.facility',
                 'inspector',
+                'facility',
                 'batch.postMortemInspection',
                 'transportTrips',
             ])
             ->orderByDesc('issued_at')
-            ->get()
-            ->groupBy(fn ($c) => $c->isRevoked() ? 'revoked' : ($c->isExpired() ? 'expired' : 'active'));
-
-        $recentCertificates = Certificate::whereIn('batch_id', $batchIds)
-            ->with(['batch.slaughterExecution.slaughterPlan.facility', 'inspector'])
-            ->orderByDesc('issued_at')
-            ->limit(10)
-            ->get();
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
 
         $readyBatches = Batch::whereIn('id', $batchIds)
             ->eligibleForCertificate()
@@ -167,57 +183,154 @@ class CertificateController extends Controller
 
         return view('certificates.hub', compact(
             'hubStats',
-            'byStatus',
-            'recentCertificates',
+            'certificates',
             'readyBatches',
+            'filters',
         ));
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): RedirectResponse
     {
-        // --- Section 2 ---
-        $batchIds = $this->userBatchIds($request);
-        $facilityIds = $this->userFacilityIds($request);
-        $hubStats = $this->buildCertHubStats($request);
+        return redirect()->route('certificates.hub', $request->query());
+    }
 
-        $certificates = Certificate::query()
-            ->with([
-                'batch.slaughterExecution.slaughterPlan.facility',
-                'inspector',
-                'facility',
-                'batch.postMortemInspection',
-                'transportTrips',
-            ])
-            ->whereIn('batch_id', $batchIds)
-            ->when($request->query('status') === 'active', fn ($q) => $q
-                ->where('status', '!=', Certificate::STATUS_REVOKED)
-                ->where(fn ($q2) => $q2->whereNull('expiry_date')
-                    ->orWhere('expiry_date', '>=', today())))
-            ->when($request->query('status') === 'expired', fn ($q) => $q
-                ->where('status', '!=', Certificate::STATUS_REVOKED)
-                ->whereNotNull('expiry_date')
-                ->where('expiry_date', '<', today()))
-            ->when($request->query('status') === 'revoked', fn ($q) => $q
-                ->where('status', Certificate::STATUS_REVOKED))
-            ->when($request->filled('facility_id'), fn ($q) => $q
-                ->where('facility_id', (int) $request->query('facility_id')))
-            ->when($request->query('has_transport') === '1', fn ($q) => $q->has('transportTrips'))
-            ->when($request->query('has_transport') === '0', fn ($q) => $q->doesntHave('transportTrips'))
-            ->when($request->filled('issued_from'), fn ($q) => $q
-                ->whereDate('issued_at', '>=', $request->query('issued_from')))
-            ->when($request->filled('issued_to'), fn ($q) => $q
-                ->whereDate('issued_at', '<=', $request->query('issued_to')))
-            ->orderByDesc('issued_at')
-            ->orderByDesc('id')
-            ->paginate(20)
-            ->withQueryString();
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     certificates_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'certificates_label' => __('Total issued'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
 
-        $facilities = Facility::query()
-            ->whereIn('id', $facilityIds)
-            ->orderBy('facility_name')
-            ->get(['id', 'facility_name']);
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, certificates_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
 
-        return view('certificates.index', compact('hubStats', 'certificates', 'facilities'));
+        [$start, $end, $rangeLabel, $certificatesLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Issued today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Issued this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Issued this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'certificates_label' => $certificatesLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     certificates_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'certificates_label' => __('Issued in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'certificates_label' => $preset['certificates_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->hubFiltersAllTime();
     }
 
     public function export(Request $request): Response
@@ -503,7 +616,7 @@ class CertificateController extends Controller
 
         $certificate->update($request->validated());
 
-        return redirect()->route('certificates.index')
+        return redirect()->route('certificates.hub')
             ->with('status', __('Certificate updated successfully.'));
     }
 
@@ -512,7 +625,7 @@ class CertificateController extends Controller
         $this->authorizeCertificate($request, $certificate);
         $certificate->delete();
 
-        return redirect()->route('certificates.index')
+        return redirect()->route('certificates.hub')
             ->with('status', __('Certificate removed.'));
     }
 }

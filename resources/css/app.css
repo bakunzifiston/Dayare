@@ -151,4 +151,226 @@
     .bucha-wizard-add-btn {
         @apply inline-flex items-center rounded-bucha border border-dashed border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-bucha-primary/40 hover:bg-bucha-canvas hover:text-bucha-primary;
     }
+
+    .profile-kpi {
+        @apply rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm;
+    }
+
+    .profile-kpi__head {
+        @apply flex items-start justify-between gap-2;
+    }
+
+    .profile-kpi__label {
+        @apply text-xs font-medium text-slate-500;
+    }
+
+    .profile-kpi__icon {
+        @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-bucha-primary;
+    }
+
+    .profile-kpi__icon svg {
+        @apply h-4 w-4;
+    }
+
+    .profile-kpi__value {
+        @apply mt-2 text-2xl font-bold tabular-nums tracking-tight text-slate-900;
+    }
+
+    .profile-kpi__value--accent {
+        color: var(--bucha-primary);
+    }
+
+    .profile-kpi__hint {
+        @apply mt-1 truncate text-xs text-slate-500;
+    }
+
+    .profile-kpi-grid {
+        @apply grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5;
+    }
+
+    .profile-kpi-grid--4 {
+        @apply grid grid-cols-2 gap-3 lg:grid-cols-4;
+    }
+
+    .profile-cards-grid {
+        @apply grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3;
+    }
+
+    .profile-list-shell {
+        @apply space-y-5;
+    }
+
+    .profile-card {
+        @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm;
+        border-left-width: 4px;
+        border-left-color: var(--bucha-primary);
+    }
+
+    .profile-card__inner {
+        @apply flex flex-col p-4;
+    }
+
+    .profile-card__header {
+        @apply flex items-start justify-between gap-3;
+    }
+
+    .profile-card__identity {
+        @apply flex min-w-0 items-start gap-3;
+    }
+
+    .profile-card__avatar {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bucha-primary text-sm font-bold uppercase text-white;
+    }
+
+    .profile-card__titles {
+        @apply min-w-0;
+    }
+
+    .profile-card__title {
+        @apply truncate text-sm font-bold text-slate-900;
+    }
+
+    .profile-card__title a {
+        @apply hover:text-bucha-primary;
+    }
+
+    .profile-card__subtitle {
+        @apply mt-0.5 truncate text-xs text-slate-500;
+    }
+
+    .profile-card__badge-wrap {
+        @apply shrink-0;
+    }
+
+    .profile-pill {
+        @apply inline-flex rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-bucha-burgundy;
+    }
+
+    .profile-pill--active {
+        @apply bg-red-50 text-bucha-burgundy;
+    }
+
+    .profile-pill--warning {
+        @apply bg-amber-50 text-amber-800;
+    }
+
+    .profile-pill--danger {
+        @apply bg-red-50 text-red-700;
+    }
+
+    .profile-pill--muted {
+        @apply bg-slate-100 text-slate-600;
+    }
+
+    .profile-card__rows {
+        @apply mt-4 space-y-2.5 border-t border-slate-100 pt-3;
+    }
+
+    .profile-card__row {
+        @apply flex items-start justify-between gap-3 text-xs;
+    }
+
+    .profile-card__row-label {
+        @apply shrink-0 text-slate-500;
+    }
+
+    .profile-card__row-value {
+        @apply text-right font-medium text-slate-800 break-words;
+    }
+
+    .profile-card__highlights {
+        @apply mt-4 grid grid-cols-2 gap-3 rounded-lg bg-slate-50 px-3 py-3;
+    }
+
+    .profile-card__highlight {
+        @apply text-center;
+    }
+
+    .profile-card__highlight-value {
+        @apply text-sm font-bold text-slate-900;
+    }
+
+    .profile-card__highlight-label {
+        @apply mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400;
+    }
+
+    .profile-card__actions {
+        @apply mt-4 flex items-center justify-center gap-5 border-t border-slate-100 pt-3 text-xs font-semibold;
+    }
+
+    .profile-action {
+        @apply text-slate-700 transition hover:text-bucha-primary;
+    }
+
+    .profile-action--danger {
+        @apply text-red-600 hover:text-red-700;
+    }
+
+    .profile-empty {
+        @apply rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600 shadow-sm;
+    }
+
+    .hub-period-filter {
+        @apply rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm;
+    }
+
+    .hub-period-filter__bar {
+        @apply flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between;
+    }
+
+    .hub-period-filter__toggles {
+        @apply inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-0.5;
+    }
+
+    .hub-period-filter__toggle {
+        @apply cursor-pointer;
+    }
+
+    .hub-period-filter__toggle input {
+        @apply sr-only;
+    }
+
+    .hub-period-filter__toggle span {
+        @apply inline-flex rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 transition;
+    }
+
+    .hub-period-filter__toggle input:checked + span {
+        @apply bg-bucha-primary text-white shadow-sm;
+    }
+
+    .hub-period-filter__toggle span:hover {
+        @apply text-slate-900;
+    }
+
+    .hub-period-filter__range {
+        @apply flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5;
+    }
+
+    .hub-period-filter__range-label {
+        @apply text-xs font-medium text-slate-500;
+    }
+
+    .hub-period-filter__sep {
+        @apply text-slate-300;
+    }
+
+    .hub-period-filter__input {
+        @apply rounded-md border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-sm focus:border-bucha-primary focus:ring-bucha-primary;
+    }
+
+    .hub-period-filter__actions {
+        @apply flex items-center gap-2;
+    }
+
+    .hub-period-filter__apply {
+        @apply inline-flex items-center rounded-md bg-bucha-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-bucha-burgundy;
+    }
+
+    .hub-period-filter__clear {
+        @apply text-xs font-medium text-slate-500 hover:text-slate-800;
+    }
+
+    .hub-period-filter__hint {
+        @apply mt-2 text-xs text-slate-400;
+    }
 }

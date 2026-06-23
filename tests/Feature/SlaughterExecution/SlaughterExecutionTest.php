@@ -438,7 +438,7 @@ class SlaughterExecutionTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->user)
-            ->get(route('slaughter-executions.index'));
+            ->get(route('slaughter-executions.hub'));
 
         $response->assertOk();
         $response->assertDontSee('Other SE Slaughterhouse', false);

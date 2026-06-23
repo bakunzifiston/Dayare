@@ -123,81 +123,13 @@
     color: var(--color-finance-text);
 }
 
-.proc-dash__kpis {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 12px;
+.proc-dash__kpi-grid {
+    margin-bottom: 16px;
 }
 
-@media (min-width: 720px) {
-    .proc-dash__kpis {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
+.proc-dash__period-filter {
+    margin-bottom: 16px;
 }
-
-@media (min-width: 1100px) {
-    .proc-dash__kpis {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-    }
-}
-
-.proc-dash__kpi {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 6px;
-    min-height: 96px;
-    background: var(--color-background-primary);
-    border-radius: var(--border-radius-md);
-    padding: 12px;
-    overflow: hidden;
-}
-
-.proc-dash__kpi-label {
-    display: block;
-    font-size: 11px;
-    line-height: 1.35;
-    color: var(--color-text-tertiary);
-    font-weight: 400;
-    min-height: 2.7em;
-    margin: 0;
-}
-
-.proc-dash__kpi-value {
-    display: block;
-    font-size: 20px;
-    font-weight: 500;
-    color: var(--color-text-primary);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums;
-    margin: 0;
-    word-break: break-word;
-}
-
-.proc-dash__kpi-value--compact {
-    font-size: 17px;
-    line-height: 1.2;
-}
-
-.proc-dash__kpi-delta {
-    display: block;
-    font-size: 11px;
-    line-height: 1.35;
-    margin: 0;
-    margin-top: auto;
-    padding-top: 2px;
-    font-weight: 400;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.proc-dash__kpi-delta--positive { color: var(--delta-positive); }
-.proc-dash__kpi-delta--negative { color: var(--delta-negative); }
-.proc-dash__kpi-delta--warning { color: var(--delta-warning); }
-.proc-dash__kpi-delta--info { color: var(--delta-info); }
 
 .proc-dash__insight {
     display: flex;
@@ -221,9 +153,15 @@
 
 .proc-dash__charts {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
     margin-bottom: 10px;
+}
+
+@media (max-width: 1100px) {
+    .proc-dash__charts {
+        grid-template-columns: 1fr;
+    }
 }
 
 .proc-dash__chart-card {
@@ -302,6 +240,19 @@
     font-size: 11px;
     color: var(--color-text-tertiary);
     margin: 0 0 10px;
+}
+
+.proc-dash__card-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--bucha-primary, #a11d1e);
+    text-decoration: none;
+}
+
+.proc-dash__card-link:hover {
+    text-decoration: underline;
 }
 
 .proc-dash__row {

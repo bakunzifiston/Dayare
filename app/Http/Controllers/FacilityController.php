@@ -23,11 +23,16 @@ class FacilityController extends Controller
     {
         $this->authorizeBusiness($request, $business);
 
-        $facilities = $business->facilities()->with(['province', 'districtDivision', 'sectorDivision', 'cell', 'village'])->latest()->paginate(10);
+        $facilities = $business->facilities()
+            ->with(['province', 'districtDivision', 'sectorDivision', 'cell', 'village'])
+            ->withCount(['inspectors', 'employees'])
+            ->latest()
+            ->paginate(10);
 
         $kpis = [
             'total' => $business->facilities()->count(),
             'active' => $business->facilities()->where('status', Facility::STATUS_ACTIVE)->count(),
+            'suspended' => $business->facilities()->where('status', Facility::STATUS_SUSPENDED)->count(),
         ];
 
         return view('facilities.index', compact('business', 'facilities', 'kpis'));

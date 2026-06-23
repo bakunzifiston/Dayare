@@ -41,7 +41,7 @@
                                     @if ($facility && $facility->business)
                                         <a href="{{ route('businesses.facilities.show', [$facility->business, $facility]) }}" class="text-bucha-primary hover:underline font-medium">{{ __('View facility') }}</a>
                                         <span class="text-slate-300 mx-1">|</span>
-                                        <a href="{{ route('delivery-confirmations.index', ['receiving_facility_id' => $facility->id]) }}" class="text-slate-600 hover:text-slate-900 font-medium">{{ __('Deliveries') }}</a>
+                                        <a href="{{ route('delivery-confirmations.hub') }}" class="text-slate-600 hover:text-slate-900 font-medium">{{ __('Deliveries') }}</a>
                                     @endif
                                 </td>
                             </tr>

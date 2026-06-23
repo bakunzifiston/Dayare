@@ -17,8 +17,20 @@ window.procDashSw = function (role) {
 document.addEventListener('DOMContentLoaded', () => {
     const activeTab = document.querySelector('.proc-dash__tab.active');
     const activePanel = document.querySelector('.proc-dash__role-panel:not([hidden])');
-    const role = activeTab?.dataset.role || activePanel?.dataset.role;
-    if (role) {
-        window.procDashSw(role);
+    const role = activeTab?.dataset.role
+        || activePanel?.dataset.role
+        || window.processorDashboardActiveRole;
+
+    if (!role) {
+        return;
     }
+
+    if (typeof window.procDashSw === 'function' && (activeTab || activePanel)) {
+        window.procDashSw(role);
+        return;
+    }
+
+    setTimeout(() => {
+        drawProcessorCharts(role, window.processorDashboardCharts[role] || []);
+    }, 50);
 });

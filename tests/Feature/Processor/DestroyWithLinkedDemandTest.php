@@ -26,7 +26,7 @@ class DestroyWithLinkedDemandTest extends TestCase
 
         $this->actingAs($fixture['user'])
             ->delete(route('delivery-confirmations.destroy', $delivery))
-            ->assertRedirect(route('delivery-confirmations.index'));
+            ->assertRedirect(route('delivery-confirmations.hub'));
 
         $demand->refresh();
         $this->assertNull($demand->fulfilled_by_delivery_id);

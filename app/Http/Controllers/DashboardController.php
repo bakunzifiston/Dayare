@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
-use App\Models\BusinessUser;
 use App\Services\Processor\ProcessorDashboardService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -33,25 +32,13 @@ class DashboardController extends Controller
 
         $business = Business::query()->find($activeBusinessId);
         $service = app(ProcessorDashboardService::class);
-        $operationsDashboard = $service->buildForRole($activeBusinessId, $role, $user);
-        $operationsDashboard['quickActions'] = $service->resolveQuickActions($operationsDashboard, $user, $activeBusinessId);
-
-        $allRoleDashboards = null;
-        if ($role === BusinessUser::ROLE_ORG_ADMIN) {
-            $allRoleDashboards = [];
-            foreach (BusinessUser::ROLES as $previewRole) {
-                $preview = $service->buildForRole($activeBusinessId, $previewRole, $user);
-                $preview['quickActions'] = $service->resolveQuickActions($preview, $user, $activeBusinessId);
-                $allRoleDashboards[$previewRole] = $preview;
-            }
-        }
+        $operationsDashboard = $service->buildForRole($activeBusinessId, $role, $user, $request);
 
         return view('dashboard', [
             'user' => $user,
             'role' => $role,
             'activeBusiness' => $business,
             'operationsDashboard' => $operationsDashboard,
-            'allRoleDashboards' => $allRoleDashboards,
         ]);
     }
 }

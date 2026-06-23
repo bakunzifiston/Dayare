@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Batch;
 use App\Models\ColdRoom;
 use App\Models\ColdRoomStandard;
-use App\Models\ColdRoomTemperatureLog;
 use App\Models\ColdRoomViolation;
 use App\Models\Facility;
 use App\Models\WarehouseStorage;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -35,42 +34,52 @@ class ColdRoomController extends Controller
         abort_unless($user->canProcessorPermission('monitor_temperature_logs'), 403);
     }
 
-    // --- Section 3 ---
     public function hub(Request $request): View
     {
         $this->authorizeWarehouse($request);
 
         $facilityIds = $this->userStorageFacilityIds($request);
+        $filters = $this->resolveHubFilters($request);
+
+        $scopeStorages = function ($query) use ($facilityIds, $filters): void {
+            $query->whereIn('warehouse_facility_id', $facilityIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('entry_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('entry_date', '<=', $filters['end']->toDateString());
+            }
+        };
+
+        $scopeReleased = function ($query) use ($facilityIds, $filters): void {
+            $query->whereIn('warehouse_facility_id', $facilityIds)
+                ->where('status', WarehouseStorage::STATUS_RELEASED);
+            if ($filters['is_filtered']) {
+                $query->whereDate('released_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('released_date', '<=', $filters['end']->toDateString());
+            }
+        };
 
         $hubStats = [
             'total_rooms' => ColdRoom::whereIn('facility_id', $facilityIds)->count(),
-            'open_violations' => ColdRoomViolation::whereHas('coldRoom',
-                fn ($q) => $q->whereIn('facility_id', $facilityIds)
-            )->where('status', ColdRoomViolation::STATUS_OPEN)->count(),
-            'batches_at_risk' => Batch::whereIn('cold_chain_status', [Batch::COLD_CHAIN_AT_RISK, Batch::COLD_CHAIN_COMPROMISED])
-                ->whereHas('warehouseStorage', fn ($q) => $q->whereHas('coldRoom', fn ($q2) => $q2
-                    ->whereIn('facility_id', $facilityIds)))
-                ->count(),
-            'storages_in_room' => WarehouseStorage::whereHas('coldRoom',
-                fn ($q) => $q->whereIn('facility_id', $facilityIds)
-            )->where('status', WarehouseStorage::STATUS_IN_STORAGE)->count(),
+            'released_label' => $filters['is_filtered'] ? __('Released in period') : __('Released'),
+            'released_count' => WarehouseStorage::query()->where($scopeReleased)->count(),
+            'storages_label' => $filters['is_filtered'] ? $filters['storages_label'] : __('In storage'),
+            'storage_count' => $filters['is_filtered']
+                ? WarehouseStorage::query()->where($scopeStorages)->count()
+                : WarehouseStorage::whereHas('coldRoom',
+                    fn ($q) => $q->whereIn('facility_id', $facilityIds)
+                )->where('status', WarehouseStorage::STATUS_IN_STORAGE)->count(),
             'standards' => ColdRoomStandard::count(),
         ];
 
-        $roomsWithStatus = ColdRoom::whereIn('facility_id', $facilityIds)
+        $coldRooms = ColdRoom::whereIn('facility_id', $facilityIds)
             ->with([
                 'standard',
                 'facility',
                 'violations' => fn ($q) => $q->where('status', ColdRoomViolation::STATUS_OPEN),
                 'warehouseStorages' => fn ($q) => $q->where('status', WarehouseStorage::STATUS_IN_STORAGE),
             ])
-            ->get();
-
-        $recentLogs = ColdRoomTemperatureLog::whereHas('coldRoom',
-            fn ($q) => $q->whereIn('facility_id', $facilityIds)
-        )->with('coldRoom.facility')
-            ->orderByDesc('recorded_at')
-            ->limit(10)
+            ->orderBy('facility_id')
+            ->orderBy('name')
             ->get();
 
         $openViolations = ColdRoomViolation::whereHas('coldRoom',
@@ -81,7 +90,7 @@ class ColdRoomController extends Controller
             ->get();
 
         $storageRecords = WarehouseStorage::query()
-            ->whereIn('warehouse_facility_id', $facilityIds)
+            ->where($scopeStorages)
             ->with([
                 'warehouseFacility',
                 'batch',
@@ -91,28 +100,163 @@ class ColdRoomController extends Controller
                 'coldRoom',
             ])
             ->latest('entry_date')
-            ->limit(15)
-            ->get();
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
 
         return view('cold-rooms.hub', compact(
-            'hubStats', 'roomsWithStatus', 'recentLogs', 'openViolations', 'storageRecords'
+            'hubStats',
+            'coldRooms',
+            'openViolations',
+            'storageRecords',
+            'filters',
         ));
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): RedirectResponse
     {
         $this->authorizeWarehouse($request);
 
-        $facilityIds = $this->userStorageFacilityIds($request);
+        return redirect()->route('cold-rooms.hub', $request->query());
+    }
 
-        $coldRooms = ColdRoom::query()
-            ->whereIn('facility_id', $facilityIds)
-            ->with(['facility', 'standard'])
-            ->orderBy('facility_id')
-            ->orderBy('name')
-            ->paginate(20);
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     storages_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'storages_label' => __('Storage records'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
 
-        return view('cold-rooms.index', compact('coldRooms'));
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, storages_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
+
+        [$start, $end, $rangeLabel, $storagesLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Storages today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Storages this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Storages this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'storages_label' => $storagesLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     storages_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'storages_label' => __('Storages in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'storages_label' => $preset['storages_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->hubFiltersAllTime();
     }
 
     public function create(Request $request): View
@@ -141,7 +285,7 @@ class ColdRoomController extends Controller
 
         ColdRoom::create($valid);
 
-        return redirect()->route('cold-rooms.manage.index')
+        return redirect()->route('cold-rooms.hub')
             ->with('status', __('Cold room saved. Assign it when recording storage to enable temperature monitoring.'));
     }
 
@@ -175,7 +319,7 @@ class ColdRoomController extends Controller
 
         $cold_room->update($valid);
 
-        return redirect()->route('cold-rooms.manage.index')
+        return redirect()->route('cold-rooms.hub')
             ->with('status', __('Cold room updated.'));
     }
 
@@ -187,7 +331,7 @@ class ColdRoomController extends Controller
 
         $cold_room->delete();
 
-        return redirect()->route('cold-rooms.manage.index')
+        return redirect()->route('cold-rooms.hub')
             ->with('status', __('Cold room removed.'));
     }
 

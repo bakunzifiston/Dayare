@@ -35,31 +35,64 @@
     @endif
 </div>
 
-<section class="proc-dash__kpis" aria-label="{{ __('Key performance indicators') }}">
-    @foreach ($ops['kpiCards'] as $card)
+@if (! empty($ops['showPeriodFilter']) && ! empty($ops['filters']))
+    @php $filters = $ops['filters']; @endphp
+    <form method="get" action="{{ route('dashboard') }}" class="hub-period-filter proc-dash__period-filter">
+        <div class="hub-period-filter__bar">
+            <div class="hub-period-filter__toggles" role="group" aria-label="{{ __('Execution period') }}">
+                @foreach (['all' => __('All'), 'day' => __('Daily'), 'month' => __('Monthly'), 'year' => __('Yearly')] as $periodKey => $periodLabel)
+                    <label class="hub-period-filter__toggle">
+                        <input type="radio" name="period" value="{{ $periodKey }}" @checked($filters['period'] === $periodKey)>
+                        <span>{{ $periodLabel }}</span>
+                    </label>
+                @endforeach
+            </div>
+
+            <div class="hub-period-filter__range">
+                <label for="dash_filter_date_from" class="hub-period-filter__range-label">{{ __('From') }}</label>
+                <input id="dash_filter_date_from" type="date" name="date_from" value="{{ $filters['date_from'] }}" class="hub-period-filter__input" aria-label="{{ __('Date from') }}">
+                <span class="hub-period-filter__sep" aria-hidden="true">–</span>
+                <label for="dash_filter_date_to" class="hub-period-filter__range-label">{{ __('To') }}</label>
+                <input id="dash_filter_date_to" type="date" name="date_to" value="{{ $filters['date_to'] }}" class="hub-period-filter__input" aria-label="{{ __('Date to') }}">
+            </div>
+
+            <div class="hub-period-filter__actions">
+                <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
+                @if ($filters['is_filtered'])
+                    <a href="{{ route('dashboard') }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
+                @endif
+            </div>
+        </div>
+        <p class="hub-period-filter__hint">{{ __('Slaughter executions') }} · {{ $filters['range_label'] }}</p>
+    </form>
+@endif
+
+<section class="profile-kpi-grid proc-dash__kpi-grid" aria-label="{{ __('Key performance indicators') }}">
+    @php
+        $kpiIconDefaults = ['box', 'certificate', 'truck', 'alert-triangle', 'currency-dollar'];
+    @endphp
+    @foreach ($ops['kpiCards'] as $index => $card)
         @php
             $rawValue = $card['value'];
             $displayValue = is_int($rawValue) || (is_string($rawValue) && ctype_digit($rawValue))
                 ? number_format((int) $rawValue)
                 : (string) $rawValue;
-            $valueClass = strlen($displayValue) > 10 ? ' proc-dash__kpi-value--compact' : '';
+            $kpiIcon = $card['icon'] ?? $kpiIconDefaults[$index % count($kpiIconDefaults)];
+            $accent = in_array($card['deltaTone'] ?? '', ['warning', 'negative'], true)
+                || in_array($card['iconTone'] ?? '', ['red', 'orange'], true);
         @endphp
-        <article class="proc-dash__kpi">
-            <span class="proc-dash__kpi-label">{{ $card['label'] }}</span>
-            <span class="proc-dash__kpi-value{{ $valueClass }}">{{ $displayValue }}</span>
-            @if (! empty($card['change']))
-                <span class="proc-dash__kpi-delta proc-dash__kpi-delta--{{ $card['deltaTone'] ?? 'info' }}" title="{{ $card['change'] }}">{{ $card['change'] }}</span>
-            @endif
-        </article>
+        <x-entity.kpi-stat
+            :label="$card['label']"
+            :value="$displayValue"
+            :hint="$card['change'] ?? null"
+            :accent="$accent"
+        >
+            <x-slot:icon>
+                @include('processor.partials.dashboard-kpi-icon', ['icon' => $kpiIcon])
+            </x-slot:icon>
+        </x-entity.kpi-stat>
     @endforeach
 </section>
-
-@if (! empty($ops['insight']))
-    <div class="proc-dash__insight" role="note">
-        <i class="ti ti-bulb" aria-hidden="true"></i>
-        <p style="margin:0;">{{ $ops['insight'] }}</p>
-    </div>
-@endif
 
 @if (count($charts) > 0)
     <section class="proc-dash__charts" aria-label="{{ __('Charts') }}">
@@ -109,6 +142,9 @@
             @endforeach
             <p class="proc-dash__card-sub" style="margin-top:8px;margin-bottom:0;">{{ __('Threshold ≤4°C') }}</p>
         @else
+            @if (empty($left['items']))
+                <p class="proc-dash__card-sub" style="margin-bottom:0;">{{ $left['empty'] ?? __('No records yet.') }}</p>
+            @else
             @foreach ($left['items'] ?? [] as $item)
                 @php
                     $href = isset($item['route']) ? route($item['route'], $item['routeParams'] ?? []) : null;
@@ -148,6 +184,10 @@
 
                 @if ($href)</a>@else</div>@endif
             @endforeach
+            @endif
+            @if (! empty($left['footerRoute']))
+                <a href="{{ route($left['footerRoute'], $left['footerRouteParams'] ?? []) }}" class="proc-dash__card-link">{{ $left['footerLabel'] ?? __('View all') }}</a>
+            @endif
         @endif
     </div>
 
@@ -157,6 +197,32 @@
             <p class="proc-dash__card-sub">{{ $right['subtitle'] }}</p>
         @endif
 
+        @if (($right['type'] ?? '') === 'module_rows')
+            @if (empty($right['items']))
+                <p class="proc-dash__card-sub" style="margin-bottom:0;">{{ $right['empty'] ?? __('No records yet.') }}</p>
+            @else
+                @foreach ($right['items'] ?? [] as $item)
+                    @php
+                        $href = isset($item['route']) ? route($item['route'], $item['routeParams'] ?? []) : null;
+                    @endphp
+                    @if ($href)
+                        <a href="{{ $href }}" class="proc-dash__row">
+                    @else
+                        <div class="proc-dash__row">
+                    @endif
+                        <i class="ti ti-{{ $item['icon'] }} proc-dash__row-icon" aria-hidden="true"></i>
+                        <div class="proc-dash__row-body">
+                            <p class="proc-dash__row-primary">{{ $item['label'] }}</p>
+                            <p class="proc-dash__row-secondary">{{ $item['sub'] }}</p>
+                        </div>
+                        <span class="proc-dash__badge-pill proc-dash__badge-pill--{{ $badgeVariants[$item['badgeTone']] ?? 'info' }}">{{ $item['badge'] }}</span>
+                    @if ($href)</a>@else</div>@endif
+                @endforeach
+            @endif
+            @if (! empty($right['footerRoute']))
+                <a href="{{ route($right['footerRoute'], $right['footerRouteParams'] ?? []) }}" class="proc-dash__card-link">{{ $right['footerLabel'] ?? __('View all') }}</a>
+            @endif
+        @else
         @foreach ($right['items'] ?? [] as $item)
             @php
                 $href = isset($item['route']) && $item['route']
@@ -210,25 +276,6 @@
 
             @if ($href)</a>@else</div>@endif
         @endforeach
-    </div>
-</section>
-
-<section class="proc-dash__actions">
-    <h3 class="proc-dash__actions-title">{{ __('Quick actions') }}</h3>
-    <p class="proc-dash__actions-sub">{{ __('Jump directly into core workflows') }}</p>
-    <div class="proc-dash__actions-grid">
-        @foreach ($ops['quickActions'] as $action)
-            @if ($action['url'])
-                <a href="{{ $action['url'] }}" class="proc-dash__action">
-                    <i class="ti ti-{{ $action['icon'] }}" aria-hidden="true"></i>
-                    <span>{{ $action['label'] }}</span>
-                </a>
-            @else
-                <div class="proc-dash__action proc-dash__action--disabled" aria-disabled="true">
-                    <i class="ti ti-{{ $action['icon'] }}" aria-hidden="true"></i>
-                    <span>{{ $action['label'] }}</span>
-                </div>
-            @endif
-        @endforeach
+        @endif
     </div>
 </section>

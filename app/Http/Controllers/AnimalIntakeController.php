@@ -175,6 +175,15 @@ class AnimalIntakeController extends Controller
     public function hub(Request $request): View
     {
         $facilityIds = $this->userFacilityIds($request);
+        $filters = $this->resolveHubFilters($request);
+
+        $scopeIntakes = function ($query) use ($facilityIds, $filters): void {
+            $query->whereIn('facility_id', $facilityIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('intake_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('intake_date', '<=', $filters['end']->toDateString());
+            }
+        };
 
         $hubStats = [
             'heads_available' => AnimalIntakeItem::whereHas('intake', fn ($q) => $q
@@ -182,93 +191,198 @@ class AnimalIntakeController extends Controller
                 ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
                 ->where('is_draft', false)
             )->available()->count(),
-            'intakes_this_month' => AnimalIntake::whereIn('facility_id', $facilityIds)
+            'intakes_in_period' => AnimalIntake::query()
                 ->where('is_draft', false)
-                ->whereMonth('intake_date', now()->month)
-                ->whereYear('intake_date', now()->year)
+                ->where($scopeIntakes)
                 ->count(),
-            'cert_issues' => AnimalIntake::whereIn('facility_id', $facilityIds)
-                ->where('is_draft', false)
-                ->where(fn ($q) => $q
-                    ->whereNull('health_certificate_expiry_date')
-                    ->orWhere('health_certificate_expiry_date', '<', today())
-                )
-                ->count(),
-            'draft_count' => AnimalIntake::whereIn('facility_id', $facilityIds)
-                ->where('is_draft', true)
-                ->count(),
+            'intakes_label' => $filters['intakes_label'],
+            'cattle_count' => $this->speciesHeadCountInPeriod($facilityIds, $filters, AnimalIntake::SPECIES_CATTLE),
+            'goat_count' => $this->speciesHeadCountInPeriod($facilityIds, $filters, AnimalIntake::SPECIES_GOAT),
+            'sheep_count' => $this->speciesHeadCountInPeriod($facilityIds, $filters, AnimalIntake::SPECIES_SHEEP),
         ];
 
-        $query = AnimalIntake::query()
+        $intakes = AnimalIntake::query()
             ->with(['facility', 'supplier', 'client', 'items.slaughterPlan'])
-            ->whereIn('facility_id', $facilityIds)
+            ->where($scopeIntakes)
+            ->when($request->filled('reference'), fn ($q) => $q->where('reference', $request->string('reference')))
             ->latest('intake_date')
-            ->latest('id');
-
-        $species = $request->query('species');
-        if (is_string($species) && in_array($species, AnimalIntake::SPECIES_OPTIONS, true)) {
-            $query->whereHas('items', fn ($q) => $q->where('species', $species));
-        } else {
-            $species = '';
-        }
-
-        $healthStatus = $request->query('health_status');
-        if (is_string($healthStatus) && in_array($healthStatus, AnimalIntakeItem::HEALTH_STATUSES, true)) {
-            $query->whereHas('items', fn ($q) => $q->where('health_status', $healthStatus));
-        } else {
-            $healthStatus = '';
-        }
-
-        $draftStatus = $request->query('draft_status');
-        if ($draftStatus === 'draft') {
-            $query->where('is_draft', true);
-        } elseif ($draftStatus === 'submitted') {
-            $query->where('is_draft', false);
-        } else {
-            $draftStatus = '';
-        }
-
-        $certificateStatus = $request->query('certificate_status');
-        if ($certificateStatus === 'expiring_soon') {
-            $query->whereNotNull('health_certificate_expiry_date')
-                ->whereBetween('health_certificate_expiry_date', [today(), today()->addDays(30)]);
-        } elseif ($certificateStatus === 'expired') {
-            $query->whereNotNull('health_certificate_expiry_date')
-                ->where('health_certificate_expiry_date', '<', today());
-        } elseif ($certificateStatus === 'valid') {
-            $query->whereNotNull('health_certificate_expiry_date')
-                ->where('health_certificate_expiry_date', '>=', today());
-        } else {
-            $certificateStatus = '';
-        }
-
-        $intakes = $query->paginate(25)->withQueryString();
-
-        $filters = [
-            'species' => $species,
-            'health_status' => $healthStatus,
-            'draft_status' => $draftStatus,
-            'certificate_status' => $certificateStatus,
-        ];
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
 
         return view('animal-intakes.hub', compact('hubStats', 'intakes', 'filters'));
     }
 
-    public function index(Request $request): View
+    /**
+     * @param  \Illuminate\Support\Collection<int, int>  $facilityIds
+     */
+    private function speciesHeadCountInPeriod(\Illuminate\Support\Collection $facilityIds, array $filters, string $species): int
     {
-        $facilityIds = $this->userFacilityIds($request);
-        $intakes = AnimalIntake::with(['facility', 'country', 'province', 'district'])
-            ->whereIn('facility_id', $facilityIds)
-            ->latest('intake_date')
-            ->paginate(10);
+        $intakeScope = function ($query) use ($facilityIds, $filters): void {
+            $query->where('is_draft', false)
+                ->whereIn('facility_id', $facilityIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('intake_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('intake_date', '<=', $filters['end']->toDateString());
+            }
+        };
 
-        $kpis = [
-            'total' => AnimalIntake::whereIn('facility_id', $facilityIds)->count(),
-            'received' => AnimalIntake::whereIn('facility_id', $facilityIds)->where('status', AnimalIntake::STATUS_RECEIVED)->count(),
-            'approved' => AnimalIntake::whereIn('facility_id', $facilityIds)->where('status', AnimalIntake::STATUS_APPROVED)->count(),
+        $fromItems = (int) AnimalIntakeItem::query()
+            ->where('species', $species)
+            ->whereHas('intake', $intakeScope)
+            ->count();
+
+        $fromLegacyIntakes = (int) AnimalIntake::query()
+            ->where('species', $species)
+            ->whereDoesntHave('items')
+            ->where($intakeScope)
+            ->sum('number_of_animals');
+
+        return $fromItems + $fromLegacyIntakes;
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     intakes_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'intakes_label' => __('Total intakes'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
         ];
+    }
 
-        return view('animal-intakes.index', compact('intakes', 'kpis'));
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, intakes_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
+
+        [$start, $end, $rangeLabel, $intakesLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Intakes today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Intakes this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Intakes this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'intakes_label' => $intakesLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     intakes_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'intakes_label' => __('Intakes in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'intakes_label' => $preset['intakes_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->hubFiltersAllTime();
+    }
+
+    public function index(Request $request): RedirectResponse
+    {
+        return redirect()->route('animal-intakes.hub', $request->query());
     }
 
     public function create(Request $request): View

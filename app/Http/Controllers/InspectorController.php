@@ -42,33 +42,10 @@ class InspectorController extends Controller
         $facilityIds = $this->userFacilityIds($request);
         $base = Inspector::query()->whereIn('facility_id', $facilityIds);
 
-        $filters = [
-            'search' => trim((string) $request->query('search', '')),
-            'facility_id' => (string) $request->query('facility_id', ''),
-            'status' => (string) $request->query('status', ''),
-            'auth_expired' => $request->boolean('auth_expired'),
-        ];
-
-        $filtered = (clone $base)
-            ->when($filters['search'] !== '', function ($query) use ($filters) {
-                $search = '%'.$filters['search'].'%';
-                $query->where(function ($inner) use ($search) {
-                    $inner->where('first_name', 'like', $search)
-                        ->orWhere('last_name', 'like', $search)
-                        ->orWhere('email', 'like', $search)
-                        ->orWhere('national_id', 'like', $search)
-                        ->orWhere('authorization_number', 'like', $search);
-                });
-            })
-            ->when($filters['facility_id'] !== '', fn ($query) => $query->where('facility_id', (int) $filters['facility_id']))
-            ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
-            ->when($filters['auth_expired'], fn ($query) => $query->whereDate('authorization_expiry_date', '<', today()));
-
-        $inspectors = (clone $filtered)
+        $inspectors = (clone $base)
             ->with('facility.business')
             ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->paginate(15);
 
         $kpis = [
             'total' => (clone $base)->count(),
@@ -76,12 +53,7 @@ class InspectorController extends Controller
             'expired' => (clone $base)->where('status', Inspector::STATUS_EXPIRED)->count(),
         ];
 
-        $facilities = Facility::query()
-            ->whereIn('id', $facilityIds)
-            ->orderBy('facility_name')
-            ->get(['id', 'facility_name']);
-
-        return view('inspectors.hub', compact('inspectors', 'kpis', 'filters', 'facilities'));
+        return view('inspectors.hub', compact('inspectors', 'kpis'));
     }
 
     public function index(Request $request): RedirectResponse

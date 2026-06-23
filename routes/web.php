@@ -635,6 +635,8 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
         ->name('transport-trips.export.traceability');
     Route::get('transport-trips/export', [TransportTripController::class, 'export'])->name('transport-trips.export');
     Route::resource('transport-trips', TransportTripController::class);
+    Route::get('delivery-confirmations/hub', [DeliveryConfirmationController::class, 'hub'])
+        ->name('delivery-confirmations.hub');
     Route::get('delivery-confirmations/contracts', [DeliveryConfirmationController::class, 'contracts'])
         ->name('delivery-confirmations.contracts');
     Route::get('delivery-confirmations/export', [DeliveryConfirmationController::class, 'export'])

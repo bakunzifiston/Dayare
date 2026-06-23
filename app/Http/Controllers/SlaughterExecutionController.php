@@ -9,6 +9,7 @@ use App\Models\Facility;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -159,26 +160,38 @@ class SlaughterExecutionController extends Controller
     public function hub(Request $request): View
     {
         $planIds = $this->userSlaughterPlanIds($request);
+        $filters = $this->resolveHubFilters($request);
 
-        // --- Hub ---
+        $scopeExecutions = function ($query) use ($planIds, $filters): void {
+            $query->whereIn('slaughter_plan_id', $planIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('slaughter_time', '>=', $filters['start']->toDateString())
+                    ->whereDate('slaughter_time', '<=', $filters['end']->toDateString());
+            }
+        };
+
         $hubStats = [
+            'executions_label' => $filters['executions_label'],
             'total_executions' => SlaughterExecution::query()
-                ->whereIn('slaughter_plan_id', $planIds)
+                ->where($scopeExecutions)
                 ->count(),
             'total_slaughtered' => (int) SlaughterExecution::query()
-                ->whereIn('slaughter_plan_id', $planIds)
+                ->where($scopeExecutions)
                 ->sum('actual_animals_slaughtered'),
+            'cattle_kg' => $this->speciesMeatQuantityKg($scopeExecutions, SlaughterPlan::SPECIES_CATTLE),
+            'goat_kg' => $this->speciesMeatQuantityKg($scopeExecutions, SlaughterPlan::SPECIES_GOAT),
+            'sheep_kg' => $this->speciesMeatQuantityKg($scopeExecutions, SlaughterPlan::SPECIES_SHEEP),
             'total_meat_kg' => (float) SlaughterExecutionItem::query()
-                ->whereHas('execution', fn ($query) => $query->whereIn('slaughter_plan_id', $planIds))
+                ->whereHas('execution', $scopeExecutions)
                 ->sum('meat_quantity_kg'),
+            'executions_today' => SlaughterExecution::query()
+                ->whereIn('slaughter_plan_id', $planIds)
+                ->whereDate('slaughter_time', today())
+                ->count(),
             'plans_without_execution' => SlaughterPlan::query()
                 ->whereIn('id', $planIds)
                 ->whereDoesntHave('slaughterExecutions')
                 ->whereNotIn('status', ['cancelled'])
-                ->count(),
-            'executions_today' => SlaughterExecution::query()
-                ->whereIn('slaughter_plan_id', $planIds)
-                ->whereDate('slaughter_time', today())
                 ->count(),
             'pending_batches' => SlaughterExecution::query()
                 ->whereIn('slaughter_plan_id', $planIds)
@@ -187,100 +200,174 @@ class SlaughterExecutionController extends Controller
                 ->count(),
         ];
 
-        $byStatus = SlaughterExecution::query()
-            ->whereIn('slaughter_plan_id', $planIds)
-            ->with(['slaughterPlan.facility', 'executionItems', 'batches'])
+        $executions = SlaughterExecution::query()
+            ->where($scopeExecutions)
+            ->with(['slaughterPlan.facility', 'slaughterPlan.intake', 'executionItems', 'batches'])
             ->orderByDesc('slaughter_time')
             ->orderByDesc('id')
-            ->get()
-            ->groupBy('status');
-
-        $recentExecutions = SlaughterExecution::query()
-            ->whereIn('slaughter_plan_id', $planIds)
-            ->with(['slaughterPlan.facility', 'executionItems'])
-            ->orderByDesc('slaughter_time')
-            ->orderByDesc('id')
-            ->limit(10)
-            ->get();
+            ->paginate(15)
+            ->withQueryString();
 
         return view('slaughter-executions.hub', compact(
             'hubStats',
-            'byStatus',
-            'recentExecutions',
+            'executions',
+            'filters',
         ));
     }
 
-    public function index(Request $request): View
+    /**
+     * @param  callable(\Illuminate\Database\Eloquent\Builder): void  $scopeExecutions
+     */
+    private function speciesMeatQuantityKg(callable $scopeExecutions, string $species): float
     {
-        $facilityIds = $this->userFacilityIds($request);
-        $planIds = $this->userSlaughterPlanIds($request);
+        return (float) SlaughterExecutionItem::query()
+            ->whereHas('intakeItem', fn ($query) => $query->where('species', $species))
+            ->whereHas('execution', $scopeExecutions)
+            ->sum('meat_quantity_kg');
+    }
 
-        // --- Section 3 ---
-        $hubStats = [
-            'total_executions' => SlaughterExecution::query()
-                ->whereIn('slaughter_plan_id', $planIds)
-                ->count(),
-            'total_slaughtered' => (int) SlaughterExecution::query()
-                ->whereIn('slaughter_plan_id', $planIds)
-                ->sum('actual_animals_slaughtered'),
-            'total_meat_kg' => (float) SlaughterExecutionItem::query()
-                ->whereHas('execution', fn ($query) => $query->whereIn('slaughter_plan_id', $planIds))
-                ->sum('meat_quantity_kg'),
-            'plans_without_execution' => SlaughterPlan::query()
-                ->whereIn('id', $planIds)
-                ->whereDoesntHave('slaughterExecutions')
-                ->whereNotIn('status', ['cancelled'])
-                ->count(),
+    public function index(Request $request): RedirectResponse
+    {
+        return redirect()->route('slaughter-executions.hub', $request->query());
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     executions_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'executions_label' => __('Total executions'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
         ];
+    }
 
-        $query = SlaughterExecution::query()
-            ->with(['slaughterPlan.facility', 'slaughterPlan.anteMortemInspections', 'executionItems.intakeItem', 'batches'])
-            ->whereIn('slaughter_plan_id', $planIds);
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, executions_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
 
-        if ($request->filled('facility_id')) {
-            $facilityId = (int) $request->query('facility_id');
-            if ($facilityIds->contains($facilityId)) {
-                $query->whereHas('slaughterPlan', fn ($planQuery) => $planQuery->where('facility_id', $facilityId));
+        [$start, $end, $rangeLabel, $executionsLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Executions today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Executions this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Executions this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'executions_label' => $executionsLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     executions_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
             }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'executions_label' => __('Executions in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
         }
 
-        if ($request->filled('status')) {
-            $status = (string) $request->query('status');
-            if (in_array($status, SlaughterExecution::STATUSES, true)) {
-                $query->where('status', $status);
-            }
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'executions_label' => $preset['executions_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
         }
 
-        if ($request->filled('date_from')) {
-            $query->where('slaughter_time', '>=', $request->query('date_from'));
-        }
-
-        if ($request->filled('date_to')) {
-            $query->where('slaughter_time', '<=', $request->query('date_to').' 23:59:59');
-        }
-
-        if ($request->query('has_items') === '1') {
-            $query->has('executionItems');
-        } elseif ($request->query('has_items') === '0') {
-            $query->doesntHave('executionItems');
-        }
-
-        $executions = $query
-            ->latest('slaughter_time')
-            ->latest('id')
-            ->paginate(20)
-            ->withQueryString();
-
-        $facilities = Facility::query()
-            ->whereIn('id', $facilityIds)
-            ->orderBy('facility_name')
-            ->get(['id', 'facility_name']);
-
-        return view('slaughter-executions.index', compact(
-            'hubStats',
-            'executions',
-            'facilities',
-        ));
+        return $this->hubFiltersAllTime();
     }
 
     public function create(Request $request): View

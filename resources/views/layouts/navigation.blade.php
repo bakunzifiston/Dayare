@@ -27,19 +27,19 @@
                     <x-nav-link :href="route('slaughter-executions.hub')" :active="request()->routeIs('slaughter-executions.*')">
                         {{ __('Slaughter execution') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('batches.index')" :active="request()->routeIs('batches.*')">
+                    <x-nav-link :href="route('batches.hub')" :active="request()->routeIs('batches.*')">
                         {{ __('Batches') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('post-mortem-inspections.index')" :active="request()->routeIs('post-mortem-inspections.*')">
+                    <x-nav-link :href="route('post-mortem-inspections.hub')" :active="request()->routeIs('post-mortem-inspections.*')">
                         {{ __('Post-mortem') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('certificates.index')" :active="request()->routeIs('certificates.*')">
+                    <x-nav-link :href="route('certificates.hub')" :active="request()->routeIs('certificates.*')">
                         {{ __('Certificates') }}
                     </x-nav-link>
                     <x-nav-link :href="route('transport-trips.hub')" :active="request()->routeIs('transport-trips.*')">
                         {{ __('Transport') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('delivery-confirmations.index')" :active="request()->routeIs('delivery-confirmations.*')">
+                    <x-nav-link :href="route('delivery-confirmations.hub')" :active="request()->routeIs('delivery-confirmations.*')">
                         {{ __('Delivery confirmation') }}
                     </x-nav-link>
                     <x-nav-link :href="route('compliance.index')" :active="request()->routeIs('compliance.*')">
@@ -118,19 +118,19 @@
             <x-responsive-nav-link :href="route('slaughter-executions.hub')" :active="request()->routeIs('slaughter-executions.*')">
                 {{ __('Slaughter execution') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('batches.index')" :active="request()->routeIs('batches.*')">
+            <x-responsive-nav-link :href="route('batches.hub')" :active="request()->routeIs('batches.*')">
                 {{ __('Batches') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('post-mortem-inspections.index')" :active="request()->routeIs('post-mortem-inspections.*')">
+            <x-responsive-nav-link :href="route('post-mortem-inspections.hub')" :active="request()->routeIs('post-mortem-inspections.*')">
                 {{ __('Post-mortem') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('certificates.index')" :active="request()->routeIs('certificates.*')">
+            <x-responsive-nav-link :href="route('certificates.hub')" :active="request()->routeIs('certificates.*')">
                 {{ __('Certificates') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('transport-trips.hub')" :active="request()->routeIs('transport-trips.*')">
                 {{ __('Transport') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('delivery-confirmations.index')" :active="request()->routeIs('delivery-confirmations.*')">
+            <x-responsive-nav-link :href="route('delivery-confirmations.hub')" :active="request()->routeIs('delivery-confirmations.*')">
                 {{ __('Delivery confirmation') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('compliance.index')" :active="request()->routeIs('compliance.*')">

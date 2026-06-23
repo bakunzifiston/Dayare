@@ -14,7 +14,7 @@
                 <a href="{{ route('certificates.show', $trip->certificate) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                     {{ __('View certificate') }}
                 </a>
-                <a href="{{ route('transport-trips.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                <a href="{{ route('transport-trips.hub') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('All trips') }}
                 </a>
             </div>

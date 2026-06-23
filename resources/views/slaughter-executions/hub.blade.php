@@ -1,235 +1,195 @@
 @php
+    use App\Models\BusinessUser;
     use App\Models\SlaughterExecution;
 @endphp
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-            {{ __('Slaughter execution') }}
-        </h2>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
+                {{ __('Slaughter execution') }}
+            </h2>
+            <a href="{{ route('slaughter-executions.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
+                {{ __('Record execution') }}
+            </a>
+        </div>
     </x-slot>
 
     <div class="py-10">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
-            @if (session('status'))
-                <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
-            @endif
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="profile-list-shell">
+                @if (session('status'))
+                    <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
+                @endif
 
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <h1 class="text-xl font-medium text-gray-900">{{ __('Slaughter execution') }}</h1>
-                    <p class="text-sm text-gray-500 mt-1 max-w-2xl">
-                        {{ __('Record and track slaughter sessions. Each execution links a slaughter plan to actual animals processed and individual meat yields.') }}
-                    </p>
-                </div>
-                <div class="flex flex-wrap gap-2 shrink-0">
-                    <a href="{{ route('slaughter-executions.index') }}"
-                       class="text-sm px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
-                        {{ __('View all') }}
-                    </a>
-                    <a href="{{ route('slaughter-executions.create') }}"
-                       class="text-sm px-3 py-1.5 rounded border border-gray-800 bg-gray-900 hover:bg-gray-800 text-white">
-                        {{ __('+ New execution') }}
-                    </a>
-                </div>
-            </div>
-
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Total executions') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ number_format($hubStats['total_executions']) }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Animals slaughtered') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ number_format($hubStats['total_slaughtered']) }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Total meat yield') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ number_format($hubStats['total_meat_kg'], 2) }} kg</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Executions today') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['executions_today'] > 0 ? 'text-blue-700' : 'text-slate-900' }}">
-                        {{ number_format($hubStats['executions_today']) }}
-                    </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Plans without execution') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['plans_without_execution'] > 0 ? 'text-amber-700' : 'text-slate-900' }}"
-                       @if ($hubStats['plans_without_execution'] > 0) title="{{ __('Active plans with no execution recorded') }}" @endif>
-                        {{ number_format($hubStats['plans_without_execution']) }}
-                    </p>
-                    @if ($hubStats['plans_without_execution'] > 0)
-                        <p class="mt-0.5 text-xs text-amber-600">{{ __('Sessions awaiting slaughter execution') }}</p>
-                    @endif
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Completed without batch') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['pending_batches'] > 0 ? 'text-red-700' : 'text-slate-900' }}"
-                       @if ($hubStats['pending_batches'] > 0) title="{{ __('Completed executions with no batch created yet') }}" @endif>
-                        {{ number_format($hubStats['pending_batches']) }}
-                    </p>
-                    @if ($hubStats['pending_batches'] > 0)
-                        <p class="mt-0.5 text-xs text-red-600">{{ __('Ready for batch creation') }}</p>
-                    @endif
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                @foreach ([SlaughterExecution::STATUS_SCHEDULED, SlaughterExecution::STATUS_IN_PROGRESS, SlaughterExecution::STATUS_COMPLETED, SlaughterExecution::STATUS_CANCELLED] as $status)
-                    @php
-                        $statusExecutions = $byStatus->get($status, collect());
-                        $badgeClass = match ($status) {
-                            SlaughterExecution::STATUS_SCHEDULED => 'bg-gray-100 text-gray-700',
-                            SlaughterExecution::STATUS_IN_PROGRESS => 'bg-blue-100 text-blue-700',
-                            SlaughterExecution::STATUS_COMPLETED => 'bg-green-100 text-green-700',
-                            SlaughterExecution::STATUS_CANCELLED => 'bg-red-100 text-red-700',
-                            default => 'bg-gray-100 text-gray-700',
-                        };
-                        $label = ucfirst(str_replace('_', ' ', $status));
-                    @endphp
-                    <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="text-sm font-medium text-gray-700">{{ __($label) }}</span>
-                            <span class="text-xs px-2 py-0.5 rounded-full {{ $badgeClass }}">
-                                {{ $statusExecutions->count() }}
-                            </span>
+                <form method="get" action="{{ route('slaughter-executions.hub') }}" class="hub-period-filter">
+                    <div class="hub-period-filter__bar">
+                        <div class="hub-period-filter__toggles" role="group" aria-label="{{ __('Execution period') }}">
+                            @foreach (['all' => __('All'), 'day' => __('Daily'), 'month' => __('Monthly'), 'year' => __('Yearly')] as $periodKey => $periodLabel)
+                                <label class="hub-period-filter__toggle">
+                                    <input type="radio" name="period" value="{{ $periodKey }}" @checked($filters['period'] === $periodKey)>
+                                    <span>{{ $periodLabel }}</span>
+                                </label>
+                            @endforeach
                         </div>
-                        @forelse ($statusExecutions->take(5) as $execution)
-                            <div class="py-2 border-t border-gray-100 first:border-t-0">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="min-w-0">
-                                        <p class="text-sm text-gray-800 truncate">
-                                            {{ __('Plan #:id', ['id' => $execution->slaughter_plan_id]) }}
-                                        </p>
-                                        <p class="text-xs text-gray-400 mt-0.5">
-                                            {{ $execution->slaughter_time->format('d M Y H:i') }}
-                                        </p>
-                                        <p class="text-xs text-gray-500 mt-0.5">
-                                            {{ $execution->slaughterPlan->facility->facility_name ?? '—' }}
-                                        </p>
-                                    </div>
-                                    <div class="text-right flex-shrink-0">
-                                        <p class="text-sm font-medium text-gray-700">
-                                            {{ $execution->actual_animals_slaughtered }}
-                                            <span class="text-xs font-normal text-gray-400">{{ __('animals') }}</span>
-                                        </p>
-                                        @if ($execution->hasPerAnimalSlaughter())
-                                            <p class="text-xs text-gray-500">
-                                                {{ number_format($execution->total_meat_quantity_kg, 1) }} kg
-                                            </p>
-                                        @endif
-                                    </div>
-                                </div>
-                                <div class="flex flex-wrap gap-2 mt-1.5">
-                                    <a href="{{ route('slaughter-executions.show', $execution) }}"
-                                       class="text-xs text-blue-600 hover:underline">{{ __('View') }}</a>
-                                    <a href="{{ route('slaughter-executions.edit', $execution) }}"
-                                       class="text-xs text-gray-500 hover:underline">{{ __('Edit') }}</a>
-                                    @if ($status === SlaughterExecution::STATUS_COMPLETED && $execution->batches->isEmpty() && auth()->user()?->canProcessorPermission(\App\Models\BusinessUser::PERMISSION_CREATE_BATCH))
-                                        <a href="{{ route('batches.create', ['slaughter_execution_id' => $execution->id]) }}"
-                                           class="text-xs text-green-600 hover:underline font-medium">{{ __('Create batch →') }}</a>
-                                    @endif
-                                </div>
-                            </div>
-                        @empty
-                            <p class="text-xs text-gray-400 py-2">{{ __('No :status executions.', ['status' => strtolower($label)]) }}</p>
-                        @endforelse
-                        @if ($statusExecutions->count() > 5)
-                            <a href="{{ route('slaughter-executions.index', ['status' => $status]) }}"
-                               class="block mt-2 text-xs text-blue-600 hover:underline text-center">
-                                {{ __('View all :count →', ['count' => $statusExecutions->count()]) }}
-                            </a>
-                        @endif
-                    </div>
-                @endforeach
-            </div>
 
-            <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <p class="text-sm font-medium text-gray-700">{{ __('Recent executions') }}</p>
-                    <a href="{{ route('slaughter-executions.index') }}"
-                       class="text-xs text-blue-600 hover:underline">{{ __('View all →') }}</a>
-                </div>
-                @forelse ($recentExecutions as $execution)
-                    @php
-                        $dotClass = match ($execution->status) {
-                            SlaughterExecution::STATUS_SCHEDULED => 'bg-gray-400',
-                            SlaughterExecution::STATUS_IN_PROGRESS => 'bg-blue-500',
-                            SlaughterExecution::STATUS_COMPLETED => 'bg-green-500',
-                            SlaughterExecution::STATUS_CANCELLED => 'bg-red-400',
-                            default => 'bg-gray-300',
-                        };
-                    @endphp
-                    <div class="flex items-center gap-4 px-4 py-3 border-b border-gray-100 last:border-b-0">
-                        <div class="w-2 h-2 rounded-full {{ $dotClass }} flex-shrink-0" aria-hidden="true"></div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm text-gray-800">
-                                {{ __('Plan #:id', ['id' => $execution->slaughter_plan_id]) }}
-                                <span class="text-gray-400">·</span>
-                                {{ $execution->slaughterPlan->facility->facility_name ?? '—' }}
-                            </p>
-                            <p class="text-xs text-gray-400">
-                                {{ $execution->slaughter_time->format('d M Y H:i') }}
-                            </p>
+                        <div class="hub-period-filter__range">
+                            <label for="filter_date_from" class="hub-period-filter__range-label">{{ __('From') }}</label>
+                            <input id="filter_date_from" type="date" name="date_from" value="{{ $filters['date_from'] }}" class="hub-period-filter__input" aria-label="{{ __('Date from') }}">
+                            <span class="hub-period-filter__sep" aria-hidden="true">–</span>
+                            <label for="filter_date_to" class="hub-period-filter__range-label">{{ __('To') }}</label>
+                            <input id="filter_date_to" type="date" name="date_to" value="{{ $filters['date_to'] }}" class="hub-period-filter__input" aria-label="{{ __('Date to') }}">
                         </div>
-                        <div class="text-right flex-shrink-0">
-                            <p class="text-sm text-gray-700">
-                                {{ $execution->actual_animals_slaughtered }} {{ __('animals') }}
-                            </p>
-                            @if ($execution->hasPerAnimalSlaughter())
-                                <p class="text-xs text-gray-500">
-                                    {{ number_format($execution->total_meat_quantity_kg, 1) }} kg {{ __('yield') }}
-                                </p>
-                            @else
-                                <p class="text-xs text-gray-400">{{ __('No yield data') }}</p>
+
+                        <div class="hub-period-filter__actions">
+                            <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
+                            @if ($filters['is_filtered'])
+                                <a href="{{ route('slaughter-executions.hub') }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
                             @endif
                         </div>
-                        <a href="{{ route('slaughter-executions.show', $execution) }}"
-                           class="text-xs text-blue-600 hover:underline flex-shrink-0">{{ __('View') }}</a>
                     </div>
-                @empty
-                    <p class="text-sm text-gray-400 px-4 py-6 text-center">
-                        {{ __('No slaughter executions recorded yet.') }}
-                        <a href="{{ route('slaughter-executions.create') }}" class="text-blue-600 hover:underline">
-                            {{ __('Record the first one →') }}
-                        </a>
-                    </p>
-                @endforelse
-            </div>
+                    <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
+                </form>
 
-            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                <a href="{{ route('slaughter-executions.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                <div class="profile-kpi-grid">
+                    <x-entity.kpi-stat :label="$hubStats['executions_label']" :value="number_format($hubStats['total_executions'])" accent>
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Animals slaughtered')" :value="number_format($hubStats['total_slaughtered'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($hubStats['cattle_kg'], 1).' kg'">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Goat')" :value="number_format($hubStats['goat_kg'], 1).' kg'">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Sheep')" :value="number_format($hubStats['sheep_kg'], 1).' kg'">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Total meat yield')" :value="number_format($hubStats['total_meat_kg'], 1).' kg'">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat
+                        :label="__('Executions today')"
+                        :value="number_format($hubStats['executions_today'])"
+                        :accent="$hubStats['executions_today'] > 0"
+                    >
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat
+                        :label="__('Plans without execution')"
+                        :value="number_format($hubStats['plans_without_execution'])"
+                        :accent="$hubStats['plans_without_execution'] > 0"
+                    >
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat
+                        :label="__('Completed without batch')"
+                        :value="number_format($hubStats['pending_batches'])"
+                        :accent="$hubStats['pending_batches'] > 0"
+                    >
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                </div>
+
+                @if ($executions->isEmpty())
+                    <div class="profile-empty">
+                        <p class="mb-4">
+                            {{ $filters['is_filtered'] ? __('No slaughter executions in this period.') : __('No slaughter executions recorded yet.') }}
+                        </p>
+                        <a href="{{ route('slaughter-executions.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                            {{ __('Record first execution') }}
+                        </a>
                     </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('All executions') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Search the full list, open an execution, edit or remove.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open list') }} →</span>
-                </a>
-                <a href="{{ route('slaughter-plans.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                @else
+                    <div class="profile-cards-grid">
+                        @foreach ($executions as $execution)
+                            @php
+                                $plan = $execution->slaughterPlan;
+                                $statusTone = match ($execution->status) {
+                                    SlaughterExecution::STATUS_IN_PROGRESS => 'active',
+                                    SlaughterExecution::STATUS_COMPLETED => 'active',
+                                    SlaughterExecution::STATUS_CANCELLED => 'danger',
+                                    default => 'muted',
+                                };
+                                $statusLabel = ucfirst(str_replace('_', ' ', $execution->status));
+                                $initial = strtoupper(substr($plan?->species ?? 'S', 0, 1));
+                                $meatYield = $execution->hasPerAnimalSlaughter()
+                                    ? number_format($execution->total_meat_quantity_kg, 1).' kg'
+                                    : '—';
+                            @endphp
+                            <x-entity.profile-card>
+                                <x-slot:avatar>{{ $initial }}</x-slot:avatar>
+                                <x-slot:title>
+                                    <a href="{{ route('slaughter-executions.show', $execution) }}">
+                                        {{ __('Plan #:id', ['id' => $execution->slaughter_plan_id]) }}
+                                    </a>
+                                </x-slot:title>
+                                <x-slot:subtitle>{{ $plan?->facility?->facility_name ?? '—' }}</x-slot:subtitle>
+                                <x-slot:badge>
+                                    <x-entity.status-pill :tone="$statusTone" :label="$statusLabel" />
+                                </x-slot:badge>
+
+                                <x-entity.profile-row :label="__('Slaughter time')">{{ $execution->slaughter_time->format('d M Y H:i') }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Species')">{{ $plan?->species ?? '—' }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Intake ref')">
+                                    @if ($plan?->intake?->reference)
+                                        <a href="{{ route('animal-intakes.hub', ['reference' => $plan->intake->reference]) }}" class="font-mono text-xs text-bucha-primary hover:text-bucha-burgundy hover:underline">
+                                            {{ $plan->intake->reference }}
+                                        </a>
+                                    @else
+                                        —
+                                    @endif
+                                </x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Animals slaughtered')">{{ number_format($execution->actual_animals_slaughtered) }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Meat yield')">{{ $meatYield }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Per-animal data')">
+                                    {{ $execution->hasPerAnimalSlaughter() ? __('Yes') : __('No') }}
+                                </x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Batches')">{{ number_format($execution->batches->count()) }}</x-entity.profile-row>
+
+                                <x-slot:highlights>
+                                    <x-entity.profile-highlight :value="number_format($execution->actual_animals_slaughtered)" :label="__('Animals')" />
+                                    <x-entity.profile-highlight
+                                        :value="$execution->hasPerAnimalSlaughter() ? number_format($execution->total_meat_quantity_kg, 1).' kg' : '—'"
+                                        :label="__('Yield')"
+                                    />
+                                </x-slot:highlights>
+
+                                <x-slot:actions>
+                                    <x-entity.text-action :href="route('slaughter-executions.show', $execution)">{{ __('View') }}</x-entity.text-action>
+                                    <x-entity.text-action :href="route('slaughter-executions.edit', $execution)">{{ __('Edit') }}</x-entity.text-action>
+                                    @if ($execution->status === SlaughterExecution::STATUS_COMPLETED && $execution->batches->isEmpty() && auth()->user()?->canProcessorPermission(BusinessUser::PERMISSION_CREATE_BATCH))
+                                        <x-entity.text-action :href="route('batches.create', ['slaughter_execution_id' => $execution->id])">{{ __('Create batch') }}</x-entity.text-action>
+                                    @endif
+                                    <x-entity.text-action-delete
+                                        :action="route('slaughter-executions.destroy', $execution)"
+                                        :confirm="__('Are you sure you want to delete this slaughter execution? This cannot be undone.')"
+                                    >{{ __('Delete') }}</x-entity.text-action-delete>
+                                </x-slot:actions>
+                            </x-entity.profile-card>
+                        @endforeach
                     </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Slaughter planning') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Executions are recorded against approved slaughter plans.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Planning home') }} →</span>
-                </a>
-                <a href="{{ route('batches.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                    </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Batches') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Create batches from completed executions for post-mortem.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Batches home') }} →</span>
-                </a>
-                <a href="{{ route('ante-mortem-inspections.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                    </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Ante-mortem') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Pre-slaughter inspection must pass before execution.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open ante-mortem') }} →</span>
-                </a>
+                    <div class="mt-4">{{ $executions->links() }}</div>
+                @endif
             </div>
         </div>
     </div>

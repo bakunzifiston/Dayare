@@ -1,5 +1,4 @@
 @php
-    use App\Models\AnimalIntake;
     use App\Models\AnteMortemInspection;
 @endphp
 <x-app-layout>
@@ -20,116 +19,92 @@
                 <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
 
-            <div class="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/80 px-6 py-8 sm:px-10 sm:py-9 shadow-sm">
-                <p class="text-sm font-semibold uppercase tracking-wide text-bucha-primary">{{ __('Module') }}</p>
-                <h1 class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
-                    {{ __('Ante-mortem inspection hub') }}
-                </h1>
-                <p class="mt-3 text-slate-600 leading-relaxed max-w-2xl">
-                    {{ __('Review ante-mortem records by slaughter session, filter by facility or inspector, and drill into per-animal outcomes.') }}
-                </p>
-            </div>
+            <form method="get" action="{{ route('ante-mortem-inspections.index') }}" class="hub-period-filter">
+                <div class="hub-period-filter__bar">
+                    <div class="hub-period-filter__toggles" role="group" aria-label="{{ __('Inspection period') }}">
+                        @foreach (['all' => __('All'), 'day' => __('Daily'), 'month' => __('Monthly'), 'year' => __('Yearly')] as $periodKey => $periodLabel)
+                            <label class="hub-period-filter__toggle">
+                                <input type="radio" name="period" value="{{ $periodKey }}" @checked($filters['period'] === $periodKey)>
+                                <span>{{ $periodLabel }}</span>
+                            </label>
+                        @endforeach
+                    </div>
 
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Total inspections') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ number_format($hubStats['total_inspections']) }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Animals examined') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ number_format($hubStats['animals_examined']) }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Rejected this week') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['rejected_this_week'] > 0 ? 'text-red-700' : 'text-slate-900' }}">
-                        {{ number_format($hubStats['rejected_this_week']) }}
-                    </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Plans without AM') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['plans_without_am'] > 0 ? 'text-amber-700' : 'text-slate-900' }}"
-                       @if ($hubStats['plans_without_am'] > 0) title="{{ __('Active plans with no ante-mortem inspection recorded') }}" @endif>
-                        {{ number_format($hubStats['plans_without_am']) }}
-                    </p>
-                    @if ($hubStats['plans_without_am'] > 0)
-                        <p class="mt-0.5 text-xs text-amber-600">{{ __('Sessions awaiting ante-mortem') }}</p>
-                    @endif
-                </div>
-            </div>
+                    <div class="hub-period-filter__range">
+                        <label for="filter_date_from" class="hub-period-filter__range-label">{{ __('From') }}</label>
+                        <input id="filter_date_from" type="date" name="date_from" value="{{ $filters['date_from'] }}" class="hub-period-filter__input" aria-label="{{ __('Date from') }}">
+                        <span class="hub-period-filter__sep" aria-hidden="true">–</span>
+                        <label for="filter_date_to" class="hub-period-filter__range-label">{{ __('To') }}</label>
+                        <input id="filter_date_to" type="date" name="date_to" value="{{ $filters['date_to'] }}" class="hub-period-filter__input" aria-label="{{ __('Date to') }}">
+                    </div>
 
-            <form method="get" action="{{ route('ante-mortem-inspections.index') }}" class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-                    <div>
-                        <label for="filter_facility_id" class="block text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Facility') }}</label>
-                        <select id="filter_facility_id" name="facility_id" class="mt-1 block w-full rounded-md border-slate-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
-                            <option value="">{{ __('All') }}</option>
-                            @foreach ($facilities as $facility)
-                                <option value="{{ $facility->id }}" @selected((string) request('facility_id') === (string) $facility->id)>{{ $facility->facility_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label for="filter_species" class="block text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Species') }}</label>
-                        <select id="filter_species" name="species" class="mt-1 block w-full rounded-md border-slate-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
-                            <option value="">{{ __('All') }}</option>
-                            @foreach (AnimalIntake::SPECIES_OPTIONS as $speciesOption)
-                                <option value="{{ $speciesOption }}" @selected(request('species') === $speciesOption)>{{ __($speciesOption) }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label for="filter_inspector_id" class="block text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Inspector') }}</label>
-                        <select id="filter_inspector_id" name="inspector_id" class="mt-1 block w-full rounded-md border-slate-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
-                            <option value="">{{ __('All') }}</option>
-                            @foreach ($inspectors as $inspector)
-                                <option value="{{ $inspector->id }}" @selected((string) request('inspector_id') === (string) $inspector->id)>{{ $inspector->full_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label for="filter_date_from" class="block text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Date from') }}</label>
-                        <input id="filter_date_from" type="date" name="date_from" value="{{ request('date_from') }}"
-                               class="mt-1 block w-full rounded-md border-slate-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
-                    </div>
-                    <div>
-                        <label for="filter_date_to" class="block text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Date to') }}</label>
-                        <input id="filter_date_to" type="date" name="date_to" value="{{ request('date_to') }}"
-                               class="mt-1 block w-full rounded-md border-slate-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
-                    </div>
-                    <div>
-                        <label for="filter_count_source" class="block text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Count source') }}</label>
-                        <select id="filter_count_source" name="count_source" class="mt-1 block w-full rounded-md border-slate-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary shadow-sm">
-                            <option value="">{{ __('All') }}</option>
-                            <option value="{{ AnteMortemInspection::SOURCE_MANUAL }}" @selected(request('count_source') === AnteMortemInspection::SOURCE_MANUAL)>{{ __('Manual') }}</option>
-                            <option value="{{ AnteMortemInspection::SOURCE_ITEMS }}" @selected(request('count_source') === AnteMortemInspection::SOURCE_ITEMS)>{{ __('From assigned items') }}</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="mt-4 flex flex-wrap items-center gap-4">
-                    <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-                        <input type="checkbox" name="has_rejections" value="1" @checked(request()->boolean('has_rejections'))
-                               class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary">
-                        {{ __('Show only inspections with rejected animals') }}
-                    </label>
-                    <div class="flex items-center gap-2 ml-auto">
-                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                            {{ __('Apply') }}
-                        </button>
-                        @if (request()->hasAny(['facility_id', 'species', 'inspector_id', 'date_from', 'date_to', 'count_source', 'has_rejections']))
-                            <a href="{{ route('ante-mortem-inspections.index') }}" class="inline-flex items-center px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900">{{ __('Clear') }}</a>
+                    <div class="hub-period-filter__actions">
+                        <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
+                        @if ($filters['is_filtered'])
+                            <a href="{{ route('ante-mortem-inspections.index') }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
                         @endif
                     </div>
                 </div>
+                <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
             </form>
+
+            {{-- Summary KPI bar --}}
+            <div class="profile-kpi-grid">
+                <x-entity.kpi-stat :label="$hubStats['inspections_label']" :value="number_format($hubStats['total_inspections'])" accent>
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Animals examined')" :value="number_format($hubStats['animals_examined'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($hubStats['cattle_count'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Goat')" :value="number_format($hubStats['goat_count'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Sheep')" :value="number_format($hubStats['sheep_count'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat
+                    :label="$hubStats['rejected_label']"
+                    :value="number_format($hubStats['rejected_count'])"
+                    :accent="$hubStats['rejected_count'] > 0"
+                >
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat
+                    :label="__('Plans without AM')"
+                    :value="number_format($hubStats['plans_without_am'])"
+                    :accent="$hubStats['plans_without_am'] > 0"
+                >
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+            </div>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
                 @if ($inspections->isEmpty())
-                    <p class="text-sm text-gray-500 py-8 text-center">
-                        {{ __('No ante-mortem inspections found.') }}
-                        @if (request()->hasAny(['facility_id', 'species', 'inspector_id', 'date_from', 'date_to', 'count_source', 'has_rejections']))
-                            {{ __('Try clearing the filters.') }}
-                        @endif
-                    </p>
+                    <div class="p-8 text-center text-slate-600">
+                        <p class="mb-4">
+                            {{ $filters['is_filtered'] ? __('No ante-mortem inspections in this period.') : __('No ante-mortem inspections recorded yet.') }}
+                        </p>
+                        <a href="{{ route('ante-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                            {{ __('Record first inspection') }}
+                        </a>
+                    </div>
                 @else
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -260,7 +235,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="px-4 py-3 border-t border-slate-100">{{ $inspections->withQueryString()->links() }}</div>
+                    <div class="px-4 py-3 border-t border-slate-100">{{ $inspections->links() }}</div>
                 @endif
             </div>
         </div>

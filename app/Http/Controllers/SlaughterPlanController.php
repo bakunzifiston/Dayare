@@ -11,6 +11,7 @@ use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\SlaughterPlan;
 use App\Services\Processor\SlaughterPlanAssignmentService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -101,30 +102,31 @@ class SlaughterPlanController extends Controller
     public function hub(Request $request): View
     {
         $facilityIds = $this->userFacilityIds($request);
-        $base = SlaughterPlan::query()->whereIn('facility_id', $facilityIds);
+        $filters = $this->resolveHubFilters($request);
+
+        $scopePlans = function ($query) use ($facilityIds, $filters): void {
+            $query->whereIn('facility_id', $facilityIds);
+            if ($filters['is_filtered']) {
+                $query->whereDate('slaughter_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('slaughter_date', '<=', $filters['end']->toDateString());
+            }
+        };
+
+        $base = SlaughterPlan::query()->where($scopePlans);
 
         $totalPlans = (clone $base)->count();
-        $plannedCount = (clone $base)->where('status', SlaughterPlan::STATUS_PLANNED)->count();
         $approvedCount = (clone $base)->where('status', SlaughterPlan::STATUS_APPROVED)->count();
         $plansWithExecutionsCount = (clone $base)->has('slaughterExecutions')->count();
-        $totalAnimalsScheduled = (int) (clone $base)->sum('number_of_animals_scheduled');
-
-        $approvedAnimalIntakesCount = AnimalIntake::query()
-            ->whereIn('facility_id', $facilityIds)
-            ->plannableForSlaughter()
-            ->count();
 
         $hubStats = [
-            'animals_scheduled' => (int) SlaughterPlan::whereIn('facility_id', $facilityIds)
-                ->whereNotIn('status', ['executed'])
-                ->sum('number_of_animals_scheduled'),
-            'assignment_gap_count' => SlaughterPlan::whereIn('facility_id', $facilityIds)
-                ->withAssignmentGap()
-                ->count(),
+            'plans_label' => $filters['plans_label'],
+            'cattle_count' => (int) (clone $base)->where('species', SlaughterPlan::SPECIES_CATTLE)->sum('number_of_animals_scheduled'),
+            'goat_count' => (int) (clone $base)->where('species', SlaughterPlan::SPECIES_GOAT)->sum('number_of_animals_scheduled'),
+            'sheep_count' => (int) (clone $base)->where('species', SlaughterPlan::SPECIES_SHEEP)->sum('number_of_animals_scheduled'),
         ];
 
         $plans = SlaughterPlan::query()
-            ->whereIn('facility_id', $facilityIds)
+            ->where($scopePlans)
             ->with([
                 'facility',
                 'inspector',
@@ -132,18 +134,156 @@ class SlaughterPlanController extends Controller
                 'assignedItems' => fn ($q) => $q->orderBy('id'),
             ])
             ->latest('slaughter_date')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         return view('slaughter-plans.hub', compact(
             'totalPlans',
-            'plannedCount',
             'approvedCount',
             'plansWithExecutionsCount',
-            'totalAnimalsScheduled',
-            'approvedAnimalIntakesCount',
             'hubStats',
             'plans',
+            'filters',
         ));
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     plans_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'plans_label' => __('Total plans'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
+
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, plans_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
+
+        [$start, $end, $rangeLabel, $plansLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Plans today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Plans this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Plans this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'plans_label' => $plansLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     plans_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'plans_label' => __('Plans in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'plans_label' => $preset['plans_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->hubFiltersAllTime();
     }
 
     public function index(Request $request): View

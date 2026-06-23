@@ -13,6 +13,7 @@ use App\Models\ColdRoom;
 use App\Models\ColdRoomStandard;
 use App\Models\ColdRoomViolation;
 use App\Models\DeliveryConfirmation;
+use App\Models\Facility;
 use App\Models\FinanceInvoice;
 use App\Models\FinancePayable;
 use App\Models\Inspector;
@@ -22,14 +23,17 @@ use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
 use App\Models\TransportTrip;
 use App\Models\User;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProcessorDashboardService
 {
-    public function buildForRole(int $businessId, string $role, ?User $user = null): array
+    public function buildForRole(int $businessId, string $role, ?User $user = null, ?Request $request = null): array
     {
         $ctx = ProcessorDashboardContext::forBusiness($businessId);
+        $filters = $this->resolveDashboardFilters($request ?? request());
 
         $data = match ($role) {
             BusinessUser::ROLE_OPERATIONS_MANAGER => $this->buildOpsManager($ctx),
@@ -37,14 +41,21 @@ class ProcessorDashboardService
             BusinessUser::ROLE_INSPECTOR => $this->buildInspector($ctx, $user),
             BusinessUser::ROLE_TRANSPORT_MANAGER => $this->buildTransportManager($ctx),
             BusinessUser::ROLE_ACCOUNTANT => $this->buildAccountant($businessId, $ctx),
-            default => $this->buildOrgAdmin($ctx),
+            default => $this->buildOrgAdmin($ctx, $user, $filters),
         };
 
         $data['charts'] = app(ProcessorDashboardCharts::class)->forRole(
             (string) $data['roleKey'],
             $ctx,
             $businessId,
+            ($data['roleKey'] ?? '') === BusinessUser::ROLE_ORG_ADMIN ? $filters : null,
+            ($data['roleKey'] ?? '') === BusinessUser::ROLE_ORG_ADMIN ? $user : null,
         );
+
+        if (($data['roleKey'] ?? '') === BusinessUser::ROLE_ORG_ADMIN) {
+            $data['filters'] = $filters;
+            $data['showPeriodFilter'] = true;
+        }
 
         return $data;
     }
@@ -66,57 +77,79 @@ class ProcessorDashboardService
             ->all();
     }
 
-    private function buildOrgAdmin(ProcessorDashboardContext $ctx): array
+    private function buildOrgAdmin(ProcessorDashboardContext $ctx, ?User $user, array $filters): array
     {
-        $animalsToday = $this->animalsInIntake($ctx);
-        $animalsLastWeek = $this->animalsInIntakeSameDayLastWeek($ctx);
-        $wowPct = $this->percentChange($animalsToday, $animalsLastWeek);
-
         $batchStats = $this->batchCertificationStats($ctx);
-        $openCompliance = $this->openComplianceIssuesCount($ctx);
-        $criticalIssues = $this->criticalComplianceCount($ctx);
-        $onTimeRate = $this->onTimeDeliveryRate($ctx);
-        $revenueMtd = $this->revenueMtd($ctx->businessId);
-        $revenueLastMonth = $this->revenueForMonth($ctx->businessId, now()->subMonth());
-        $revenueMom = $this->percentChange($revenueMtd, $revenueLastMonth);
-
         $coldViolations = $this->openColdViolationsCount($ctx);
-        $delayedPlans = $this->overduePlansCount($ctx);
-        $pendingDeliveries = $this->pendingDeliveries($ctx);
         $pmPending = $batchStats['pmPending'];
+
+        $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
+        $facilityIds = Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
+        $planIds = SlaughterPlan::query()->whereIn('facility_id', $facilityIds)->pluck('id');
+
+        $executionScope = SlaughterExecution::query()
+            ->whereIn('slaughter_plan_id', $planIds)
+            ->where('status', SlaughterExecution::STATUS_COMPLETED);
+
+        if ($filters['is_filtered']) {
+            $executionScope
+                ->whereDate('slaughter_time', '>=', $filters['start']->toDateString())
+                ->whereDate('slaughter_time', '<=', $filters['end']->toDateString());
+        }
+
+        $totalExecuted = (int) (clone $executionScope)->sum('actual_animals_slaughtered');
+
+        $speciesCounts = SlaughterExecution::query()
+            ->join('slaughter_plans', 'slaughter_plans.id', '=', 'slaughter_executions.slaughter_plan_id')
+            ->whereIn('slaughter_executions.slaughter_plan_id', $planIds)
+            ->where('slaughter_executions.status', SlaughterExecution::STATUS_COMPLETED)
+            ->when($filters['is_filtered'], function ($query) use ($filters) {
+                $query->whereDate('slaughter_executions.slaughter_time', '>=', $filters['start']->toDateString())
+                    ->whereDate('slaughter_executions.slaughter_time', '<=', $filters['end']->toDateString());
+            })
+            ->groupBy('slaughter_plans.species')
+            ->selectRaw('slaughter_plans.species as species, SUM(slaughter_executions.actual_animals_slaughtered) as total')
+            ->pluck('total', 'species');
+
+        $cattleExecuted = $this->slaughterSpeciesCount($speciesCounts, SlaughterPlan::SPECIES_CATTLE);
+        $goatExecuted = $this->slaughterSpeciesCount($speciesCounts, SlaughterPlan::SPECIES_GOAT);
+        $sheepExecuted = $this->slaughterSpeciesCount($speciesCounts, SlaughterPlan::SPECIES_SHEEP);
+
+        $totalInspectors = (int) Inspector::query()
+            ->whereIn('facility_id', $facilityIds)
+            ->where('status', Inspector::STATUS_ACTIVE)
+            ->count();
+
+        $speciesHint = collect([
+            SlaughterPlan::SPECIES_CATTLE => __('Cattle'),
+            SlaughterPlan::SPECIES_GOAT => __('Goat'),
+            SlaughterPlan::SPECIES_SHEEP => __('Sheep'),
+        ])->map(fn (string $label, string $species) => $label.': '.number_format($this->slaughterSpeciesCount($speciesCounts, $species)))
+            ->implode(' · ');
+
+        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
+
+        $kpiCards = [
+            $this->kpi(__('Total businesses'), $businessIds->count(), __('Across your access'), 'info', 'building'),
+            $this->kpi(__('Total facilities'), $facilityIds->count(), __('Registered sites'), 'info', 'map-pin'),
+            $this->kpi($filters['executions_label'], $totalExecuted, $speciesHint, $totalExecuted > 0 ? 'positive' : 'info', 'box'),
+            $this->kpi(__('Cattle'), $cattleExecuted, $periodHint, 'info', 'box'),
+            $this->kpi(__('Goat'), $goatExecuted, $periodHint, 'info', 'box'),
+            $this->kpi(__('Sheep'), $sheepExecuted, $periodHint, 'info', 'box'),
+            $this->kpi(__('Total inspectors'), $totalInspectors, __('Active inspectors'), 'info', 'users'),
+        ];
 
         return [
             'roleKey' => BusinessUser::ROLE_ORG_ADMIN,
             'headerBadge' => ['label' => __('Full access'), 'variant' => 'info'],
             'insight' => $this->orgAdminInsight($ctx, $coldViolations, $batchStats, $pmPending),
-            'kpiCards' => [
-                $this->kpi(__('Animals today'), $animalsToday, ($wowPct >= 0 ? '+' : '').$wowPct.'% '.__('wow'), $wowPct >= 0 ? 'positive' : 'negative'),
-                $this->kpi(__('Batches certified'), $batchStats['certified'].'/'.$batchStats['total'], __(':count pending PM', ['count' => $pmPending]), $batchStats['rate'] >= 90 ? 'positive' : 'warning'),
-                $this->kpi(__('On-time delivery rate'), $onTimeRate.'%', '-5% '.__('mom'), 'negative'),
-                $this->kpi(__('Open compliance issues'), $openCompliance, __(':count critical', ['count' => $criticalIssues]), $criticalIssues > 0 ? 'warning' : 'info'),
-                $this->kpi(__('Revenue MTD'), $this->formatMillions($revenueMtd), ($revenueMom >= 0 ? '+' : '').$revenueMom.'% '.__('mom'), $revenueMom >= 0 ? 'positive' : 'negative'),
-            ],
-            'leftPanel' => [
-                'title' => __('Module overview'),
-                'subtitle' => __('Cross-module health at a glance'),
-                'type' => 'module_rows',
-                'items' => [
-                    $this->moduleRow(__('Operations'), __('Intake, slaughter, batches'), 'box', 'animal-intakes.hub', $delayedPlans > 0 ? 'warning' : 'healthy', __('Operations healthy')),
-                    $this->moduleRow(__('Cold chain'), __('Storage and temperature'), 'temperature', 'cold-rooms.hub', $coldViolations > 0 ? 'action_needed' : 'on_track', $coldViolations > 0 ? __('Cold chain warning') : __('On track')),
-                    $this->moduleRow(__('Transport'), __('Trips and deliveries'), 'truck', 'transport-trips.hub', $pendingDeliveries > 0 ? 'warning' : 'healthy', __('Transport on-track')),
-                    $this->moduleRow(__('Compliance'), __('Licenses and inspections'), 'shield', 'compliance.index', $openCompliance > 0 ? 'action_needed' : 'healthy', $openCompliance > 0 ? __('Compliance action-needed') : __('Healthy')),
-                ],
-            ],
-            'rightPanel' => [
-                'title' => __('Alerts'),
-                'subtitle' => __('Items requiring attention'),
-                'type' => 'alerts',
-                'items' => $this->standardAlerts($ctx),
-            ],
+            'kpiCards' => $kpiCards,
+            'leftPanel' => $this->recentReceivedAnimalsPanel($user, $ctx),
+            'rightPanel' => $this->recentSlaughteredPanel($user, $ctx),
             'quickActions' => [
                 $this->action(__('Manage users'), 'users', 'tenant-users.index', BusinessUser::PERMISSION_MANAGE_BUSINESS_USERS),
                 $this->action(__('Compliance'), 'shield', 'compliance.index', BusinessUser::PERMISSION_MONITOR_COMPLIANCE_METRICS),
-                $this->action(__('Track deliveries'), 'truck', 'transport-trips.index', BusinessUser::PERMISSION_TRACK_DELIVERY_STATUS),
+                $this->action(__('Track deliveries'), 'truck', 'transport-trips.hub', BusinessUser::PERMISSION_TRACK_DELIVERY_STATUS),
                 $this->action(__('Finance'), 'currency-dollar', 'finance.dashboard', BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD),
                 $this->action(__('Businesses'), 'building', 'businesses.hub', BusinessUser::PERMISSION_VIEW_ALL_MODULES),
                 $this->action(__('CRM'), 'layout-dashboard', 'crm.dashboard', BusinessUser::PERMISSION_VIEW_ALL_MODULES),
@@ -157,22 +190,22 @@ class ProcessorDashboardService
             'headerBadge' => ['label' => __('Operations only'), 'variant' => 'neutral'],
             'insight' => $this->opsManagerInsight($ctx, $blockedPlan, $antePending, $batchesToday - $batchesCertified),
             'kpiCards' => [
-                $this->kpi(__('Animals in intake'), $intakeCount, __(':count plans active', ['count' => $plansActive]), 'info'),
-                $this->kpi(__('Plans scheduled'), $plansToday, __(':count AM pending', ['count' => $antePending]), $antePending > 0 ? 'warning' : 'positive'),
-                $this->kpi(__('Batches today'), $batchesToday, __(':count certified', ['count' => $batchesCertified]), 'positive'),
-                $this->kpi(__('Inspector coverage'), $coveragePct.'%', __(':assigned/:total assigned', ['assigned' => $inspectorsOnDuty, 'total' => $inspectorTotal]), $coveragePct >= 75 ? 'positive' : 'warning'),
-                $this->kpi(__('Throughput efficiency'), '82%', '-3% '.__('wow'), 'negative'),
+                $this->kpi(__('Animals in intake'), $intakeCount, __(':count plans active', ['count' => $plansActive]), 'info', 'box'),
+                $this->kpi(__('Plans scheduled'), $plansToday, __(':count AM pending', ['count' => $antePending]), $antePending > 0 ? 'warning' : 'positive', 'calendar'),
+                $this->kpi(__('Batches today'), $batchesToday, __(':count certified', ['count' => $batchesCertified]), 'positive', 'box'),
+                $this->kpi(__('Inspector coverage'), $coveragePct.'%', __(':assigned/:total assigned', ['assigned' => $inspectorsOnDuty, 'total' => $inspectorTotal]), $coveragePct >= 75 ? 'positive' : 'warning', 'users'),
+                $this->kpi(__('Throughput efficiency'), '82%', '-3% '.__('wow'), 'negative', 'chart-line'),
             ],
             'leftPanel' => [
                 'title' => __('Slaughter pipeline'),
                 'subtitle' => __("Today's operational flow"),
                 'type' => 'pipeline',
                 'items' => [
-                    $this->pipelineStep(__('Intake'), 'arrow-down', $intakeCount, 'animal-intakes.index'),
+                    $this->pipelineStep(__('Intake'), 'arrow-down', $intakeCount, 'animal-intakes.hub'),
                     $this->pipelineStep(__('Plans'), 'calendar', $plansActive, 'slaughter-plans.index'),
                     $this->pipelineStep(__('Ante-mortem'), 'clipboard-list', $antePending, 'ante-mortem-inspections.index'),
-                    $this->pipelineStep(__('Executions'), 'player-play', $executionsToday, 'slaughter-executions.index'),
-                    $this->pipelineStep(__('Batches'), 'box', $batchesToday, 'batches.index'),
+                    $this->pipelineStep(__('Executions'), 'player-play', $executionsToday, 'slaughter-executions.hub'),
+                    $this->pipelineStep(__('Batches'), 'box', $batchesToday, 'batches.hub'),
                 ],
             ],
             'rightPanel' => [
@@ -186,8 +219,8 @@ class ProcessorDashboardService
                 $this->action(__('Plan slaughter'), 'calendar', 'slaughter-plans.create', BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER),
                 $this->action(__('New batch'), 'box', 'batches.create', BusinessUser::PERMISSION_CREATE_BATCH),
                 $this->action(__('Assign inspector'), 'user', 'inspectors.hub', BusinessUser::PERMISSION_ASSIGN_BATCH_TO_INSPECTOR),
-                $this->action(__('Certificates'), 'certificate', 'certificates.index', BusinessUser::PERMISSION_VIEW_CERTIFICATES),
-                $this->action(__('Executions'), 'player-play', 'slaughter-executions.index', BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER),
+                $this->action(__('Certificates'), 'certificate', 'certificates.hub', BusinessUser::PERMISSION_VIEW_CERTIFICATES),
+                $this->action(__('Executions'), 'player-play', 'slaughter-executions.hub', BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER),
             ],
         ];
     }
@@ -211,11 +244,11 @@ class ProcessorDashboardService
             'headerBadge' => ['label' => __('Compliance + temperature'), 'variant' => 'warning'],
             'insight' => $this->complianceInsight($ctx, $complianceScore, $breachRoom, $checklistsDue),
             'kpiCards' => [
-                $this->kpi(__('Open issues'), $openIssues, __(':count critical', ['count' => $criticalIssues]), $criticalIssues > 0 ? 'warning' : 'info'),
-                $this->kpi(__('Checklists due today'), $checklistsDue, __('Inspections pending'), $checklistsDue > 0 ? 'warning' : 'positive'),
-                $this->kpi(__('Temp violations'), $tempViolations, $breachRoom ? __('Cold room :room', ['room' => $breachRoom]) : __('No breaches'), $tempViolations > 0 ? 'negative' : 'positive'),
-                $this->kpi(__('Compliance score'), $complianceScore.'%', __('target 95%'), $complianceScore >= 95 ? 'positive' : 'warning'),
-                $this->kpi(__('Evidence uploads this week'), $evidenceCount, __('Submitted files'), 'info'),
+                $this->kpi(__('Open issues'), $openIssues, __(':count critical', ['count' => $criticalIssues]), $criticalIssues > 0 ? 'warning' : 'info', 'alert-triangle'),
+                $this->kpi(__('Checklists due today'), $checklistsDue, __('Inspections pending'), $checklistsDue > 0 ? 'warning' : 'positive', 'clipboard-list'),
+                $this->kpi(__('Temp violations'), $tempViolations, $breachRoom ? __('Cold room :room', ['room' => $breachRoom]) : __('No breaches'), $tempViolations > 0 ? 'negative' : 'positive', 'temperature'),
+                $this->kpi(__('Compliance score'), $complianceScore.'%', __('target 95%'), $complianceScore >= 95 ? 'positive' : 'warning', 'shield'),
+                $this->kpi(__('Evidence uploads this week'), $evidenceCount, __('Submitted files'), 'info', 'clipboard'),
             ],
             'leftPanel' => [
                 'title' => __('Cold room status'),
@@ -292,11 +325,11 @@ class ProcessorDashboardService
             'headerBadge' => ['label' => __('Own workload'), 'variant' => 'success'],
             'insight' => $this->inspectorInsight($ctx, $inspectorId),
             'kpiCards' => [
-                $this->kpi(__('Assigned batches'), $assignedBatches, __(':count awaiting PM', ['count' => $pmPendingBatches]), 'info'),
-                $this->kpi(__('AM inspections'), $amToday, __(':count complete', ['count' => $amComplete]), 'positive'),
-                $this->kpi(__('PM inspections'), $pmToday, __(':count complete', ['count' => $pmComplete]), 'positive'),
-                $this->kpi(__('Certs issued today'), $certsToday, __('Issued today'), 'positive'),
-                $this->kpi(__('Rejection rate'), $rejectionRate.'%', __(':count batch', ['count' => $rejectedBatches]), $rejectionRate > 10 ? 'warning' : 'info'),
+                $this->kpi(__('Assigned batches'), $assignedBatches, __(':count awaiting PM', ['count' => $pmPendingBatches]), 'info', 'box'),
+                $this->kpi(__('AM inspections'), $amToday, __(':count complete', ['count' => $amComplete]), 'positive', 'clipboard-list'),
+                $this->kpi(__('PM inspections'), $pmToday, __(':count complete', ['count' => $pmComplete]), 'positive', 'clipboard-list'),
+                $this->kpi(__('Certs issued today'), $certsToday, __('Issued today'), 'positive', 'certificate'),
+                $this->kpi(__('Rejection rate'), $rejectionRate.'%', __(':count batch', ['count' => $rejectedBatches]), $rejectionRate > 10 ? 'warning' : 'info', 'alert-triangle'),
             ],
             'leftPanel' => [
                 'title' => __('Inspection queue'),
@@ -314,7 +347,7 @@ class ProcessorDashboardService
                 $this->action(__('Record AM'), 'clipboard-list', 'ante-mortem-inspections.create', BusinessUser::PERMISSION_RECORD_ANTE_MORTEM),
                 $this->action(__('Record PM'), 'clipboard', 'post-mortem-inspections.create', BusinessUser::PERMISSION_RECORD_POST_MORTEM),
                 $this->action(__('Issue certificate'), 'certificate', 'certificates.create', BusinessUser::PERMISSION_ISSUE_CERTIFICATE),
-                $this->action(__('My batches'), 'box', 'batches.index', BusinessUser::PERMISSION_VIEW_ASSIGNED_BATCHES),
+                $this->action(__('My batches'), 'box', 'batches.hub', BusinessUser::PERMISSION_VIEW_ASSIGNED_BATCHES),
                 $this->action(__('All inspections'), 'clipboard-list', 'ante-mortem-inspections.index', BusinessUser::PERMISSION_VIEW_INSPECTIONS),
                 $this->action(__('Export certs'), 'certificate', 'certificates.export', BusinessUser::PERMISSION_VIEW_CERTIFICATES),
             ],
@@ -362,11 +395,11 @@ class ProcessorDashboardService
             'headerBadge' => ['label' => __('Transport + delivery'), 'variant' => 'info'],
             'insight' => $this->transportInsight($ctx, $exportDocsMissing),
             'kpiCards' => [
-                $this->kpi(__('Active trips'), $activeTrips, __(':count en route', ['count' => $enRoute]), 'info'),
-                $this->kpi(__('Confirmed today'), $confirmedToday, __(':count unconfirmed', ['count' => $unconfirmedToday]), $unconfirmedToday > 0 ? 'warning' : 'positive'),
-                $this->kpi(__('Export docs missing'), $exportDocsMissing, __('Nairobi trip'), $exportDocsMissing > 0 ? 'warning' : 'positive'),
-                $this->kpi(__('On-time rate'), $onTimeRate.'%', '-5% '.__('mom'), 'negative'),
-                $this->kpi(__('Confirmed MTD'), $confirmedMtd, '+'.max(0, $confirmedMtd - $confirmedLastMonth).' '.__('vs last month'), 'positive'),
+                $this->kpi(__('Active trips'), $activeTrips, __(':count en route', ['count' => $enRoute]), 'info', 'truck'),
+                $this->kpi(__('Confirmed today'), $confirmedToday, __(':count unconfirmed', ['count' => $unconfirmedToday]), $unconfirmedToday > 0 ? 'warning' : 'positive', 'check'),
+                $this->kpi(__('Export docs missing'), $exportDocsMissing, __('Nairobi trip'), $exportDocsMissing > 0 ? 'warning' : 'positive', 'clipboard'),
+                $this->kpi(__('On-time rate'), $onTimeRate.'%', '-5% '.__('mom'), 'negative', 'clock'),
+                $this->kpi(__('Confirmed MTD'), $confirmedMtd, '+'.max(0, $confirmedMtd - $confirmedLastMonth).' '.__('vs last month'), 'positive', 'calendar'),
             ],
             'leftPanel' => [
                 'title' => __('Active trips'),
@@ -382,10 +415,10 @@ class ProcessorDashboardService
             ],
             'quickActions' => [
                 $this->action(__('New trip'), 'truck', 'transport-trips.create', BusinessUser::PERMISSION_CREATE_TRANSPORT_TRIP),
-                $this->action(__('Dispatch'), 'truck', 'transport-trips.index', BusinessUser::PERMISSION_DISPATCH_DELIVERY),
+                $this->action(__('Dispatch'), 'truck', 'transport-trips.hub', BusinessUser::PERMISSION_DISPATCH_DELIVERY),
                 $this->action(__('Confirm delivery'), 'check', 'delivery-confirmations.create', BusinessUser::PERMISSION_CONFIRM_DELIVERY),
-                $this->action(__('Export docs'), 'clipboard', 'delivery-confirmations.index', BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS),
-                $this->action(__('Track all'), 'truck', 'transport-trips.index', BusinessUser::PERMISSION_TRACK_DELIVERY_STATUS),
+                $this->action(__('Export docs'), 'clipboard', 'delivery-confirmations.hub', BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS),
+                $this->action(__('Track all'), 'truck', 'transport-trips.hub', BusinessUser::PERMISSION_TRACK_DELIVERY_STATUS),
                 $this->action(__('Export records'), 'clipboard-list', 'transport-trips.export', BusinessUser::PERMISSION_EXPORT_RECORDS),
             ],
         ];
@@ -430,11 +463,11 @@ class ProcessorDashboardService
             'headerBadge' => ['label' => __('Finance only'), 'variant' => 'finance'],
             'insight' => $this->accountantInsight($businessId, $collectionRate, $arOverdue),
             'kpiCards' => [
-                $this->kpi(__('AR outstanding'), $fmt($arOutstanding), __(':count overdue', ['count' => $arOverdue]), $arOverdue > 0 ? 'warning' : 'positive'),
-                $this->kpi(__('AP due this week'), $fmt($apDueWeek), __(':count urgent', ['count' => $apUrgent]), $apUrgent > 0 ? 'warning' : 'info'),
-                $this->kpi(__('Revenue MTD'), $this->formatMillions($revenueMtd), ($revenueMom >= 0 ? '+' : '').$revenueMom.'% '.__('mom'), $revenueMom >= 0 ? 'positive' : 'negative'),
-                $this->kpi(__('Invoice collection rate'), $collectionRate.'%', __('target 90%'), $collectionRate >= 90 ? 'positive' : 'warning'),
-                $this->kpi(__('Cost per kg'), __('RWF 940'), '+6% '.__('mom'), 'negative'),
+                $this->kpi(__('AR outstanding'), $fmt($arOutstanding), __(':count overdue', ['count' => $arOverdue]), $arOverdue > 0 ? 'warning' : 'positive', 'receipt'),
+                $this->kpi(__('AP due this week'), $fmt($apDueWeek), __(':count urgent', ['count' => $apUrgent]), $apUrgent > 0 ? 'warning' : 'info', 'receipt'),
+                $this->kpi(__('Revenue MTD'), $this->formatMillions($revenueMtd), ($revenueMom >= 0 ? '+' : '').$revenueMom.'% '.__('mom'), $revenueMom >= 0 ? 'positive' : 'negative', 'currency-dollar'),
+                $this->kpi(__('Invoice collection rate'), $collectionRate.'%', __('target 90%'), $collectionRate >= 90 ? 'positive' : 'warning', 'chart-line'),
+                $this->kpi(__('Cost per kg'), __('RWF 940'), '+6% '.__('mom'), 'negative', 'currency-dollar'),
             ],
             'leftPanel' => [
                 'title' => __('AR invoices'),
@@ -453,7 +486,7 @@ class ProcessorDashboardService
                 $this->action(__('AR invoices'), 'clipboard', 'finance.invoices.index', BusinessUser::PERMISSION_MANAGE_AR_INVOICES),
                 $this->action(__('AP payables'), 'clipboard-list', 'finance.payables.index', BusinessUser::PERMISSION_MANAGE_AP_PAYABLES),
                 $this->action(__('Cost allocations'), 'box', 'finance.cost-allocations.index', BusinessUser::PERMISSION_VIEW_FINANCE_REPORTS),
-                $this->action(__('Invoice from delivery'), 'truck', 'delivery-confirmations.index', BusinessUser::PERMISSION_MANAGE_AR_INVOICES),
+                $this->action(__('Invoice from delivery'), 'truck', 'delivery-confirmations.hub', BusinessUser::PERMISSION_MANAGE_AR_INVOICES),
                 $this->action(__('Casual workers'), 'users', 'finance.casual-workers.index', BusinessUser::PERMISSION_MANAGE_AP_PAYABLES),
             ],
         ];
@@ -461,9 +494,166 @@ class ProcessorDashboardService
 
     // --- KPI helpers ---
 
-    private function kpi(string $label, int|string $value, string $change, string $deltaTone): array
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     executions_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function dashboardFiltersAllTime(): array
     {
-        return ['label' => $label, 'value' => $value, 'change' => $change, 'deltaTone' => $deltaTone];
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'executions_label' => __('Animals executed'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
+
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, executions_label: string}
+     */
+    private function dashboardPresetRangeForPeriod(string $period): array
+    {
+        $now = now();
+
+        [$start, $end, $rangeLabel, $executionsLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Executed today'),
+            ],
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Executed this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Executed this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'executions_label' => $executionsLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     executions_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveDashboardFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->dashboardFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->dashboardFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'executions_label' => __('Executed in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->dashboardPresetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'executions_label' => $preset['executions_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->dashboardFiltersAllTime();
+    }
+
+    private function kpi(string $label, int|string $value, string $change, string $deltaTone, ?string $icon = null, ?string $iconTone = null): array
+    {
+        $card = ['label' => $label, 'value' => $value, 'change' => $change, 'deltaTone' => $deltaTone];
+        if ($icon !== null) {
+            $card['icon'] = $icon;
+        }
+        if ($iconTone !== null) {
+            $card['iconTone'] = $iconTone;
+        }
+
+        return $card;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<string, mixed>|array<string, mixed>  $counts
+     */
+    private function slaughterSpeciesCount(\Illuminate\Support\Collection|array $counts, string $species): int
+    {
+        $counts = $counts instanceof \Illuminate\Support\Collection ? $counts->all() : $counts;
+
+        return (int) ($counts[$species] ?? $counts[strtolower($species)] ?? 0);
     }
 
     private function action(string $label, string $icon, string $route, string $permission): array
@@ -474,6 +664,113 @@ class ProcessorDashboardService
     private function moduleRow(string $label, string $sub, string $icon, string $route, string $badgeTone, string $badge): array
     {
         return compact('label', 'sub', 'icon', 'route', 'badgeTone', 'badge');
+    }
+
+    /**
+     * @return array{title: string, subtitle: string, type: string, items: array<int, array<string, mixed>>, empty?: string, footerRoute?: string, footerLabel?: string}
+     */
+    private function recentReceivedAnimalsPanel(?User $user, ProcessorDashboardContext $ctx, int $limit = 6): array
+    {
+        $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
+        $facilityIds = Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
+
+        $intakes = AnimalIntake::query()
+            ->with('facility:id,facility_name')
+            ->withCount('items')
+            ->whereIn('facility_id', $facilityIds)
+            ->where('is_draft', false)
+            ->orderByDesc('intake_date')
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        $panel = [
+            'title' => __('Recent received animals'),
+            'subtitle' => __('Latest animal intake sessions'),
+            'type' => 'module_rows',
+            'footerRoute' => 'animal-intakes.hub',
+            'footerLabel' => __('View all intakes'),
+            'items' => $intakes->map(function (AnimalIntake $intake): array {
+                $headCount = $intake->items_count > 0
+                    ? $intake->items_count
+                    : (int) $intake->number_of_animals;
+                $receivedAt = $intake->intake_date ?? $intake->created_at;
+
+                return [
+                    'label' => $intake->reference ?: __('Intake #:id', ['id' => $intake->id]),
+                    'sub' => collect([
+                        $intake->species,
+                        __(':count head', ['count' => number_format($headCount)]),
+                        $intake->facility?->facility_name,
+                        $receivedAt?->format('M j, Y'),
+                    ])->filter()->implode(' · '),
+                    'icon' => 'box',
+                    'route' => 'animal-intakes.show',
+                    'routeParams' => ['animal_intake' => $intake->id],
+                    'badge' => (string) ($intake->species ?? __('Received')),
+                    'badgeTone' => 'info',
+                ];
+            })->all(),
+        ];
+
+        if ($intakes->isEmpty()) {
+            $panel['empty'] = __('No intake records yet.');
+        }
+
+        return $panel;
+    }
+
+    /**
+     * @return array{title: string, subtitle: string, type: string, items: array<int, array<string, mixed>>, empty?: string, footerRoute?: string, footerLabel?: string}
+     */
+    private function recentSlaughteredPanel(?User $user, ProcessorDashboardContext $ctx, int $limit = 6): array
+    {
+        $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
+        $facilityIds = Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
+        $planIds = SlaughterPlan::query()->whereIn('facility_id', $facilityIds)->pluck('id');
+
+        $executions = SlaughterExecution::query()
+            ->with(['slaughterPlan.facility:id,facility_name'])
+            ->whereIn('slaughter_plan_id', $planIds)
+            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->orderByDesc('slaughter_time')
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        $panel = [
+            'title' => __('Recent slaughtered'),
+            'subtitle' => __('Latest slaughter executions'),
+            'type' => 'module_rows',
+            'footerRoute' => 'slaughter-executions.hub',
+            'footerLabel' => __('View all executions'),
+            'items' => $executions->map(function (SlaughterExecution $execution): array {
+                $plan = $execution->slaughterPlan;
+                $slaughteredAt = $execution->slaughter_time ?? $execution->created_at;
+                $headCount = (int) $execution->actual_animals_slaughtered;
+
+                return [
+                    'label' => __('Plan #:id', ['id' => $execution->slaughter_plan_id]),
+                    'sub' => collect([
+                        $plan?->species,
+                        __(':count head', ['count' => number_format($headCount)]),
+                        $plan?->facility?->facility_name,
+                        $slaughteredAt?->format('M j, Y'),
+                    ])->filter()->implode(' · '),
+                    'icon' => 'player-play',
+                    'route' => 'slaughter-executions.show',
+                    'routeParams' => ['slaughter_execution' => $execution->id],
+                    'badge' => (string) ($plan?->species ?? __('Completed')),
+                    'badgeTone' => 'info',
+                ];
+            })->all(),
+        ];
+
+        if ($executions->isEmpty()) {
+            $panel['empty'] = __('No slaughter executions yet.');
+        }
+
+        return $panel;
     }
 
     private function pipelineStep(string $label, string $icon, int $count, string $route): array
@@ -1043,7 +1340,7 @@ class ProcessorDashboardService
                 'meta' => '—',
                 'badge' => __('—'),
                 'badgeTone' => 'slate',
-                'route' => 'batches.index',
+                'route' => 'batches.hub',
                 'routeParams' => [],
             ]];
         }
@@ -1150,7 +1447,7 @@ class ProcessorDashboardService
                 'meta' => '—',
                 'badge' => __('—'),
                 'badgeTone' => 'slate',
-                'route' => 'transport-trips.index',
+                'route' => 'transport-trips.hub',
                 'routeParams' => [],
             ]];
         }
@@ -1219,7 +1516,7 @@ class ProcessorDashboardService
                 'meta' => '—',
                 'badge' => __('—'),
                 'badgeTone' => 'slate',
-                'route' => 'delivery-confirmations.index',
+                'route' => 'delivery-confirmations.hub',
                 'routeParams' => [],
             ]];
         }

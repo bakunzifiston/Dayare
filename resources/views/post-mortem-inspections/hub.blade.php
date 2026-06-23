@@ -3,9 +3,14 @@
 @endphp
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-            {{ __('Post-mortem inspections') }}
-        </h2>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
+                {{ __('Post-mortem inspections') }}
+            </h2>
+            <a href="{{ route('post-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
+                {{ __('Record inspection') }}
+            </a>
+        </div>
     </x-slot>
 
     <div class="py-10">
@@ -14,208 +19,255 @@
                 <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
 
-            <div class="flex items-start justify-between mb-6">
-                <div>
-                    <h1 class="text-xl font-medium text-gray-900">{{ __('Post-mortem inspections') }}</h1>
-                    <p class="text-sm text-gray-500 mt-1">
-                        {{ __('Record and review post-mortem inspections for each batch. Each animal in the batch receives an individual outcome before certification.') }}
-                    </p>
-                </div>
-                <div class="flex gap-2 shrink-0">
-                    <a href="{{ route('post-mortem-inspections.index') }}"
-                       class="text-sm px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
-                        {{ __('View all') }}
-                    </a>
-                    <a href="{{ route('post-mortem-inspections.create') }}"
-                       class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
-                        {{ __('+ New inspection') }}
-                    </a>
-                </div>
-            </div>
+            <form method="get" action="{{ route('post-mortem-inspections.hub') }}" class="hub-period-filter">
+                <div class="hub-period-filter__bar">
+                    <div class="hub-period-filter__toggles" role="group" aria-label="{{ __('Inspection period') }}">
+                        @foreach (['all' => __('All'), 'day' => __('Daily'), 'month' => __('Monthly'), 'year' => __('Yearly')] as $periodKey => $periodLabel)
+                            <label class="hub-period-filter__toggle">
+                                <input type="radio" name="period" value="{{ $periodKey }}" @checked($filters['period'] === $periodKey)>
+                                <span>{{ $periodLabel }}</span>
+                            </label>
+                        @endforeach
+                    </div>
 
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Total inspections') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ number_format($hubStats['total_inspections']) }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Animals examined') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ number_format($hubStats['animals_examined']) }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Condemned this week') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['condemned_this_week'] > 0 ? 'text-red-700' : 'text-slate-900' }}">
-                        {{ number_format($hubStats['condemned_this_week']) }}
-                    </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Batches without PM') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['batches_without_pm'] > 0 ? 'text-amber-700' : 'text-slate-900' }}"
-                       @if ($hubStats['batches_without_pm'] > 0) title="{{ __('Batches pending post-mortem inspection') }}" @endif>
-                        {{ number_format($hubStats['batches_without_pm']) }}
-                    </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Ready for certificate') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums {{ $hubStats['ready_for_cert'] > 0 ? 'text-blue-700' : 'text-slate-900' }}"
-                       @if ($hubStats['ready_for_cert'] > 0) title="{{ __('PM approved, no certificate issued yet') }}" @endif>
-                        {{ number_format($hubStats['ready_for_cert']) }}
-                    </p>
-                </div>
-            </div>
+                    <div class="hub-period-filter__range">
+                        <label for="filter_date_from" class="hub-period-filter__range-label">{{ __('From') }}</label>
+                        <input id="filter_date_from" type="date" name="date_from" value="{{ $filters['date_from'] }}" class="hub-period-filter__input" aria-label="{{ __('Date from') }}">
+                        <span class="hub-period-filter__sep" aria-hidden="true">–</span>
+                        <label for="filter_date_to" class="hub-period-filter__range-label">{{ __('To') }}</label>
+                        <input id="filter_date_to" type="date" name="date_to" value="{{ $filters['date_to'] }}" class="hub-period-filter__input" aria-label="{{ __('Date to') }}">
+                    </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                @foreach ([PostMortemInspection::RESULT_APPROVED, PostMortemInspection::RESULT_PARTIAL, PostMortemInspection::RESULT_REJECTED] as $result)
-                    @php
-                        $resultInspections = $byResult->get($result, collect());
-                        $badgeClass = match ($result) {
-                            PostMortemInspection::RESULT_APPROVED => 'bg-green-100 text-green-700',
-                            PostMortemInspection::RESULT_PARTIAL => 'bg-yellow-100 text-yellow-700',
-                            PostMortemInspection::RESULT_REJECTED => 'bg-red-100 text-red-700',
-                            default => 'bg-gray-100 text-gray-700',
-                        };
-                    @endphp
-                    <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="text-sm font-medium text-gray-700">{{ ucfirst($result) }}</span>
-                            <span class="text-xs px-2 py-0.5 rounded-full {{ $badgeClass }}">
-                                {{ $resultInspections->count() }}
-                            </span>
-                        </div>
-                        @forelse ($resultInspections->take(5) as $pm)
-                            <div class="py-2 border-t border-gray-100 first:border-t-0">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="min-w-0">
-                                        <p class="font-mono text-xs text-gray-800 truncate">
-                                            {{ $pm->batch->batch_code ?? '—' }}
-                                        </p>
-                                        <p class="text-xs text-gray-400 mt-0.5">
-                                            {{ $pm->batch->slaughterExecution->slaughterPlan->facility->facility_name ?? '—' }}
-                                        </p>
-                                        <p class="text-xs text-gray-500 mt-0.5">
-                                            {{ $pm->inspection_date?->format('d M Y') ?? '—' }}
-                                        </p>
-                                    </div>
-                                    <div class="text-right flex-shrink-0">
-                                        <p class="text-sm font-medium text-gray-700">
-                                            {{ $pm->total_examined }}
-                                            <span class="text-xs font-normal text-gray-400">{{ __('examined') }}</span>
-                                        </p>
-                                        @if ($pm->condemned_quantity > 0)
-                                            <p class="text-xs text-red-600">{{ $pm->condemned_quantity }} {{ __('condemned') }}</p>
-                                        @endif
-                                    </div>
-                                </div>
-                                <div class="flex gap-2 mt-1.5 flex-wrap">
-                                    <a href="{{ route('post-mortem-inspections.show', $pm) }}"
-                                       class="text-xs text-blue-600 hover:underline">{{ __('View') }}</a>
-                                    <a href="{{ route('post-mortem-inspections.edit', $pm) }}"
-                                       class="text-xs text-gray-500 hover:underline">{{ __('Edit') }}</a>
-                                    @if ($pm->approved_quantity > 0 && $pm->batch->canIssueCertificate())
-                                        <a href="{{ route('certificates.create', ['batch_id' => $pm->batch_id]) }}"
-                                           class="text-xs text-green-600 hover:underline font-medium">{{ __('Issue cert →') }}</a>
-                                    @elseif ($pm->approved_quantity > 0 && ! $pm->batch->certificate)
-                                        <a href="{{ route('cold-rooms.hub') }}"
-                                           class="text-xs text-amber-600 hover:underline font-medium">{{ __('Release from cold room →') }}</a>
-                                    @endif
-                                </div>
-                            </div>
-                        @empty
-                            <p class="text-xs text-gray-400 py-2">{{ __('No :result inspections.', ['result' => $result]) }}</p>
-                        @endforelse
-                        @if ($resultInspections->count() > 5)
-                            <a href="{{ route('post-mortem-inspections.index', ['result' => $result]) }}"
-                               class="block mt-2 text-xs text-blue-600 hover:underline text-center">
-                                {{ __('View all :count →', ['count' => $resultInspections->count()]) }}
-                            </a>
+                    <div class="hub-period-filter__actions">
+                        <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
+                        @if ($filters['is_filtered'])
+                            <a href="{{ route('post-mortem-inspections.hub') }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
                         @endif
                     </div>
-                @endforeach
-            </div>
-
-            <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <p class="text-sm font-medium text-gray-700">{{ __('Recent inspections') }}</p>
-                    <a href="{{ route('post-mortem-inspections.index') }}"
-                       class="text-xs text-blue-600 hover:underline">{{ __('View all →') }}</a>
                 </div>
-                @forelse ($recentInspections as $pm)
-                    @php
-                        $dot = match ($pm->result ?? 'pending') {
-                            PostMortemInspection::RESULT_APPROVED => 'bg-green-500',
-                            PostMortemInspection::RESULT_PARTIAL => 'bg-yellow-400',
-                            PostMortemInspection::RESULT_REJECTED => 'bg-red-400',
-                            default => 'bg-gray-300',
-                        };
-                    @endphp
-                    <div class="flex items-center gap-4 px-4 py-3 border-b border-gray-100 last:border-b-0">
-                        <div class="w-2 h-2 rounded-full {{ $dot }} flex-shrink-0" aria-hidden="true"></div>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-mono text-sm text-gray-800">{{ $pm->batch->batch_code ?? '—' }}</p>
-                            <p class="text-xs text-gray-400">
-                                {{ $pm->batch->slaughterExecution->slaughterPlan->facility->facility_name ?? '—' }}
-                                · {{ $pm->inspection_date?->format('d M Y') ?? '—' }}
-                            </p>
-                        </div>
-                        <div class="text-right flex-shrink-0">
-                            <p class="text-sm text-gray-700">
-                                {{ $pm->total_examined }} {{ __('examined') }}
-                            </p>
-                            @if ($pm->hasPerAnimalOutcomes())
-                                <p class="text-xs text-gray-500">
-                                    {{ $pm->inspectionItems->count() }} {{ __('animals recorded') }}
-                                </p>
-                            @else
-                                <p class="text-xs text-gray-400">{{ __('Aggregate only') }}</p>
-                            @endif
-                        </div>
-                        <a href="{{ route('post-mortem-inspections.show', $pm) }}"
-                           class="text-xs text-blue-600 hover:underline flex-shrink-0">{{ __('View') }}</a>
-                    </div>
-                @empty
-                    <p class="text-sm text-gray-400 px-4 py-6 text-center">
-                        {{ __('No post-mortem inspections recorded yet.') }}
-                        <a href="{{ route('post-mortem-inspections.create') }}" class="text-blue-600 hover:underline">
-                            {{ __('Record the first one →') }}
-                        </a>
-                    </p>
-                @endforelse
+                <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
+            </form>
+
+            {{-- Summary KPI bar --}}
+            <div class="profile-kpi-grid">
+                <x-entity.kpi-stat :label="$hubStats['inspections_label']" :value="number_format($hubStats['total_inspections'])" accent>
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Animals examined')" :value="number_format($hubStats['animals_examined'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($hubStats['cattle_count'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Goat')" :value="number_format($hubStats['goat_count'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('Sheep')" :value="number_format($hubStats['sheep_count'])">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat
+                    :label="$hubStats['condemned_label']"
+                    :value="number_format($hubStats['condemned_count'])"
+                    :accent="$hubStats['condemned_count'] > 0"
+                >
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat
+                    :label="__('Batches without PM')"
+                    :value="number_format($hubStats['batches_without_pm'])"
+                    :accent="$hubStats['batches_without_pm'] > 0"
+                >
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat
+                    :label="__('Ready for certificate')"
+                    :value="number_format($hubStats['ready_for_cert'])"
+                    :accent="$hubStats['ready_for_cert'] > 0"
+                >
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
             </div>
 
-            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                <a href="{{ route('post-mortem-inspections.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
+                @if ($inspections->isEmpty())
+                    <div class="p-8 text-center text-slate-600">
+                        <p class="mb-4">
+                            {{ $filters['is_filtered'] ? __('No post-mortem inspections in this period.') : __('No post-mortem inspections recorded yet.') }}
+                        </p>
+                        <a href="{{ route('post-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                            {{ __('Record first inspection') }}
+                        </a>
                     </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('All inspections') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Search the full list, open an inspection, edit or remove.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open list') }} →</span>
-                </a>
-                <a href="{{ route('batches.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="px-4 py-3">{{ __('Date') }}</th>
+                                    <th class="px-4 py-3">{{ __('Batch') }}</th>
+                                    <th class="px-4 py-3">{{ __('Facility') }}</th>
+                                    <th class="px-4 py-3">{{ __('Inspector') }}</th>
+                                    <th class="px-4 py-3">{{ __('Species') }}</th>
+                                    <th class="px-4 py-3">{{ __('Examined') }}</th>
+                                    <th class="px-4 py-3">{{ __('Approved') }}</th>
+                                    <th class="px-4 py-3">{{ __('Condemned') }}</th>
+                                    <th class="px-4 py-3">{{ __('Per-animal') }}</th>
+                                    <th class="px-4 py-3">{{ __('Result') }}</th>
+                                    <th class="px-4 py-3">{{ __('Certificate') }}</th>
+                                    <th class="px-4 py-3 text-right">{{ __('Actions') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach ($inspections as $pm)
+                                    @php
+                                        $resultBadge = match ($pm->result) {
+                                            PostMortemInspection::RESULT_APPROVED => 'bg-green-100 text-green-800',
+                                            PostMortemInspection::RESULT_PARTIAL => 'bg-yellow-100 text-yellow-800',
+                                            PostMortemInspection::RESULT_REJECTED => 'bg-red-100 text-red-800',
+                                            default => 'bg-gray-100 text-gray-700',
+                                        };
+                                    @endphp
+                                    <tr class="pm-row cursor-pointer hover:bg-slate-50/80" data-pm-id="{{ $pm->id }}">
+                                        <td class="px-4 py-3 text-gray-600">{{ $pm->inspection_date?->format('d M Y') ?? '—' }}</td>
+                                        <td class="px-4 py-3 font-mono text-xs">
+                                            <a href="{{ route('batches.show', $pm->batch) }}" class="text-bucha-primary hover:underline">{{ $pm->batch->batch_code ?? '—' }}</a>
+                                        </td>
+                                        <td class="px-4 py-3">{{ $pm->batch->slaughterExecution->slaughterPlan->facility->facility_name ?? '—' }}</td>
+                                        <td class="px-4 py-3">{{ $pm->inspector->full_name ?? '—' }}</td>
+                                        <td class="px-4 py-3">{{ $pm->species }}</td>
+                                        <td class="px-4 py-3">{{ $pm->total_examined }}</td>
+                                        <td class="px-4 py-3 text-green-700">{{ $pm->approved_quantity }}</td>
+                                        <td class="px-4 py-3 {{ $pm->condemned_quantity > 0 ? 'text-red-600' : 'text-gray-400' }}">
+                                            {{ $pm->condemned_quantity }}
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            @if ($pm->hasPerAnimalOutcomes())
+                                                <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800">{{ __('Yes') }}</span>
+                                            @else
+                                                <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ __('No') }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            @if ($pm->result)
+                                                <span class="text-xs px-2 py-0.5 rounded-full {{ $resultBadge }}">{{ ucfirst($pm->result) }}</span>
+                                            @else
+                                                <span class="text-gray-400">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            @if ($pm->batch->certificate)
+                                                <span class="text-green-600">✓</span>
+                                            @else
+                                                <span class="text-gray-400">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="pm-actions inline-flex gap-2">
+                                                <a href="{{ route('post-mortem-inspections.show', $pm) }}" class="text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">{{ __('View') }}</a>
+                                                <a href="{{ route('post-mortem-inspections.edit', $pm) }}" class="text-xs font-semibold text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr class="pm-detail-row bg-gray-50" id="pm-detail-{{ $pm->id }}" style="display:none;">
+                                        <td colspan="100" class="px-4 py-3">
+                                            @if ($pm->inspectionItems->isNotEmpty())
+                                                <p class="text-sm font-medium text-gray-700 mb-2">
+                                                    {{ __('Individual animal outcomes (:count)', ['count' => $pm->inspectionItems->count()]) }}
+                                                </p>
+                                                <table class="w-full text-sm">
+                                                    <thead>
+                                                        <tr class="text-left text-xs text-gray-500">
+                                                            <th class="pb-1 px-2">{{ __('Ear tag') }}</th>
+                                                            <th class="pb-1 px-2">{{ __('Species') }}</th>
+                                                            <th class="pb-1 px-2">{{ __('Batch meat qty') }}</th>
+                                                            <th class="pb-1 px-2">{{ __('Outcome') }}</th>
+                                                            <th class="pb-1 px-2">{{ __('Carcass weight') }}</th>
+                                                            <th class="pb-1 px-2">{{ __('Notes') }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach ($pm->inspectionItems as $pmItem)
+                                                            @php
+                                                                $outcomeClass = match ($pmItem->outcome) {
+                                                                    'approved' => 'bg-green-100 text-green-800',
+                                                                    'condemned' => 'bg-red-100 text-red-800',
+                                                                    default => 'bg-yellow-100 text-yellow-800',
+                                                                };
+                                                            @endphp
+                                                            <tr class="border-t border-gray-100">
+                                                                <td class="py-1 px-2 font-mono text-xs">
+                                                                    {{ $pmItem->intakeItem->ear_tag }}
+                                                                    @if (str_starts_with($pmItem->intakeItem->ear_tag, 'LEGACY-'))
+                                                                        <span class="ml-1 text-xs text-gray-400 bg-gray-100 px-1 rounded">[legacy]</span>
+                                                                    @endif
+                                                                </td>
+                                                                <td class="py-1 px-2">{{ $pmItem->intakeItem->species }}</td>
+                                                                <td class="py-1 px-2">
+                                                                    {{ $pmItem->batchItem ? number_format($pmItem->batchItem->meat_quantity_kg, 2).' kg' : '—' }}
+                                                                </td>
+                                                                <td class="py-1 px-2">
+                                                                    <span class="text-xs px-2 py-0.5 rounded-full {{ $outcomeClass }}">
+                                                                        {{ ucfirst($pmItem->outcome) }}
+                                                                    </span>
+                                                                </td>
+                                                                <td class="py-1 px-2">
+                                                                    {{ $pmItem->carcass_weight_kg ? number_format($pmItem->carcass_weight_kg, 2).' kg' : '—' }}
+                                                                </td>
+                                                                <td class="py-1 px-2 text-gray-500">{{ $pmItem->outcome_notes ?? '—' }}</td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            @else
+                                                <p class="text-sm text-gray-500">
+                                                    {{ __('No individual animal outcomes recorded. Inspection used aggregate counts only — examined: :examined, approved: :approved, condemned: :condemned.', [
+                                                        'examined' => $pm->total_examined,
+                                                        'approved' => $pm->approved_quantity,
+                                                        'condemned' => $pm->condemned_quantity,
+                                                    ]) }}
+                                                </p>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Batches') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Each inspection is tied to a batch from slaughter execution.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Batches home') }} →</span>
-                </a>
-                <a href="{{ route('certificates.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-                    </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Certificates') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Issue certificates when approved quantity is greater than zero.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Certification home') }} →</span>
-                </a>
-                <a href="{{ route('slaughter-executions.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Slaughter execution') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Post-mortem follows batch creation from a completed execution.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Execution home') }} →</span>
-                </a>
+                    <div class="px-4 py-3 border-t border-slate-100">{{ $inspections->links() }}</div>
+                @endif
             </div>
         </div>
     </div>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                document.querySelectorAll('.pm-row').forEach(function (row) {
+                    row.addEventListener('click', function (e) {
+                        if (e.target.closest('.pm-actions')) return;
+                        if (e.target.closest('a')) return;
+                        var id = this.dataset.pmId;
+                        var detail = document.getElementById('pm-detail-' + id);
+                        if (detail) detail.style.display = detail.style.display === 'none' ? '' : 'none';
+                    });
+                });
+            });
+        </script>
+    @endpush
 </x-app-layout>

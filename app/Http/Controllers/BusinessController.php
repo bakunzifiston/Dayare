@@ -27,36 +27,19 @@ class BusinessController extends Controller
         $activeCount = $user->businesses()->where('status', Business::STATUS_ACTIVE)->count();
         $suspendedCount = $user->businesses()->where('status', Business::STATUS_SUSPENDED)->count();
         $totalFacilities = Facility::whereIn('business_id', $user->accessibleBusinessIds())->count();
-        $businessesWithFacilitiesCount = $user->businesses()->has('facilities')->count();
-
-        $filters = [
-            'search' => trim((string) $request->query('search', '')),
-            'status' => (string) $request->query('status', ''),
-        ];
 
         $businesses = $user->businesses()
+            ->with(['districtDivision'])
             ->withCount('facilities')
-            ->when($filters['search'] !== '', function ($query) use ($filters) {
-                $search = '%'.$filters['search'].'%';
-                $query->where(function ($inner) use ($search) {
-                    $inner->where('business_name', 'like', $search)
-                        ->orWhere('registration_number', 'like', $search)
-                        ->orWhere('email', 'like', $search);
-                });
-            })
-            ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
             ->latest()
-            ->paginate(10)
-            ->withQueryString();
+            ->paginate(10);
 
         return view('businesses.hub', compact(
             'totalBusinesses',
             'activeCount',
             'suspendedCount',
             'totalFacilities',
-            'businessesWithFacilitiesCount',
             'businesses',
-            'filters',
         ));
     }
 

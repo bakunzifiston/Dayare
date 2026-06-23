@@ -47,7 +47,7 @@ class DeliveryConfirmationContractTest extends TestCase
                 'receiver_name' => $fixture['destination']->facility_name,
                 'confirmation_status' => DeliveryConfirmation::STATUS_CONFIRMED,
             ])
-            ->assertRedirect(route('delivery-confirmations.index'));
+            ->assertRedirect(route('delivery-confirmations.hub'));
 
         $this->assertDatabaseHas('delivery_confirmations', [
             'transport_trip_id' => $fixture['trip']->id,

@@ -1,100 +1,183 @@
+@php
+    use App\Models\TransportTrip;
+@endphp
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-            {{ __('Transport') }}
-        </h2>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
+                {{ __('Transport') }}
+            </h2>
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                @include('processor.partials.export-dropdown', [
+                    'exportRoute' => 'transport-trips.export',
+                    'traceabilityRoute' => 'transport-trips.export.traceability',
+                    'query' => $exportQuery ?? [],
+                ])
+                <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                    {{ __('Record trip') }}
+                </a>
+            </div>
+        </div>
     </x-slot>
 
     <div class="py-10">
-        <div class="max-w-5xl mx-auto sm:px-6 lg:px-8 space-y-8">
-            @if (session('status'))
-                <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
-            @endif
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="profile-list-shell">
+                @if (session('status'))
+                    <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
+                @endif
 
-            <div class="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/80 px-6 py-8 sm:px-10 sm:py-9 shadow-sm">
-                <p class="text-sm font-semibold uppercase tracking-wide text-bucha-primary">{{ __('Module') }}</p>
-                <h1 class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
-                    {{ __('Move certified product between facilities') }}
-                </h1>
-                <p class="mt-3 text-slate-600 leading-relaxed max-w-2xl">
-                    {{ __('Each trip is tied to an active meat inspection certificate. Record origin, destination, vehicle, and driver details, then confirm delivery when the load arrives.') }}
-                </p>
-                <div class="mt-8 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
-                    @include('processor.partials.export-dropdown', [
-                        'exportRoute' => 'transport-trips.export',
-                        'traceabilityRoute' => 'transport-trips.export.traceability',
-                        'query' => $filters ?? [],
-                    ])
-                    <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-bucha-primary text-white text-base font-bold shadow-lg shadow-bucha-primary/25 hover:bg-bucha-burgundy transition-colors ring-2 ring-bucha-primary/20">
-                        <svg class="h-6 w-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        {{ __('Record trip') }}
-                    </a>
-                    <p class="text-sm text-slate-500 sm:max-w-xs sm:self-center">
-                        {{ __('You need an active certificate you can access before recording a trip.') }}
-                    </p>
-                </div>
-            </div>
+                <form method="get" action="{{ route('transport-trips.hub') }}" class="hub-period-filter">
+                    <div class="hub-period-filter__bar">
+                        <div class="hub-period-filter__toggles" role="group" aria-label="{{ __('Departure period') }}">
+                            @foreach (['all' => __('All'), 'day' => __('Daily'), 'month' => __('Monthly'), 'year' => __('Yearly')] as $periodKey => $periodLabel)
+                                <label class="hub-period-filter__toggle">
+                                    <input type="radio" name="period" value="{{ $periodKey }}" @checked($filters['period'] === $periodKey)>
+                                    <span>{{ $periodLabel }}</span>
+                                </label>
+                            @endforeach
+                        </div>
 
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Total trips') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ $totalTrips }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Pending') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-700">{{ $pendingCount }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('In transit') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-amber-700">{{ $inTransitCount }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Arrived') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-emerald-700">{{ $arrivedCount }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Completed') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ $completedCount }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('With delivery confirmation') }}</p>
-                    <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{{ $tripsWithDeliveryConfirmationCount }}</p>
-                </div>
-            </div>
+                        <div class="hub-period-filter__range">
+                            <label for="filter_date_from" class="hub-period-filter__range-label">{{ __('From') }}</label>
+                            <input id="filter_date_from" type="date" name="date_from" value="{{ $filters['date_from'] }}" class="hub-period-filter__input" aria-label="{{ __('Date from') }}">
+                            <span class="hub-period-filter__sep" aria-hidden="true">–</span>
+                            <label for="filter_date_to" class="hub-period-filter__range-label">{{ __('To') }}</label>
+                            <input id="filter_date_to" type="date" name="date_to" value="{{ $filters['date_to'] }}" class="hub-period-filter__input" aria-label="{{ __('Date to') }}">
+                        </div>
 
-            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                <a href="{{ route('transport-trips.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        <div class="hub-period-filter__actions">
+                            <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
+                            @if ($filters['is_filtered'])
+                                <a href="{{ route('transport-trips.hub') }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
+                            @endif
+                        </div>
                     </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('All trips') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Search the full list, open a trip, edit or remove.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open list') }} →</span>
-                </a>
-                <a href="{{ route('certificates.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                    <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
+                </form>
+
+                <div class="profile-kpi-grid">
+                    <x-entity.kpi-stat :label="$hubStats['trips_label']" :value="number_format($hubStats['total_trips'])" accent>
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat
+                        :label="__('Pending')"
+                        :value="number_format($hubStats['pending'])"
+                        :accent="$hubStats['pending'] > 0"
+                    >
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat
+                        :label="__('In transit')"
+                        :value="number_format($hubStats['in_transit'])"
+                        :accent="$hubStats['in_transit'] > 0"
+                    >
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat
+                        :label="__('Arrived')"
+                        :value="number_format($hubStats['arrived'])"
+                        :accent="$hubStats['arrived'] > 0"
+                    >
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('With delivery confirmation')" :value="number_format($hubStats['with_delivery_confirmation'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                </div>
+
+                @if ($trips->isEmpty())
+                    <div class="profile-empty">
+                        <p class="mb-4">
+                            {{ $filters['is_filtered'] ? __('No transport trips in this period.') : __('No transport trips recorded yet.') }}
+                        </p>
+                        <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                            {{ __('Record first trip') }}
+                        </a>
                     </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Certificates') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Trips start from an active certificate — open one and record transport from there.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Certification home') }} →</span>
-                </a>
-                <a href="{{ route('cold-rooms.hub') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                @else
+                    <div class="profile-cards-grid">
+                        @foreach ($trips as $trip)
+                            @php
+                                $statusTone = match ($trip->status) {
+                                    TransportTrip::STATUS_PENDING => 'warning',
+                                    TransportTrip::STATUS_IN_TRANSIT => 'active',
+                                    TransportTrip::STATUS_ARRIVED => 'warning',
+                                    TransportTrip::STATUS_COMPLETED => 'muted',
+                                    default => 'muted',
+                                };
+                                $statusLabel = ucfirst(str_replace('_', ' ', $trip->status));
+                                $initial = strtoupper(substr($trip->vehicle_plate_number, 0, 1));
+                                $certLabel = $trip->certificate?->certificate_number ?: '#'.$trip->certificate_id;
+                                $routeLabel = ($trip->originFacility?->facility_name ?? '—').' → '.$trip->destination_display;
+                            @endphp
+                            <x-entity.profile-card>
+                                <x-slot:avatar>{{ $initial }}</x-slot:avatar>
+                                <x-slot:title>
+                                    <a href="{{ route('transport-trips.show', $trip) }}">{{ $trip->vehicle_plate_number }}</a>
+                                </x-slot:title>
+                                <x-slot:subtitle>{{ $routeLabel }}</x-slot:subtitle>
+                                <x-slot:badge>
+                                    <x-entity.status-pill :tone="$statusTone" :label="$statusLabel" />
+                                </x-slot:badge>
+
+                                <x-entity.profile-row :label="__('Driver')">{{ $trip->driver_name }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Certificate')">
+                                    @if ($trip->certificate)
+                                        <a href="{{ route('certificates.show', $trip->certificate) }}" class="text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
+                                            {{ $certLabel }}
+                                        </a>
+                                    @else
+                                        —
+                                    @endif
+                                </x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Departure')">{{ $trip->departure_date->format('d M Y') }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Arrival')">
+                                    {{ $trip->arrival_date?->format('d M Y') ?? '—' }}
+                                </x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Delivery')">
+                                    {{ $trip->deliveryConfirmation ? __('Confirmed') : __('Pending') }}
+                                </x-entity.profile-row>
+
+                                <x-slot:highlights>
+                                    <x-entity.profile-highlight
+                                        :value="$trip->departure_date->format('d M Y')"
+                                        :label="__('Departure')"
+                                    />
+                                    <x-entity.profile-highlight
+                                        :value="$trip->destination_display"
+                                        :label="__('Destination')"
+                                    />
+                                </x-slot:highlights>
+
+                                <x-slot:actions>
+                                    <x-entity.text-action :href="route('transport-trips.show', $trip)">{{ __('View') }}</x-entity.text-action>
+                                    <x-entity.text-action :href="route('transport-trips.edit', $trip)">{{ __('Edit') }}</x-entity.text-action>
+                                    @if (! $trip->deliveryConfirmation)
+                                        <x-entity.text-action :href="route('delivery-confirmations.create', ['transport_trip_id' => $trip->id])">{{ __('Confirm delivery') }}</x-entity.text-action>
+                                        <x-entity.text-action-delete
+                                            :action="route('transport-trips.destroy', $trip)"
+                                            :confirm="__('Are you sure you want to delete this transport trip?')"
+                                        >{{ __('Delete') }}</x-entity.text-action-delete>
+                                    @else
+                                        <x-entity.text-action :href="route('delivery-confirmations.show', $trip->deliveryConfirmation)">{{ __('Delivery') }}</x-entity.text-action>
+                                    @endif
+                                </x-slot:actions>
+                            </x-entity.profile-card>
+                        @endforeach
                     </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Cold room') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Manage cold storage separately from transport and certificates.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Cold room home') }} →</span>
-                </a>
-                <a href="{{ route('delivery-confirmations.index') }}" class="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-bucha-primary/30 hover:shadow-md">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    </div>
-                    <h2 class="mt-4 text-lg font-bold text-slate-900 group-hover:text-bucha-primary">{{ __('Delivery confirmation') }}</h2>
-                    <p class="mt-2 flex-1 text-sm text-slate-600">{{ __('Record receipt when the shipment reaches the destination.') }}</p>
-                    <span class="mt-5 text-sm font-semibold text-bucha-primary">{{ __('Open confirmations') }} →</span>
-                </a>
+                    <div class="mt-4">{{ $trips->links() }}</div>
+                @endif
             </div>
         </div>
     </div>

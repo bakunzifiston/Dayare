@@ -7,22 +7,21 @@ use App\Models\AnimalIntakeItem;
 use App\Models\AnteMortemInspection;
 use App\Models\Batch;
 use App\Models\Certificate;
+use App\Models\Facility;
 use App\Models\PostMortemInspection;
+use App\Models\SlaughterExecution;
+use App\Models\SlaughterPlan;
+use App\Models\User;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 
 class ProcessorDashboardCharts
 {
-    private const BLUE = '#378ADD';
-
-    private const TEAL = '#1D9E75';
-
-    private const AMBER = '#EF9F27';
-
-    private const RED = '#E24B4A';
-
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function forRole(string $roleKey, ProcessorDashboardContext $ctx, int $businessId): array
+    public function forRole(string $roleKey, ProcessorDashboardContext $ctx, int $businessId, ?array $filters = null, ?User $user = null): array
     {
         return match ($roleKey) {
             'operations_manager' => $this->opsManager($ctx),
@@ -30,36 +29,59 @@ class ProcessorDashboardCharts
             'inspector' => $this->inspector($ctx),
             'transport_manager' => $this->transportManager($ctx),
             'accountant' => $this->accountant($businessId),
-            default => $this->orgAdmin($ctx),
+            default => $this->orgAdmin($ctx, $filters, $user),
         };
     }
 
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function orgAdmin(ProcessorDashboardContext $ctx): array
+    private function orgAdmin(ProcessorDashboardContext $ctx, ?array $filters = null, ?User $user = null): array
     {
-        $days = $this->lastWeekdayLabels();
-        $species = ['cattle', 'goat', 'sheep'];
-        $datasets = [
-            ['label' => __('Cattle'), 'data' => $this->intakeBySpeciesForDays($ctx, 'cattle', $days), 'backgroundColor' => self::BLUE],
-            ['label' => __('Goat'), 'data' => $this->intakeBySpeciesForDays($ctx, 'goat', $days), 'backgroundColor' => self::TEAL],
-            ['label' => __('Sheep'), 'data' => $this->intakeBySpeciesForDays($ctx, 'sheep', $days), 'backgroundColor' => self::AMBER],
+        $filters = $filters ?? ['is_filtered' => false];
+        $facilityIds = $this->orgAdminFacilityIds($ctx, $user);
+        $planIds = $this->orgAdminPlanIds($ctx, $user);
+        $executed = $this->executedBySpeciesTotals($planIds, $filters);
+        $intakeEndDate = $this->intakeTrendEndDate($facilityIds);
+        $days = $this->weekdayLabelsEndingAt($intakeEndDate);
+        $speciesReceivedDatasets = [
+            $this->coloredBarDataset(__('Cattle'), $this->intakeBySpeciesForFacilities($facilityIds, 'cattle', $intakeEndDate), $this->speciesColor('cattle')),
+            $this->coloredBarDataset(__('Goat'), $this->intakeBySpeciesForFacilities($facilityIds, 'goat', $intakeEndDate), $this->speciesColor('goat')),
+            $this->coloredBarDataset(__('Sheep'), $this->intakeBySpeciesForFacilities($facilityIds, 'sheep', $intakeEndDate), $this->speciesColor('sheep')),
         ];
-
-        $certified = (int) Batch::query()->whereIn('id', $ctx->batchIds)->whereHas('certificate')->count();
-        $pendingPm = (int) Batch::query()->whereIn('id', $ctx->batchIds)->whereDoesntHave('postMortemInspection')->count();
-        $rejected = (int) Batch::query()->whereIn('id', $ctx->batchIds)->where('status', Batch::STATUS_REJECTED)->count();
-        $total = max(1, $certified + $pendingPm + $rejected);
+        $onTimeData = [91, 88, 93, 85, 82, 87];
 
         return [
-            $this->barChart('org_admin-throughput', __('Weekly throughput by species'), 160, __('Weekly animal throughput by cattle, goat, and sheep'), $days, $datasets),
-            $this->lineChart('org_admin-ontime', __('On-time delivery rate'), 180, __('Monthly on-time delivery rate January through June'), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], [91, 88, 93, 85, 82, 87], self::TEAL, 70, 100, 'percent'),
-            $this->donutChart('org_admin-batch-status', __('Batch status'), 150, __('Batch certification status distribution'), [__('Certified'), __('PM pending'), __('Rejected')], [
-                round($certified / $total * 100),
-                round($pendingPm / $total * 100),
-                round($rejected / $total * 100),
-            ], [self::TEAL, self::AMBER, self::RED]),
+            $this->barChart(
+                'org_admin-species-received',
+                __('Trend species received'),
+                160,
+                __('Daily animals received by cattle, goat, and sheep over the past week'),
+                $days,
+                $speciesReceivedDatasets,
+                legend: $this->speciesLegend(),
+            ),
+            array_merge(
+                $this->barChart(
+                    'org_admin-ontime',
+                    __('On-time delivery rate'),
+                    180,
+                    __('Monthly on-time delivery rate January through June'),
+                    ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    [$this->multiColorBarDataset(__('On-time delivery rate'), $onTimeData, $this->chartSeriesColors())],
+                    'percent',
+                ),
+                ['yMin' => 70, 'yMax' => 100],
+            ),
+            $this->pieChart(
+                'org_admin-pieces-executed',
+                __('Pieces executed'),
+                160,
+                __('Animals executed by cattle, goat, and sheep'),
+                [__('Cattle'), __('Goat'), __('Sheep')],
+                [$executed['cattle'], $executed['goat'], $executed['sheep']],
+                $this->speciesColors(),
+            ),
         ];
     }
 
@@ -73,7 +95,7 @@ class ProcessorDashboardCharts
 
         return [
             $this->barChart('ops-intake', __('Daily animal intake'), 170, __('Daily animal intake Monday through Sunday'), $days, [
-                ['label' => __('Head'), 'data' => $intake, 'backgroundColor' => self::BLUE],
+                ['label' => __('Head'), 'data' => $intake, 'backgroundColor' => $this->brandColor('primary')],
             ]),
             $this->lineWithTarget('ops-cert-rate', __('Batch certification rate'), 150, __('Weekly batch certification rate with 90% target'), ['W1', 'W2', 'W3', 'W4'], [88, 92, 85, 75], 90, 60, 100),
         ];
@@ -92,7 +114,7 @@ class ProcessorDashboardCharts
 
         return [
             $this->lineWithTarget('compliance-score', __('Compliance score'), 160, __('Eight-week compliance score trend with 95% target'), ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'], [84, 87, 91, 88, 85, 90, 84, 78], 95, 60, 100),
-            $this->horizontalBarChart('compliance-issues', __('Issues by category'), 150, __('Open compliance issues grouped by category'), [__('Temperature'), __('Inspection'), __('License'), __('Transport'), __('Docs')], [$tempCount, $inspectionCount, $licenseCount, $transportCount, $docsCount], [self::RED, self::AMBER, self::AMBER, self::AMBER, self::BLUE]),
+            $this->horizontalBarChart('compliance-issues', __('Issues by category'), 150, __('Open compliance issues grouped by category'), [__('Temperature'), __('Inspection'), __('License'), __('Transport'), __('Docs')], [$tempCount, $inspectionCount, $licenseCount, $transportCount, $docsCount], [$this->brandColor('primary'), $this->brandColor('warning'), $this->brandColor('warning'), $this->brandColor('warning'), $this->brandColor('muted')]),
         ];
     }
 
@@ -105,11 +127,11 @@ class ProcessorDashboardCharts
 
         return [
             $this->barChart('inspector-workload', __('Daily workload'), 160, __('Daily ante-mortem, post-mortem, and certificate workload'), $days, [
-                ['label' => __('AM'), 'data' => $this->dailyAmCounts($ctx, $days), 'backgroundColor' => self::BLUE],
-                ['label' => __('PM'), 'data' => $this->dailyPmCounts($ctx, $days), 'backgroundColor' => self::TEAL],
-                ['label' => __('Certs'), 'data' => $this->dailyCertCounts($ctx, $days), 'backgroundColor' => self::AMBER],
+                ['label' => __('AM'), 'data' => $this->dailyAmCounts($ctx, $days), 'backgroundColor' => $this->speciesColor('cattle')],
+                ['label' => __('PM'), 'data' => $this->dailyPmCounts($ctx, $days), 'backgroundColor' => $this->speciesColor('goat')],
+                ['label' => __('Certs'), 'data' => $this->dailyCertCounts($ctx, $days), 'backgroundColor' => $this->speciesColor('sheep')],
             ]),
-            $this->donutChart('inspector-outcomes', __('Inspection outcomes'), 130, __('Inspection outcomes this month'), [__('Pass'), __('Conditional'), __('Rejected')], [84, 8, 8], [self::TEAL, self::AMBER, self::RED]),
+            $this->donutChart('inspector-outcomes', __('Inspection outcomes'), 130, __('Inspection outcomes this month'), [__('Pass'), __('Conditional'), __('Rejected')], [84, 8, 8], [$this->brandColor('success'), $this->brandColor('warning'), $this->brandColor('primary')]),
         ];
     }
 
@@ -120,10 +142,10 @@ class ProcessorDashboardCharts
     {
         return [
             $this->stackedBarChart('transport-deliveries', __('Weekly deliveries'), 160, __('Domestic and export deliveries over six weeks'), ['W1', 'W2', 'W3', 'W4', 'W5', 'W6'], [
-                ['label' => __('Domestic'), 'data' => [8, 9, 7, 10, 9, 11], 'backgroundColor' => self::BLUE],
-                ['label' => __('Export'), 'data' => [2, 1, 3, 2, 1, 2], 'backgroundColor' => self::AMBER],
+                ['label' => __('Domestic'), 'data' => [8, 9, 7, 10, 9, 11], 'backgroundColor' => $this->brandColor('primary')],
+                ['label' => __('Export'), 'data' => [2, 1, 3, 2, 1, 2], 'backgroundColor' => $this->brandColor('warning')],
             ]),
-            $this->lineChart('transport-ontime', __('On-time delivery rate'), 150, __('Monthly on-time delivery rate January through June'), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], [91, 88, 93, 85, 82, 87], self::TEAL, 70, 100, 'percent'),
+            $this->lineChart('transport-ontime', __('On-time delivery rate'), 150, __('Monthly on-time delivery rate January through June'), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], [91, 88, 93, 85, 82, 87], $this->brandColor('primary'), 70, 100, 'percent'),
         ];
     }
 
@@ -134,19 +156,20 @@ class ProcessorDashboardCharts
     {
         return [
             $this->barChart('finance-revenue-cost', __('Monthly revenue vs cost'), 170, __('Monthly revenue and cost in RWF millions'), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], [
-                ['label' => __('Revenue'), 'data' => [22, 24, 26, 25, 27, 28], 'backgroundColor' => self::TEAL],
-                ['label' => __('Cost'), 'data' => [17, 18, 19, 20, 21, 22], 'backgroundColor' => self::RED],
+                ['label' => __('Revenue'), 'data' => [22, 24, 26, 25, 27, 28], 'backgroundColor' => $this->brandColor('success')],
+                ['label' => __('Cost'), 'data' => [17, 18, 19, 20, 21, 22], 'backgroundColor' => $this->brandColor('primary')],
             ], 'millions'),
-            $this->donutChart('finance-ar', __('AR invoice status'), 150, __('Accounts receivable invoice status'), [__('Paid'), __('Pending'), __('Overdue')], [78, 14, 8], [self::TEAL, self::BLUE, self::RED]),
+            $this->donutChart('finance-ar', __('AR invoice status'), 150, __('Accounts receivable invoice status'), [__('Paid'), __('Pending'), __('Overdue')], [78, 14, 8], [$this->brandColor('success'), $this->brandColor('warning'), $this->brandColor('primary')]),
         ];
     }
 
     /**
      * @param  array<int, string>  $labels
      * @param  array<int, array<string, mixed>>  $datasets
+     * @param  array<int, array{color: string, label: string}>|null  $legend
      * @return array<string, mixed>
      */
-    private function barChart(string $slug, string $title, int $height, string $ariaLabel, array $labels, array $datasets, ?string $yCallback = null): array
+    private function barChart(string $slug, string $title, int $height, string $ariaLabel, array $labels, array $datasets, ?string $yCallback = null, ?array $legend = null): array
     {
         $chart = [
             'id' => 'chart-'.$slug,
@@ -156,16 +179,107 @@ class ProcessorDashboardCharts
             'type' => 'bar',
             'labels' => $labels,
             'datasets' => $datasets,
-            'legend' => collect($datasets)->map(fn (array $ds) => [
-                'color' => $ds['backgroundColor'],
-                'label' => $ds['label'],
-            ])->all(),
+            'legend' => $legend ?? $this->legendFromDatasets($datasets),
         ];
         if ($yCallback) {
             $chart['yCallback'] = $yCallback;
         }
 
         return $chart;
+    }
+
+    /**
+     * @param  array<int, int|float|null>  $data
+     * @return array<string, mixed>
+     */
+    private function coloredBarDataset(string $label, array $data, string $color): array
+    {
+        return [
+            'label' => $label,
+            'data' => $data,
+            'backgroundColor' => $color,
+            'borderColor' => $color,
+            'borderWidth' => 1,
+            'borderRadius' => 4,
+        ];
+    }
+
+    /**
+     * @param  array<int, int|float>  $data
+     * @param  array<int, string>  $colors
+     * @return array<string, mixed>
+     */
+    private function multiColorBarDataset(string $label, array $data, array $colors): array
+    {
+        return [
+            'label' => $label,
+            'data' => $data,
+            'backgroundColor' => $colors,
+            'borderColor' => $colors,
+            'borderWidth' => 1,
+            'borderRadius' => 4,
+        ];
+    }
+
+    /**
+     * @return array<int, array{color: string, label: string}>
+     */
+    private function speciesLegend(): array
+    {
+        return [
+            ['color' => $this->speciesColor('cattle'), 'label' => __('Cattle')],
+            ['color' => $this->speciesColor('goat'), 'label' => __('Goat')],
+            ['color' => $this->speciesColor('sheep'), 'label' => __('Sheep')],
+        ];
+    }
+
+    private function brandColor(string $key): string
+    {
+        return (string) config("bucha.colors.{$key}");
+    }
+
+    private function speciesColor(string $species): string
+    {
+        return (string) config("bucha.chart.species.{$species}");
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function speciesColors(): array
+    {
+        return array_values(config('bucha.chart.species'));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function chartSeriesColors(): array
+    {
+        return config('bucha.chart.series');
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $datasets
+     * @return array<int, array{color: string, label: string}>
+     */
+    private function legendFromDatasets(array $datasets): array
+    {
+        return collect($datasets)
+            ->map(function (array $dataset): ?array {
+                $color = $dataset['backgroundColor'] ?? null;
+                if (! is_string($color)) {
+                    return null;
+                }
+
+                return [
+                    'color' => $color,
+                    'label' => (string) ($dataset['label'] ?? ''),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
@@ -211,11 +325,11 @@ class ProcessorDashboardCharts
             'type' => 'line',
             'labels' => $labels,
             'datasets' => [
-                ['label' => $title, 'data' => $data, 'borderColor' => self::TEAL, 'backgroundColor' => self::TEAL],
+                ['label' => $title, 'data' => $data, 'borderColor' => $this->brandColor('primary'), 'backgroundColor' => $this->brandColor('primary')],
             ],
             'legend' => [
-                ['color' => self::TEAL, 'label' => $title],
-                ['color' => self::RED, 'label' => __('Target')],
+                ['color' => $this->brandColor('primary'), 'label' => $title],
+                ['color' => $this->brandColor('burgundy'), 'label' => __('Target')],
             ],
             'referenceLine' => $target,
             'yMin' => $yMin,
@@ -276,6 +390,30 @@ class ProcessorDashboardCharts
      * @param  array<int, string>  $colors
      * @return array<string, mixed>
      */
+    private function pieChart(string $slug, string $title, int $height, string $ariaLabel, array $labels, array $data, array $colors): array
+    {
+        return [
+            'id' => 'chart-'.$slug,
+            'title' => $title,
+            'height' => $height,
+            'ariaLabel' => $ariaLabel,
+            'type' => 'pie',
+            'labels' => $labels,
+            'data' => $data,
+            'colors' => $colors,
+            'legend' => collect($labels)->map(fn (string $label, int $i) => [
+                'color' => $colors[$i] ?? $this->brandColor('primary'),
+                'label' => $label,
+            ])->all(),
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $labels
+     * @param  array<int, int>  $data
+     * @param  array<int, string>  $colors
+     * @return array<string, mixed>
+     */
     private function donutChart(string $slug, string $title, int $height, string $ariaLabel, array $labels, array $data, array $colors): array
     {
         return [
@@ -288,10 +426,92 @@ class ProcessorDashboardCharts
             'data' => $data,
             'colors' => $colors,
             'legend' => collect($labels)->map(fn (string $label, int $i) => [
-                'color' => $colors[$i] ?? self::BLUE,
+                'color' => $colors[$i] ?? $this->brandColor('primary'),
                 'label' => $label.' '.($data[$i] ?? 0).'%',
             ])->all(),
         ];
+    }
+
+    /**
+     * @return Collection<int, int|string>
+     */
+    private function orgAdminFacilityIds(ProcessorDashboardContext $ctx, ?User $user): Collection
+    {
+        $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
+
+        return Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
+    }
+
+    /**
+     * @return Collection<int, int|string>
+     */
+    private function orgAdminPlanIds(ProcessorDashboardContext $ctx, ?User $user): Collection
+    {
+        $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
+        $facilityIds = Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
+
+        return SlaughterPlan::query()->whereIn('facility_id', $facilityIds)->pluck('id');
+    }
+
+    /**
+     * @param  Collection<int, int|string>  $planIds
+     * @return array{cattle: int, goat: int, sheep: int}
+     */
+    private function executedBySpeciesTotals(Collection $planIds, array $filters): array
+    {
+        $query = SlaughterExecution::query()
+            ->join('slaughter_plans', 'slaughter_plans.id', '=', 'slaughter_executions.slaughter_plan_id')
+            ->whereIn('slaughter_executions.slaughter_plan_id', $planIds)
+            ->where('slaughter_executions.status', SlaughterExecution::STATUS_COMPLETED);
+
+        if ($filters['is_filtered'] ?? false) {
+            $query->whereDate('slaughter_executions.slaughter_time', '>=', $filters['start']->toDateString())
+                ->whereDate('slaughter_executions.slaughter_time', '<=', $filters['end']->toDateString());
+        }
+
+        $counts = $query
+            ->groupBy('slaughter_plans.species')
+            ->selectRaw('slaughter_plans.species as species, SUM(slaughter_executions.actual_animals_slaughtered) as total')
+            ->pluck('total', 'species');
+
+        return [
+            'cattle' => (int) ($counts[SlaughterPlan::SPECIES_CATTLE] ?? 0),
+            'goat' => (int) ($counts[SlaughterPlan::SPECIES_GOAT] ?? 0),
+            'sheep' => (int) ($counts[SlaughterPlan::SPECIES_SHEEP] ?? 0),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, int|string>  $facilityIds
+     */
+    private function intakeTrendEndDate(Collection $facilityIds): CarbonInterface
+    {
+        $latest = AnimalIntakeItem::query()
+            ->whereHas('intake', fn ($q) => $q
+                ->whereIn('facility_id', $facilityIds)
+                ->where('is_draft', false))
+            ->max('created_at');
+
+        if ($latest === null) {
+            return now()->startOfDay();
+        }
+
+        $latestDay = Carbon::parse($latest)->startOfDay();
+        $today = now()->startOfDay();
+
+        return $latestDay->lte($today) ? $latestDay : $today;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function weekdayLabelsEndingAt(CarbonInterface $endDate): array
+    {
+        return collect(range(6, 0))
+            ->map(fn (int $i) => $endDate->copy()->subDays($i)->format('D'))
+            ->reverse()
+            ->values()
+            ->all();
     }
 
     /**
@@ -299,7 +519,7 @@ class ProcessorDashboardCharts
      */
     private function lastWeekdayLabels(): array
     {
-        return collect(range(6, 0))->map(fn (int $i) => now()->subDays($i)->format('D'))->reverse()->values()->all();
+        return $this->weekdayLabelsEndingAt(now()->startOfDay());
     }
 
     /**
@@ -315,31 +535,38 @@ class ProcessorDashboardCharts
     }
 
     /**
+     * @param  Collection<int, int|string>  $facilityIds
+     * @return array<int, int>
+     */
+    private function intakeBySpeciesForFacilities(Collection $facilityIds, string $species, CarbonInterface $endDate): array
+    {
+        $speciesConstant = match (strtolower($species)) {
+            'cattle' => AnimalIntake::SPECIES_CATTLE,
+            'goat' => AnimalIntake::SPECIES_GOAT,
+            'sheep' => AnimalIntake::SPECIES_SHEEP,
+            'pig' => AnimalIntake::SPECIES_PIG,
+            default => $species,
+        };
+
+        return collect(range(6, 0))->map(function (int $i) use ($facilityIds, $speciesConstant, $endDate): int {
+            return (int) AnimalIntakeItem::query()
+                ->bySpecies($speciesConstant)
+                ->whereHas('intake', fn ($q) => $q
+                    ->whereIn('facility_id', $facilityIds)
+                    ->where('is_draft', false)
+                )
+                ->whereDate('animal_intake_items.created_at', $endDate->copy()->subDays($i)->toDateString())
+                ->count();
+        })->reverse()->values()->all();
+    }
+
+    /**
      * @param  array<int, string>  $days
      * @return array<int, int>
      */
     private function intakeBySpeciesForDays(ProcessorDashboardContext $ctx, string $species, array $days): array
     {
-        return collect(range(6, 0))->map(function (int $i) use ($ctx, $species): int {
-            $date = now()->subDays($i)->startOfDay();
-
-            $speciesConstant = match (strtolower($species)) {
-                'cattle' => AnimalIntake::SPECIES_CATTLE,
-                'goat' => AnimalIntake::SPECIES_GOAT,
-                'sheep' => AnimalIntake::SPECIES_SHEEP,
-                'pig' => AnimalIntake::SPECIES_PIG,
-                default => $species,
-            };
-
-            return (int) AnimalIntakeItem::query()
-                ->bySpecies($speciesConstant)
-                ->whereHas('intake', fn ($q) => $q
-                    ->whereIn('facility_id', $ctx->facilityIds)
-                    ->where('is_draft', false)
-                )
-                ->whereDate('animal_intake_items.created_at', $date)
-                ->count();
-        })->reverse()->values()->all();
+        return $this->intakeBySpeciesForFacilities($ctx->facilityIds, $species, now()->startOfDay());
     }
 
     /**

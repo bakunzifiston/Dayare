@@ -1,8 +1,20 @@
+const DEFAULT_CHART_COLORS = window.buchaChartColors ?? {
+    species: { cattle: '#A11D1E', goat: '#7A1516', sheep: '#D69E2E' },
+    series: ['#A11D1E', '#7A1516', '#3C3C3B', '#718096', '#D69E2E', '#38A169'],
+    semantic: { positive: '#38A169', warning: '#D69E2E', negative: '#A11D1E', neutral: '#718096' },
+};
+
 const CHART_COLORS = {
-    teal: '#1D9E75',
-    red: '#E24B4A',
-    blue: '#378ADD',
-    amber: '#EF9F27',
+    primary: DEFAULT_CHART_COLORS.series[0],
+    burgundy: DEFAULT_CHART_COLORS.series[1],
+    charcoal: DEFAULT_CHART_COLORS.series[2],
+    muted: DEFAULT_CHART_COLORS.series[3],
+    warning: DEFAULT_CHART_COLORS.series[4],
+    success: DEFAULT_CHART_COLORS.series[5],
+    red: DEFAULT_CHART_COLORS.semantic.negative,
+    teal: DEFAULT_CHART_COLORS.semantic.positive,
+    blue: DEFAULT_CHART_COLORS.series[0],
+    amber: DEFAULT_CHART_COLORS.semantic.warning,
 };
 
 const GRID_COLOR = 'rgba(128,128,128,0.12)';
@@ -27,21 +39,37 @@ function baseOptions(height) {
 }
 
 function drawChart(canvas, spec) {
-    if (!canvas || canvas._done || typeof Chart === 'undefined') {
+    if (!canvas || typeof Chart === 'undefined') {
         return;
     }
-    canvas._done = true;
+
+    if (canvas._chartInstance) {
+        canvas._chartInstance.destroy();
+        canvas._chartInstance = null;
+    }
 
     const ctx = canvas.getContext('2d');
     const type = spec.type || 'bar';
     const labels = spec.labels || [];
-    const datasets = (spec.datasets || []).map((ds) => ({
-        ...ds,
-        borderWidth: ds.borderWidth ?? (type === 'line' ? 2 : 0),
-        pointRadius: ds.pointRadius ?? (type === 'line' ? 3 : undefined),
-    }));
+    const datasets = (spec.datasets || []).map((ds) => {
+        const backgroundColor = ds.backgroundColor;
+        const borderColor = ds.borderColor ?? backgroundColor;
+
+        return {
+            ...ds,
+            backgroundColor,
+            borderColor,
+            borderWidth: ds.borderWidth ?? (type === 'bar' ? 1 : type === 'line' ? 2 : 0),
+            borderRadius: ds.borderRadius ?? (type === 'bar' ? 4 : undefined),
+            pointRadius: ds.pointRadius ?? (type === 'line' ? 3 : undefined),
+            skipNull: ds.skipNull ?? true,
+        };
+    });
 
     const options = baseOptions(spec.height);
+    if (type === 'bar') {
+        options.scales.y.beginAtZero = true;
+    }
     if (spec.yMin !== undefined) options.scales.y.min = spec.yMin;
     if (spec.yMax !== undefined) options.scales.y.max = spec.yMax;
     if (spec.yCallback === 'percent') {
@@ -75,22 +103,25 @@ function drawChart(canvas, spec) {
         options,
     };
 
-    if (type === 'donut') {
+    if (type === 'donut' || type === 'pie') {
         config.options = {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            cutout: '68%',
+            ...(type === 'donut' ? { cutout: '68%' } : {}),
         };
-        config.data.datasets = [{
-            data: spec.data || [],
-            backgroundColor: spec.colors || [CHART_COLORS.teal, CHART_COLORS.amber, CHART_COLORS.red],
-            borderWidth: 0,
-            hoverOffset: 4,
-        }];
+        config.data = {
+            labels: spec.labels || [],
+            datasets: [{
+                data: spec.data || [],
+                backgroundColor: spec.colors || DEFAULT_CHART_COLORS.series,
+                borderWidth: 0,
+                hoverOffset: 4,
+            }],
+        };
     }
 
-    new Chart(ctx, config);
+    canvas._chartInstance = new Chart(ctx, config);
 }
 
 export function drawProcessorCharts(role, charts) {

@@ -35,7 +35,7 @@
                         <x-kpi-card
                             title="{{ __('Deliveries this month') }}"
                             :value="$deliveriesThisMonth"
-                            :href="route('delivery-confirmations.index')"
+                            :href="route('delivery-confirmations.hub')"
                             color="slate"
                         />
                     </div>

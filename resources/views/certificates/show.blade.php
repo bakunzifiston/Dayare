@@ -81,7 +81,7 @@
                         {{ __('View batch') }}
                     </a>
                 @endif
-                <a href="{{ route('certificates.index') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                <a href="{{ route('certificates.hub') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                     {{ __('All certificates') }}
                 </a>
             </div>

@@ -17,6 +17,7 @@ use App\Models\Demand;
 use App\Models\Facility;
 use App\Models\TransportTrip;
 use App\Services\Processor\DeliveryTransportAlignmentService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,39 +34,225 @@ class DeliveryConfirmationController extends Controller
         private readonly DeliveryTransportAlignmentService $transportAlignment,
     ) {}
 
-    public function index(Request $request): View
+    public function hub(Request $request): View
     {
-        $facilityIds = $this->accessibleFacilityIds($request);
-        $query = $this->applyConfirmationFilters(
-            $this->scopedConfirmationsQuery($request)->with([
+        $filters = $this->resolveHubFilters($request);
+        $base = $this->scopedConfirmationsQuery($request);
+        $hubStats = $this->buildHubStats($request, $base, $filters);
+
+        $confirmations = (clone $base)
+            ->with([
                 'transportTrip.certificate',
                 'transportTrip.originFacility',
                 'transportTrip.destinationFacility',
                 'receivingFacility',
                 'client',
                 'exportDocuments',
-            ]),
-            $request,
-            $facilityIds
-        );
+            ])
+            ->when($filters['is_filtered'], function ($query) use ($filters) {
+                $query->whereDate('received_date', '>=', $filters['start']->toDateString())
+                    ->whereDate('received_date', '<=', $filters['end']->toDateString());
+            })
+            ->latest('received_date')
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
 
-        $confirmations = $query->latest('received_date')->paginate(10)->withQueryString();
+        $tripIds = $this->accessibleTripIds($request);
+        $pendingTrips = TransportTrip::query()
+            ->whereIn('id', $tripIds)
+            ->whereDoesntHave('deliveryConfirmation')
+            ->with(['certificate', 'originFacility', 'destinationFacility'])
+            ->latest('departure_date')
+            ->limit(10)
+            ->get();
 
-        $kpiQuery = $this->applyConfirmationFilters(
-            $this->scopedConfirmationsQuery($request),
-            $request,
-            $facilityIds
-        );
+        $exportQuery = $filters['is_filtered']
+            ? ['from' => $filters['date_from'], 'to' => $filters['date_to']]
+            : [];
 
-        return view('delivery-confirmations.index', [
-            'confirmations' => $confirmations,
-            'kpis' => [
-                'total' => (clone $kpiQuery)->count(),
-                'confirmed' => (clone $kpiQuery)->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)->count(),
+        return view('delivery-confirmations.hub', compact(
+            'hubStats',
+            'confirmations',
+            'filters',
+            'exportQuery',
+            'pendingTrips',
+        ));
+    }
+
+    public function index(Request $request): RedirectResponse
+    {
+        return redirect()->route('delivery-confirmations.hub', $request->query());
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: null,
+     *     end: null,
+     *     range_label: string,
+     *     confirmations_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function hubFiltersAllTime(): array
+    {
+        return [
+            'period' => 'all',
+            'date_from' => '',
+            'date_to' => '',
+            'start' => null,
+            'end' => null,
+            'range_label' => __('All time'),
+            'confirmations_label' => __('Total confirmations'),
+            'has_custom_range' => false,
+            'is_filtered' => false,
+        ];
+    }
+
+    /**
+     * @return array{start: Carbon, end: Carbon, date_from: string, date_to: string, range_label: string, confirmations_label: string}
+     */
+    private function presetRangeForPeriod(string $period): array
+    {
+        $now = now();
+
+        [$start, $end, $rangeLabel, $confirmationsLabel] = match ($period) {
+            'day' => [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+                $now->format('M j, Y'),
+                __('Received today'),
             ],
-            'facilities' => Facility::whereIn('id', $facilityIds)->orderBy('facility_name')->get(),
-            'filters' => $request->only(['confirmation_status', 'client_id', 'from', 'to', 'receiving_facility_id']),
-        ]);
+            'year' => [
+                $now->copy()->startOfYear(),
+                $now->copy()->endOfYear(),
+                (string) $now->year,
+                __('Received this year'),
+            ],
+            'month' => [
+                $now->copy()->startOfMonth(),
+                $now->copy()->endOfMonth(),
+                $now->format('F Y'),
+                __('Received this month'),
+            ],
+            default => throw new \InvalidArgumentException('Invalid preset period.'),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'date_from' => $start->toDateString(),
+            'date_to' => $end->toDateString(),
+            'range_label' => $rangeLabel,
+            'confirmations_label' => $confirmationsLabel,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     date_from: string,
+     *     date_to: string,
+     *     start: ?Carbon,
+     *     end: ?Carbon,
+     *     range_label: string,
+     *     confirmations_label: string,
+     *     has_custom_range: bool,
+     *     is_filtered: bool
+     * }
+     */
+    private function resolveHubFilters(Request $request): array
+    {
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $this->hubFiltersAllTime();
+        }
+
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $rawFrom = trim((string) $request->query('date_from', ''));
+        $rawTo = trim((string) $request->query('date_to', ''));
+
+        if ($period === 'all' && $rawFrom === '' && $rawTo === '') {
+            return $this->hubFiltersAllTime();
+        }
+
+        if ($rawFrom !== '' && $rawTo !== '') {
+            $start = Carbon::parse($rawFrom)->startOfDay();
+            $end = Carbon::parse($rawTo)->endOfDay();
+            if ($start->gt($end)) {
+                $start = Carbon::parse($rawTo)->startOfDay();
+                $end = Carbon::parse($rawFrom)->endOfDay();
+                [$rawFrom, $rawTo] = [$start->toDateString(), $end->toDateString()];
+            }
+
+            return [
+                'period' => $period,
+                'date_from' => $rawFrom,
+                'date_to' => $rawTo,
+                'start' => $start,
+                'end' => $end,
+                'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
+                'confirmations_label' => __('Received in range'),
+                'has_custom_range' => true,
+                'is_filtered' => true,
+            ];
+        }
+
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'confirmations_label' => $preset['confirmations_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
+        return $this->hubFiltersAllTime();
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<DeliveryConfirmation>  $base
+     * @return array<string, int|string>
+     */
+    private function buildHubStats(Request $request, \Illuminate\Database\Eloquent\Builder $base, array $filters): array
+    {
+        $scoped = (clone $base)->when($filters['is_filtered'], function ($query) use ($filters) {
+            $query->whereDate('received_date', '>=', $filters['start']->toDateString())
+                ->whereDate('received_date', '<=', $filters['end']->toDateString());
+        });
+
+        $domestic = strtoupper((string) config('processor.domestic_country', 'RW'));
+        $tripIds = $this->accessibleTripIds($request);
+
+        return [
+            'confirmations_label' => $filters['confirmations_label'],
+            'total_confirmations' => $scoped->count(),
+            'pending' => (clone $base)->where('confirmation_status', DeliveryConfirmation::STATUS_PENDING)->count(),
+            'confirmed' => (clone $base)->where('confirmation_status', DeliveryConfirmation::STATUS_CONFIRMED)->count(),
+            'disputed' => (clone $base)->where('confirmation_status', DeliveryConfirmation::STATUS_DISPUTED)->count(),
+            'awaiting_confirmation' => TransportTrip::query()
+                ->whereIn('id', $tripIds)
+                ->whereDoesntHave('deliveryConfirmation')
+                ->count(),
+            'international' => (clone $base)
+                ->whereNotNull('receiver_country')
+                ->whereRaw('UPPER(receiver_country) != ?', [$domestic])
+                ->count(),
+        ];
     }
 
     public function export(ExportDeliveryConfirmationsRequest $request): StreamedResponse|JsonResponse|Response
@@ -142,7 +329,7 @@ class DeliveryConfirmationController extends Controller
             $this->maybeAutoLinkDemand($request, $confirmation);
         }
 
-        return redirect()->route('delivery-confirmations.index')
+        return redirect()->route('delivery-confirmations.hub')
             ->with('status', __('Delivery confirmation recorded successfully.'));
     }
 
@@ -182,7 +369,7 @@ class DeliveryConfirmationController extends Controller
 
         $deliveryConfirmation->update($this->validatedConfirmationData($request));
 
-        return redirect()->route('delivery-confirmations.index')
+        return redirect()->route('delivery-confirmations.hub')
             ->with('status', __('Delivery confirmation updated successfully.'));
     }
 
@@ -200,7 +387,7 @@ class DeliveryConfirmationController extends Controller
 
         $deliveryConfirmation->delete();
 
-        return redirect()->route('delivery-confirmations.index')
+        return redirect()->route('delivery-confirmations.hub')
             ->with('status', __('Delivery confirmation removed.'));
     }
 
