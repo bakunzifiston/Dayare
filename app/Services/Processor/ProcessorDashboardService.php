@@ -36,17 +36,19 @@ class ProcessorDashboardService
         $request = $request ?? request();
         $filters = $this->resolveDashboardFilters($request);
         if (in_array($role, [
+            BusinessUser::ROLE_ORG_ADMIN,
             BusinessUser::ROLE_INSPECTOR,
             BusinessUser::ROLE_OPERATIONS_MANAGER,
             BusinessUser::ROLE_ACCOUNTANT,
             BusinessUser::ROLE_TRANSPORT_MANAGER,
+            BusinessUser::ROLE_COMPLIANCE_OFFICER,
         ], true) && ! $request->hasAny(['period', 'date_from', 'date_to'])) {
             $filters = $this->dashboardFiltersForPreset('month');
         }
 
         $data = match ($role) {
             BusinessUser::ROLE_OPERATIONS_MANAGER => $this->buildOpsManager($ctx, $filters),
-            BusinessUser::ROLE_COMPLIANCE_OFFICER => $this->buildComplianceOfficer($ctx),
+            BusinessUser::ROLE_COMPLIANCE_OFFICER => $this->buildComplianceOfficer($ctx, $filters),
             BusinessUser::ROLE_INSPECTOR => $this->buildInspector($ctx, $user, $filters),
             BusinessUser::ROLE_TRANSPORT_MANAGER => $this->buildTransportManager($ctx, $filters),
             BusinessUser::ROLE_ACCOUNTANT => $this->buildAccountant($businessId, $ctx, $filters),
@@ -60,6 +62,7 @@ class ProcessorDashboardService
             BusinessUser::ROLE_OPERATIONS_MANAGER,
             BusinessUser::ROLE_ACCOUNTANT,
             BusinessUser::ROLE_TRANSPORT_MANAGER,
+            BusinessUser::ROLE_COMPLIANCE_OFFICER,
         ], true);
 
         $data['charts'] = app(ProcessorDashboardCharts::class)->forRole(
@@ -97,73 +100,69 @@ class ProcessorDashboardService
 
     private function buildOrgAdmin(ProcessorDashboardContext $ctx, ?User $user, array $filters): array
     {
-        $batchStats = $this->batchCertificationStats($ctx);
-        $coldViolations = $this->openColdViolationsCount($ctx);
-        $pmPending = $batchStats['pmPending'];
-
+        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
+        $facilityIds = $this->orgAdminFacilityIds($ctx, $user);
+        $planIds = $this->orgAdminPlanIds($ctx, $user);
+        $batchIds = $this->orgAdminBatchIds($ctx, $user);
         $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
-        $facilityIds = Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
-        $planIds = SlaughterPlan::query()->whereIn('facility_id', $facilityIds)->pluck('id');
 
-        $executionScope = SlaughterExecution::query()
+        $executionsQuery = SlaughterExecution::query()
             ->whereIn('slaughter_plan_id', $planIds)
-            ->where('status', SlaughterExecution::STATUS_COMPLETED);
+            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereNotNull('slaughter_time');
+        $this->applyDashboardDateFilter($executionsQuery, 'slaughter_time', $filters);
+        $totalExecuted = (int) (clone $executionsQuery)->sum('actual_animals_slaughtered');
 
-        if ($filters['is_filtered']) {
-            $executionScope
-                ->whereDate('slaughter_time', '>=', $filters['start']->toDateString())
-                ->whereDate('slaughter_time', '<=', $filters['end']->toDateString());
-        }
+        $animalsReceived = $this->intakeAnimalsReceivedForFacilities($facilityIds, $filters);
 
-        $totalExecuted = (int) (clone $executionScope)->sum('actual_animals_slaughtered');
-
-        $speciesCounts = SlaughterExecution::query()
-            ->join('slaughter_plans', 'slaughter_plans.id', '=', 'slaughter_executions.slaughter_plan_id')
-            ->whereIn('slaughter_executions.slaughter_plan_id', $planIds)
-            ->where('slaughter_executions.status', SlaughterExecution::STATUS_COMPLETED)
-            ->when($filters['is_filtered'], function ($query) use ($filters) {
-                $query->whereDate('slaughter_executions.slaughter_time', '>=', $filters['start']->toDateString())
-                    ->whereDate('slaughter_executions.slaughter_time', '<=', $filters['end']->toDateString());
+        $batchQuery = Batch::query()->whereIn('id', $batchIds);
+        $this->applyDashboardDateFilter($batchQuery, 'created_at', $filters);
+        $batchesInPeriod = (int) (clone $batchQuery)->count();
+        $batchesCertified = (int) Batch::query()
+            ->whereIn('id', $batchIds)
+            ->whereHas('certificate')
+            ->when($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null, function ($query) use ($filters): void {
+                $query->whereBetween('created_at', [
+                    $filters['start']->copy()->startOfDay(),
+                    $filters['end']->copy()->endOfDay(),
+                ]);
             })
-            ->groupBy('slaughter_plans.species')
-            ->selectRaw('slaughter_plans.species as species, SUM(slaughter_executions.actual_animals_slaughtered) as total')
-            ->pluck('total', 'species');
-
-        $cattleExecuted = $this->slaughterSpeciesCount($speciesCounts, SlaughterPlan::SPECIES_CATTLE);
-        $goatExecuted = $this->slaughterSpeciesCount($speciesCounts, SlaughterPlan::SPECIES_GOAT);
-        $sheepExecuted = $this->slaughterSpeciesCount($speciesCounts, SlaughterPlan::SPECIES_SHEEP);
+            ->count();
+        $certRate = $batchesInPeriod > 0 ? (int) round($batchesCertified / $batchesInPeriod * 100) : 0;
 
         $totalInspectors = (int) Inspector::query()
             ->whereIn('facility_id', $facilityIds)
             ->where('status', Inspector::STATUS_ACTIVE)
             ->count();
-
-        $speciesHint = collect([
-            SlaughterPlan::SPECIES_CATTLE => __('Cattle'),
-            SlaughterPlan::SPECIES_GOAT => __('Goat'),
-            SlaughterPlan::SPECIES_SHEEP => __('Sheep'),
-        ])->map(fn (string $label, string $species) => $label.': '.number_format($this->slaughterSpeciesCount($speciesCounts, $species)))
-            ->implode(' · ');
-
-        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
-
-        $kpiCards = [
-            $this->kpi(__('Total businesses'), $businessIds->count(), __('Across your access'), 'info', 'building'),
-            $this->kpi(__('Total facilities'), $facilityIds->count(), __('Registered sites'), 'info', 'map-pin'),
-            $this->kpi($filters['executions_label'], $totalExecuted, $speciesHint, $totalExecuted > 0 ? 'positive' : 'info', 'box'),
-            $this->kpi(__('Cattle'), $cattleExecuted, $periodHint, 'info', 'box'),
-            $this->kpi(__('Goat'), $goatExecuted, $periodHint, 'info', 'box'),
-            $this->kpi(__('Sheep'), $sheepExecuted, $periodHint, 'info', 'box'),
-            $this->kpi(__('Total inspectors'), $totalInspectors, __('Active inspectors'), 'info', 'users'),
-        ];
+        $coldRoomIds = ColdRoom::query()->whereIn('facility_id', $facilityIds)->pluck('id');
+        $openViolations = (int) ColdRoomViolation::query()
+            ->whereIn('cold_room_id', $coldRoomIds)
+            ->where('status', ColdRoomViolation::STATUS_OPEN)
+            ->count();
 
         return [
             'roleKey' => BusinessUser::ROLE_ORG_ADMIN,
-            'headerBadge' => ['label' => __('Full access'), 'variant' => 'info'],
-            'insight' => $this->orgAdminInsight($ctx, $coldViolations, $batchStats, $pmPending),
-            'kpiCards' => $kpiCards,
-            'leftPanel' => $this->recentReceivedAnimalsPanel($user, $ctx),
-            'rightPanel' => $this->recentSlaughteredPanel($user, $ctx),
+            'headerBadge' => ['label' => __('Organization'), 'variant' => 'info'],
+            'kpiCards' => [
+                $this->kpi(__('Animals executed'), $totalExecuted, $periodHint, $totalExecuted > 0 ? 'positive' : 'info', 'player-play'),
+                $this->kpi(__('Animals received'), $animalsReceived, $periodHint, 'info', 'arrow-down'),
+                $this->kpi(__('Certification rate'), $certRate.'%', __(':count batches', ['count' => $batchesInPeriod]), $certRate >= 90 ? 'positive' : 'warning', 'certificate'),
+                $this->kpi(__('Facilities'), $facilityIds->count(), __(':count businesses', ['count' => $businessIds->count()]), 'info', 'map-pin'),
+                $this->kpi(__('Active inspectors'), $totalInspectors, __(':count temp alerts', ['count' => $openViolations]), $openViolations > 0 ? 'warning' : 'positive', 'users'),
+            ],
+            'workTable' => [
+                'title' => __('Slaughter executions'),
+                'subtitle' => __('Completed executions for the selected period.'),
+                'headers' => [
+                    'primary' => __('Execution'),
+                    'secondary' => __('Facility'),
+                    'updated' => __('Slaughtered'),
+                ],
+                'emptyMessage' => __('No executions in this period.'),
+                'rows' => $this->orgAdminExecutionTableRows($ctx, $user, $filters),
+                'footerRoute' => 'slaughter-executions.hub',
+                'footerLabel' => __('View all executions'),
+            ],
             'quickActions' => [
                 $this->action(__('Manage users'), 'users', 'tenant-users.index', BusinessUser::PERMISSION_MANAGE_BUSINESS_USERS),
                 $this->action(__('Compliance'), 'shield', 'compliance.index', BusinessUser::PERMISSION_MONITOR_COMPLIANCE_METRICS),
@@ -243,42 +242,53 @@ class ProcessorDashboardService
         ];
     }
 
-    private function buildComplianceOfficer(ProcessorDashboardContext $ctx): array
+    private function buildComplianceOfficer(ProcessorDashboardContext $ctx, array $filters): array
     {
-        $openIssues = $this->openComplianceIssuesCount($ctx);
-        $criticalIssues = $this->criticalComplianceCount($ctx);
-        $checklistsDue = $this->missingAnteMortemCount($ctx) + $this->missingPostMortemCount($ctx);
-        $tempViolations = $this->openColdViolationsCount($ctx);
+        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
+
+        $amQuery = AnteMortemInspection::query()->whereIn('slaughter_plan_id', $ctx->planIds);
+        $this->applyDashboardDateFilter($amQuery, 'inspection_date', $filters);
+        $amCount = (int) (clone $amQuery)->count();
+
+        $pmQuery = PostMortemInspection::query()->whereIn('batch_id', $ctx->batchIds);
+        $this->applyDashboardDateFilter($pmQuery, 'inspection_date', $filters);
+        $pmCount = (int) (clone $pmQuery)->count();
+
+        $violationsInPeriod = $this->coldViolationsInPeriod($ctx, $filters);
+        $openViolations = $this->openColdViolationsCount($ctx);
+        $missingAm = $this->missingAnteMortemCount($ctx);
+        $missingPm = $this->missingPostMortemCount($ctx);
+        $checklistsPending = $missingAm + $missingPm;
         $breachRoom = $this->topColdBreachRoom($ctx);
-        $evidenceCount = (int) MeatExportDocument::query()
+
+        $evidenceQuery = MeatExportDocument::query()
             ->whereHas('deliveryConfirmation.transportTrip', fn ($q) => $q->whereIn('id', $ctx->tripIds))
-            ->where('status', MeatExportDocument::STATUS_ISSUED)
-            ->where('created_at', '>=', now()->startOfWeek())
-            ->count();
-        $complianceScore = max(60, 95 - ($openIssues * 4));
+            ->where('status', MeatExportDocument::STATUS_ISSUED);
+        $this->applyDashboardDateFilter($evidenceQuery, 'created_at', $filters);
+        $evidenceCount = (int) (clone $evidenceQuery)->count();
 
         return [
             'roleKey' => BusinessUser::ROLE_COMPLIANCE_OFFICER,
-            'headerBadge' => ['label' => __('Compliance + temperature'), 'variant' => 'warning'],
-            'insight' => $this->complianceInsight($ctx, $complianceScore, $breachRoom, $checklistsDue),
+            'headerBadge' => ['label' => __('Compliance'), 'variant' => 'warning'],
             'kpiCards' => [
-                $this->kpi(__('Open issues'), $openIssues, __(':count critical', ['count' => $criticalIssues]), $criticalIssues > 0 ? 'warning' : 'info', 'alert-triangle'),
-                $this->kpi(__('Checklists due today'), $checklistsDue, __('Inspections pending'), $checklistsDue > 0 ? 'warning' : 'positive', 'clipboard-list'),
-                $this->kpi(__('Temp violations'), $tempViolations, $breachRoom ? __('Cold room :room', ['room' => $breachRoom]) : __('No breaches'), $tempViolations > 0 ? 'negative' : 'positive', 'temperature'),
-                $this->kpi(__('Compliance score'), $complianceScore.'%', __('target 95%'), $complianceScore >= 95 ? 'positive' : 'warning', 'shield'),
-                $this->kpi(__('Evidence uploads this week'), $evidenceCount, __('Submitted files'), 'info', 'clipboard'),
+                $this->kpi(__('AM inspections'), $amCount, $periodHint, 'positive', 'clipboard-list'),
+                $this->kpi(__('PM inspections'), $pmCount, $periodHint, 'positive', 'clipboard'),
+                $this->kpi(__('Temp violations'), $violationsInPeriod, __(':count open', ['count' => $openViolations]), $openViolations > 0 ? 'negative' : 'positive', 'temperature'),
+                $this->kpi(__('Checklists pending'), $checklistsPending, __(':am AM · :pm PM', ['am' => $missingAm, 'pm' => $missingPm]), $checklistsPending > 0 ? 'warning' : 'positive', 'alert-triangle'),
+                $this->kpi(__('Evidence issued'), $evidenceCount, $breachRoom ? __('Cold room :room', ['room' => $breachRoom]) : $periodHint, 'info', 'clipboard'),
             ],
-            'leftPanel' => [
-                'title' => __('Cold room status'),
-                'subtitle' => __('Temperature compliance'),
-                'type' => 'cold_rooms_hex',
-                'items' => $this->coldRoomRowsHex($ctx),
-            ],
-            'rightPanel' => [
+            'workTable' => [
                 'title' => __('Compliance issues'),
-                'subtitle' => __('Reference-linked alerts'),
-                'type' => 'compliance_issues',
-                'items' => $this->complianceIssueRows($ctx),
+                'subtitle' => __('Open issues and breaches for the selected period.'),
+                'headers' => [
+                    'primary' => __('Issue'),
+                    'secondary' => __('Reference'),
+                    'updated' => __('Detected'),
+                ],
+                'emptyMessage' => __('No compliance issues in this period.'),
+                'rows' => $this->complianceIssueTableRows($ctx, $filters),
+                'footerRoute' => 'compliance.index',
+                'footerLabel' => __('View compliance hub'),
             ],
             'quickActions' => [
                 $this->action(__('Submit checklist'), 'clipboard-list', 'compliance.index', BusinessUser::PERMISSION_SUBMIT_CHECKLIST),
@@ -1121,9 +1131,26 @@ class ProcessorDashboardService
      */
     private function intakeAnimalsReceived(ProcessorDashboardContext $ctx, array $filters): int
     {
+        return $this->intakeAnimalsReceivedForFacilities($ctx->facilityIds, $filters);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, int|string>  $facilityIds
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function intakeAnimalsReceivedForFacilities(\Illuminate\Support\Collection $facilityIds, array $filters): int
+    {
+        if ($facilityIds->isEmpty()) {
+            return 0;
+        }
+
         $query = AnimalIntake::query()
             ->with('items:id,animal_intake_id,species')
-            ->whereIn('facility_id', $ctx->facilityIds)
+            ->whereIn('facility_id', $facilityIds)
             ->where('is_draft', false)
             ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
             ->whereNotNull('intake_date');
@@ -1136,6 +1163,94 @@ class ProcessorDashboardService
 
             return (int) $intake->number_of_animals;
         });
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, int|string>
+     */
+    private function orgAdminFacilityIds(ProcessorDashboardContext $ctx, ?User $user): \Illuminate\Support\Collection
+    {
+        $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
+
+        return Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, int|string>
+     */
+    private function orgAdminPlanIds(ProcessorDashboardContext $ctx, ?User $user): \Illuminate\Support\Collection
+    {
+        return SlaughterPlan::query()
+            ->whereIn('facility_id', $this->orgAdminFacilityIds($ctx, $user))
+            ->pluck('id');
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, int|string>
+     */
+    private function orgAdminBatchIds(ProcessorDashboardContext $ctx, ?User $user): \Illuminate\Support\Collection
+    {
+        $planIds = $this->orgAdminPlanIds($ctx, $user);
+
+        if ($planIds->isEmpty()) {
+            return collect();
+        }
+
+        return Batch::query()
+            ->whereHas('slaughterExecution', fn ($query) => $query->whereIn('slaughter_plan_id', $planIds))
+            ->pluck('id');
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array<int, array{
+     *     id: string,
+     *     species: string,
+     *     status: string,
+     *     status_tone: string,
+     *     updated_at: string,
+     *     route: string,
+     *     route_params: array<string, int>
+     * }>
+     */
+    private function orgAdminExecutionTableRows(ProcessorDashboardContext $ctx, ?User $user, array $filters): array
+    {
+        $planIds = $this->orgAdminPlanIds($ctx, $user);
+
+        if ($planIds->isEmpty()) {
+            return [];
+        }
+
+        $query = SlaughterExecution::query()
+            ->whereIn('slaughter_plan_id', $planIds)
+            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->with(['slaughterPlan.facility'])
+            ->whereNotNull('slaughter_time');
+        $this->applyDashboardDateFilter($query, 'slaughter_time', $filters);
+
+        return $query
+            ->latest('slaughter_time')
+            ->limit(50)
+            ->get()
+            ->map(function (SlaughterExecution $execution): array {
+                $plan = $execution->slaughterPlan;
+                $headCount = (int) $execution->actual_animals_slaughtered;
+
+                return [
+                    'id' => __('Plan #:id · :count head', ['id' => $execution->slaughter_plan_id, 'count' => number_format($headCount)]),
+                    'species' => (string) ($plan?->facility?->facility_name ?? '—'),
+                    'status' => (string) ($plan?->species ?? __('Completed')),
+                    'status_tone' => 'green',
+                    'updated_at' => $execution->slaughter_time?->format('d M Y H:i') ?? '—',
+                    'route' => 'slaughter-executions.show',
+                    'route_params' => ['slaughter_execution' => $execution->id],
+                ];
+            })
+            ->all();
     }
 
     private function action(string $label, string $icon, string $route, string $permission): array
@@ -1500,6 +1615,104 @@ class ProcessorDashboardService
             ->whereIn('cold_room_id', $coldRoomIds)
             ->where('status', ColdRoomViolation::STATUS_OPEN)
             ->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     */
+    private function coldViolationsInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $coldRoomIds = ColdRoom::query()->whereIn('facility_id', $ctx->facilityIds)->pluck('id');
+        $query = ColdRoomViolation::query()
+            ->whereIn('cold_room_id', $coldRoomIds)
+            ->whereNotNull('start_time');
+        $this->applyDashboardDateFilter($query, 'start_time', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array<int, array{
+     *     id: string,
+     *     species: string,
+     *     status: string,
+     *     status_tone: string,
+     *     updated_at: string,
+     *     route: string,
+     *     route_params: array<string, int|string>
+     * }>
+     */
+    private function complianceIssueTableRows(ProcessorDashboardContext $ctx, array $filters): array
+    {
+        $rows = [];
+        $coldRoomIds = ColdRoom::query()->whereIn('facility_id', $ctx->facilityIds)->pluck('id');
+
+        $violationQuery = ColdRoomViolation::query()
+            ->whereIn('cold_room_id', $coldRoomIds)
+            ->with('coldRoom')
+            ->whereNotNull('start_time');
+        if ($filters['is_filtered']) {
+            $this->applyDashboardDateFilter($violationQuery, 'start_time', $filters);
+        } else {
+            $violationQuery->where('status', ColdRoomViolation::STATUS_OPEN);
+        }
+
+        foreach ($violationQuery->latest('start_time')->limit(20)->get() as $violation) {
+            $rows[] = [
+                'id' => __('Cold room breach'),
+                'species' => $violation->coldRoom?->name ?? __('Room'),
+                'status' => $violation->status === ColdRoomViolation::STATUS_OPEN ? __('Open') : __('Closed'),
+                'status_tone' => $violation->status === ColdRoomViolation::STATUS_OPEN ? 'amber' : 'green',
+                'updated_at' => $violation->start_time?->format('d M Y H:i') ?? '—',
+                'route' => 'cold-rooms.hub',
+                'route_params' => [],
+            ];
+        }
+
+        $missingPmQuery = Batch::query()
+            ->whereIn('id', $ctx->batchIds)
+            ->whereDoesntHave('postMortemInspection');
+        $this->applyDashboardDateFilter($missingPmQuery, 'created_at', $filters);
+
+        foreach ($missingPmQuery->latest('created_at')->limit(15)->get() as $batch) {
+            $rows[] = [
+                'id' => __('PM checklist missing'),
+                'species' => (string) ($batch->batch_code ?? __('Batch #:id', ['id' => $batch->id])),
+                'status' => __('Pending'),
+                'status_tone' => 'red',
+                'updated_at' => $batch->created_at?->format('d M Y') ?? '—',
+                'route' => 'batches.show',
+                'route_params' => ['batch' => $batch->id],
+            ];
+        }
+
+        $missingAmQuery = SlaughterPlan::query()
+            ->whereIn('id', $ctx->planIds)
+            ->whereDoesntHave('anteMortemInspections');
+        $this->applyDashboardDateFilter($missingAmQuery, 'slaughter_date', $filters);
+
+        foreach ($missingAmQuery->orderBy('slaughter_date')->limit(15)->get() as $plan) {
+            $rows[] = [
+                'id' => __('AM checklist missing'),
+                'species' => __('Plan #:id', ['id' => $plan->id]),
+                'status' => __('Pending'),
+                'status_tone' => 'amber',
+                'updated_at' => $plan->slaughter_date?->format('d M Y') ?? '—',
+                'route' => 'slaughter-plans.show',
+                'route_params' => ['slaughter_plan' => $plan->id],
+            ];
+        }
+
+        return collect($rows)->take(50)->values()->all();
     }
 
     private function openComplianceIssuesCount(ProcessorDashboardContext $ctx): int

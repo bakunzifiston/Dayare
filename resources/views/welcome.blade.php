@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ config('app.name', 'Laravel') }}</title>
-    @include('partials.site-favicon')
+    @include('partials.site-favicon', ['pwa' => true])
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|figtree:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -77,11 +77,6 @@
                             @if (config('features.shop'))
                                 <a href="{{ route('shop.index') }}" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
                                     {{ __('Shop Now') }}
-                                </a>
-                            @endif
-                            @if (Route::has('animal.passport.lookup'))
-                                <a href="{{ route('animal.passport.lookup') }}" class="inline-flex items-center px-5 py-3 rounded-bucha border-2 border-white bg-transparent text-white hover:bg-white/15 font-semibold text-sm tracking-wide transition-colors">
-                                    {{ __('Trace Animal') }}
                                 </a>
                             @endif
                         </div>

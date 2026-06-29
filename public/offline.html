@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Offline — BuchaPro</title>
+    <meta name="theme-color" content="#A11D1E">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: Inter, system-ui, -apple-system, sans-serif;
+            background: #F7FAFC;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .card {
+            max-width: 28rem;
+            width: 100%;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+        }
+        h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; }
+        p { font-size: 0.9375rem; color: #64748b; line-height: 1.5; margin-bottom: 1.5rem; }
+        a {
+            display: inline-block;
+            padding: 0.625rem 1.25rem;
+            background: #A11D1E;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        a:hover { background: #7A1516; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>You are offline</h1>
+        <p>Check your connection and try again. Cached pages may still be available when you reconnect.</p>
+        <a href="/">Back to home</a>
+    </div>
+</body>
+</html>

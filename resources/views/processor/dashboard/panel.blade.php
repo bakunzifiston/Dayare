@@ -59,7 +59,7 @@
             <div class="hub-period-filter__actions">
                 <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
                 @if ($filters['is_filtered'])
-                    <a href="{{ route('dashboard', in_array($ops['roleKey'] ?? '', [\App\Models\BusinessUser::ROLE_INSPECTOR, \App\Models\BusinessUser::ROLE_OPERATIONS_MANAGER, \App\Models\BusinessUser::ROLE_ACCOUNTANT, \App\Models\BusinessUser::ROLE_TRANSPORT_MANAGER], true) ? ['period' => 'all'] : []) }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
+                    <a href="{{ route('dashboard', in_array($ops['roleKey'] ?? '', [\App\Models\BusinessUser::ROLE_ORG_ADMIN, \App\Models\BusinessUser::ROLE_INSPECTOR, \App\Models\BusinessUser::ROLE_OPERATIONS_MANAGER, \App\Models\BusinessUser::ROLE_ACCOUNTANT, \App\Models\BusinessUser::ROLE_TRANSPORT_MANAGER, \App\Models\BusinessUser::ROLE_COMPLIANCE_OFFICER], true) ? ['period' => 'all'] : []) }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
                 @endif
             </div>
         </div>
@@ -72,6 +72,10 @@
                 {{ __('Finance') }} · {{ $filters['range_label'] }}
             @elseif (($ops['roleKey'] ?? '') === \App\Models\BusinessUser::ROLE_TRANSPORT_MANAGER)
                 {{ __('Transport') }} · {{ $filters['range_label'] }}
+            @elseif (($ops['roleKey'] ?? '') === \App\Models\BusinessUser::ROLE_COMPLIANCE_OFFICER)
+                {{ __('Compliance') }} · {{ $filters['range_label'] }}
+            @elseif (($ops['roleKey'] ?? '') === \App\Models\BusinessUser::ROLE_ORG_ADMIN)
+                {{ __('Organization') }} · {{ $filters['range_label'] }}
             @else
                 {{ __('Slaughter executions') }} · {{ $filters['range_label'] }}
             @endif

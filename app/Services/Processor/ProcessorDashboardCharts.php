@@ -7,6 +7,8 @@ use App\Models\AnimalIntakeItem;
 use App\Models\AnteMortemInspection;
 use App\Models\Batch;
 use App\Models\Certificate;
+use App\Models\ColdRoom;
+use App\Models\ColdRoomViolation;
 use App\Models\DeliveryConfirmation;
 use App\Models\Facility;
 use App\Models\FinanceCostAllocation;
@@ -31,7 +33,7 @@ class ProcessorDashboardCharts
     {
         return match ($roleKey) {
             'operations_manager' => $this->opsManager($ctx, $filters),
-            'compliance_officer' => $this->complianceOfficer($ctx),
+            'compliance_officer' => $this->complianceOfficer($ctx, $filters),
             'inspector' => $this->inspector($ctx, $filters, $user),
             'transport_manager' => $this->transportManager($ctx, $filters),
             'accountant' => $this->accountant($businessId, $filters),
@@ -44,49 +46,78 @@ class ProcessorDashboardCharts
      */
     private function orgAdmin(ProcessorDashboardContext $ctx, ?array $filters = null, ?User $user = null): array
     {
-        $filters = $filters ?? ['is_filtered' => false];
+        $filters = $filters ?? ['is_filtered' => false, 'start' => null, 'end' => null];
         $facilityIds = $this->orgAdminFacilityIds($ctx, $user);
         $planIds = $this->orgAdminPlanIds($ctx, $user);
-        $executed = $this->executedBySpeciesTotals($planIds, $filters);
-        $intakeEndDate = $this->intakeTrendEndDate($facilityIds);
-        $days = $this->weekdayLabelsEndingAt($intakeEndDate);
-        $speciesReceivedDatasets = [
-            $this->coloredBarDataset(__('Cattle'), $this->intakeBySpeciesForFacilities($facilityIds, 'cattle', $intakeEndDate), $this->speciesColor('cattle')),
-            $this->coloredBarDataset(__('Goat'), $this->intakeBySpeciesForFacilities($facilityIds, 'goat', $intakeEndDate), $this->speciesColor('goat')),
-            $this->coloredBarDataset(__('Sheep'), $this->intakeBySpeciesForFacilities($facilityIds, 'sheep', $intakeEndDate), $this->speciesColor('sheep')),
+        $batchIds = $this->orgAdminBatchIds($ctx, $user);
+
+        $intakeTotal = $this->intakeHeadCountForFacilities($facilityIds, $filters);
+        $executionsTotal = $this->executionAnimalsForPlans($planIds, $filters);
+        $batchesTotal = $this->filteredQueryCount(
+            Batch::query()->whereIn('id', $batchIds),
+            'created_at',
+            $filters,
+        );
+        $certifiedTotal = (int) Batch::query()
+            ->whereIn('id', $batchIds)
+            ->whereHas('certificate')
+            ->when($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null, function ($query) use ($filters): void {
+                $query->whereBetween('created_at', [
+                    $filters['start']->copy()->startOfDay(),
+                    $filters['end']->copy()->endOfDay(),
+                ]);
+            })
+            ->count();
+
+        $pipelineLabels = [__('Intake'), __('Executions'), __('Batches'), __('Certified')];
+        $pipelineData = [$intakeTotal, $executionsTotal, $batchesTotal, $certifiedTotal];
+        $pipelineColors = [
+            $this->speciesColor('cattle'),
+            $this->speciesColor('goat'),
+            $this->speciesColor('sheep'),
+            $this->brandColor('primary'),
         ];
-        $onTimeData = [91, 88, 93, 85, 82, 87];
+
+        $executed = $this->executedBySpeciesTotals($planIds, $filters);
+        $speciesLabels = [__('Cattle'), __('Goat'), __('Sheep')];
+        $speciesData = [$executed['cattle'], $executed['goat'], $executed['sheep']];
 
         return [
             $this->barChart(
-                'org_admin-species-received',
-                __('Trend species received'),
-                160,
-                __('Daily animals received by cattle, goat, and sheep over the past week'),
-                $days,
-                $speciesReceivedDatasets,
-                legend: $this->speciesLegend(),
+                'org-admin-pipeline',
+                __('Organization pipeline'),
+                220,
+                __('Animals received, executions, batches, and certifications for the selected period'),
+                $pipelineLabels,
+                [[
+                    'label' => __('Volume'),
+                    'data' => $pipelineData,
+                    'backgroundColor' => $pipelineColors,
+                ]],
+                null,
+                collect($pipelineLabels)->map(fn (string $label, int $index) => [
+                    'color' => $pipelineColors[$index] ?? $this->brandColor('primary'),
+                    'label' => $label,
+                ])->all(),
             ),
             array_merge(
-                $this->barChart(
-                    'org_admin-ontime',
-                    __('On-time delivery rate'),
-                    180,
-                    __('Monthly on-time delivery rate January through June'),
-                    ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    [$this->multiColorBarDataset(__('On-time delivery rate'), $onTimeData, $this->chartSeriesColors())],
-                    'percent',
+                $this->pieChart(
+                    'org-admin-species-executed',
+                    __('Species executed'),
+                    220,
+                    __('Animals executed by cattle, goat, and sheep'),
+                    $speciesLabels,
+                    $speciesData,
+                    $this->speciesColors(),
                 ),
-                ['yMin' => 70, 'yMax' => 100],
+                ['emptyMessage' => __('No executions for this period.')],
             ),
-            $this->pieChart(
-                'org_admin-pieces-executed',
-                __('Pieces executed'),
-                160,
-                __('Animals executed by cattle, goat, and sheep'),
-                [__('Cattle'), __('Goat'), __('Sheep')],
-                [$executed['cattle'], $executed['goat'], $executed['sheep']],
-                $this->speciesColors(),
+            array_merge(
+                $this->facilitySpeciesIntakeTrend($facilityIds, $filters, 'org-admin-species-trend'),
+                [
+                    'fullWidth' => true,
+                    'emptyMessage' => __('No animal intake for this period.'),
+                ],
             ),
         ];
     }
@@ -156,7 +187,7 @@ class ProcessorDashboardCharts
                 ['emptyMessage' => __('No pipeline activity for this period.')],
             ),
             array_merge(
-                $this->facilitySpeciesIntakeTrend($ctx, $filters, 'ops-species-trend'),
+                $this->facilitySpeciesIntakeTrend($ctx->facilityIds, $filters, 'ops-species-trend'),
                 [
                     'fullWidth' => true,
                     'emptyMessage' => __('No animal intake for this period.'),
@@ -166,19 +197,239 @@ class ProcessorDashboardCharts
     }
 
     /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }|null  $filters
      * @return array<int, array<string, mixed>>
      */
-    private function complianceOfficer(ProcessorDashboardContext $ctx): array
+    private function complianceOfficer(ProcessorDashboardContext $ctx, ?array $filters = null): array
     {
-        $tempCount = 4;
-        $inspectionCount = 3;
-        $licenseCount = 2;
-        $transportCount = 2;
-        $docsCount = 1;
+        $filters = $filters ?? ['is_filtered' => false, 'start' => null, 'end' => null];
+
+        $amTotal = $this->complianceAmCount($ctx, $filters);
+        $pmTotal = $this->compliancePmCount($ctx, $filters);
+        $violationsTotal = $this->complianceViolationsInPeriod($ctx, $filters);
+        $pendingTotal = $this->compliancePendingChecklists($ctx);
+
+        $pipelineLabels = [__('AM'), __('PM'), __('Violations'), __('Pending')];
+        $pipelineData = [$amTotal, $pmTotal, $violationsTotal, $pendingTotal];
+        $pipelineColors = [
+            $this->brandColor('success'),
+            $this->brandColor('primary'),
+            $this->brandColor('warning'),
+            $this->brandColor('muted'),
+        ];
+
+        $issueLabels = [__('Temperature'), __('AM pending'), __('PM pending'), __('Transport')];
+        $issueData = $this->complianceIssueCategoryCounts($ctx);
+        $issueColors = [
+            $this->brandColor('primary'),
+            $this->brandColor('warning'),
+            $this->brandColor('warning'),
+            $this->brandColor('muted'),
+        ];
 
         return [
-            $this->lineWithTarget('compliance-score', __('Compliance score'), 160, __('Eight-week compliance score trend with 95% target'), ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'], [84, 87, 91, 88, 85, 90, 84, 78], 95, 60, 100),
-            $this->horizontalBarChart('compliance-issues', __('Issues by category'), 150, __('Open compliance issues grouped by category'), [__('Temperature'), __('Inspection'), __('License'), __('Transport'), __('Docs')], [$tempCount, $inspectionCount, $licenseCount, $transportCount, $docsCount], [$this->brandColor('primary'), $this->brandColor('warning'), $this->brandColor('warning'), $this->brandColor('warning'), $this->brandColor('muted')]),
+            $this->barChart(
+                'compliance-pipeline',
+                __('Compliance pipeline'),
+                220,
+                __('Inspections completed, temperature violations, and pending checklists for the selected period'),
+                $pipelineLabels,
+                [[
+                    'label' => __('Volume'),
+                    'data' => $pipelineData,
+                    'backgroundColor' => $pipelineColors,
+                ]],
+                null,
+                collect($pipelineLabels)->map(fn (string $label, int $index) => [
+                    'color' => $pipelineColors[$index] ?? $this->brandColor('primary'),
+                    'label' => $label,
+                ])->all(),
+            ),
+            array_merge(
+                $this->pieChart(
+                    'compliance-issues-pie',
+                    __('Open issue mix'),
+                    220,
+                    __('Temperature, checklist, and transport compliance gaps'),
+                    $issueLabels,
+                    array_values($issueData),
+                    $issueColors,
+                ),
+                ['emptyMessage' => __('No open compliance issues.')],
+            ),
+            array_merge(
+                $this->complianceInspectionTrend($ctx, $filters),
+                [
+                    'fullWidth' => true,
+                    'emptyMessage' => __('No inspections in this period.'),
+                ],
+            ),
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     * @return array<string, mixed>
+     */
+    private function complianceInspectionTrend(ProcessorDashboardContext $ctx, array $filters): array
+    {
+        [$start, $end, $groupByMonth] = $this->intakeTrendRange($filters);
+        [$periodKeys, $labels] = $this->buildTrendPeriods($start, $end, $groupByMonth);
+
+        $amCounts = array_fill_keys($periodKeys, 0);
+        $pmCounts = array_fill_keys($periodKeys, 0);
+
+        $amInspections = AnteMortemInspection::query()
+            ->whereIn('slaughter_plan_id', $ctx->planIds)
+            ->whereNotNull('inspection_date')
+            ->whereBetween('inspection_date', [$start, $end])
+            ->get(['inspection_date']);
+
+        foreach ($amInspections as $inspection) {
+            $periodKey = $groupByMonth
+                ? Carbon::parse($inspection->inspection_date)->format('Y-m')
+                : Carbon::parse($inspection->inspection_date)->format('Y-m-d');
+
+            if (isset($amCounts[$periodKey])) {
+                $amCounts[$periodKey]++;
+            }
+        }
+
+        $pmInspections = PostMortemInspection::query()
+            ->whereIn('batch_id', $ctx->batchIds)
+            ->whereNotNull('inspection_date')
+            ->whereBetween('inspection_date', [$start, $end])
+            ->get(['inspection_date']);
+
+        foreach ($pmInspections as $inspection) {
+            $periodKey = $groupByMonth
+                ? Carbon::parse($inspection->inspection_date)->format('Y-m')
+                : Carbon::parse($inspection->inspection_date)->format('Y-m-d');
+
+            if (isset($pmCounts[$periodKey])) {
+                $pmCounts[$periodKey]++;
+            }
+        }
+
+        return $this->stackedBarChart(
+            'compliance-inspection-trend',
+            __('Inspection trend'),
+            220,
+            __('Ante-mortem and post-mortem inspections over the selected period'),
+            $labels,
+            [
+                $this->coloredBarDataset(
+                    __('AM'),
+                    array_map(fn (string $key) => (int) $amCounts[$key], $periodKeys),
+                    $this->brandColor('success'),
+                ),
+                $this->coloredBarDataset(
+                    __('PM'),
+                    array_map(fn (string $key) => (int) $pmCounts[$key], $periodKeys),
+                    $this->brandColor('primary'),
+                ),
+            ],
+        );
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function complianceAmCount(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = AnteMortemInspection::query()
+            ->whereIn('slaughter_plan_id', $ctx->planIds)
+            ->whereNotNull('inspection_date');
+        $this->applyTripDateFilter($query, 'inspection_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function compliancePmCount(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = PostMortemInspection::query()
+            ->whereIn('batch_id', $ctx->batchIds)
+            ->whereNotNull('inspection_date');
+        $this->applyTripDateFilter($query, 'inspection_date', $filters);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function complianceViolationsInPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $coldRoomIds = ColdRoom::query()->whereIn('facility_id', $ctx->facilityIds)->pluck('id');
+        $query = ColdRoomViolation::query()
+            ->whereIn('cold_room_id', $coldRoomIds)
+            ->whereNotNull('start_time');
+        $this->applyTripDateFilter($query, 'start_time', $filters);
+
+        return (int) $query->count();
+    }
+
+    private function compliancePendingChecklists(ProcessorDashboardContext $ctx): int
+    {
+        $missingAm = (int) SlaughterPlan::query()
+            ->whereIn('id', $ctx->planIds)
+            ->whereDoesntHave('anteMortemInspections')
+            ->count();
+        $missingPm = (int) Batch::query()
+            ->whereIn('id', $ctx->batchIds)
+            ->whereDoesntHave('postMortemInspection')
+            ->count();
+
+        return $missingAm + $missingPm;
+    }
+
+    /**
+     * @return array{temperature: int, am_pending: int, pm_pending: int, transport: int}
+     */
+    private function complianceIssueCategoryCounts(ProcessorDashboardContext $ctx): array
+    {
+        $coldRoomIds = ColdRoom::query()->whereIn('facility_id', $ctx->facilityIds)->pluck('id');
+
+        return [
+            'temperature' => (int) ColdRoomViolation::query()
+                ->whereIn('cold_room_id', $coldRoomIds)
+                ->where('status', ColdRoomViolation::STATUS_OPEN)
+                ->count(),
+            'am_pending' => (int) SlaughterPlan::query()
+                ->whereIn('id', $ctx->planIds)
+                ->whereDoesntHave('anteMortemInspections')
+                ->count(),
+            'pm_pending' => (int) Batch::query()
+                ->whereIn('id', $ctx->batchIds)
+                ->whereDoesntHave('postMortemInspection')
+                ->count(),
+            'transport' => (int) TransportTrip::query()
+                ->whereIn('id', $ctx->tripIds)
+                ->whereDoesntHave('deliveryConfirmation')
+                ->count(),
         ];
     }
 
@@ -253,7 +504,7 @@ class ProcessorDashboardCharts
                 $colors,
             ),
             array_merge(
-                $this->facilitySpeciesIntakeTrend($ctx, $filters, 'inspector-species-trend'),
+                $this->facilitySpeciesIntakeTrend($ctx->facilityIds, $filters, 'inspector-species-trend'),
                 [
                     'fullWidth' => true,
                     'emptyMessage' => __('No animal intake for this period.'),
@@ -293,9 +544,26 @@ class ProcessorDashboardCharts
      */
     private function opsIntakeHeadCount(ProcessorDashboardContext $ctx, array $filters): int
     {
+        return $this->intakeHeadCountForFacilities($ctx->facilityIds, $filters);
+    }
+
+    /**
+     * @param  Collection<int, int|string>  $facilityIds
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function intakeHeadCountForFacilities(Collection $facilityIds, array $filters): int
+    {
+        if ($facilityIds->isEmpty()) {
+            return 0;
+        }
+
         $query = AnimalIntake::query()
             ->with('items:id,animal_intake_id,species')
-            ->whereIn('facility_id', $ctx->facilityIds)
+            ->whereIn('facility_id', $facilityIds)
             ->where('is_draft', false)
             ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
             ->whereNotNull('intake_date');
@@ -325,8 +593,25 @@ class ProcessorDashboardCharts
      */
     private function opsExecutionAnimals(ProcessorDashboardContext $ctx, array $filters): int
     {
+        return $this->executionAnimalsForPlans($ctx->planIds, $filters);
+    }
+
+    /**
+     * @param  Collection<int, int|string>  $planIds
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     */
+    private function executionAnimalsForPlans(Collection $planIds, array $filters): int
+    {
+        if ($planIds->isEmpty()) {
+            return 0;
+        }
+
         $query = SlaughterExecution::query()
-            ->whereIn('slaughter_plan_id', $ctx->planIds)
+            ->whereIn('slaughter_plan_id', $planIds)
             ->where('status', SlaughterExecution::STATUS_COMPLETED)
             ->whereNotNull('slaughter_time');
 
@@ -341,6 +626,7 @@ class ProcessorDashboardCharts
     }
 
     /**
+     * @param  Collection<int, int|string>  $facilityIds
      * @param  array{
      *     is_filtered: bool,
      *     start: ?\Carbon\Carbon,
@@ -348,7 +634,7 @@ class ProcessorDashboardCharts
      * }  $filters
      * @return array<string, mixed>
      */
-    private function facilitySpeciesIntakeTrend(ProcessorDashboardContext $ctx, array $filters, string $slug): array
+    private function facilitySpeciesIntakeTrend(Collection $facilityIds, array $filters, string $slug): array
     {
         [$start, $end, $groupByMonth] = $this->intakeTrendRange($filters);
         [$periodKeys, $labels] = $this->buildTrendPeriods($start, $end, $groupByMonth);
@@ -359,10 +645,10 @@ class ProcessorDashboardCharts
             AnimalIntake::SPECIES_SHEEP => array_fill_keys($periodKeys, 0),
         ];
 
-        if ($ctx->facilityIds->isNotEmpty()) {
+        if ($facilityIds->isNotEmpty()) {
             $intakes = AnimalIntake::query()
                 ->with(['items:id,animal_intake_id,species'])
-                ->whereIn('facility_id', $ctx->facilityIds)
+                ->whereIn('facility_id', $facilityIds)
                 ->where('is_draft', false)
                 ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
                 ->whereNotNull('intake_date')
@@ -1306,10 +1592,25 @@ class ProcessorDashboardCharts
      */
     private function orgAdminPlanIds(ProcessorDashboardContext $ctx, ?User $user): Collection
     {
-        $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
-        $facilityIds = Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
+        return SlaughterPlan::query()
+            ->whereIn('facility_id', $this->orgAdminFacilityIds($ctx, $user))
+            ->pluck('id');
+    }
 
-        return SlaughterPlan::query()->whereIn('facility_id', $facilityIds)->pluck('id');
+    /**
+     * @return Collection<int, int|string>
+     */
+    private function orgAdminBatchIds(ProcessorDashboardContext $ctx, ?User $user): Collection
+    {
+        $planIds = $this->orgAdminPlanIds($ctx, $user);
+
+        if ($planIds->isEmpty()) {
+            return collect();
+        }
+
+        return Batch::query()
+            ->whereHas('slaughterExecution', fn ($query) => $query->whereIn('slaughter_plan_id', $planIds))
+            ->pluck('id');
     }
 
     /**
