@@ -1,7 +1,7 @@
 @if (config('pwa.enabled'))
     <div
         id="pwa-install-banner"
-        class="hidden fixed inset-x-0 bottom-0 z-50 p-4 sm:p-5 pointer-events-none"
+        class="hidden fixed inset-x-0 bottom-0 z-[100] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5 pointer-events-none"
         role="region"
         aria-label="{{ __('Install app') }}"
         hidden
@@ -19,11 +19,17 @@
                     <p class="text-sm font-semibold text-slate-900">
                         {{ __('Install :app', ['app' => config('pwa.short_name')]) }}
                     </p>
-                    <p data-pwa-install-default class="mt-1 text-sm text-slate-600">
+                    <p data-pwa-install-copy="install" class="mt-1 text-sm text-slate-600">
                         {{ __('Add BuchaPro to your home screen for quick access and offline browsing on public pages.') }}
                     </p>
-                    <p data-pwa-install-ios class="mt-1 hidden text-sm text-slate-600" hidden>
-                        {{ __('Tap the Share button, then choose “Add to Home Screen”.') }}
+                    <p data-pwa-install-copy="ios" class="mt-1 hidden text-sm text-slate-600" hidden>
+                        {{ __('Tap Share at the bottom of Safari, then choose “Add to Home Screen”.') }}
+                    </p>
+                    <p data-pwa-install-copy="ios-other" class="mt-1 hidden text-sm text-slate-600" hidden>
+                        {{ __('On iPhone, install works in Safari only. Open this page in Safari, tap Share, then “Add to Home Screen”.') }}
+                    </p>
+                    <p data-pwa-install-copy="android-manual" class="mt-1 hidden text-sm text-slate-600" hidden>
+                        {{ __('Tap the browser menu (⋮), then “Install app” or “Add to Home screen”.') }}
                     </p>
                 </div>
             </div>
@@ -31,7 +37,8 @@
                 <button
                     type="button"
                     data-pwa-install-action
-                    class="inline-flex flex-1 items-center justify-center rounded-bucha bg-bucha-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bucha-burgundy sm:flex-none"
+                    class="hidden inline-flex flex-1 items-center justify-center rounded-bucha bg-bucha-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bucha-burgundy sm:flex-none"
+                    hidden
                 >
                     {{ __('Install') }}
                 </button>
