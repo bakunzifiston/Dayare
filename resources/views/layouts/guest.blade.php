@@ -34,5 +34,6 @@
             </div>
             @include('layouts.footer')
         </div>
+        @include('partials.pwa-install-prompt')
     </body>
 </html>

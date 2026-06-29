@@ -5,6 +5,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="{{ config('pwa.short_name') }}">
 <link rel="apple-touch-icon" href="{{ asset('pwa-icon-192.png') }}">
+@vite(['resources/js/pwa-install.js'])
 <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {

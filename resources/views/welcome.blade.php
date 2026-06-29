@@ -383,5 +383,6 @@
     @include('layouts.footer')
 
     <x-whatsapp-float phone="250785171213" />
+    @include('partials.pwa-install-prompt')
 </body>
 </html>

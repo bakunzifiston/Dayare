@@ -69,5 +69,6 @@
             @include('layouts.footer')
         @endif
     </div>
+    @include('partials.pwa-install-prompt')
 </body>
 </html>

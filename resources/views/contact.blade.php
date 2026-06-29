@@ -84,5 +84,6 @@
         </section>
     </main>
     @include('layouts.footer')
+    @include('partials.pwa-install-prompt')
 </body>
 </html>
