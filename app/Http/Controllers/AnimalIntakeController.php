@@ -392,27 +392,12 @@ class AnimalIntakeController extends Controller
             ->orderBy('facility_name')
             ->get(['id', 'facility_name', 'facility_type']);
         $businessIds = Facility::whereIn('id', $facilityIds)->pluck('business_id')->unique()->filter()->values();
-        $suppliers = $businessIds->isNotEmpty()
-            ? Supplier::whereIn('business_id', $businessIds)->where('supplier_status', Supplier::STATUS_APPROVED)->orderBy('id')->get()
-            : collect();
         $clients = $businessIds->isNotEmpty()
             ? Client::whereIn('business_id', $businessIds)->where('is_active', true)->orderBy('name')->get(['id', 'business_id', 'name', 'email'])
             : collect();
-        $suppliersForIntake = $this->suppliersPrefillData($suppliers);
         $clientsForIntake = $this->clientsPrefillData($clients);
-        $supplierContracts = $businessIds->isNotEmpty()
-            ? Contract::where('contract_category', Contract::CATEGORY_SUPPLIER)
-                ->where('status', Contract::STATUS_ACTIVE)
-                ->whereIn('business_id', $businessIds)
-                ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
-                })
-                ->with('supplier')
-                ->orderBy('contract_number')
-                ->get()
-            : collect();
 
-        return view('animal-intakes.create', compact('facilities', 'suppliers', 'clients', 'suppliersForIntake', 'clientsForIntake', 'supplierContracts'));
+        return view('animal-intakes.create', compact('facilities', 'clients', 'clientsForIntake'));
     }
 
     // --- Section 3: store (draft + submit) ---
@@ -496,29 +481,19 @@ class AnimalIntakeController extends Controller
             ->orderBy('facility_name')
             ->get(['id', 'facility_name', 'facility_type']);
         $businessIds = Facility::whereIn('id', $facilityIds)->pluck('business_id')->unique()->filter()->values();
-        $suppliers = $businessIds->isNotEmpty()
-            ? Supplier::whereIn('business_id', $businessIds)->where('supplier_status', Supplier::STATUS_APPROVED)->orderBy('id')->get()
-            : collect();
         $clients = $businessIds->isNotEmpty()
             ? Client::whereIn('business_id', $businessIds)->where('is_active', true)->orderBy('name')->get(['id', 'business_id', 'name', 'email'])
             : collect();
-        $suppliersForIntake = $this->suppliersPrefillData($suppliers);
         $clientsForIntake = $this->clientsPrefillData($clients);
-        $supplierContracts = $businessIds->isNotEmpty()
-            ? Contract::where('contract_category', Contract::CATEGORY_SUPPLIER)
-                ->where('status', Contract::STATUS_ACTIVE)
-                ->whereIn('business_id', $businessIds)
-                ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
-                })
-                ->with('supplier')
-                ->orderBy('contract_number')
-                ->get()
-            : collect();
 
-        $animalIntake->load('items');
+        $animalIntake->load(['items', 'supplier', 'contract']);
 
-        return view('animal-intakes.edit', ['intake' => $animalIntake, 'facilities' => $facilities, 'suppliers' => $suppliers, 'clients' => $clients, 'suppliersForIntake' => $suppliersForIntake, 'clientsForIntake' => $clientsForIntake, 'supplierContracts' => $supplierContracts]);
+        return view('animal-intakes.edit', [
+            'intake' => $animalIntake,
+            'facilities' => $facilities,
+            'clients' => $clients,
+            'clientsForIntake' => $clientsForIntake,
+        ]);
     }
 
     // --- Section 3: update ---
@@ -692,6 +667,16 @@ class AnimalIntakeController extends Controller
 
     private function validateIntakeSession(Request $request, ?AnimalIntake $intake = null): array
     {
+        $isLegacySupplier = $intake?->isSupplierSource() ?? false;
+
+        if (! $isLegacySupplier) {
+            $request->merge([
+                'source_type' => AnimalIntake::SOURCE_TYPE_CLIENT,
+                'supplier_id' => null,
+                'contract_id' => null,
+            ]);
+        }
+
         $businessIds = $request->user()->accessibleBusinessIds();
         $facilityId = (int) $request->input('facility_id');
         $businessId = $facilityId > 0
@@ -720,12 +705,16 @@ class AnimalIntakeController extends Controller
                         fn ($query) => $query->whereIn('business_id', $businessIds),
                     ),
                 ],
-                'source_type' => ['required', Rule::in(AnimalIntake::SOURCE_TYPES)],
-                'supplier_id' => [
-                    'nullable',
-                    'prohibited_if:source_type,'.AnimalIntake::SOURCE_TYPE_CLIENT,
-                    Rule::exists('suppliers', 'id')->where('supplier_status', Supplier::STATUS_APPROVED),
+                'source_type' => [
+                    'required',
+                    Rule::in($isLegacySupplier ? [AnimalIntake::SOURCE_TYPE_SUPPLIER] : AnimalIntake::SOURCE_TYPES),
                 ],
+                'supplier_id' => $isLegacySupplier
+                    ? [
+                        'required',
+                        Rule::exists('suppliers', 'id')->where('supplier_status', Supplier::STATUS_APPROVED),
+                    ]
+                    : ['prohibited'],
                 'client_id' => [
                     'nullable',
                     'prohibited_if:source_type,'.AnimalIntake::SOURCE_TYPE_SUPPLIER,
@@ -756,7 +745,11 @@ class AnimalIntakeController extends Controller
                 'health_certificate_expiry_date' => ['nullable', 'date', 'after:health_certificate_issue_date'],
                 'movement_permit_number' => ['nullable', 'string', 'max:100'],
                 'movement_permit_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
-                'contract_id' => ['nullable', 'exists:contracts,id'],
+                'contract_id' => [
+                    'nullable',
+                    'prohibited_unless:source_type,'.AnimalIntake::SOURCE_TYPE_SUPPLIER,
+                    'exists:contracts,id',
+                ],
                 'manual_client_firstname' => ['nullable', 'string', 'max:255'],
                 'manual_client_lastname' => ['nullable', 'string', 'max:255'],
                 'manual_client_contact' => ['nullable', 'string', 'max:100'],
@@ -779,7 +772,7 @@ class AnimalIntakeController extends Controller
             ],
         );
 
-        if (($validated['source_type'] ?? '') === AnimalIntake::SOURCE_TYPE_CLIENT) {
+        if (! $isLegacySupplier) {
             $hasClient = ! empty($validated['client_id']);
             $hasManual = filled($validated['manual_client_firstname'] ?? null)
                 && filled($validated['manual_client_lastname'] ?? null);
@@ -788,9 +781,7 @@ class AnimalIntakeController extends Controller
                     'client_id' => __('Select a client from the list or enter client first and last name manually.'),
                 ]);
             }
-        }
-
-        if (($validated['source_type'] ?? '') === AnimalIntake::SOURCE_TYPE_SUPPLIER && empty($validated['supplier_id'])) {
+        } elseif (empty($validated['supplier_id'])) {
             throw ValidationException::withMessages([
                 'supplier_id' => __('Select a supplier.'),
             ]);

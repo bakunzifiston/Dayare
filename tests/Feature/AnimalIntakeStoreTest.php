@@ -81,4 +81,51 @@ class AnimalIntakeStoreTest extends TestCase
         ]);
         $this->assertDatabaseHas('animal_intake_items', ['ear_tag' => $earTag]);
     }
+
+    public function test_store_rejects_supplier_source_type(): void
+    {
+        $user = User::factory()->create();
+        $business = Business::create([
+            'user_id' => $user->id,
+            'business_name' => 'Intake Reject Supplier Co',
+            'registration_number' => 'REG-AIS-'.uniqid(),
+            'contact_phone' => '+250788000503',
+            'email' => 'ais-reject@test.com',
+            'status' => 'active',
+        ]);
+        BusinessUser::query()->create([
+            'business_id' => $business->id,
+            'user_id' => $user->id,
+            'role' => BusinessUser::ROLE_ORG_ADMIN,
+        ]);
+        $facility = Facility::create([
+            'business_id' => $business->id,
+            'facility_name' => 'Reject Supplier Slaughterhouse',
+            'facility_type' => Facility::TYPE_SLAUGHTERHOUSE,
+            'status' => 'active',
+        ]);
+        $goats = Species::query()->firstOrCreate(
+            ['code' => 'goat'],
+            ['name' => 'Goats', 'sort_order' => 2, 'is_active' => true],
+        );
+        $business->configuredSpecies()->syncWithoutDetaching([$goats->id]);
+
+        $response = $this->actingAs($user)->post(route('animal-intakes.store'), [
+            'facility_id' => $facility->id,
+            'source_type' => AnimalIntake::SOURCE_TYPE_SUPPLIER,
+            'intake_date' => now('Africa/Kigali')->format('Y-m-d\TH:i'),
+            'is_draft' => '0',
+            'animals' => [
+                [
+                    'ear_tag' => 'EAR-'.uniqid(),
+                    'species' => 'Goats',
+                    'sex' => AnimalIntake::SEX_MALE,
+                    'health_status' => 'healthy',
+                    'body_condition_score' => 'good',
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasErrors('client_id');
+    }
 }

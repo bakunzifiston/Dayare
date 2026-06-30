@@ -16,11 +16,8 @@
             'formAction' => route('animal-intakes.update', $intake),
             'formMethod' => 'PATCH',
             'facilities' => $facilities,
-            'suppliers' => $suppliers,
             'clients' => $clients,
-            'suppliersForIntake' => $suppliersForIntake,
             'clientsForIntake' => $clientsForIntake,
-            'supplierContracts' => $supplierContracts,
         ])
     </div>
 </x-app-layout>

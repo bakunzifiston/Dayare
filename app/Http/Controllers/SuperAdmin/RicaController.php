@@ -58,17 +58,14 @@ class RicaController extends Controller
         $hubStats = $this->hubStats($filters, $facilityIds, $planIds);
         $speciesSlaughtered = $this->slaughterDashboard->speciesSlaughteredCounts($filters);
         $facilitySlaughterRows = $this->slaughterDashboard->facilitySlaughterRows($filters, Facility::TYPE_SLAUGHTERHOUSE);
-        $charts = [
-            'species_animal_intake_trend' => $this->slaughterDashboard->chartSpeciesAnimalIntakeTrend($filters),
-            'species_slaughter_pie' => $this->slaughterDashboard->chartSpeciesSlaughterPie($speciesSlaughtered),
-        ];
+        $chartSpecs = $this->slaughterDashboard->workspaceChartSpecs($filters, $speciesSlaughtered);
 
         return view('superadmin.rica.hub', compact(
             'hubStats',
             'speciesSlaughtered',
             'facilitySlaughterRows',
             'filters',
-            'charts',
+            'chartSpecs',
         ))->with('tenantEnvironmentFilter', TenantEnvironmentScope::current());
     }
 

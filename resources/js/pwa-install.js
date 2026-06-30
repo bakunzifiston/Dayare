@@ -82,9 +82,8 @@ function setModeVisibility(el, mode) {
     const installButton = el.querySelector('[data-pwa-install-action]');
 
     if (installButton) {
-        const showInstall = mode === 'install';
-        installButton.hidden = !showInstall;
-        installButton.classList.toggle('hidden', !showInstall);
+        installButton.hidden = false;
+        installButton.classList.remove('hidden');
     }
 }
 
@@ -170,16 +169,35 @@ document.addEventListener('click', (event) => {
         return;
     }
 
-    if (!event.target.closest('[data-pwa-install-action]') || !deferredPrompt) {
+    if (!event.target.closest('[data-pwa-install-action]')) {
         return;
     }
 
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.finally(() => {
-        deferredPrompt = null;
-        window.__pwaDeferredPrompt = null;
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.finally(() => {
+            deferredPrompt = null;
+            window.__pwaDeferredPrompt = null;
+            hideBanner();
+        });
+
+        return;
+    }
+
+    const mobileSection = document.getElementById('mobile-platform');
+
+    if (mobileSection) {
+        mobileSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         hideBanner();
-    });
+
+        return;
+    }
+
+    const homeUrl = banner()?.dataset.pwaHomeUrl;
+
+    if (homeUrl) {
+        window.location.href = `${homeUrl}#mobile-platform`;
+    }
 });
 
 if (document.readyState === 'loading') {

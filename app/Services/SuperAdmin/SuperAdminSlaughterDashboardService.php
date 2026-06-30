@@ -3,7 +3,9 @@
 namespace App\Services\SuperAdmin;
 
 use App\Models\AnimalIntake;
+use App\Models\AnteMortemInspection;
 use App\Models\Facility;
+use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
 use App\Support\TenantEnvironmentScope;
@@ -29,10 +31,10 @@ class SuperAdminSlaughterDashboardService
     public function resolveHubFilters(Request $request): array
     {
         if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
-            return $this->hubFiltersForPreset('month');
+            return $this->hubFiltersAllTime();
         }
 
-        $period = (string) $request->query('period', 'month');
+        $period = (string) $request->query('period', 'all');
         if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
             $period = 'all';
         }
@@ -108,10 +110,42 @@ class SuperAdminSlaughterDashboardService
      *     start: ?Carbon,
      *     end: ?Carbon
      * }  $filters
+     * @return array{ante_mortem: int, post_mortem: int}
+     */
+    public function inspectionCounts(array $filters): array
+    {
+        $amQuery = AnteMortemInspection::query()
+            ->whereHas('slaughterPlan', fn ($query) => TenantEnvironmentScope::applyToSlaughterPlans($query));
+
+        $pmQuery = PostMortemInspection::query()
+            ->whereHas('batch', fn ($query) => TenantEnvironmentScope::applyToBatches($query));
+
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $range = [
+                $filters['start']->copy()->startOfDay(),
+                $filters['end']->copy()->endOfDay(),
+            ];
+            $amQuery->whereBetween('inspection_date', $range);
+            $pmQuery->whereBetween('inspection_date', $range);
+        }
+
+        return [
+            'ante_mortem' => (int) (clone $amQuery)->count(),
+            'post_mortem' => (int) (clone $pmQuery)->count(),
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
      * @return Collection<int, array{
      *     id: int,
      *     facility_name: string,
      *     business_name: string,
+     *     animals_received: int,
      *     animals_slaughtered: int
      * }>
      */
@@ -132,16 +166,42 @@ class SuperAdminSlaughterDashboardService
             ]);
         }
 
-        /** @var array<int, int> $countsByFacility */
-        $countsByFacility = [];
+        /** @var array<int, int> $slaughteredByFacility */
+        $slaughteredByFacility = [];
         foreach ($executionQuery->get(['id', 'slaughter_plan_id', 'actual_animals_slaughtered']) as $execution) {
             $facilityId = (int) ($execution->slaughterPlan?->facility_id ?? 0);
             if ($facilityId <= 0) {
                 continue;
             }
 
-            $countsByFacility[$facilityId] = ($countsByFacility[$facilityId] ?? 0)
+            $slaughteredByFacility[$facilityId] = ($slaughteredByFacility[$facilityId] ?? 0)
                 + (int) $execution->actual_animals_slaughtered;
+        }
+
+        $intakeQuery = TenantEnvironmentScope::applyToAnimalIntakes(
+            AnimalIntake::query()->with(['items:id,animal_intake_id,species'])
+        )
+            ->where('is_draft', false)
+            ->whereIn('status', [AnimalIntake::STATUS_RECEIVED, AnimalIntake::STATUS_APPROVED])
+            ->whereNotNull('intake_date');
+
+        if ($filters['is_filtered'] && $filters['start'] !== null && $filters['end'] !== null) {
+            $intakeQuery->whereBetween('intake_date', [
+                $filters['start']->copy()->startOfDay(),
+                $filters['end']->copy()->endOfDay(),
+            ]);
+        }
+
+        /** @var array<int, int> $receivedByFacility */
+        $receivedByFacility = [];
+        foreach ($intakeQuery->get(['id', 'facility_id', 'species', 'number_of_animals']) as $intake) {
+            $facilityId = (int) $intake->facility_id;
+            if ($facilityId <= 0) {
+                continue;
+            }
+
+            $receivedByFacility[$facilityId] = ($receivedByFacility[$facilityId] ?? 0)
+                + $this->intakeHeadCount($intake);
         }
 
         $facilityQuery = TenantEnvironmentScope::applyToFacilities(
@@ -159,9 +219,11 @@ class SuperAdminSlaughterDashboardService
                 'id' => (int) $facility->id,
                 'facility_name' => (string) ($facility->facility_name ?: __('Facility #:id', ['id' => $facility->id])),
                 'business_name' => (string) ($facility->business?->business_name ?: '—'),
-                'animals_slaughtered' => (int) ($countsByFacility[$facility->id] ?? 0),
+                'animals_received' => (int) ($receivedByFacility[$facility->id] ?? 0),
+                'animals_slaughtered' => (int) ($slaughteredByFacility[$facility->id] ?? 0),
             ])
-            ->sortByDesc('animals_slaughtered')
+            ->filter(fn (array $row) => $row['animals_received'] > 0 || $row['animals_slaughtered'] > 0)
+            ->sortByDesc(fn (array $row) => $row['animals_slaughtered'] * 100000 + $row['animals_received'])
             ->values();
     }
 
@@ -204,6 +266,7 @@ class SuperAdminSlaughterDashboardService
             'datasets' => [[
                 'data' => array_column($slices, 'value'),
                 'backgroundColor' => array_column($slices, 'color'),
+                'borderWidth' => 0,
             ]],
             'type' => 'pie',
         ];
@@ -277,6 +340,9 @@ class SuperAdminSlaughterDashboardService
                 'label' => $meta['label'],
                 'data' => array_map(fn (string $key) => (int) $counts[$species][$key], $periodKeys),
                 'backgroundColor' => $meta['color'],
+                'borderColor' => 'transparent',
+                'borderWidth' => 0,
+                'borderRadius' => 6,
             ];
         }
 
@@ -285,6 +351,60 @@ class SuperAdminSlaughterDashboardService
             'datasets' => $datasets,
             'type' => 'bar',
             'stacked' => true,
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     * @param  array{cattle_slaughtered: int, goat_slaughtered: int, sheep_slaughtered: int}  $speciesSlaughtered
+     * @return array<int, array<string, mixed>>
+     */
+    public function workspaceChartSpecs(array $filters, array $speciesSlaughtered): array
+    {
+        $intake = $this->chartSpeciesAnimalIntakeTrend($filters);
+        $pie = $this->chartSpeciesSlaughterPie($speciesSlaughtered);
+
+        $intakeLegend = collect($intake['datasets'] ?? [])->map(fn (array $dataset) => [
+            'color' => $dataset['backgroundColor'] ?? '#718096',
+            'label' => $dataset['label'] ?? '',
+        ])->all();
+
+        $pieLabels = $pie['labels'] ?? [];
+        $pieData = $pie['datasets'][0]['data'] ?? [];
+        $pieColors = $pie['datasets'][0]['backgroundColor'] ?? [];
+
+        return [
+            [
+                'id' => 'chart-species-animal-intake-trend',
+                'title' => __('Species animal intake'),
+                'height' => 220,
+                'ariaLabel' => __('Species animal intake'),
+                'type' => 'bar',
+                'stacked' => true,
+                'labels' => $intake['labels'] ?? [],
+                'datasets' => $intake['datasets'] ?? [],
+                'legend' => $intakeLegend,
+                'emptyMessage' => __('No animal intake for this period.'),
+            ],
+            [
+                'id' => 'chart-species-slaughter-pie',
+                'title' => __('Species slaughtered'),
+                'height' => 220,
+                'ariaLabel' => __('Species slaughtered'),
+                'type' => 'pie',
+                'labels' => $pieLabels,
+                'data' => $pieData,
+                'colors' => $pieColors,
+                'legend' => collect($pieLabels)->map(fn (string $label, int $index) => [
+                    'color' => $pieColors[$index] ?? '#718096',
+                    'label' => $label,
+                ])->all(),
+                'emptyMessage' => __('No slaughter data for this period.'),
+            ],
         ];
     }
 
@@ -334,6 +454,11 @@ class SuperAdminSlaughterDashboardService
         }
 
         return [$species => $count];
+    }
+
+    private function intakeHeadCount(AnimalIntake $intake): int
+    {
+        return array_sum($this->headCountsBySpeciesFromIntake($intake));
     }
 
     /**

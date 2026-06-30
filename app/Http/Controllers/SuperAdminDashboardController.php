@@ -30,19 +30,18 @@ class SuperAdminDashboardController extends Controller
             'active_facilities' => $complianceSummary['active_facilities'],
         ]);
         $speciesSlaughtered = $this->slaughterDashboard->speciesSlaughteredCounts($filters);
+        $inspectionKpis = $this->slaughterDashboard->inspectionCounts($filters);
         $facilitySlaughterRows = $this->slaughterDashboard->facilitySlaughterRows($filters);
-        $charts = [
-            'species_animal_intake_trend' => $this->slaughterDashboard->chartSpeciesAnimalIntakeTrend($filters),
-            'species_slaughter_pie' => $this->slaughterDashboard->chartSpeciesSlaughterPie($speciesSlaughtered),
-        ];
+        $chartSpecs = $this->slaughterDashboard->workspaceChartSpecs($filters, $speciesSlaughtered);
 
         return view('super-admin.dashboard', compact(
             'workspaceKpis',
             'speciesSlaughtered',
+            'inspectionKpis',
             'facilitySlaughterRows',
             'administrativeAlerts',
             'filters',
-            'charts',
+            'chartSpecs',
         ));
     }
 

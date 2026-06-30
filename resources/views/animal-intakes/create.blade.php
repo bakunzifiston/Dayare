@@ -13,11 +13,8 @@
             'formAction' => route('animal-intakes.store'),
             'formMethod' => 'POST',
             'facilities' => $facilities,
-            'suppliers' => $suppliers,
             'clients' => $clients,
-            'suppliersForIntake' => $suppliersForIntake,
             'clientsForIntake' => $clientsForIntake,
-            'supplierContracts' => $supplierContracts,
         ])
     </div>
 </x-app-layout>

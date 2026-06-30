@@ -4,6 +4,7 @@
         class="hidden fixed inset-x-0 bottom-0 z-[100] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5 pointer-events-none"
         role="region"
         aria-label="{{ __('Install app') }}"
+        data-pwa-home-url="{{ route('home') }}"
         hidden
     >
         <div class="pointer-events-auto mx-auto flex max-w-3xl flex-col gap-4 rounded-bucha border border-slate-200/90 bg-white p-4 shadow-bucha-md sm:flex-row sm:items-center sm:gap-5 sm:p-5">
@@ -37,10 +38,9 @@
                 <button
                     type="button"
                     data-pwa-install-action
-                    class="hidden inline-flex flex-1 items-center justify-center rounded-bucha bg-bucha-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bucha-burgundy sm:flex-none"
-                    hidden
+                    class="inline-flex flex-1 items-center justify-center rounded-bucha bg-bucha-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bucha-burgundy sm:flex-none"
                 >
-                    {{ __('Install') }}
+                    {{ __('Get the App') }}
                 </button>
                 <button
                     type="button"

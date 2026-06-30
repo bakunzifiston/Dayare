@@ -19,7 +19,7 @@ class AnimalIntakeFactory extends Factory
 
         return [
             'facility_id' => Facility::factory(),
-            'source_type' => AnimalIntake::SOURCE_TYPE_SUPPLIER,
+            'source_type' => AnimalIntake::SOURCE_TYPE_CLIENT,
             'intake_date' => $d,
             'supplier_firstname' => fake()->firstName(),
             'supplier_lastname' => fake()->lastName(),

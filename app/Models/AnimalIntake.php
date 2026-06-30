@@ -132,10 +132,15 @@ class AnimalIntake extends Model
 
     public const SOURCE_TYPE_CLIENT = 'client';
 
+    /** @var list<string> Allowed values for new intake records. */
     public const SOURCE_TYPES = [
-        self::SOURCE_TYPE_SUPPLIER,
         self::SOURCE_TYPE_CLIENT,
     ];
+
+    public function isSupplierSource(): bool
+    {
+        return $this->source_type === self::SOURCE_TYPE_SUPPLIER;
+    }
 
     public static function generateReference(): string
     {

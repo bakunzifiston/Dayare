@@ -22,9 +22,6 @@
                 @if (config('features.shop'))
                     <a href="#products" class="hover:text-bucha-primary transition-colors">{{ __('Products') }}</a>
                 @endif
-                @if (Route::has('animal.passport.lookup'))
-                    <a href="{{ route('animal.passport.lookup') }}" class="hover:text-bucha-primary transition-colors">{{ __('Trace Animal') }}</a>
-                @endif
                 <a href="{{ route('contact-us') }}" class="hover:text-bucha-primary transition-colors">{{ __('Contact') }}</a>
             </nav>
             <div class="flex items-center gap-2 sm:gap-3">
@@ -73,6 +70,9 @@
                         <div class="mt-8 flex flex-wrap gap-3">
                             <a href="{{ route('contact-us') }}" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
                                 {{ __('Contact Us') }}
+                            </a>
+                            <a href="#mobile-platform" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
+                                {{ __('Get the App') }}
                             </a>
                             @if (config('features.shop'))
                                 <a href="{{ route('shop.index') }}" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
@@ -368,11 +368,6 @@
                     <a href="#mobile-platform" class="inline-flex items-center px-5 py-3 rounded-bucha bg-white text-bucha-primary hover:bg-slate-100 font-semibold text-sm tracking-wide transition-colors">
                         {{ __('Get the App') }}
                     </a>
-                    @if (Route::has('animal.passport.lookup'))
-                        <a href="{{ route('animal.passport.lookup') }}" class="inline-flex items-center px-5 py-3 rounded-bucha border-2 border-white/80 text-white hover:bg-white/15 font-semibold text-sm tracking-wide transition-colors">
-                            {{ __('Trace Animal') }}
-                        </a>
-                    @endif
                     <a href="#ecosystem" class="inline-flex items-center px-5 py-3 rounded-bucha border border-white/30 bg-white/10 text-white hover:bg-white/20 font-semibold text-sm tracking-wide transition-colors">
                         {{ __('Become a Partner') }}
                     </a>

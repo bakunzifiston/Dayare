@@ -68,11 +68,6 @@
             </div>
 
             <section class="space-y-4">
-                <div>
-                    <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Slaughter by species') }}</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">{{ __('Completed slaughter head counts across live tenants.') }}</p>
-                </div>
-
                 <div class="profile-kpi-grid">
                 <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($speciesSlaughtered['cattle_slaughtered'])">
                     <x-slot:icon>
@@ -89,97 +84,27 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
                     </x-slot:icon>
                 </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('AM inspections')" :value="number_format($inspectionKpis['ante_mortem'])" :hint="$filters['range_label']">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
+                <x-entity.kpi-stat :label="__('PM inspections')" :value="number_format($inspectionKpis['post_mortem'])" :hint="$filters['range_label']">
+                    <x-slot:icon>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    </x-slot:icon>
+                </x-entity.kpi-stat>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                        <h3 class="text-sm font-medium text-slate-700 mb-1">{{ __('Species animal intake') }}</h3>
-                        <p class="text-xs text-slate-500 mb-4">{{ __('Head counts by cattle, goat, and sheep over the selected period.') }}</p>
-                        <div class="h-64">
-                            <canvas id="chart-species-animal-intake-trend" aria-label="{{ __('Species animal intake') }}"></canvas>
-                        </div>
-                    </div>
-                    <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                        <h3 class="text-sm font-medium text-slate-700 mb-1">{{ __('Species slaughtered') }}</h3>
-                        <p class="text-xs text-slate-500 mb-4">{{ __('Cattle, goat, and sheep in the selected period.') }}</p>
-                        @php
-                            $speciesPieLabels = $charts['species_slaughter_pie']['labels'] ?? [];
-                        @endphp
-                        @if (count($speciesPieLabels) === 0)
-                            <p class="text-sm text-slate-500 py-8 text-center">{{ __('No slaughter data for this period.') }}</p>
-                        @else
-                            <div class="h-64">
-                                <canvas id="chart-species-slaughter-pie" aria-label="{{ __('Species slaughtered') }}"></canvas>
-                            </div>
-                        @endif
-                    </div>
-                </div>
+                <x-super-admin.slaughter-charts :chart-specs="$chartSpecs" />
             </section>
 
-            <section class="space-y-4">
-                <div>
-                    <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Slaughter by facility') }}</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">{{ __('Animals slaughtered per facility for the selected period.') }}</p>
-                </div>
-
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
-                    <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-                        <p class="text-sm text-slate-600">
-                            {{ __(':count facilities', ['count' => number_format($facilitySlaughterRows->count())]) }}
-                        </p>
-                        <p class="text-sm font-medium text-slate-800 tabular-nums">
-                            {{ __('Total') }}:
-                            <span class="text-bucha-primary">{{ number_format($facilitySlaughterRows->sum('animals_slaughtered')) }}</span>
-                            {{ __('animals') }}
-                        </p>
-                    </div>
-
-                    @if ($facilitySlaughterRows->isEmpty())
-                        <div class="p-8 text-center text-sm text-slate-500">{{ __('No facilities found.') }}</div>
-                    @else
-                        <div class="overflow-x-auto max-h-[28rem]">
-                            <table class="min-w-full text-sm">
-                                <thead class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur border-b border-slate-200">
-                                    <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                        <th class="px-6 py-3 w-12">#</th>
-                                        <th class="px-6 py-3">{{ __('Facility') }}</th>
-                                        <th class="px-6 py-3">{{ __('Business') }}</th>
-                                        <th class="px-6 py-3 text-right">{{ __('Animals slaughtered') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100">
-                                    @foreach ($facilitySlaughterRows as $index => $row)
-                                        <tr @class([
-                                            'transition-colors',
-                                            'hover:bg-slate-50/70' => $row['animals_slaughtered'] > 0,
-                                            'text-slate-400' => $row['animals_slaughtered'] === 0,
-                                        ])>
-                                            <td class="px-6 py-3.5 text-slate-400 tabular-nums">{{ $index + 1 }}</td>
-                                            <td class="px-6 py-3.5">
-                                                <p @class([
-                                                    'font-medium',
-                                                    'text-slate-900' => $row['animals_slaughtered'] > 0,
-                                                    'text-slate-500' => $row['animals_slaughtered'] === 0,
-                                                ])>{{ $row['facility_name'] }}</p>
-                                            </td>
-                                            <td class="px-6 py-3.5 text-slate-600">{{ $row['business_name'] }}</td>
-                                            <td class="px-6 py-3.5 text-right tabular-nums">
-                                                @if ($row['animals_slaughtered'] > 0)
-                                                    <span class="inline-flex items-center rounded-full bg-bucha-primary/10 px-2.5 py-0.5 text-xs font-semibold text-bucha-primary">
-                                                        {{ number_format($row['animals_slaughtered']) }}
-                                                    </span>
-                                                @else
-                                                    <span class="text-slate-400">0</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
-                </div>
-            </section>
+            <x-workspace.facility-activity-table
+                :rows="$facilitySlaughterRows"
+                :title="__('Slaughter by facility')"
+                :subtitle="__('Animals received and slaughtered per facility for the selected period.')"
+                :empty-message="__('No facility activity for this period.')"
+            />
 
             {{-- Administrative compliance --}}
             @php $adminWithIssues = collect($administrativeAlerts)->filter(fn ($a) => ($a['count'] ?? 0) > 0); @endphp
@@ -207,7 +132,10 @@
     </div>
 
     @push('scripts')
-        <script>window.dashboardCharts = @json($charts);</script>
-        @vite('resources/js/dashboard-charts.js')
+        <script>
+            window.buchaChartColors = @json(config('bucha.chart'));
+            window.superAdminChartSpecs = @json($chartSpecs);
+        </script>
+        @vite('resources/js/super-admin-charts.js')
     @endpush
 </x-app-layout>

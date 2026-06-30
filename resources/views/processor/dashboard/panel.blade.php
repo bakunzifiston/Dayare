@@ -111,46 +111,7 @@
 </section>
 
 @if (count($charts) > 0)
-    <section class="proc-dash__charts" aria-label="{{ __('Charts') }}">
-        @foreach ($charts as $chart)
-            <div @class(['proc-dash__chart-card', 'proc-dash__chart-card--full' => ! empty($chart['fullWidth'])])>
-                <p class="proc-dash__chart-title">{{ $chart['title'] }}</p>
-                @if (! empty($chart['legend']))
-                    <div class="proc-dash__chart-legend">
-                        @foreach ($chart['legend'] as $item)
-                            <span class="proc-dash__legend-item">
-                                <span class="proc-dash__legend-swatch" style="background: {{ $item['color'] }}"></span>
-                                {{ $item['label'] }}
-                            </span>
-                        @endforeach
-                    </div>
-                @endif
-                @php
-                    if (($chart['type'] ?? '') === 'pie') {
-                        $chartDataTotal = array_sum($chart['data'] ?? []);
-                    } elseif (! empty($chart['stacked']) && ! empty($chart['datasets'])) {
-                        $chartDataTotal = array_sum(array_map(
-                            fn (array $dataset) => array_sum($dataset['data'] ?? []),
-                            $chart['datasets'],
-                        ));
-                    } else {
-                        $chartDataTotal = null;
-                    }
-                @endphp
-                @if ($chartDataTotal === 0)
-                    <div class="proc-dash__chart-empty">{{ $chart['emptyMessage'] ?? __('No inspection activity for this period.') }}</div>
-                @else
-                <div class="proc-dash__chart-wrap" style="position: relative; height: {{ (int) ($chart['height'] ?? 160) }}px">
-                    <canvas
-                        id="{{ $chart['id'] }}"
-                        role="img"
-                        aria-label="{{ $chart['ariaLabel'] ?? $chart['title'] }}"
-                    >{{ $chart['ariaLabel'] ?? $chart['title'] }}</canvas>
-                </div>
-                @endif
-            </div>
-        @endforeach
-    </section>
+    <x-workspace.chart-grid :charts="$charts" />
 @endif
 
 @php $workTable = $ops['workTable'] ?? null; @endphp
@@ -244,14 +205,18 @@
                 @endif
 
                 @if (($left['type'] ?? '') === 'module_rows')
-                    <i class="ti ti-{{ $item['icon'] }} proc-dash__row-icon" aria-hidden="true"></i>
+                    <span @class(['proc-dash__row-icon-wrap', 'proc-dash__row-icon-wrap--' . ($item['iconTone'] ?? 'neutral')]) aria-hidden="true">
+                        @include('processor.partials.dashboard-row-icon', ['icon' => $item['icon'] ?? 'animal'])
+                    </span>
                     <div class="proc-dash__row-body">
                         <p class="proc-dash__row-primary">{{ $item['label'] }}</p>
                         <p class="proc-dash__row-secondary">{{ $item['sub'] }}</p>
                     </div>
                     <span class="proc-dash__badge-pill proc-dash__badge-pill--{{ $badgeVariants[$item['badgeTone']] ?? 'info' }}">{{ $item['badge'] }}</span>
                 @elseif (($left['type'] ?? '') === 'pipeline')
-                    <i class="ti ti-{{ $item['icon'] }} proc-dash__row-icon" aria-hidden="true"></i>
+                    <span @class(['proc-dash__row-icon-wrap', 'proc-dash__row-icon-wrap--neutral']) aria-hidden="true">
+                        @include('processor.partials.dashboard-row-icon', ['icon' => $item['icon'] ?? 'box'])
+                    </span>
                     <div class="proc-dash__row-body">
                         <p class="proc-dash__row-primary">{{ $item['label'] }}</p>
                     </div>
@@ -298,7 +263,9 @@
                     @else
                         <div class="proc-dash__row">
                     @endif
-                        <i class="ti ti-{{ $item['icon'] }} proc-dash__row-icon" aria-hidden="true"></i>
+                        <span @class(['proc-dash__row-icon-wrap', 'proc-dash__row-icon-wrap--' . ($item['iconTone'] ?? 'neutral')]) aria-hidden="true">
+                            @include('processor.partials.dashboard-row-icon', ['icon' => $item['icon'] ?? 'animal'])
+                        </span>
                         <div class="proc-dash__row-body">
                             <p class="proc-dash__row-primary">{{ $item['label'] }}</p>
                             <p class="proc-dash__row-secondary">{{ $item['sub'] }}</p>

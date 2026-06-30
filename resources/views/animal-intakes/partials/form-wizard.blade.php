@@ -56,10 +56,8 @@
         $initialAnimals = [$blankAnimal];
     }
 
-    $defaultSourceType = old(
-        'source_type',
-        $intake?->source_type ?? AnimalIntake::SOURCE_TYPE_CLIENT,
-    );
+    $defaultSourceType = AnimalIntake::SOURCE_TYPE_CLIENT;
+    $isLegacySupplierIntake = $isEdit && $intake?->isSupplierSource();
 
     $errorStep = 1;
     $hasAnimalErrors = $errors->has('animals');
@@ -185,10 +183,6 @@
                 return el.selectedOptions[0].text;
             },
             reviewSource() {
-                if (this.sourceType === @js(AnimalIntake::SOURCE_TYPE_SUPPLIER)) {
-                    const el = document.getElementById('supplier_id');
-                    return el?.selectedOptions[0]?.text?.trim() || @js(__('Supplier'));
-                }
                 const el = document.getElementById('client_id');
                 const manual = [this.reviewField('manual_client_firstname'), this.reviewField('manual_client_lastname')].filter((v) => v && v !== '—').join(' ');
                 return el?.value ? (el.selectedOptions[0]?.text?.trim() || @js(__('Client'))) : (manual || @js(__('Client')));
@@ -268,7 +262,6 @@
         };
     }
 
-    window.suppliersForIntake = @json($suppliersForIntake);
     window.clientsForIntake = @json($clientsForIntake);
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -303,12 +296,6 @@
         expiryInput?.addEventListener('input', updateExpiryWarning);
         updateExpiryWarning();
 
-        document.getElementById('supplier_id')?.addEventListener('change', function () {
-            const data = window.suppliersForIntake?.[this.value];
-            if (!data) return;
-            const farmReg = document.getElementById('farm_registration_number');
-            if (farmReg && data.registration_number) farmReg.value = data.registration_number;
-        });
         document.getElementById('client_id')?.addEventListener('change', function () {
             const data = window.clientsForIntake?.[this.value];
             if (!data) return;
@@ -351,7 +338,7 @@
     @endif
 
     <nav class="intake-step-nav" aria-label="{{ __('Intake wizard steps') }}">
-        <div class="intake-step-pill" :class="{ 'is-current': step === 1, 'is-done': step > 1 }">{{ __('1. Source') }}</div>
+        <div class="intake-step-pill" :class="{ 'is-current': step === 1, 'is-done': step > 1 }">{{ __('1. Client') }}</div>
         <div class="intake-step-pill" :class="{ 'is-current': step === 2, 'is-done': step > 2 }">{{ __('2. Animals') }}</div>
         <div class="intake-step-pill" :class="{ 'is-current': step === 3, 'is-done': step > 3 }">{{ __('3. Compliance') }}</div>
         <div class="intake-step-pill" :class="{ 'is-current': step === 4 }">{{ __('4. Review') }}</div>
@@ -390,114 +377,71 @@
             </div>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
-                <h3 class="text-base font-semibold text-slate-800">{{ __('Source details') }}</h3>
-                <div>
-                    <x-input-label for="source_type" :value="__('Source type')" />
-                    <select id="source_type" name="source_type" x-model="sourceType" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
-                        <option value="{{ AnimalIntake::SOURCE_TYPE_CLIENT }}">{{ __('Client') }}</option>
-                        <option value="{{ AnimalIntake::SOURCE_TYPE_SUPPLIER }}">{{ __('Supplier') }}</option>
-                    </select>
-                    <x-input-error class="mt-2" :messages="$errors->get('source_type')" />
-                </div>
+                <h3 class="text-base font-semibold text-slate-800">{{ __('Client details') }}</h3>
 
-                <div x-show="sourceType === '{{ AnimalIntake::SOURCE_TYPE_SUPPLIER }}'" class="space-y-4">
-                    <div>
-                        <x-input-label for="supplier_id" :value="__('Supplier')" />
-                        <select id="supplier_id" name="supplier_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm"
-                            :disabled="sourceType !== '{{ AnimalIntake::SOURCE_TYPE_SUPPLIER }}'">
-                            <option value="">{{ __('Select supplier') }}</option>
-                            @foreach ($suppliers as $s)
-                                <option value="{{ $s->id }}" @selected(old('supplier_id', $intake?->supplier_id) == $s->id)>
-                                    {{ trim(($s->first_name ?? '') . ' ' . ($s->last_name ?? '')) ?: ($s->name ?? '') }}{!! $s->phone ? ' · ' . e($s->phone) : '' !!}
-                                </option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('supplier_id')" />
-                    </div>
-                    @if ($supplierContracts->isNotEmpty())
-                    <div>
-                        <x-input-label for="contract_id" :value="__('Supplier contract (optional)')" />
-                        <select id="contract_id" name="contract_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm"
-                            :disabled="sourceType !== '{{ AnimalIntake::SOURCE_TYPE_SUPPLIER }}'">
-                            <option value="">{{ __('None') }}</option>
-                            @foreach ($supplierContracts as $c)
-                                <option value="{{ $c->id }}" @selected(old('contract_id', $intake?->contract_id) == $c->id)>
-                                    {{ $c->contract_number }} — {{ $c->title }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('contract_id')" />
-                    </div>
+                @if ($isLegacySupplierIntake)
+                    <input type="hidden" name="source_type" value="{{ AnimalIntake::SOURCE_TYPE_SUPPLIER }}">
+                    <input type="hidden" name="supplier_id" value="{{ old('supplier_id', $intake?->supplier_id) }}">
+                    @if ($intake?->contract_id)
+                        <input type="hidden" name="contract_id" value="{{ $intake->contract_id }}">
                     @endif
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <input type="hidden" name="farm_name" value="{{ old('farm_name', $intake?->farm_name) }}">
+                    <input type="hidden" name="farm_registration_number" value="{{ old('farm_registration_number', $intake?->farm_registration_number) }}">
+                    <input type="hidden" name="vehicle_plate" value="{{ old('vehicle_plate', $intake?->transport_vehicle_plate) }}">
+                    <input type="hidden" name="driver_name" value="{{ old('driver_name', $intake?->driver_name) }}">
+                    <div class="rounded-bucha border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        <p class="font-semibold">{{ __('Legacy supplier intake') }}</p>
+                        <p class="mt-1">
+                            {{ trim(($intake?->supplier_firstname ?? '').' '.($intake?->supplier_lastname ?? '')) }}
+                            @if ($intake?->supplier)
+                                · {{ $intake->supplier->phone }}
+                            @endif
+                        </p>
+                        <p class="mt-2 text-xs text-amber-800">{{ __('New intakes are recorded against clients only. You can still edit animals and compliance for this legacy record.') }}</p>
+                    </div>
+                @else
+                    <input type="hidden" name="source_type" value="{{ AnimalIntake::SOURCE_TYPE_CLIENT }}">
+                    <div class="space-y-4">
                         <div>
-                            <x-input-label for="farm_name" :value="__('Farm name')" />
+                            <x-input-label for="client_id" :value="__('Client')" />
+                            <select id="client_id" name="client_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
+                                <option value="">{{ __('Select client') }}</option>
+                                @foreach ($clients as $client)
+                                    <option value="{{ $client->id }}" @selected(old('client_id', $intake?->client_id) == $client->id)>
+                                        {{ $client->name }}{!! $client->email ? ' · ' . e($client->email) : '' !!}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <x-input-error class="mt-2" :messages="$errors->get('client_id')" />
+                        </div>
+                        <p class="text-sm text-slate-500">{{ __('Or enter client details manually if not in the list:') }}</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <x-input-label for="manual_client_firstname" :value="__('Client first name')" />
+                                <x-text-input id="manual_client_firstname" name="manual_client_firstname" type="text" class="mt-1 block w-full"
+                                    :value="old('manual_client_firstname', $intake?->supplier_firstname)" />
+                                <x-input-error class="mt-2" :messages="$errors->get('manual_client_firstname')" />
+                            </div>
+                            <div>
+                                <x-input-label for="manual_client_lastname" :value="__('Client last name')" />
+                                <x-text-input id="manual_client_lastname" name="manual_client_lastname" type="text" class="mt-1 block w-full"
+                                    :value="old('manual_client_lastname', $intake?->supplier_lastname)" />
+                                <x-input-error class="mt-2" :messages="$errors->get('manual_client_lastname')" />
+                            </div>
+                        </div>
+                        <div>
+                            <x-input-label for="manual_client_contact" :value="__('Client contact')" />
+                            <x-text-input id="manual_client_contact" name="manual_client_contact" type="text" class="mt-1 block w-full"
+                                :value="old('manual_client_contact', $intake?->supplier_contact)" />
+                            <x-input-error class="mt-2" :messages="$errors->get('manual_client_contact')" />
+                        </div>
+                        <div>
+                            <x-input-label for="farm_name" :value="__('Farm name (optional)')" />
                             <x-text-input id="farm_name" name="farm_name" type="text" class="mt-1 block w-full" :value="old('farm_name', $intake?->farm_name)" />
                             <x-input-error class="mt-2" :messages="$errors->get('farm_name')" />
                         </div>
-                        <div>
-                            <x-input-label for="farm_registration_number" :value="__('Farm registration number')" />
-                            <x-text-input id="farm_registration_number" name="farm_registration_number" type="text" class="mt-1 block w-full"
-                                :value="old('farm_registration_number', $intake?->farm_registration_number)" />
-                            <x-input-error class="mt-2" :messages="$errors->get('farm_registration_number')" />
-                        </div>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <x-input-label for="vehicle_plate" :value="__('Vehicle plate')" />
-                            <x-text-input id="vehicle_plate" name="vehicle_plate" type="text" class="mt-1 block w-full"
-                                :value="old('vehicle_plate', $intake?->transport_vehicle_plate)"
-                                x-bind:disabled="sourceType !== '{{ AnimalIntake::SOURCE_TYPE_SUPPLIER }}'" />
-                            <x-input-error class="mt-2" :messages="$errors->get('vehicle_plate')" />
-                        </div>
-                        <div>
-                            <x-input-label for="driver_name" :value="__('Driver name')" />
-                            <x-text-input id="driver_name" name="driver_name" type="text" class="mt-1 block w-full"
-                                :value="old('driver_name', $intake?->driver_name)" />
-                            <x-input-error class="mt-2" :messages="$errors->get('driver_name')" />
-                        </div>
-                    </div>
-                </div>
-
-                <div x-show="sourceType === '{{ AnimalIntake::SOURCE_TYPE_CLIENT }}'" class="space-y-4">
-                    <div>
-                        <x-input-label for="client_id" :value="__('Client')" />
-                        <select id="client_id" name="client_id" class="mt-1 block w-full border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm"
-                            :disabled="sourceType !== '{{ AnimalIntake::SOURCE_TYPE_CLIENT }}'">
-                            <option value="">{{ __('Select client') }}</option>
-                            @foreach ($clients as $client)
-                                <option value="{{ $client->id }}" @selected(old('client_id', $intake?->client_id) == $client->id)>
-                                    {{ $client->name }}{!! $client->email ? ' · ' . e($client->email) : '' !!}
-                                </option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('client_id')" />
-                    </div>
-                    <p class="text-sm text-slate-500">{{ __('Or enter client details manually if not in the list:') }}</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <x-input-label for="manual_client_firstname" :value="__('Client first name')" />
-                            <x-text-input id="manual_client_firstname" name="manual_client_firstname" type="text" class="mt-1 block w-full"
-                                :value="old('manual_client_firstname', $intake?->supplier_firstname)"
-                                x-bind:disabled="sourceType !== '{{ AnimalIntake::SOURCE_TYPE_CLIENT }}'" />
-                            <x-input-error class="mt-2" :messages="$errors->get('manual_client_firstname')" />
-                        </div>
-                        <div>
-                            <x-input-label for="manual_client_lastname" :value="__('Client last name')" />
-                            <x-text-input id="manual_client_lastname" name="manual_client_lastname" type="text" class="mt-1 block w-full"
-                                :value="old('manual_client_lastname', $intake?->supplier_lastname)"
-                                x-bind:disabled="sourceType !== '{{ AnimalIntake::SOURCE_TYPE_CLIENT }}'" />
-                            <x-input-error class="mt-2" :messages="$errors->get('manual_client_lastname')" />
-                        </div>
-                    </div>
-                    <div>
-                        <x-input-label for="manual_client_contact" :value="__('Client contact')" />
-                        <x-text-input id="manual_client_contact" name="manual_client_contact" type="text" class="mt-1 block w-full"
-                            :value="old('manual_client_contact', $intake?->supplier_contact)"
-                            x-bind:disabled="sourceType !== '{{ AnimalIntake::SOURCE_TYPE_CLIENT }}'" />
-                        <x-input-error class="mt-2" :messages="$errors->get('manual_client_contact')" />
-                    </div>
-                </div>
+                @endif
             </div>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4" x-data="window.locationDropdowns()" x-init="loadCountries()">

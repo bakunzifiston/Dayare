@@ -35,16 +35,6 @@ class ProcessorDashboardService
         $ctx = ProcessorDashboardContext::forBusiness($businessId);
         $request = $request ?? request();
         $filters = $this->resolveDashboardFilters($request);
-        if (in_array($role, [
-            BusinessUser::ROLE_ORG_ADMIN,
-            BusinessUser::ROLE_INSPECTOR,
-            BusinessUser::ROLE_OPERATIONS_MANAGER,
-            BusinessUser::ROLE_ACCOUNTANT,
-            BusinessUser::ROLE_TRANSPORT_MANAGER,
-            BusinessUser::ROLE_COMPLIANCE_OFFICER,
-        ], true) && ! $request->hasAny(['period', 'date_from', 'date_to'])) {
-            $filters = $this->dashboardFiltersForPreset('month');
-        }
 
         $data = match ($role) {
             BusinessUser::ROLE_OPERATIONS_MANAGER => $this->buildOpsManager($ctx, $filters),
@@ -150,19 +140,8 @@ class ProcessorDashboardService
                 $this->kpi(__('Facilities'), $facilityIds->count(), __(':count businesses', ['count' => $businessIds->count()]), 'info', 'map-pin'),
                 $this->kpi(__('Active inspectors'), $totalInspectors, __(':count temp alerts', ['count' => $openViolations]), $openViolations > 0 ? 'warning' : 'positive', 'users'),
             ],
-            'workTable' => [
-                'title' => __('Slaughter executions'),
-                'subtitle' => __('Completed executions for the selected period.'),
-                'headers' => [
-                    'primary' => __('Execution'),
-                    'secondary' => __('Facility'),
-                    'updated' => __('Slaughtered'),
-                ],
-                'emptyMessage' => __('No executions in this period.'),
-                'rows' => $this->orgAdminExecutionTableRows($ctx, $user, $filters),
-                'footerRoute' => 'slaughter-executions.hub',
-                'footerLabel' => __('View all executions'),
-            ],
+            'leftPanel' => $this->recentReceivedAnimalsPanel($user, $ctx),
+            'rightPanel' => $this->recentSlaughteredPanel($user, $ctx),
             'quickActions' => [
                 $this->action(__('Manage users'), 'users', 'tenant-users.index', BusinessUser::PERMISSION_MANAGE_BUSINESS_USERS),
                 $this->action(__('Compliance'), 'shield', 'compliance.index', BusinessUser::PERMISSION_MONITOR_COMPLIANCE_METRICS),
@@ -1201,58 +1180,6 @@ class ProcessorDashboardService
             ->pluck('id');
     }
 
-    /**
-     * @param  array{
-     *     is_filtered: bool,
-     *     start: ?Carbon,
-     *     end: ?Carbon
-     * }  $filters
-     * @return array<int, array{
-     *     id: string,
-     *     species: string,
-     *     status: string,
-     *     status_tone: string,
-     *     updated_at: string,
-     *     route: string,
-     *     route_params: array<string, int>
-     * }>
-     */
-    private function orgAdminExecutionTableRows(ProcessorDashboardContext $ctx, ?User $user, array $filters): array
-    {
-        $planIds = $this->orgAdminPlanIds($ctx, $user);
-
-        if ($planIds->isEmpty()) {
-            return [];
-        }
-
-        $query = SlaughterExecution::query()
-            ->whereIn('slaughter_plan_id', $planIds)
-            ->where('status', SlaughterExecution::STATUS_COMPLETED)
-            ->with(['slaughterPlan.facility'])
-            ->whereNotNull('slaughter_time');
-        $this->applyDashboardDateFilter($query, 'slaughter_time', $filters);
-
-        return $query
-            ->latest('slaughter_time')
-            ->limit(50)
-            ->get()
-            ->map(function (SlaughterExecution $execution): array {
-                $plan = $execution->slaughterPlan;
-                $headCount = (int) $execution->actual_animals_slaughtered;
-
-                return [
-                    'id' => __('Plan #:id · :count head', ['id' => $execution->slaughter_plan_id, 'count' => number_format($headCount)]),
-                    'species' => (string) ($plan?->facility?->facility_name ?? '—'),
-                    'status' => (string) ($plan?->species ?? __('Completed')),
-                    'status_tone' => 'green',
-                    'updated_at' => $execution->slaughter_time?->format('d M Y H:i') ?? '—',
-                    'route' => 'slaughter-executions.show',
-                    'route_params' => ['slaughter_execution' => $execution->id],
-                ];
-            })
-            ->all();
-    }
-
     private function action(string $label, string $icon, string $route, string $permission): array
     {
         return compact('label', 'icon', 'route', 'permission');
@@ -1263,16 +1190,36 @@ class ProcessorDashboardService
         return compact('label', 'sub', 'icon', 'route', 'badgeTone', 'badge');
     }
 
+    private function speciesDashboardIconKey(string $species): string
+    {
+        $value = strtolower(trim($species));
+
+        foreach (['cattle', 'goat', 'sheep', 'pig'] as $key) {
+            if (str_contains($value, $key)) {
+                return $key;
+            }
+        }
+
+        if (str_contains($value, 'mixed') || str_contains($value, '·') || str_contains($value, ',')) {
+            return 'mixed';
+        }
+
+        return 'animal';
+    }
+
     /**
      * @return array{title: string, subtitle: string, type: string, items: array<int, array<string, mixed>>, empty?: string, footerRoute?: string, footerLabel?: string}
      */
-    private function recentReceivedAnimalsPanel(?User $user, ProcessorDashboardContext $ctx, int $limit = 6): array
+    private function recentReceivedAnimalsPanel(?User $user, ProcessorDashboardContext $ctx, int $limit = 8): array
     {
         $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
         $facilityIds = Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
 
         $intakes = AnimalIntake::query()
-            ->with('facility:id,facility_name')
+            ->with([
+                'facility:id,facility_name',
+                'client:id,name',
+            ])
             ->withCount('items')
             ->whereIn('facility_id', $facilityIds)
             ->where('is_draft', false)
@@ -1282,8 +1229,8 @@ class ProcessorDashboardService
             ->get();
 
         $panel = [
-            'title' => __('Recent received animals'),
-            'subtitle' => __('Latest animal intake sessions'),
+            'title' => __('Recent received species'),
+            'subtitle' => __('Latest intakes with location and client'),
             'type' => 'module_rows',
             'footerRoute' => 'animal-intakes.hub',
             'footerLabel' => __('View all intakes'),
@@ -1292,19 +1239,24 @@ class ProcessorDashboardService
                     ? $intake->items_count
                     : (int) $intake->number_of_animals;
                 $receivedAt = $intake->intake_date ?? $intake->created_at;
+                $species = $intake->species_mix_label !== ''
+                    ? $intake->species_mix_label
+                    : (string) ($intake->species ?? __('Mixed'));
+                $speciesIcon = $this->speciesDashboardIconKey($species);
 
                 return [
-                    'label' => $intake->reference ?: __('Intake #:id', ['id' => $intake->id]),
+                    'label' => $species,
                     'sub' => collect([
-                        $intake->species,
-                        __(':count head', ['count' => number_format($headCount)]),
                         $intake->facility?->facility_name,
+                        $intake->clientSourceDisplayName(),
                         $receivedAt?->format('M j, Y'),
+                        __(':count head', ['count' => number_format($headCount)]),
                     ])->filter()->implode(' · '),
-                    'icon' => 'box',
+                    'icon' => $speciesIcon,
+                    'iconTone' => $speciesIcon,
                     'route' => 'animal-intakes.show',
                     'routeParams' => ['animal_intake' => $intake->id],
-                    'badge' => (string) ($intake->species ?? __('Received')),
+                    'badge' => $intake->reference ?: __('Intake #:id', ['id' => $intake->id]),
                     'badgeTone' => 'info',
                 ];
             })->all(),
@@ -1320,7 +1272,7 @@ class ProcessorDashboardService
     /**
      * @return array{title: string, subtitle: string, type: string, items: array<int, array<string, mixed>>, empty?: string, footerRoute?: string, footerLabel?: string}
      */
-    private function recentSlaughteredPanel(?User $user, ProcessorDashboardContext $ctx, int $limit = 6): array
+    private function recentSlaughteredPanel(?User $user, ProcessorDashboardContext $ctx, int $limit = 8): array
     {
         $businessIds = $user?->accessibleProcessorBusinessIds() ?? collect([$ctx->businessId]);
         $facilityIds = Facility::query()->whereIn('business_id', $businessIds)->pluck('id');
@@ -1336,8 +1288,8 @@ class ProcessorDashboardService
             ->get();
 
         $panel = [
-            'title' => __('Recent slaughtered'),
-            'subtitle' => __('Latest slaughter executions'),
+            'title' => __('Recent executed species'),
+            'subtitle' => __('Latest completed slaughter executions'),
             'type' => 'module_rows',
             'footerRoute' => 'slaughter-executions.hub',
             'footerLabel' => __('View all executions'),
@@ -1345,20 +1297,22 @@ class ProcessorDashboardService
                 $plan = $execution->slaughterPlan;
                 $slaughteredAt = $execution->slaughter_time ?? $execution->created_at;
                 $headCount = (int) $execution->actual_animals_slaughtered;
+                $species = (string) ($plan?->species ?? __('Unknown'));
+                $speciesIcon = $this->speciesDashboardIconKey($species);
 
                 return [
-                    'label' => __('Plan #:id', ['id' => $execution->slaughter_plan_id]),
+                    'label' => $species,
                     'sub' => collect([
-                        $plan?->species,
-                        __(':count head', ['count' => number_format($headCount)]),
                         $plan?->facility?->facility_name,
+                        __(':count head', ['count' => number_format($headCount)]),
                         $slaughteredAt?->format('M j, Y'),
                     ])->filter()->implode(' · '),
-                    'icon' => 'player-play',
+                    'icon' => $speciesIcon,
+                    'iconTone' => $speciesIcon,
                     'route' => 'slaughter-executions.show',
                     'routeParams' => ['slaughter_execution' => $execution->id],
-                    'badge' => (string) ($plan?->species ?? __('Completed')),
-                    'badgeTone' => 'info',
+                    'badge' => __('Plan #:id', ['id' => $execution->slaughter_plan_id]),
+                    'badgeTone' => 'green',
                 ];
             })->all(),
         ];

@@ -101,6 +101,10 @@ class ProcessorDashboardCharts
                 ])->all(),
             ),
             array_merge(
+                $this->facilitySpeciesIntakeTrend($facilityIds, $filters, 'org-admin-species-trend'),
+                ['emptyMessage' => __('No animal intake for this period.')],
+            ),
+            array_merge(
                 $this->pieChart(
                     'org-admin-species-executed',
                     __('Species executed'),
@@ -111,13 +115,6 @@ class ProcessorDashboardCharts
                     $this->speciesColors(),
                 ),
                 ['emptyMessage' => __('No executions for this period.')],
-            ),
-            array_merge(
-                $this->facilitySpeciesIntakeTrend($facilityIds, $filters, 'org-admin-species-trend'),
-                [
-                    'fullWidth' => true,
-                    'emptyMessage' => __('No animal intake for this period.'),
-                ],
             ),
         ];
     }
@@ -188,10 +185,7 @@ class ProcessorDashboardCharts
             ),
             array_merge(
                 $this->facilitySpeciesIntakeTrend($ctx->facilityIds, $filters, 'ops-species-trend'),
-                [
-                    'fullWidth' => true,
-                    'emptyMessage' => __('No animal intake for this period.'),
-                ],
+                ['emptyMessage' => __('No animal intake for this period.')],
             ),
         ];
     }
@@ -505,10 +499,7 @@ class ProcessorDashboardCharts
             ),
             array_merge(
                 $this->facilitySpeciesIntakeTrend($ctx->facilityIds, $filters, 'inspector-species-trend'),
-                [
-                    'fullWidth' => true,
-                    'emptyMessage' => __('No animal intake for this period.'),
-                ],
+                ['emptyMessage' => __('No animal intake for this period.')],
             ),
         ];
     }
@@ -1343,9 +1334,10 @@ class ProcessorDashboardCharts
             'label' => $label,
             'data' => $data,
             'backgroundColor' => $color,
-            'borderColor' => $color,
-            'borderWidth' => 1,
-            'borderRadius' => 4,
+            'borderColor' => 'transparent',
+            'borderWidth' => 0,
+            'borderRadius' => 6,
+            'maxBarThickness' => 44,
         ];
     }
 
@@ -1360,9 +1352,10 @@ class ProcessorDashboardCharts
             'label' => $label,
             'data' => $data,
             'backgroundColor' => $colors,
-            'borderColor' => $colors,
-            'borderWidth' => 1,
-            'borderRadius' => 4,
+            'borderColor' => 'transparent',
+            'borderWidth' => 0,
+            'borderRadius' => 6,
+            'maxBarThickness' => 44,
         ];
     }
 
@@ -1520,6 +1513,28 @@ class ProcessorDashboardCharts
             'ariaLabel' => $ariaLabel,
             'type' => 'bar',
             'stacked' => true,
+            'labels' => $labels,
+            'datasets' => $datasets,
+            'legend' => collect($datasets)->map(fn (array $ds) => [
+                'color' => $ds['backgroundColor'],
+                'label' => $ds['label'],
+            ])->all(),
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $labels
+     * @param  array<int, array<string, mixed>>  $datasets
+     * @return array<string, mixed>
+     */
+    private function speciesTrendLineChart(string $slug, string $title, int $height, string $ariaLabel, array $labels, array $datasets): array
+    {
+        return [
+            'id' => 'chart-'.$slug,
+            'title' => $title,
+            'height' => $height,
+            'ariaLabel' => $ariaLabel,
+            'type' => 'line',
             'labels' => $labels,
             'datasets' => $datasets,
             'legend' => collect($datasets)->map(fn (array $ds) => [

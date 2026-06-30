@@ -44,14 +44,14 @@
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Facility') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->facility->facility_name ?? '' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Intake date & time') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->intakeDatetimeLabel() }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Source type') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ ucfirst((string) $intake->source_type) }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Source type') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->isSupplierSource() ? __('Supplier (legacy)') : __('Client') }}</dd></div>
                     @if ($intake->source_type === \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT)
                         <div><dt class="text-sm font-medium text-slate-500">{{ __('Client') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->client?->name ?? '—' }}</dd></div>
                     @else
                         <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_firstname }} {{ $intake->supplier_lastname }}@if ($intake->supplier)<a href="{{ route('suppliers.show', $intake->supplier) }}" class="ml-2 text-bucha-primary hover:underline">{{ __('View supplier') }}</a>@endif</dd></div>
                         @if ($intake->contract)<div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier contract') }}</dt><dd class="mt-1 text-sm text-slate-900"><a href="{{ route('contracts.show', $intake->contract) }}" class="text-bucha-primary hover:underline">{{ $intake->contract->contract_number }} — {{ $intake->contract->title }}</a></dd></div>@endif
                     @endif
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Supplier contact') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_contact ?? '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ $intake->isSupplierSource() ? __('Supplier contact') : __('Client contact') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->supplier_contact ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm registration number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_registration_number ?? '—' }}</dd></div>
                     @if ($intake->source_type === \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT)

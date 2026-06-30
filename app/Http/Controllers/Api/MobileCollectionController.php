@@ -153,76 +153,50 @@ class MobileCollectionController extends Controller
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function hydrateSupplierFields(Request $request, array $data): array
+    private function hydrateIntakeClientFields(Request $request, array $data): array
     {
         $facilityId = (int) ($data['facility_id'] ?? 0);
         $facilityBusinessId = (int) Facility::query()->whereKey($facilityId)->value('business_id');
 
-        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT) {
-            $client = Client::query()
-                ->whereKey((int) ($data['client_id'] ?? 0))
-                ->where('is_active', true)
-                ->first();
-            if ((int) ($data['client_id'] ?? 0) > 0) {
-                if (! $client || (int) $client->business_id !== $facilityBusinessId) {
-                    abort(404);
-                }
-                $parts = preg_split('/\s+/', trim((string) $client->name), 2) ?: [];
-                $data['supplier_firstname'] = $data['supplier_firstname'] ?? ($parts[0] ?? '');
-                $data['supplier_lastname'] = $data['supplier_lastname'] ?? ($parts[1] ?? '');
-                $data['supplier_contact'] = $data['supplier_contact'] ?? $client->phone;
-                $data['country_id'] = $data['country_id'] ?? $client->country_id;
-                $data['province_id'] = $data['province_id'] ?? $client->province_id;
-                $data['district_id'] = $data['district_id'] ?? $client->district_id;
-                $data['sector_id'] = $data['sector_id'] ?? $client->sector_id;
-                $data['cell_id'] = $data['cell_id'] ?? $client->cell_id;
-                $data['village_id'] = $data['village_id'] ?? $client->village_id;
-            } else {
-                $data['client_id'] = null;
-                $data['supplier_firstname'] = $data['manual_client_firstname'] ?? $data['supplier_firstname'] ?? null;
-                $data['supplier_lastname'] = $data['manual_client_lastname'] ?? $data['supplier_lastname'] ?? null;
-                $data['supplier_contact'] = $data['manual_client_contact'] ?? $data['supplier_contact'] ?? null;
+        if (($data['source_type'] ?? null) !== AnimalIntake::SOURCE_TYPE_CLIENT) {
+            if ($request->route('animalIntake') instanceof AnimalIntake && $request->route('animalIntake')->isSupplierSource()) {
+                return $data;
             }
 
-            $data['supplier_id'] = null;
-            $data['contract_id'] = null;
-            $data['farm_registration_number'] = null;
-            $data['transport_vehicle_plate'] = null;
-            $data['driver_name'] = null;
-            $data['movement_permit_no'] = null;
-        } elseif (! empty($data['supplier_id'])) {
-            $supplier = Supplier::find((int) $data['supplier_id']);
-            if (! $supplier || ! $supplier->isApproved() || (int) $supplier->business_id !== $facilityBusinessId) {
+            abort(422, __('Supplier-sourced intakes are no longer supported.'));
+        }
+
+        $client = Client::query()
+            ->whereKey((int) ($data['client_id'] ?? 0))
+            ->where('is_active', true)
+            ->first();
+        if ((int) ($data['client_id'] ?? 0) > 0) {
+            if (! $client || (int) $client->business_id !== $facilityBusinessId) {
                 abort(404);
             }
-
-            $first = $supplier->first_name ?? '';
-            $last = $supplier->last_name ?? '';
-            if ($first === '' && $last === '' && ! empty($supplier->name)) {
-                $parts = explode(' ', (string) $supplier->name, 2);
-                $first = $parts[0] ?? '';
-                $last = $parts[1] ?? '';
-            }
-
-            $data['supplier_firstname'] = $data['supplier_firstname'] ?? $first;
-            $data['supplier_lastname'] = $data['supplier_lastname'] ?? $last;
-            $data['supplier_contact'] = $data['supplier_contact'] ?? $supplier->phone;
-            $data['farm_registration_number'] = $data['farm_registration_number'] ?? $supplier->registration_number;
-            $data['country_id'] = $data['country_id'] ?? $supplier->country_id;
-            $data['province_id'] = $data['province_id'] ?? $supplier->province_id;
-            $data['district_id'] = $data['district_id'] ?? $supplier->district_id;
-            $data['sector_id'] = $data['sector_id'] ?? $supplier->sector_id;
-            $data['cell_id'] = $data['cell_id'] ?? $supplier->cell_id;
-            $data['village_id'] = $data['village_id'] ?? $supplier->village_id;
+            $parts = preg_split('/\s+/', trim((string) $client->name), 2) ?: [];
+            $data['supplier_firstname'] = $data['supplier_firstname'] ?? ($parts[0] ?? '');
+            $data['supplier_lastname'] = $data['supplier_lastname'] ?? ($parts[1] ?? '');
+            $data['supplier_contact'] = $data['supplier_contact'] ?? $client->phone;
+            $data['country_id'] = $data['country_id'] ?? $client->country_id;
+            $data['province_id'] = $data['province_id'] ?? $client->province_id;
+            $data['district_id'] = $data['district_id'] ?? $client->district_id;
+            $data['sector_id'] = $data['sector_id'] ?? $client->sector_id;
+            $data['cell_id'] = $data['cell_id'] ?? $client->cell_id;
+            $data['village_id'] = $data['village_id'] ?? $client->village_id;
+        } else {
             $data['client_id'] = null;
+            $data['supplier_firstname'] = $data['manual_client_firstname'] ?? $data['supplier_firstname'] ?? null;
+            $data['supplier_lastname'] = $data['manual_client_lastname'] ?? $data['supplier_lastname'] ?? null;
+            $data['supplier_contact'] = $data['manual_client_contact'] ?? $data['supplier_contact'] ?? null;
         }
 
-        if (! empty($data['contract_id'])) {
-            $contract = Contract::find((int) $data['contract_id']);
-            if (! $contract || ! $contract->isActiveSupplierContract() || ! $request->user()->accessibleBusinessIds()->contains($contract->business_id)) {
-                abort(404);
-            }
-        }
+        $data['supplier_id'] = null;
+        $data['contract_id'] = null;
+        $data['farm_registration_number'] = null;
+        $data['transport_vehicle_plate'] = null;
+        $data['driver_name'] = null;
+        $data['movement_permit_no'] = null;
 
         unset($data['manual_client_firstname'], $data['manual_client_lastname'], $data['manual_client_contact']);
 
@@ -293,12 +267,10 @@ class MobileCollectionController extends Controller
             return $denied;
         }
 
-        $data = $this->hydrateSupplierFields($request, $data);
+        $data = $this->hydrateIntakeClientFields($request, $data);
 
-        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT && $uploadedFile) {
+        if ($uploadedFile) {
             $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
-        } elseif (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_SUPPLIER) {
-            $data['movement_permit_document_path'] = null;
         }
 
         $item = AnimalIntake::create($data);
@@ -332,18 +304,11 @@ class MobileCollectionController extends Controller
             return $denied;
         }
 
-        $data = $this->hydrateSupplierFields($request, $data);
+        $data = $this->hydrateIntakeClientFields($request, $data);
 
-        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT) {
-            if ($uploadedFile) {
-                AnimalIntakeMovementPermitStorage::delete($animalIntake->movement_permit_document_path);
-                $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
-            }
-        } else {
-            if ($animalIntake->movement_permit_document_path) {
-                AnimalIntakeMovementPermitStorage::delete($animalIntake->movement_permit_document_path);
-            }
-            $data['movement_permit_document_path'] = null;
+        if ($uploadedFile) {
+            AnimalIntakeMovementPermitStorage::delete($animalIntake->movement_permit_document_path);
+            $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
         }
 
         $animalIntake->update($data);
