@@ -5,6 +5,7 @@ namespace App\Services\Processor;
 use App\Exceptions\CertificatePdfException;
 use App\Models\AnimalIntake;
 use App\Models\Batch;
+use App\Models\BatchItem;
 use App\Models\Certificate;
 use App\Models\CertificateQr;
 use App\Models\Client;
@@ -13,6 +14,8 @@ use App\Models\Facility;
 use App\Models\TemperatureLog;
 use App\Models\TransportTrip;
 use App\Models\WarehouseStorage;
+use App\Support\BatchAnimalReleaseLookup;
+use App\Support\CertificateAnimalSelection;
 use App\Support\DomPdf;
 use App\Support\PdfQrCode;
 use Barryvdh\DomPDF\PDF;
@@ -68,10 +71,36 @@ class CertificatePdfService
     {
         $this->validate($certificate);
 
+        return $this->composeViewData($this->loadCertificateRelations($certificate));
+    }
+
+    /**
+     * Public QR trace page — same fields as the issued certificate, without PDF validation.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildTraceViewData(Certificate $certificate): array
+    {
         $certificate = $this->loadCertificateRelations($certificate);
+
+        if ($certificate->batch_id === null) {
+            return $this->composeTraceFallbackData($certificate);
+        }
+
+        return $this->composeViewData($certificate);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function composeViewData(Certificate $certificate): array
+    {
         $facility = $certificate->facility;
         $batch = $certificate->batch;
-        $releasedStorages = $this->releasedStoragesForBatch((int) $batch->id);
+        $animalIds = CertificateAnimalSelection::explicitCertificateAnimalIds($certificate);
+        $releasedStorages = $animalIds->isNotEmpty()
+            ? CertificateAnimalSelection::releasedStoragesForAnimals($batch, $animalIds)
+            : $this->releasedStoragesForBatch((int) $batch->id);
         $owner = $this->resolveBatchOwner($batch);
         $transportTrip = $this->resolveTransportTrip($certificate);
         $qr = $certificate->certificateQr ?? $certificate->certificateQr()->create([
@@ -86,7 +115,14 @@ class CertificatePdfService
             'batch' => $batch,
             'owner' => $owner,
             'releasedEarTags' => $this->releasedEarTags($releasedStorages, $batch),
+            'releasedAnimals' => $this->releasedAnimalsList($batch, $releasedStorages, $certificate),
             'ownerNames' => $this->pdfField($certificate, 'animal_names', $auto['animal_names']),
+            'species' => $this->pdfField($certificate, 'species', $auto['species']),
+            'earTagNumbers' => $this->pdfField(
+                $certificate,
+                'animal_names',
+                $this->formatEarTagNumbers($this->releasedEarTags($releasedStorages, $batch)),
+            ),
             'butcherName' => $this->pdfField($certificate, 'butcher_name', $auto['butcher_name']),
             'ownerPhone' => $this->pdfField($certificate, 'owner_phone', $auto['owner_phone']),
             'shopName' => $this->pdfField($certificate, 'shop_name', $auto['shop_name']),
@@ -99,6 +135,7 @@ class CertificatePdfService
             'vehiclePlateNumber' => $this->pdfField($certificate, 'vehicle_plate_number', $auto['vehicle_plate_number']),
             'driverName' => $this->pdfField($certificate, 'driver_name', $auto['driver_name']),
             'departureDestination' => $this->pdfField($certificate, 'departure_destination', $auto['departure_destination']),
+            'departureTime' => $this->pdfField($certificate, 'departure_time', $auto['departure_time']),
             'transporterPhone' => $this->pdfField($certificate, 'transporter_phone', $auto['transporter_phone']),
             'slaughterhouseDisplayName' => $this->resolvedSlaughterhouseDisplayName($certificate),
             'headerDistrictLine' => $this->formatDivisionLine($this->facilityDistrict($facility), 'DISTRICT'),
@@ -112,7 +149,59 @@ class CertificatePdfService
             'issuedDay' => $issuedAt?->format('d') ?: '..........',
             'issuedMonth' => $issuedAt?->format('m') ?: '..........',
             'issuedYear' => $issuedAt ? $issuedAt->format('Y') : '20..........',
+            'issuedAtFormatted' => $issuedAt?->format('d/m/Y'),
             'qrImage' => PdfQrCode::dataUri($qr->trace_url),
+            'generatedAt' => now(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function composeTraceFallbackData(Certificate $certificate): array
+    {
+        $facility = $certificate->facility;
+        $details = $certificate->pdf_details ?? [];
+        $issuedAt = $certificate->issued_at;
+
+        return [
+            'certificate' => $certificate,
+            'facility' => $facility,
+            'batch' => null,
+            'owner' => (object) ['name' => null, 'business_name' => null, 'phone' => null],
+            'releasedEarTags' => [],
+            'releasedAnimals' => [],
+            'ownerNames' => $details['animal_names'] ?? '—',
+            'species' => $details['species'] ?? '—',
+            'earTagNumbers' => $details['animal_names'] ?? '—',
+            'butcherName' => $details['butcher_name'] ?? '—',
+            'ownerPhone' => $details['owner_phone'] ?? '—',
+            'shopName' => $details['shop_name'] ?? '—',
+            'shopPhone' => $details['shop_phone'] ?? '—',
+            'carcassMeatKg' => (float) ($details['carcass_meat_kg'] ?? 0),
+            'otherMeatKg' => (float) ($details['other_meat_kg'] ?? 0),
+            'temperatureCelsius' => $details['temperature_celsius'] ?? null,
+            'transportTrip' => null,
+            'transporterLicenseHolder' => $details['transporter_license_holder'] ?? '—',
+            'vehiclePlateNumber' => $details['vehicle_plate_number'] ?? '—',
+            'driverName' => $details['driver_name'] ?? '—',
+            'departureDestination' => $details['departure_destination'] ?? '—',
+            'departureTime' => $details['departure_time'] ?? '—',
+            'transporterPhone' => $details['transporter_phone'] ?? '—',
+            'slaughterhouseDisplayName' => $this->resolvedSlaughterhouseDisplayName($certificate),
+            'headerDistrictLine' => $facility ? $this->formatDivisionLine($this->facilityDistrict($facility), 'DISTRICT') : '—',
+            'headerSectorLine' => $facility ? $this->formatDivisionLine($this->facilitySector($facility), 'SECTOR') : '—',
+            'headerCellLine' => $facility ? $this->formatDivisionLine($this->facilityCell($facility), 'CELL') : '—',
+            'facilityLocationLine' => $details['facility_location'] ?? '—',
+            'sellingLocationLine' => $details['selling_location'] ?? '—',
+            'facilityTypeLabel' => $details['facility_type'] ?? '—',
+            'facilityPhone' => $details['facility_phone'] ?? '—',
+            'facilityRegistrationNumber' => $details['facility_registration'] ?? '—',
+            'issuedDay' => $issuedAt?->format('d') ?: '—',
+            'issuedMonth' => $issuedAt?->format('m') ?: '—',
+            'issuedYear' => $issuedAt ? $issuedAt->format('Y') : '—',
+            'issuedAtFormatted' => $issuedAt?->format('d/m/Y'),
+            'qrImage' => null,
             'generatedAt' => now(),
         ];
     }
@@ -124,6 +213,21 @@ class CertificatePdfService
      */
     public function suggestedPdfDetails(Batch $batch, ?Facility $facility = null, ?TransportTrip $transportTrip = null): array
     {
+        $animalIds = CertificateAnimalSelection::certifiableAnimals($batch)->pluck('animal_intake_item_id');
+
+        return $this->suggestedPdfDetailsForAnimals($batch, $animalIds, $facility, $transportTrip);
+    }
+
+    /**
+     * @param  iterable<int, int|string>|null  $animalIntakeItemIds
+     * @return array<string, mixed>
+     */
+    public function suggestedPdfDetailsForAnimals(
+        Batch $batch,
+        ?iterable $animalIntakeItemIds = null,
+        ?Facility $facility = null,
+        ?TransportTrip $transportTrip = null,
+    ): array {
         $batch->loadMissing([
             'items.intakeItem',
             'slaughterExecution.slaughterPlan.animalIntake.client.districtDivision',
@@ -136,7 +240,19 @@ class CertificatePdfService
 
         $facility?->loadMissing(['districtDivision', 'sectorDivision', 'cell', 'business']);
         $facility ??= $batch->slaughterExecution?->slaughterPlan?->facility;
-        $releasedStorages = $this->releasedStoragesForBatch((int) $batch->id);
+
+        $animalIds = collect($animalIntakeItemIds ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($animalIds->isEmpty()) {
+            $releasedStorages = $this->releasedStoragesForBatch((int) $batch->id);
+        } else {
+            $releasedStorages = CertificateAnimalSelection::releasedStoragesForAnimals($batch, $animalIds);
+        }
+
         $owner = $this->resolveBatchOwner($batch);
 
         return $this->autoPdfDetails($batch, $facility, $releasedStorages, $owner, $transportTrip);
@@ -274,6 +390,9 @@ class CertificatePdfService
             'facility_phone' => $facility?->phone ?: '',
             'facility_registration' => $facility?->registration_number ?: '',
             'animal_names' => $this->resolveOwnerNames($releasedStorages, $batch, $owner),
+            'species' => $batch->species
+                ?: $batch->slaughterExecution?->slaughterPlan?->species
+                ?: '',
             'butcher_name' => $owner->name ?: '',
             'selling_location' => $this->formatLocationLine($owner->district, $owner->sector, $owner->cell),
             'owner_phone' => $owner->phone ?: '',
@@ -286,6 +405,7 @@ class CertificatePdfService
             'vehicle_plate_number' => $transportTrip?->vehicle_plate_number ?: '',
             'driver_name' => $transportTrip?->driver_name ?: '',
             'departure_destination' => $transportTrip?->destination_display ?: '',
+            'departure_time' => $transportTrip?->departure_date?->format('d/m/Y') ?: '',
             'transporter_phone' => $transportTrip?->driver_phone ?: '',
         ];
     }
@@ -508,5 +628,75 @@ class CertificatePdfService
         }
 
         return $owner->name ?: '—';
+    }
+
+    /**
+     * @param  list<string>  $earTags
+     */
+    private function formatEarTagNumbers(array $earTags): string
+    {
+        if ($earTags === []) {
+            return '—';
+        }
+
+        return implode(', ', $earTags);
+    }
+
+    /**
+     * @param  Collection<int, WarehouseStorage>  $releasedStorages
+     * @return list<array{ear_tag: string, quantity_kg: float}>
+     */
+    private function releasedAnimalsList(Batch $batch, Collection $releasedStorages, Certificate $certificate): array
+    {
+        $batch->loadMissing(['items.intakeItem']);
+        $storageByAnimal = BatchAnimalReleaseLookup::forBatch($batch);
+        $selectedIds = CertificateAnimalSelection::explicitCertificateAnimalIds($certificate);
+
+        $rows = $batch->items
+            ->map(function (BatchItem $item) use ($storageByAnimal, $selectedIds): ?array {
+                $animalId = (int) $item->animal_intake_item_id;
+                if ($selectedIds->isNotEmpty() && ! $selectedIds->contains($animalId)) {
+                    return null;
+                }
+
+                $storage = $storageByAnimal->get($animalId);
+                if ($storage === null || ! $storage->isReleased()) {
+                    return null;
+                }
+
+                $earTag = trim((string) ($item->intakeItem?->ear_tag ?? ''));
+                if ($earTag === '') {
+                    return null;
+                }
+
+                return [
+                    'ear_tag' => $earTag,
+                    'quantity_kg' => (float) $storage->quantity_stored,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($rows !== []) {
+            return $rows;
+        }
+
+        return $releasedStorages
+            ->map(function (WarehouseStorage $storage): ?array {
+                $storage->loadMissing(['intakeItem', 'postMortemInspectionItem.intakeItem']);
+                $earTag = trim((string) ($storage->resolvedIntakeItem()?->ear_tag ?? ''));
+                if ($earTag === '') {
+                    return null;
+                }
+
+                return [
+                    'ear_tag' => $earTag,
+                    'quantity_kg' => (float) $storage->quantity_stored,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 }

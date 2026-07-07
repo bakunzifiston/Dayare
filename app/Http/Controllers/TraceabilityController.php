@@ -9,8 +9,10 @@ use App\Models\BatchItem;
 use App\Models\CertificateQr;
 use App\Models\PostMortemInspection;
 use App\Models\PostMortemInspectionItem;
+use App\Services\Processor\CertificatePdfService;
 use App\Support\AnteMortemChecklist;
 use App\Support\DomPdf;
+use App\Support\CertificateAnimalSelection;
 use App\Support\PostMortemChecklist;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -85,7 +87,14 @@ class TraceabilityController extends Controller
 
         $anteMortemInspectionsDetail = $this->formatAnteMortemInspectionsForTrace($plan?->anteMortemInspections ?? collect());
         $postMortemInspectionDetail = $this->formatPostMortemInspectionForTrace($postMortem);
-        $animalsDetail = $this->formatAnimalsForTrace($batch?->items ?? collect(), $postMortem);
+        $batchItems = $batch?->items ?? collect();
+        $selectedAnimalIds = CertificateAnimalSelection::explicitCertificateAnimalIds($cert);
+        if ($selectedAnimalIds->isNotEmpty()) {
+            $batchItems = $batchItems->filter(
+                fn (BatchItem $item) => $selectedAnimalIds->contains((int) $item->animal_intake_item_id)
+            );
+        }
+        $animalsDetail = $this->formatAnimalsForTrace($batchItems, $postMortem);
 
         return [
             'certificate' => $cert,
@@ -298,12 +307,19 @@ class TraceabilityController extends Controller
 
     public function show(Request $request, string $slug): View
     {
-        return view('traceability.show', $this->traceabilityPayload($slug));
+        $payload = $this->traceabilityPayload($slug);
+        $certificate = $payload['certificate'];
+        $payload['certificateView'] = app(CertificatePdfService::class)->buildTraceViewData($certificate);
+
+        return view('traceability.show', $payload);
     }
 
     public function exportPdf(Request $request, string $slug): Response
     {
         $data = $this->traceabilityPayload($slug);
+        $certificate = $data['certificate'];
+        $data['certificateView'] = app(CertificatePdfService::class)->buildTraceViewData($certificate);
+
         $pdf = DomPdf::loadView('traceability.pdf', [
             ...$data,
             'generatedAt' => now(),

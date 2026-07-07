@@ -84,6 +84,12 @@ class EnsureTenantPermission
             'update' => BusinessUser::PERMISSION_LOG_NON_COMPLIANCE,
             'delete' => BusinessUser::PERMISSION_LOG_NON_COMPLIANCE,
         ],
+        'monthly-inspection-reports' => [
+            'view' => BusinessUser::PERMISSION_VIEW_INSPECTIONS,
+            'create' => BusinessUser::PERMISSION_RECORD_POST_MORTEM,
+            'update' => BusinessUser::PERMISSION_RECORD_POST_MORTEM,
+            'delete' => BusinessUser::PERMISSION_RECORD_POST_MORTEM,
+        ],
         'divisions' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
         'crm.dashboard' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
         'employees' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],

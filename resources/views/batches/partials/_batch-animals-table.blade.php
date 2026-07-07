@@ -33,6 +33,8 @@
                     <th class="pb-1 px-2">{{ __('Meat qty') }}</th>
                     <th class="pb-1 px-2">{{ __('Yield %') }}</th>
                     <th class="pb-1 px-2">{{ __('PM outcome') }}</th>
+                    <th class="pb-1 px-2">{{ __('Released (kg)') }}</th>
+                    <th class="pb-1 px-2">{{ __('Cold room') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -70,6 +72,10 @@
                                 {{ $outcome ? ucfirst($outcome) : __('Pending') }}
                             </span>
                         </td>
+                        @php
+                            $animalStorage = ($releaseByAnimalId ?? collect())->get($intake->id);
+                        @endphp
+                        <x-batch.animal-release-cells :storage="$animalStorage" />
                     </tr>
                 @endforeach
             </tbody>
@@ -79,6 +85,7 @@
                     <td class="py-2 px-2 font-medium">{{ number_format($totalMeat, 2) }} kg</td>
                     <td class="py-2 px-2">{{ $avgYield !== null ? $avgYield.'%' : '—' }}</td>
                     <td class="py-2 px-2 text-xs text-gray-500">{{ $batchItems->count() }} {{ __('animals') }}</td>
+                    <td colspan="2"></td>
                 </tr>
             </tfoot>
         </table>

@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\AnimalIntake;
 use App\Models\SlaughterPlan;
 use App\Services\Processor\SlaughterPlanAssignmentService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,7 +26,17 @@ class StoreSlaughterPlanRequest extends FormRequest
         $allowedSpecies = $this->user()?->configuredSpeciesNames([$businessId])->all() ?? [];
 
         return [
-            'slaughter_date' => ['required', 'date', 'after_or_equal:today'],
+            'slaughter_date' => [
+                'required',
+                'date',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $scheduledAt = Carbon::parse((string) $value, $this->displayTimezone());
+
+                    if ($scheduledAt->lt(now($this->displayTimezone()))) {
+                        $fail(__('The slaughter date and time cannot be in the past.'));
+                    }
+                },
+            ],
             'facility_id' => ['required', 'exists:facilities,id'],
             'animal_intake_id' => ['required', 'exists:animal_intakes,id'],
             'inspector_id' => [
@@ -97,5 +108,10 @@ class StoreSlaughterPlanRequest extends FormRequest
                 );
             }
         });
+    }
+
+    private function displayTimezone(): string
+    {
+        return (string) config('app.display_timezone', 'Africa/Kigali');
     }
 }

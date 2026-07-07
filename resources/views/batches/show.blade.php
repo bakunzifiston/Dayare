@@ -63,7 +63,10 @@
             </div>
 
             @if ($batch->hasPerAnimalData())
-                @include('batches.partials._batch-animals-table', ['batchItems' => $batch->items])
+                @include('batches.partials._batch-animals-table', [
+                    'batchItems' => $batch->items,
+                    'releaseByAnimalId' => $releaseByAnimalId ?? collect(),
+                ])
             @endif
 
             <div class="flex flex-wrap gap-2">
@@ -74,11 +77,11 @@
                         {{ __('Record post-mortem inspection') }}
                     </a>
                 @endif
-                @if ($batch->canIssueCertificate() && ! $batch->certificate)
-                    <a href="{{ route('certificates.create', ['batch_id' => $batch->id]) }}"
+                @if ($batch->canIssueCertificate())
+                    <a href="{{ route('certificates.create', ['slaughter_execution_id' => $batch->slaughter_execution_id]) }}"
                        class="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
                         <i class="ti ti-certificate text-base" aria-hidden="true"></i>
-                        {{ __('Issue certificate') }}
+                        {{ $batch->certificates()->exists() ? __('Issue another certificate') : __('Issue certificate') }}
                     </a>
                 @endif
             </div>
@@ -109,13 +112,30 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Certificate') }}</h3>
-                @if ($batch->certificate)
-                    <p class="text-sm text-gray-600 mb-2">{{ __('Certificate issued.') }}</p>
-                    <a href="{{ route('certificates.show', $batch->certificate) }}" class="font-medium text-bucha-primary hover:underline">{{ $batch->certificate->certificate_number ?: __('Certificate') }} #{{ $batch->certificate->id }}</a>
-                    <span class="text-sm text-gray-500"> · {{ $batch->certificate->issued_at?->format('d M Y') }} · {{ ucfirst($batch->certificate->status) }}</span>
+                @if ($batch->certificates->isNotEmpty())
+                    <p class="text-sm text-gray-600 mb-2">{{ __('Certificates issued for this batch.') }}</p>
+                    <ul class="space-y-2">
+                        @foreach ($batch->certificates as $cert)
+                            @php
+                                $certAnimalIds = \App\Support\CertificateAnimalSelection::certificateAnimalIds($cert);
+                                $certTags = $batch->items
+                                    ->filter(fn ($item) => $certAnimalIds->isEmpty() || $certAnimalIds->contains((int) $item->animal_intake_item_id))
+                                    ->map(fn ($item) => $item->intakeItem?->ear_tag)
+                                    ->filter()
+                                    ->values();
+                            @endphp
+                            <li class="text-sm">
+                                <a href="{{ route('certificates.show', $cert) }}" class="font-medium text-bucha-primary hover:underline">{{ $cert->certificate_number ?: __('Certificate') }} #{{ $cert->id }}</a>
+                                <span class="text-gray-500"> · {{ $cert->issued_at?->format('d M Y') }} · {{ ucfirst($cert->status) }}</span>
+                                @if ($certTags->isNotEmpty())
+                                    <span class="block text-xs text-gray-500 font-mono">{{ $certTags->implode(', ') }}</span>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
                 @elseif ($batch->canIssueCertificate())
-                    <p class="text-sm text-gray-500 mb-2">{{ __('This batch is eligible for a certificate (post-mortem approved and cold room released).') }}</p>
-                    <a href="{{ route('certificates.create', ['batch_id' => $batch->id]) }}" class="text-sm text-bucha-primary hover:underline">{{ __('Issue certificate') }}</a>
+                    <p class="text-sm text-gray-500 mb-2">{{ __('Released animals are ready for certification.') }}</p>
+                    <a href="{{ route('certificates.create', ['slaughter_execution_id' => $batch->slaughter_execution_id]) }}" class="text-sm text-bucha-primary hover:underline">{{ __('Issue certificate') }}</a>
                 @elseif ($batch->postMortemInspection && $batch->postMortemInspection->approved_quantity > 0 && ! $batch->hasReleasedColdRoomStorage())
                     <p class="text-sm text-gray-500 mb-2">{{ __('Post-mortem is approved. Release the meat from cold room storage before issuing a certificate.') }}</p>
                     <a href="{{ route('cold-rooms.hub') }}" class="text-sm text-bucha-primary hover:underline">{{ __('Go to cold room') }}</a>

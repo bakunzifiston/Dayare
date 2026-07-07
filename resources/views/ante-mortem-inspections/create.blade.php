@@ -6,7 +6,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <form method="post" action="{{ route('ante-mortem-inspections.store') }}" class="space-y-6" id="ante-mortem-form" novalidate>
                     @csrf
@@ -71,9 +71,27 @@
 
                     <div id="per-animal-outcomes-section"
                          class="rounded-lg border border-slate-200 bg-white @if (! isset($assignedItems) || $assignedItems->isEmpty()) hidden @endif">
-                        <div class="border-b border-slate-200 px-4 py-3">
-                            <h3 class="text-sm font-semibold text-slate-800">{{ __('Individual animal inspection') }}</h3>
-                            <p class="mt-1 text-xs text-slate-500">{{ __('Record an outcome and complete the inspection checklist for each assigned animal.') }}</p>
+                        <div class="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-800">{{ __('Individual animal inspection') }}</h3>
+                                <p id="per-animal-count-label" class="mt-1 text-xs text-slate-500">
+                                    @if (isset($assignedItems) && $assignedItems->isNotEmpty())
+                                        {{ trans_choice(':count animal assigned — expand each card to complete the checklist.|:count animals assigned — use expand/collapse or open each card to complete checklists.', $assignedItems->count(), ['count' => $assignedItems->count()]) }}
+                                    @else
+                                        {{ __('Record an outcome and complete the inspection checklist for each assigned animal.') }}
+                                    @endif
+                                </p>
+                            </div>
+                            <div id="per-animal-toolbar" class="@if (! isset($assignedItems) || $assignedItems->count() <= 1) hidden @else flex @endif shrink-0 flex-wrap gap-2">
+                                <button type="button" id="expand-all-animals"
+                                    class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    {{ __('Expand all') }}
+                                </button>
+                                <button type="button" id="collapse-all-animals"
+                                    class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    {{ __('Collapse all') }}
+                                </button>
+                            </div>
                         </div>
                         <div id="per-animal-outcomes-container" class="p-4">
                             @if (isset($assignedItems) && $assignedItems->isNotEmpty())

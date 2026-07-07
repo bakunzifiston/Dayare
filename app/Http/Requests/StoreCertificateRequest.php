@@ -2,12 +2,16 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesCertificateIssue;
 use App\Models\Batch;
+use App\Support\CertificateAnimalSelection;
 use App\Support\CertificatePdfDetails;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCertificateRequest extends FormRequest
 {
+    use ValidatesCertificateIssue;
+
     public function authorize(): bool
     {
         return true;
@@ -19,58 +23,60 @@ class StoreCertificateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'batch_id' => ['required', 'exists:batches,id'],
-            'inspector_id' => ['required', 'exists:inspectors,id'],
-            'facility_id' => ['required', 'exists:facilities,id'],
-            'slaughterhouse_display_name' => ['required', 'string', 'max:255'],
-            'certificate_number' => ['nullable', 'string', 'max:100'],
-            'issued_at' => ['required', 'date'],
-            'expiry_date' => ['nullable', 'date', 'after_or_equal:issued_at'],
-            'status' => ['required', 'string', 'in:active,expired,revoked'],
-            ...CertificatePdfDetails::validationRules(),
+            'slaughter_execution_id' => ['nullable', 'required_without:batch_id', 'exists:slaughter_executions,id'],
+            'batch_id' => ['nullable', 'required_without:slaughter_execution_id', 'exists:batches,id'],
+            ...$this->certificateIssueRules(),
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $merge = [
             'pdf_details' => CertificatePdfDetails::normalize($this->input('pdf_details')),
-        ]);
+        ];
+
+        if ($this->filled('slaughter_execution_id') && ! $this->filled('batch_id')) {
+            $batch = Batch::certifiableForExecution(
+                (int) $this->input('slaughter_execution_id'),
+                $this->input('animal_intake_item_ids'),
+            );
+            if ($batch) {
+                $merge['batch_id'] = $batch->id;
+            }
+        }
+
+        if ($this->filled('batch_id') && ! $this->filled('animal_intake_item_ids')) {
+            $batch = Batch::find($this->input('batch_id'));
+            if ($batch?->hasPerAnimalData()) {
+                $merge['animal_intake_item_ids'] = CertificateAnimalSelection::certifiableAnimals($batch)
+                    ->pluck('animal_intake_item_id')
+                    ->all();
+            }
+        }
+
+        if ($this->filled('animal_intake_item_ids')) {
+            $merge['animal_intake_item_ids'] = collect($this->input('animal_intake_item_ids'))
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $this->merge($merge);
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            $batchId = $this->input('batch_id');
-            if (! $batchId) {
-                return;
-            }
-            $batch = Batch::with([
-                'postMortemInspection.inspectionItems',
-                'slaughterExecution.slaughterPlan',
-                'warehouseStorages',
-                'items',
-            ])->find($batchId);
-            if (! $batch) {
-                return;
-            }
-
-            if (! $batch->canIssueCertificate()) {
+            if ($this->filled('slaughter_execution_id') && ! $this->filled('batch_id')) {
                 $validator->errors()->add(
-                    'batch_id',
-                    $batch->certificateIssueBlockReason() ?? __('This batch is not eligible for certification.')
+                    'slaughter_execution_id',
+                    __('This slaughter execution is not ready for certification yet.')
                 );
             }
-            $inspectorId = $this->input('inspector_id');
-            $facilityId = $this->input('facility_id');
-            $batchFacilityId = $batch->slaughterExecution->slaughterPlan->facility_id ?? null;
-            if ($batchFacilityId !== null && (int) $facilityId !== (int) $batchFacilityId) {
-                $validator->errors()->add('facility_id', __('Facility must be the batch’s slaughter facility.'));
-            }
-            $inspector = $inspectorId ? \App\Models\Inspector::find($inspectorId) : null;
-            if ($inspector && $batchFacilityId !== null && $inspector->facility_id != $batchFacilityId) {
-                $validator->errors()->add('inspector_id', __('Inspector must be assigned to the batch facility.'));
-            }
         });
+
+        $this->registerCertificateIssueValidation($validator, isCreate: true);
     }
 }

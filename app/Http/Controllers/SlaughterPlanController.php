@@ -70,9 +70,7 @@ class SlaughterPlanController extends Controller
             ->get();
 
         $intakeSpeciesMix = $intakes->mapWithKeys(fn (AnimalIntake $i) => [
-            $i->id => trim(($i->species_mix_label ?: ($i->species ?? '—'))
-                .($i->isHealthCertificateExpired() ? ' · cert expired' : '')
-                .(blank($i->health_certificate_expiry_date) ? ' · no cert' : '')),
+            $i->id => $i->species_mix_label ?: ($i->species ?? '—'),
         ]);
 
         $intakeAnimals = $intakes->mapWithKeys(fn (AnimalIntake $i) => [
@@ -332,13 +330,20 @@ class SlaughterPlanController extends Controller
         ]);
     }
 
+    private function parseSlaughterDateInput(string $value): Carbon
+    {
+        return Carbon::parse($value, (string) config('app.display_timezone', 'Africa/Kigali'));
+    }
+
     public function store(StoreSlaughterPlanRequest $request): RedirectResponse
     {
         $this->authorizeFacilityId($request, (int) $request->validated('facility_id'));
 
         try {
             $plan = DB::transaction(function () use ($request): SlaughterPlan {
-                $plan = SlaughterPlan::create($request->validated());
+                $data = $request->validated();
+                $data['slaughter_date'] = $this->parseSlaughterDateInput((string) $request->input('slaughter_date'));
+                $plan = SlaughterPlan::create($data);
 
                 if ($plan->animal_intake_id) {
                     $plan->load('animalIntake');
@@ -425,7 +430,10 @@ class SlaughterPlanController extends Controller
                 $oldIntakeHadItems = $oldIntakeId
                     && AnimalIntake::query()->whereKey($oldIntakeId)->whereHas('items')->exists();
 
-                $slaughterPlan->update($request->validated());
+                $data = $request->validated();
+                $data['slaughter_date'] = $this->parseSlaughterDateInput((string) $request->input('slaughter_date'));
+
+                $slaughterPlan->update($data);
                 $slaughterPlan->refresh();
                 $slaughterPlan->load('animalIntake');
 

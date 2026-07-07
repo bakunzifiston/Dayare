@@ -19,6 +19,7 @@ use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ColdRoomController;
 use App\Http\Controllers\ColdRoomStandardController;
+use App\Http\Controllers\MonthlyInspectionReportController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\CrmDashboardController;
@@ -660,6 +661,10 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
         });
     Route::resource('delivery-confirmations', DeliveryConfirmationController::class);
     Route::get('compliance', [ComplianceController::class, 'index'])->name('compliance.index');
+    Route::get('monthly-inspection-reports', [MonthlyInspectionReportController::class, 'index'])->name('monthly-inspection-reports.index');
+    Route::get('monthly-inspection-reports/{facility}', [MonthlyInspectionReportController::class, 'show'])->name('monthly-inspection-reports.show');
+    Route::get('monthly-inspection-reports/{facility}/pdf', [MonthlyInspectionReportController::class, 'pdf'])->name('monthly-inspection-reports.pdf');
+    Route::post('monthly-inspection-reports/{facility}/closure', [MonthlyInspectionReportController::class, 'closure'])->name('monthly-inspection-reports.closure');
     Route::resource('ante-mortem-inspections', AnteMortemInspectionController::class);
 
     // CRM / HR modules (full CRUD)
@@ -750,6 +755,9 @@ Route::middleware(['auth', 'tenant', 'super_admin', 'super_admin.module:rica'])
         Route::get('slaughterhouses/{facility}', [RicaController::class, 'show'])->name('slaughterhouses.show');
         Route::get('reports', [RicaController::class, 'reports'])->name('reports');
         Route::get('reports/export', [RicaController::class, 'export'])->name('reports.export');
+        Route::get('monthly-reports', [RicaController::class, 'monthlyReportsIndex'])->name('monthly-reports.index');
+        Route::get('monthly-reports/{facility}', [RicaController::class, 'monthlyReportShow'])->name('monthly-reports.show');
+        Route::get('monthly-reports/{facility}/pdf', [RicaController::class, 'monthlyReportPdf'])->name('monthly-reports.pdf');
     });
 
 Route::middleware(['auth', 'tenant', 'tenant.permission'])->group(function () {

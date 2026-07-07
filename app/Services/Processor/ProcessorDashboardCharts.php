@@ -53,9 +53,9 @@ class ProcessorDashboardCharts
 
         $intakeTotal = $this->intakeHeadCountForFacilities($facilityIds, $filters);
         $executionsTotal = $this->executionAnimalsForPlans($planIds, $filters);
-        $batchesTotal = $this->filteredQueryCount(
-            Batch::query()->whereIn('id', $batchIds),
-            'created_at',
+        $pmTotal = $this->filteredQueryCount(
+            PostMortemInspection::query()->whereIn('batch_id', $batchIds),
+            'inspection_date',
             $filters,
         );
         $certifiedTotal = (int) Batch::query()
@@ -69,8 +69,8 @@ class ProcessorDashboardCharts
             })
             ->count();
 
-        $pipelineLabels = [__('Intake'), __('Executions'), __('Batches'), __('Certified')];
-        $pipelineData = [$intakeTotal, $executionsTotal, $batchesTotal, $certifiedTotal];
+        $pipelineLabels = [__('Intake'), __('Executions'), __('Post-mortem'), __('Certified')];
+        $pipelineData = [$intakeTotal, $executionsTotal, $pmTotal, $certifiedTotal];
         $pipelineColors = [
             $this->speciesColor('cattle'),
             $this->speciesColor('goat'),
@@ -138,14 +138,14 @@ class ProcessorDashboardCharts
             $filters,
         );
         $executionsTotal = $this->opsExecutionAnimals($ctx, $filters);
-        $batchesTotal = $this->filteredQueryCount(
-            Batch::query()->whereIn('id', $ctx->batchIds),
-            'created_at',
+        $pmTotal = $this->filteredQueryCount(
+            PostMortemInspection::query()->whereIn('batch_id', $ctx->batchIds),
+            'inspection_date',
             $filters,
         );
 
-        $labels = [__('Intake'), __('Plans'), __('Executions'), __('Batches')];
-        $data = [$intakeTotal, $plansTotal, $executionsTotal, $batchesTotal];
+        $labels = [__('Intake'), __('Plans'), __('Executions'), __('Post-mortem')];
+        $data = [$intakeTotal, $plansTotal, $executionsTotal, $pmTotal];
         $colors = [
             $this->speciesColor('cattle'),
             $this->speciesColor('goat'),

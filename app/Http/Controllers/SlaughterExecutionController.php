@@ -53,14 +53,22 @@ class SlaughterExecutionController extends Controller
      * }
      */
     // --- Section 3 ---
-    private function buildPlanSelectData(Collection $planIds, bool $includeScheduledCount = true): array
-    {
+    private function buildPlanSelectData(
+        Collection $planIds,
+        bool $includeScheduledCount = true,
+        bool $onlyWithoutExecution = false,
+    ): array {
         $planModels = SlaughterPlan::query()
             ->with([
                 'facility',
                 'anteMortemInspections' => fn ($query) => $query->latest('inspection_date')->limit(1),
             ])
             ->whereIn('id', $planIds)
+            ->when($onlyWithoutExecution, function ($query): void {
+                $query
+                    ->whereDoesntHave('slaughterExecutions')
+                    ->whereNotIn('status', ['cancelled']);
+            })
             ->orderByDesc('slaughter_date')
             ->get();
 
@@ -128,7 +136,7 @@ class SlaughterExecutionController extends Controller
             $slaughteredCount = count($slaughteredItemIdsByPlan->get($plan->id) ?? []);
             $remainingCount = max(0, $approvedCount - $slaughteredCount);
 
-            $label = $plan->slaughter_date->format('d M Y')
+            $label = $plan->slaughterDateDisplay()
                 .' — '.$plan->facility->facility_name
                 .' ('.$plan->species
                 .($includeScheduledCount ? ', '.$plan->number_of_animals_scheduled.' scheduled' : '')
@@ -374,7 +382,11 @@ class SlaughterExecutionController extends Controller
     {
         $planIds = $this->userSlaughterPlanIds($request);
 
-        $planData = $this->buildPlanSelectData($planIds, includeScheduledCount: true);
+        $planData = $this->buildPlanSelectData(
+            $planIds,
+            includeScheduledCount: true,
+            onlyWithoutExecution: true,
+        );
         $plans = $planData['plans'];
         $approvedItemsByPlan = $planData['approvedItemsByPlan'];
         $slaughteredItemIdsByPlan = $planData['slaughteredItemIdsByPlan'];
@@ -392,6 +404,10 @@ class SlaughterExecutionController extends Controller
                 ])
                 ->find($selectedPlanId)
             : null;
+
+        if ($selectedPlan?->slaughterExecutions()->exists()) {
+            $selectedPlan = null;
+        }
 
         $approvedItems = $selectedPlan
             ? AnteMortemInspectionItem::query()

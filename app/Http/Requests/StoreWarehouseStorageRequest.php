@@ -56,7 +56,6 @@ class StoreWarehouseStorageRequest extends FormRequest
             'quantities' => ['nullable', 'array'],
             'quantities.*' => ['nullable', 'numeric', 'min:0.01', 'max:99999'],
             'entry_date' => ['required', 'date'],
-            'storage_location' => ['nullable', 'string', 'max:255'],
             'temperature_at_entry' => ['nullable', 'numeric', 'min:-50', 'max:50'],
             'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],
         ];

@@ -11,17 +11,27 @@
     <div class="py-12">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                @if ($errors->any())
+                    <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                        <p class="font-medium">{{ __('Please fix the following:') }}</p>
+                        <ul class="mt-2 list-disc list-inside space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 <form method="post" action="{{ route('certificates.update', $certificate) }}" class="space-y-6" id="certificate-edit-form">
                     @csrf
                     @method('put')
 
                     <div>
-                        <x-input-label for="batch_id" :value="__('Batch')" />
-                        <select id="batch_id" name="batch_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach ($batches as $b)
-                                <option value="{{ $b['id'] }}" data-facility-id="{{ $b['facility_id'] }}" @selected(old('batch_id', $certificate->batch_id) == $b['id'])>{{ $b['label'] }}</option>
-                            @endforeach
-                        </select>
+                        <x-input-label :value="__('Slaughter execution')" />
+                        <p class="mt-1 text-sm text-gray-900 rounded-md border border-gray-200 bg-slate-50 px-3 py-2">
+                            {{ $executionLabel ?? '—' }}
+                        </p>
+                        <input type="hidden" name="batch_id" value="{{ old('batch_id', $certificate->batch_id) }}" />
                         <x-input-error class="mt-2" :messages="$errors->get('batch_id')" />
                     </div>
 
@@ -109,12 +119,11 @@
 
     <script>
         (function() {
-            const batchSelect = document.getElementById('batch_id');
+            const facilityId = @json((string) ($certificate->facility_id ?? ''));
             const inspectorSelect = document.getElementById('inspector_id');
             const facilitySelect = document.getElementById('facility_id');
+
             function filterByFacility() {
-                const selected = batchSelect && batchSelect.options[batchSelect.selectedIndex];
-                const facilityId = selected && selected.dataset.facilityId;
                 if (inspectorSelect) {
                     Array.from(inspectorSelect.options).forEach(opt => {
                         if (opt.value === '') { opt.hidden = false; return; }
@@ -130,14 +139,9 @@
                     Array.from(facilitySelect.options).forEach(opt => {
                         opt.hidden = opt.value !== '' && opt.dataset.facilityId !== facilityId;
                     });
-                    const curF = facilitySelect.options[facilitySelect.selectedIndex];
-                    if (curF && curF.hidden) {
-                        const v = Array.from(facilitySelect.options).find(o => o.value && !o.hidden);
-                        facilitySelect.value = v ? v.value : '';
-                    }
                 }
             }
-            if (batchSelect) batchSelect.addEventListener('change', filterByFacility);
+
             document.addEventListener('DOMContentLoaded', filterByFacility);
         })();
     </script>

@@ -122,6 +122,8 @@ class AnteMortemInspectionController extends Controller
                     $item->animal_intake_item_id => [
                         'outcome' => $item->outcome,
                         'outcome_notes' => $item->outcome_notes ?? '',
+                        'conditions' => $item->conditions ?? '',
+                        'action_taken' => $item->action_taken ?? '',
                         'observations' => ($obsByAnimal->get($item->animal_intake_item_id) ?? collect())
                             ->mapWithKeys(fn ($obs) => [
                                 $obs->item => [
@@ -157,6 +159,8 @@ class AnteMortemInspectionController extends Controller
                 'animal_intake_item_id' => $itemOutcome['animal_intake_item_id'],
                 'outcome' => $itemOutcome['outcome'],
                 'outcome_notes' => $itemOutcome['outcome_notes'] ?? null,
+                'conditions' => $itemOutcome['conditions'] ?? null,
+                'action_taken' => $itemOutcome['action_taken'] ?? null,
             ]);
         }
 

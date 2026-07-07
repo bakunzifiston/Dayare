@@ -49,7 +49,6 @@ class UpdateWarehouseStorageRequest extends FormRequest
                     fn ($q) => $q->where('facility_id', (int) $this->input('warehouse_facility_id'))
                 ),
             ],
-            'storage_location' => ['nullable', 'string', 'max:255'],
             'temperature_at_entry' => ['nullable', 'numeric', 'min:-50', 'max:50'],
             'quantity_stored' => ['required', 'numeric', 'min:0'],
             'quantity_unit' => ['required', 'string', Rule::in($allowedUnits)],

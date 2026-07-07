@@ -26,7 +26,7 @@ return [
             'stomach' => ['label' => 'Stomach', 'type' => 'normal_abnormal', 'category' => 'organ', 'critical' => true],
             'lymphnodes' => ['label' => 'Lymphnodes', 'type' => 'normal_abnormal', 'category' => 'organ', 'critical' => true],
             'decision' => ['label' => 'Decision', 'type' => 'decision', 'category' => 'decision', 'critical' => true],
-            'comment' => ['label' => 'Comment', 'type' => 'free_text', 'category' => 'decision', 'critical' => false],
+            'comment' => ['label' => 'Reason for condemnation', 'type' => 'free_text', 'category' => 'decision', 'critical' => false],
         ],
     ],
 

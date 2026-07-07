@@ -42,6 +42,8 @@ class StoreAnteMortemInspectionRequest extends FormRequest
             'item_outcomes.*.animal_intake_item_id' => ['required_with:item_outcomes', 'integer', 'exists:animal_intake_items,id'],
             'item_outcomes.*.outcome' => ['required_with:item_outcomes', 'in:approved,rejected,deferred'],
             'item_outcomes.*.outcome_notes' => ['nullable', 'string', 'max:1000'],
+            'item_outcomes.*.conditions' => ['nullable', 'string', 'max:1000'],
+            'item_outcomes.*.action_taken' => ['nullable', 'string', 'max:1000'],
             'item_outcomes.*.observations' => ['nullable', 'array'],
             'item_outcomes.*.observations.*.value' => ['nullable', 'string', 'max:5000'],
             'item_outcomes.*.observations.*.notes' => ['nullable', 'string', 'max:5000'],

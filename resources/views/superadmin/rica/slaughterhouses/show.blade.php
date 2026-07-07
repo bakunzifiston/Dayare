@@ -3,19 +3,15 @@
 @endphp
 <x-app-layout>
     <x-slot name="header">
-        <div>
-            <a href="{{ route('rica.slaughterhouses.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← All slaughterhouses') }}</a>
-            <div class="mt-1 flex flex-wrap items-center gap-2">
-                <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                    {{ $facility->facility_name }}
-                </h2>
-                <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-                    {{ __('Slaughterhouse') }}
-                </span>
-            </div>
-            <p class="text-sm text-slate-500 mt-1">
-                {{ $facility->business->business_name ?? '—' }}
-            </p>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <a href="{{ route('rica.slaughterhouses.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy shrink-0">{{ __('← All slaughterhouses') }}</a>
+            <span class="hidden sm:inline text-slate-300" aria-hidden="true">·</span>
+            <h2 class="font-semibold text-xl text-slate-800 leading-tight shrink-0">
+                {{ $facility->facility_name }}
+            </h2>
+            <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 shrink-0">
+                {{ __('Slaughterhouse') }}
+            </span>
         </div>
     </x-slot>
 
@@ -32,6 +28,10 @@
                         <x-text-input id="date_to" name="date_to" type="date" class="mt-1 block w-full" :value="request('date_to', $dateTo->toDateString())" />
                     </div>
                     <x-primary-button>{{ __('Apply') }}</x-primary-button>
+                    <a href="{{ route('rica.monthly-reports.index', ['facility_id' => $facility->id]) }}"
+                       class="inline-flex items-center px-4 py-2 rounded-md border border-bucha-primary text-sm font-semibold text-bucha-primary hover:bg-bucha-primary/5">
+                        {{ __('Monthly inspection reports') }}
+                    </a>
                     <p class="text-sm text-slate-500 ml-auto">
                         {{ $dateFrom->format('d M Y') }} – {{ $dateTo->format('d M Y') }}
                     </p>

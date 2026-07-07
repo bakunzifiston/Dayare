@@ -56,6 +56,8 @@ class UpdatePostMortemInspectionRequest extends FormRequest
             'item_outcomes.*.animal_intake_item_id' => ['required_with:item_outcomes', 'integer', 'exists:animal_intake_items,id'],
             'item_outcomes.*.outcome' => ['required_with:item_outcomes', 'in:approved,condemned,deferred'],
             'item_outcomes.*.outcome_notes' => ['nullable', 'string', 'max:1000'],
+            'item_outcomes.*.seized_part' => ['nullable', 'string', 'max:1000'],
+            'item_outcomes.*.reason' => ['nullable', 'string', 'max:1000'],
             'item_outcomes.*.carcass_weight_kg' => ['nullable', 'numeric', 'min:0.1', 'max:9999'],
             'item_outcomes.*.observations' => ['nullable', 'array'],
             'item_outcomes.*.observations.*.value' => ['required_with:item_outcomes.*.observations', 'string', 'max:5000'],
@@ -110,9 +112,19 @@ class UpdatePostMortemInspectionRequest extends FormRequest
                     $batch,
                     $species,
                     $this->input('item_outcomes'),
+                    inspectionId: (int) $this->route('post_mortem_inspection')?->id,
                 );
 
-                $maxMeatKg = round((float) $batch->inspectableAnimalsForPostMortem()->sum('meat_quantity_kg'), 2);
+                $submittedAnimalIds = collect($this->input('item_outcomes', []))
+                    ->pluck('animal_intake_item_id')
+                    ->map(fn ($id) => (int) $id);
+                $animalsById = $batch->inspectableAnimalsForPostMortem()->keyBy('animal_intake_item_id');
+                $maxMeatKg = round(
+                    (float) $submittedAnimalIds
+                        ->map(fn (int $id) => (float) ($animalsById->get($id)['meat_quantity_kg'] ?? 0))
+                        ->sum(),
+                    2,
+                );
                 if ($examined > $maxMeatKg + 0.001) {
                     $validator->errors()->add(
                         'total_examined',

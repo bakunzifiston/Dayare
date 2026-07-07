@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Collection;
+use App\Support\CertificateAnimalSelection;
 
 /**
  * Batch – group of carcasses from slaughter.
@@ -119,10 +119,16 @@ class Batch extends Model
         return $this->hasOne(PostMortemInspection::class);
     }
 
-    /** Batch (1) → One Certificate (allowed only if post-mortem approved_quantity > 0) */
+    /** Batch (1) → One or more certificates (per-animal or grouped). */
+    public function certificates(): HasMany
+    {
+        return $this->hasMany(Certificate::class);
+    }
+
+    /** Latest certificate for this batch (backward compatibility). */
     public function certificate(): HasOne
     {
-        return $this->hasOne(Certificate::class);
+        return $this->hasOne(Certificate::class)->latestOfMany();
     }
 
     /** Batch (1) → Can have One WarehouseStorage */
@@ -178,12 +184,24 @@ class Batch extends Model
      */
     public function certificateIssueBlockReason(): ?string
     {
-        if ($this->certificate()->exists()) {
-            return __('This batch already has a certificate.');
-        }
-
         if (! $this->hasReleasedColdRoomStorage()) {
             return __('Release the meat from cold room storage before issuing a certificate.');
+        }
+
+        if ($this->hasPerAnimalData()) {
+            if (CertificateAnimalSelection::certifiableAnimals($this)->isEmpty()) {
+                if ($this->certificates()->exists()) {
+                    return __('All released animals in this batch already have certificates.');
+                }
+
+                return __('No released, post-mortem approved animals are available for certification.');
+            }
+
+            return null;
+        }
+
+        if ($this->certificates()->exists()) {
+            return __('This batch already has a certificate.');
         }
 
         if ($this->hasReleasedStorageWithPostMortemItem()) {
@@ -208,26 +226,7 @@ class Batch extends Model
 
     public function canIssueCertificate(): bool
     {
-        if ($this->certificate()->exists()) {
-            return false;
-        }
-
-        if (! $this->hasReleasedColdRoomStorage()) {
-            return false;
-        }
-
-        if ($this->hasReleasedStorageWithPostMortemItem()) {
-            return true;
-        }
-
-        if (! $this->postMortemInspection) {
-            return false;
-        }
-
-        $approvedQuantity = (float) $this->postMortemInspection->approved_quantity;
-        $approvedAnimals = $this->postMortemInspection->approved_from_items;
-
-        return $approvedQuantity > 0 || $approvedAnimals > 0;
+        return $this->certificateIssueBlockReason() === null;
     }
 
     /**
@@ -266,9 +265,38 @@ class Batch extends Model
      */
     public function scopeEligibleForCertificate($query)
     {
-        return $query
-            ->withReleasedColdRoomStorage()
-            ->whereDoesntHave('certificate');
+        return $query->withReleasedColdRoomStorage();
+    }
+
+    /**
+     * First batch for a slaughter execution that can receive a certificate now.
+     */
+    public static function certifiableForExecution(int $executionId, ?array $animalIntakeItemIds = null): ?self
+    {
+        $batches = static::query()
+            ->where('slaughter_execution_id', $executionId)
+            ->eligibleForCertificate()
+            ->with(['postMortemInspection.inspectionItems', 'slaughterExecution.slaughterPlan', 'warehouseStorages', 'items', 'certificates'])
+            ->get()
+            ->filter(fn (self $batch) => $batch->canIssueCertificate());
+
+        if ($animalIntakeItemIds !== null && $animalIntakeItemIds !== []) {
+            $requestedIds = collect($animalIntakeItemIds)
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values();
+
+            return $batches->first(function (self $batch) use ($requestedIds) {
+                $available = CertificateAnimalSelection::certifiableAnimals($batch)
+                    ->pluck('animal_intake_item_id')
+                    ->map(fn ($id) => (int) $id);
+
+                return $requestedIds->isNotEmpty()
+                    && $requestedIds->every(fn (int $id) => $available->contains($id));
+            });
+        }
+
+        return $batches->first();
     }
 
     public function transportTrips(): \Illuminate\Database\Eloquent\Relations\HasMany

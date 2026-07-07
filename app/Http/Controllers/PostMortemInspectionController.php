@@ -13,6 +13,7 @@ use App\Models\PostMortemInspectionItem;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
+use App\Models\WarehouseStorage;
 use App\Support\PostMortemChecklist;
 use App\Support\PostMortemMeatTotals;
 use Carbon\Carbon;
@@ -62,9 +63,108 @@ class PostMortemInspectionController extends Controller
         }
     }
 
+    private function authorizeExecutionId(Request $request, int $executionId): void
+    {
+        if (! $this->userExecutionIds($request)->contains($executionId)) {
+            abort(404);
+        }
+    }
+
+    private function resolveBatchForPostMortem(SlaughterExecution $execution, int $inspectorId, string $species): Batch
+    {
+        $batch = Batch::query()
+            ->where('slaughter_execution_id', $execution->id)
+            ->whereHas('postMortemInspection')
+            ->first();
+
+        if ($batch !== null) {
+            return $batch;
+        }
+
+        $batch = Batch::query()
+            ->where('slaughter_execution_id', $execution->id)
+            ->whereDoesntHave('postMortemInspection')
+            ->first();
+
+        if ($batch !== null) {
+            if ((int) $batch->inspector_id !== $inspectorId) {
+                $batch->update(['inspector_id' => $inspectorId]);
+            }
+
+            if (filled($species) && blank($batch->species)) {
+                $batch->update(['species' => $species]);
+            }
+
+            return $batch;
+        }
+
+        return Batch::create([
+            'slaughter_execution_id' => $execution->id,
+            'inspector_id' => $inspectorId,
+            'species' => $species,
+            'quantity' => 0,
+            'quantity_unit' => 'kg',
+            'status' => Batch::STATUS_PENDING,
+        ]);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildExecutionAnimalsByExecutionId(Collection $executionIds): array
+    {
+        return SlaughterExecution::query()
+            ->whereIn('id', $executionIds)
+            ->with(['slaughterPlan', 'executionItems.intakeItem.intake'])
+            ->get()
+            ->mapWithKeys(function (SlaughterExecution $execution) {
+                $animals = $execution->inspectableAnimalsForPostMortem()->values()->all();
+                $inspectedIds = $execution->inspectedAnimalIntakeItemIds();
+
+                return [
+                    $execution->id => [
+                        'facility_id' => $execution->slaughterPlan->facility_id,
+                        'species' => $execution->slaughterPlan->species,
+                        'animal_count' => count($animals),
+                        'pending_count' => collect($animals)
+                            ->reject(fn (array $animal) => $inspectedIds->contains((int) $animal['animal_intake_item_id']))
+                            ->count(),
+                        'has_per_animal' => count($animals) > 0,
+                        'source' => 'execution',
+                        'animals' => $animals,
+                        'inspected_animal_ids' => $inspectedIds->values()->all(),
+                    ],
+                ];
+            })
+            ->all();
+    }
+
     private function checklistConfig(): array
     {
         return PostMortemChecklist::all();
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $selectedExecutionData
+     * @return array{
+     *     pmExecutionData: array<string, mixed>,
+     *     hasPerAnimal: bool,
+     *     executionAnimals: array<int, array<string, mixed>>,
+     *     inspectedAnimalIds: array<int, int>,
+     *     displayAnimals: array<int, array<string, mixed>>
+     * }
+     */
+    private function postMortemFormContext(?array $selectedExecutionData): array
+    {
+        $pmExecutionData = is_array($selectedExecutionData) ? $selectedExecutionData : [];
+
+        return [
+            'pmExecutionData' => $pmExecutionData,
+            'hasPerAnimal' => (bool) ($pmExecutionData['has_per_animal'] ?? false),
+            'executionAnimals' => $pmExecutionData['animals'] ?? [],
+            'inspectedAnimalIds' => $pmExecutionData['inspected_animal_ids'] ?? [],
+            'displayAnimals' => $pmExecutionData['display_animals'] ?? [],
+        ];
     }
 
     private function mapObservationPayload(array $observations, string $species, ?int $animalIntakeItemId = null): array
@@ -179,9 +279,33 @@ class PostMortemInspectionController extends Controller
     /**
      * @param  array<int, array<string, mixed>>  $itemOutcomes
      */
-    private function syncInspectionItems(PostMortemInspection $inspection, Batch $batch, array $itemOutcomes): void
-    {
-        $inspection->inspectionItems()->delete();
+    private function syncInspectionItems(
+        PostMortemInspection $inspection,
+        Batch $batch,
+        array $itemOutcomes,
+        bool $mergeExisting = false,
+    ): void {
+        if ($mergeExisting) {
+            $merged = $inspection->inspectionItems()
+                ->get()
+                ->mapWithKeys(fn (PostMortemInspectionItem $item) => [
+                    $item->animal_intake_item_id => [
+                        'batch_item_id' => $item->batch_item_id,
+                        'animal_intake_item_id' => $item->animal_intake_item_id,
+                        'outcome' => $item->outcome,
+                        'outcome_notes' => $item->outcome_notes,
+                        'seized_part' => $item->seized_part,
+                        'reason' => $item->reason,
+                        'carcass_weight_kg' => $item->carcass_weight_kg,
+                    ],
+                ]);
+
+            foreach ($itemOutcomes as $outcome) {
+                $merged->put((int) $outcome['animal_intake_item_id'], $outcome);
+            }
+
+            $itemOutcomes = $merged->values()->all();
+        }
 
         if ($itemOutcomes === []) {
             $inspection->update([
@@ -193,18 +317,83 @@ class PostMortemInspectionController extends Controller
             return;
         }
 
-        foreach ($itemOutcomes as $outcome) {
-            $inspection->inspectionItems()->create([
-                'batch_item_id' => $outcome['batch_item_id'],
-                'animal_intake_item_id' => $outcome['animal_intake_item_id'],
-                'outcome' => $outcome['outcome'],
-                'outcome_notes' => $outcome['outcome_notes'] ?? null,
-                'carcass_weight_kg' => $outcome['carcass_weight_kg'] ?? null,
-            ]);
+        if ($mergeExisting) {
+            $this->upsertInspectionItems($inspection, $itemOutcomes);
+        } else {
+            $inspection->inspectionItems()->delete();
+
+            foreach ($itemOutcomes as $outcome) {
+                $inspection->inspectionItems()->create([
+                    'batch_item_id' => $outcome['batch_item_id'],
+                    'animal_intake_item_id' => $outcome['animal_intake_item_id'],
+                    'outcome' => $outcome['outcome'],
+                    'outcome_notes' => $outcome['outcome_notes'] ?? null,
+                    'seized_part' => $outcome['seized_part'] ?? null,
+                    'reason' => $outcome['reason'] ?? null,
+                    'carcass_weight_kg' => $outcome['carcass_weight_kg'] ?? null,
+                ]);
+            }
         }
 
         $animalsById = $batch->inspectableAnimalsForPostMortem()->keyBy('animal_intake_item_id');
         $inspection->update(PostMortemMeatTotals::fromItemOutcomes($itemOutcomes, $animalsById));
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $itemOutcomes
+     */
+    private function upsertInspectionItems(PostMortemInspection $inspection, array $itemOutcomes): void
+    {
+        $existing = $inspection->inspectionItems()
+            ->get()
+            ->keyBy(fn (PostMortemInspectionItem $item) => (int) $item->animal_intake_item_id);
+
+        $submittedAnimalIds = collect($itemOutcomes)
+            ->pluck('animal_intake_item_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        foreach ($itemOutcomes as $outcome) {
+            $animalId = (int) ($outcome['animal_intake_item_id'] ?? 0);
+            if ($animalId === 0) {
+                continue;
+            }
+
+            $payload = [
+                'batch_item_id' => $outcome['batch_item_id'] ?? null,
+                'animal_intake_item_id' => $animalId,
+                'outcome' => $outcome['outcome'],
+                'outcome_notes' => $outcome['outcome_notes'] ?? null,
+                'seized_part' => $outcome['seized_part'] ?? null,
+                'reason' => $outcome['reason'] ?? null,
+                'carcass_weight_kg' => $outcome['carcass_weight_kg'] ?? null,
+            ];
+
+            $item = $existing->get($animalId);
+            if ($item) {
+                $item->update($payload);
+            } else {
+                $inspection->inspectionItems()->create($payload);
+            }
+        }
+
+        foreach ($existing as $animalId => $item) {
+            if ($submittedAnimalIds->contains($animalId)) {
+                continue;
+            }
+
+            $hasActiveStorage = $item->warehouseStorages()
+                ->blockingRestorage()
+                ->exists();
+
+            if ($hasActiveStorage) {
+                continue;
+            }
+
+            $item->delete();
+        }
     }
 
     /**
@@ -235,7 +424,7 @@ class PostMortemInspectionController extends Controller
 
     /**
      * @param  array<int, array<string, mixed>>|null  $rows
-     * @return array<int, array{outcome: string, outcome_notes: string, carcass_weight_kg: string|null, observations: array<string, array{value: string, notes: string|null}>}>
+     * @return array<int, array{outcome: string, outcome_notes: string, seized_part: string, reason: string, carcass_weight_kg: string|null, observations: array<string, array{value: string, notes: string|null}>}>
      */
     private function mapOldItemOutcomes(?array $rows): array
     {
@@ -259,6 +448,8 @@ class PostMortemInspectionController extends Controller
                 'batch_item_id' => $row['batch_item_id'] ?? null,
                 'outcome' => (string) ($row['outcome'] ?? ''),
                 'outcome_notes' => (string) ($row['outcome_notes'] ?? ''),
+                'seized_part' => (string) ($row['seized_part'] ?? ''),
+                'reason' => (string) ($row['reason'] ?? ''),
                 'carcass_weight_kg' => $row['carcass_weight_kg'] ?? null,
                 'observations' => is_array($row['observations'] ?? null) ? $row['observations'] : [],
             ];
@@ -268,7 +459,7 @@ class PostMortemInspectionController extends Controller
     }
 
     /**
-     * @return array<int, array{outcome: string, outcome_notes: string, carcass_weight_kg: string|null, observations: array<string, array{value: string, notes: string|null}>}>
+     * @return array<int, array{outcome: string, outcome_notes: string, seized_part: string, reason: string, carcass_weight_kg: string|null, observations: array<string, array{value: string, notes: string|null}>}>
      */
     private function mapExistingInspectionOutcomes(PostMortemInspection $inspection): array
     {
@@ -283,6 +474,8 @@ class PostMortemInspectionController extends Controller
                         'batch_item_id' => $item->batch_item_id,
                         'outcome' => $item->outcome,
                         'outcome_notes' => $item->outcome_notes ?? '',
+                        'seized_part' => $item->seized_part ?? '',
+                        'reason' => $item->reason ?? '',
                         'carcass_weight_kg' => $item->carcass_weight_kg,
                         'observations' => ($obsByAnimal->get($item->animal_intake_item_id) ?? collect())
                             ->mapWithKeys(fn ($obs) => [
@@ -296,6 +489,26 @@ class PostMortemInspectionController extends Controller
                 ];
             })
             ->all();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $itemOutcomes
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergeSubmittedItemOutcomes(PostMortemInspection $inspection, array $itemOutcomes): array
+    {
+        $merged = $this->mapExistingInspectionOutcomes($inspection);
+
+        foreach ($itemOutcomes as $outcome) {
+            $animalId = (int) ($outcome['animal_intake_item_id'] ?? 0);
+            if ($animalId === 0) {
+                continue;
+            }
+
+            $merged[$animalId] = array_merge($merged[$animalId] ?? [], $outcome);
+        }
+
+        return array_values($merged);
     }
 
     private function computeResultFromItems(array $itemOutcomes): string
@@ -457,10 +670,15 @@ class PostMortemInspectionController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $releaseLookup = \App\Support\BatchAnimalReleaseLookup::forBatches(
+            $inspections->getCollection()->pluck('batch_id'),
+        );
+
         return view('post-mortem-inspections.hub', compact(
             'hubStats',
             'inspections',
             'filters',
+            'releaseLookup',
         ));
     }
 
@@ -608,22 +826,27 @@ class PostMortemInspectionController extends Controller
         return $this->hubFiltersAllTime();
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse
     {
-        $batchIds = $this->userBatchIds($request);
+        $executionIds = $this->userExecutionIds($request);
         $facilityIds = $this->userFacilityIds($request);
 
-        $batches = Batch::with('slaughterExecution.slaughterPlan.facility')
-            ->whereIn('id', $batchIds)
-            ->whereDoesntHave('postMortemInspection')
-            ->latest()
+        $executions = SlaughterExecution::with('slaughterPlan.facility')
+            ->whereIn('id', $executionIds)
+            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereHas('executionItems')
+            ->latest('slaughter_time')
             ->get()
-            ->map(fn (Batch $b) => [
-                'id' => $b->id,
-                'label' => $b->batch_code.' — '.$b->slaughterExecution->slaughterPlan->facility->facility_name.' ('.$b->species.')',
-                'facility_id' => $b->slaughterExecution->slaughterPlan->facility_id,
-                'species' => $b->species,
-            ]);
+            ->filter(fn (SlaughterExecution $execution) => ! $execution->isPostMortemComplete())
+            ->map(fn (SlaughterExecution $execution) => [
+                'id' => $execution->id,
+                'label' => $execution->slaughter_time->format('d M Y H:i')
+                    .' — '.$execution->slaughterPlan->facility->facility_name
+                    .' ('.$execution->slaughterPlan->species.')',
+                'facility_id' => $execution->slaughterPlan->facility_id,
+                'species' => $execution->slaughterPlan->species,
+            ])
+            ->values();
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
             ->where('status', 'active')
@@ -632,45 +855,101 @@ class PostMortemInspectionController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
-        $batchAnimalsByBatchId = $this->buildBatchAnimalsByBatchId(
-            $batches->pluck('id'),
+        $executionAnimalsByExecutionId = $this->buildExecutionAnimalsByExecutionId(
+            $executions->pluck('id'),
         );
 
         $oldItemOutcomes = $this->mapOldItemOutcomes(old('item_outcomes'));
 
-        $selectedBatchId = $request->query('batch_id') ?? old('batch_id');
-        $selectedBatchId = $selectedBatchId && $batchIds->contains((int) $selectedBatchId)
-            ? (int) $selectedBatchId
-            : null;
-        $selectedBatchData = $selectedBatchId
-            ? ($batchAnimalsByBatchId[$selectedBatchId] ?? null)
+        $selectedExecutionId = $request->query('slaughter_execution_id') ?? old('slaughter_execution_id');
+        $selectedExecutionId = $selectedExecutionId && $executionIds->contains((int) $selectedExecutionId)
+            ? (int) $selectedExecutionId
             : null;
 
-        return view('post-mortem-inspections.create', [
-            'batches' => $batches,
-            'inspectorsByFacility' => $inspectorsByFacility,
-            'checklists' => $this->checklistConfig(),
-            'batchAnimalsByBatchId' => $batchAnimalsByBatchId,
-            'selectedBatchId' => $selectedBatchId,
-            'selectedBatchData' => $selectedBatchData,
-            'defaultTotalExamined' => is_array($selectedBatchData) ? ($selectedBatchData['animal_count'] ?? 0) : 0,
-            'existingInspectionOutcomes' => $oldItemOutcomes,
-            'preserveExistingOutcomes' => $oldItemOutcomes !== [],
-        ]);
+        if ($selectedExecutionId) {
+            $existingBatch = Batch::query()
+                ->where('slaughter_execution_id', $selectedExecutionId)
+                ->whereHas('postMortemInspection')
+                ->with('postMortemInspection')
+                ->first();
+
+            if ($existingBatch?->postMortemInspection) {
+                return redirect()->route('post-mortem-inspections.edit', $existingBatch->postMortemInspection)
+                    ->with('status', __('Continue adding animals to this post-mortem inspection.'));
+            }
+        }
+
+        $selectedExecutionData = $selectedExecutionId
+            ? ($executionAnimalsByExecutionId[$selectedExecutionId] ?? null)
+            : null;
+
+        $selectedAnimals = [];
+        if ($selectedExecutionId && is_array($executionAnimalsByExecutionId[$selectedExecutionId] ?? null)) {
+            $executionData = $executionAnimalsByExecutionId[$selectedExecutionId];
+            $animalPool = collect($executionData['animals']);
+            $inspectedIds = collect($executionData['inspected_animal_ids'] ?? []);
+
+            $oldOutcomes = old('item_outcomes');
+            if (is_array($oldOutcomes) && $oldOutcomes !== []) {
+                $selectedAnimals = collect($oldOutcomes)
+                    ->pluck('animal_intake_item_id')
+                    ->map(fn ($id) => $animalPool->firstWhere('animal_intake_item_id', (int) $id))
+                    ->filter()
+                    ->values()
+                    ->all();
+            } else {
+                $selectedAnimals = $animalPool
+                    ->reject(fn (array $animal) => $inspectedIds->contains((int) $animal['animal_intake_item_id']))
+                    ->values()
+                    ->all();
+            }
+        }
+
+        if (is_array($selectedExecutionData)) {
+            $selectedExecutionData['display_animals'] = $selectedAnimals;
+        }
+
+        return view('post-mortem-inspections.create', array_merge(
+            $this->postMortemFormContext(is_array($selectedExecutionData) ? $selectedExecutionData : null),
+            [
+                'executions' => $executions,
+                'inspectorsByFacility' => $inspectorsByFacility,
+                'checklists' => $this->checklistConfig(),
+                'executionAnimalsByExecutionId' => $executionAnimalsByExecutionId,
+                'selectedExecutionId' => $selectedExecutionId,
+                'selectedExecutionData' => $selectedExecutionData,
+                'defaultTotalExamined' => 0,
+                'existingInspectionOutcomes' => $oldItemOutcomes,
+                'preserveExistingOutcomes' => $oldItemOutcomes !== [],
+                'selectedAnimals' => $selectedAnimals,
+            ],
+        ));
     }
 
     public function store(StorePostMortemInspectionRequest $request): RedirectResponse
     {
-        $this->authorizeBatchId($request, (int) $request->validated('batch_id'));
+        $this->authorizeExecutionId($request, (int) $request->validated('slaughter_execution_id'));
 
         $validated = $request->validated();
         $observations = $validated['observations'] ?? [];
         $itemOutcomes = $validated['item_outcomes'] ?? [];
         $species = (string) ($validated['species'] ?? '');
-        unset($validated['observations'], $validated['item_outcomes']);
+        unset($validated['observations'], $validated['item_outcomes'], $validated['slaughter_execution_id']);
 
-        $batch = Batch::with('slaughterExecution.slaughterPlan')->findOrFail($validated['batch_id']);
-        $perAnimal = $batch->inspectableAnimalsForPostMortem()->isNotEmpty();
+        $execution = SlaughterExecution::with('slaughterPlan')->findOrFail((int) $request->validated('slaughter_execution_id'));
+
+        $existingInspection = PostMortemInspection::query()
+            ->whereHas('batch', fn ($query) => $query->where('slaughter_execution_id', $execution->id))
+            ->first();
+
+        if ($existingInspection !== null) {
+            return redirect()->route('post-mortem-inspections.edit', $existingInspection)
+                ->with('status', __('A post-mortem inspection already exists for this slaughter execution. Add more animals there.'));
+        }
+
+        $batch = $this->resolveBatchForPostMortem($execution, (int) $validated['inspector_id'], $species);
+        $validated['batch_id'] = $batch->id;
+        $perAnimal = $execution->inspectableAnimalsForPostMortem()->isNotEmpty();
 
         if ($perAnimal) {
             $itemOutcomes = $this->ensureBatchItems($batch, $itemOutcomes);
@@ -710,18 +989,7 @@ class PostMortemInspectionController extends Controller
     {
         $this->authorizeInspection($request, $postMortemInspection);
 
-        $batchIds = $this->userBatchIds($request);
         $facilityIds = $this->userFacilityIds($request);
-
-        $batches = Batch::with('slaughterExecution.slaughterPlan.facility')
-            ->whereIn('id', $batchIds)
-            ->get()
-            ->map(fn (Batch $b) => [
-                'id' => $b->id,
-                'label' => $b->batch_code.' — '.$b->slaughterExecution->slaughterPlan->facility->facility_name,
-                'facility_id' => $b->slaughterExecution->slaughterPlan->facility_id,
-                'species' => $b->species,
-            ]);
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
             ->where('status', 'active')
@@ -730,23 +998,47 @@ class PostMortemInspectionController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
-        $postMortemInspection->load(['observations', 'inspectionItems', 'batch.items.intakeItem']);
+        $postMortemInspection->load(['observations', 'inspectionItems', 'batch.slaughterExecution.slaughterPlan.facility']);
 
-        $batchAnimalsByBatchId = $this->buildBatchAnimalsByBatchId(
-            collect([$postMortemInspection->batch_id]),
-        );
-        $selectedBatchData = $batchAnimalsByBatchId[$postMortemInspection->batch_id] ?? null;
+        $executionId = (int) $postMortemInspection->batch->slaughter_execution_id;
+        $executionAnimalsByExecutionId = $this->buildExecutionAnimalsByExecutionId(collect([$executionId]));
+        $selectedExecutionData = $executionAnimalsByExecutionId[$executionId] ?? null;
 
-        return view('post-mortem-inspections.edit', [
-            'inspection' => $postMortemInspection,
-            'batches' => $batches,
-            'inspectorsByFacility' => $inspectorsByFacility,
-            'checklists' => $this->checklistConfig(),
-            'batchAnimalsByBatchId' => $batchAnimalsByBatchId,
-            'selectedBatchData' => $selectedBatchData,
-            'existingInspectionOutcomes' => $this->mapExistingInspectionOutcomes($postMortemInspection),
-            'preserveExistingOutcomes' => true,
-        ]);
+        if (is_array($selectedExecutionData)) {
+            $animalPool = collect($selectedExecutionData['animals'] ?? []);
+            $inspectedGlobally = collect($selectedExecutionData['inspected_animal_ids'] ?? []);
+            $inThisInspection = $postMortemInspection->inspectionItems
+                ->pluck('animal_intake_item_id')
+                ->map(fn ($id) => (int) $id);
+
+            $selectedExecutionData['display_animals'] = $animalPool
+                ->filter(fn (array $animal) => $inThisInspection->contains((int) $animal['animal_intake_item_id'])
+                    || ! $inspectedGlobally->contains((int) $animal['animal_intake_item_id']))
+                ->values()
+                ->all();
+            $selectedExecutionData['has_per_animal'] = count($selectedExecutionData['display_animals']) > 0;
+        }
+
+        return view('post-mortem-inspections.edit', array_merge(
+            $this->postMortemFormContext(is_array($selectedExecutionData) ? $selectedExecutionData : null),
+            [
+                'inspection' => $postMortemInspection,
+                'executions' => collect([[
+                    'id' => $executionId,
+                    'label' => $postMortemInspection->batch->slaughterExecution->slaughter_time->format('d M Y H:i')
+                        .' — '.$postMortemInspection->batch->slaughterExecution->slaughterPlan->facility->facility_name,
+                    'facility_id' => $postMortemInspection->batch->slaughterExecution->slaughterPlan->facility_id,
+                    'species' => $postMortemInspection->batch->species,
+                ]]),
+                'inspectorsByFacility' => $inspectorsByFacility,
+                'checklists' => $this->checklistConfig(),
+                'executionAnimalsByExecutionId' => $executionAnimalsByExecutionId,
+                'selectedExecutionId' => $executionId,
+                'selectedExecutionData' => $selectedExecutionData,
+                'existingInspectionOutcomes' => $this->mapExistingInspectionOutcomes($postMortemInspection),
+                'preserveExistingOutcomes' => true,
+            ],
+        ));
     }
 
     public function update(UpdatePostMortemInspectionRequest $request, PostMortemInspection $postMortemInspection): RedirectResponse
@@ -765,17 +1057,19 @@ class PostMortemInspectionController extends Controller
 
         if ($perAnimal) {
             $itemOutcomes = $this->ensureBatchItems($batch, $itemOutcomes);
-            $validated['result'] = $this->computeResultFromItems($itemOutcomes);
+            $mergedOutcomes = $this->mergeSubmittedItemOutcomes($postMortemInspection, $itemOutcomes);
+            $validated['result'] = $this->computeResultFromItems($mergedOutcomes);
         } else {
             $validated['result'] = $this->computeResult($species, $observations);
+            $mergedOutcomes = $itemOutcomes;
         }
 
-        DB::transaction(function () use ($batch, $postMortemInspection, $validated, $observations, $itemOutcomes, $species, $perAnimal) {
+        DB::transaction(function () use ($batch, $postMortemInspection, $validated, $observations, $itemOutcomes, $mergedOutcomes, $species, $perAnimal) {
             $postMortemInspection->update($validated);
-            $this->syncObservations($postMortemInspection, $observations, $itemOutcomes, $perAnimal, $species);
+            $this->syncObservations($postMortemInspection, $observations, $mergedOutcomes, $perAnimal, $species);
 
             if ($perAnimal) {
-                $this->syncInspectionItems($postMortemInspection, $batch, $itemOutcomes);
+                $this->syncInspectionItems($postMortemInspection, $batch, $itemOutcomes, mergeExisting: true);
             } else {
                 $postMortemInspection->inspectionItems()->delete();
             }

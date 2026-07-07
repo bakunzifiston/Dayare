@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Concerns;
 
 use App\Models\Batch;
+use App\Models\PostMortemInspectionItem;
 use App\Support\PostMortemChecklist;
 use Illuminate\Contracts\Validation\Validator;
 
@@ -13,6 +14,8 @@ trait ValidatesPostMortemItemOutcomes
         ?Batch $batch,
         string $species,
         mixed $itemOutcomes,
+        ?int $inspectionId = null,
+        bool $requireAllAnimals = false,
     ): void {
         if ($batch === null) {
             return;
@@ -31,7 +34,7 @@ trait ValidatesPostMortemItemOutcomes
         if (! is_array($itemOutcomes) || $itemOutcomes === []) {
             $validator->errors()->add(
                 'item_outcomes',
-                __('Each animal must have a post-mortem outcome.'),
+                __('Select at least one animal from the slaughter execution.'),
             );
 
             return;
@@ -42,7 +45,7 @@ trait ValidatesPostMortemItemOutcomes
             ->map(fn ($id) => (int) $id)
             ->values();
 
-        if ($submittedIds->count() !== $animalIds->count()) {
+        if ($requireAllAnimals && $submittedIds->count() !== $animalIds->count()) {
             $validator->errors()->add(
                 'item_outcomes',
                 __('Outcomes are required for all :count animals.', ['count' => $animalIds->count()]),
@@ -63,7 +66,30 @@ trait ValidatesPostMortemItemOutcomes
         if ($submittedIds->diff($animalIds)->isNotEmpty()) {
             $validator->errors()->add(
                 'item_outcomes',
-                __('One or more animals are not available for the selected batch.'),
+                __('One or more animals are not available for the selected slaughter execution.'),
+            );
+
+            return;
+        }
+
+        $alreadyInspectedIds = $batch->slaughterExecution
+            ? $batch->slaughterExecution->inspectedAnimalIntakeItemIds()
+            : collect();
+
+        if ($inspectionId !== null) {
+            $alreadyInspectedIds = $alreadyInspectedIds->diff(
+                PostMortemInspectionItem::query()
+                    ->where('post_mortem_inspection_id', $inspectionId)
+                    ->pluck('animal_intake_item_id')
+                    ->map(fn ($id) => (int) $id),
+            );
+        }
+
+        $duplicateInspection = $submittedIds->intersect($alreadyInspectedIds);
+        if ($duplicateInspection->isNotEmpty()) {
+            $validator->errors()->add(
+                'item_outcomes',
+                __('One or more animals already have a post-mortem outcome recorded.'),
             );
 
             return;
@@ -76,12 +102,73 @@ trait ValidatesPostMortemItemOutcomes
             if ($batchItemId !== null && ! in_array($batchItemId, $validBatchItemIds, true)) {
                 $validator->errors()->add(
                     "item_outcomes.{$index}.batch_item_id",
-                    __('This animal does not belong to the selected batch.'),
+                    __('This animal does not belong to the selected slaughter execution.'),
                 );
             }
         }
 
         $this->validatePerAnimalPostMortemObservations($validator, $species, $itemOutcomes);
+        $this->validateCondemnedPostMortemDetails($validator, $species, $itemOutcomes);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>|null  $itemOutcomes
+     */
+    protected function validateCondemnedPostMortemDetails(
+        Validator $validator,
+        string $species,
+        mixed $itemOutcomes,
+    ): void {
+        if (! is_array($itemOutcomes) || $itemOutcomes === []) {
+            return;
+        }
+
+        foreach ($itemOutcomes as $index => $outcome) {
+            if (($outcome['outcome'] ?? '') !== PostMortemInspectionItem::OUTCOME_CONDEMNED) {
+                continue;
+            }
+
+            $carcassWeight = $outcome['carcass_weight_kg'] ?? null;
+            if ($carcassWeight === null || $carcassWeight === '' || (float) $carcassWeight <= 0) {
+                $validator->errors()->add(
+                    "item_outcomes.{$index}.carcass_weight_kg",
+                    __('After PM (kg) is required for condemned animals.'),
+                );
+            }
+
+            $seizedPart = trim((string) ($outcome['seized_part'] ?? ''));
+            $reason = trim((string) ($outcome['reason'] ?? ''));
+            $observations = is_array($outcome['observations'] ?? null) ? $outcome['observations'] : [];
+
+            if ($seizedPart === '' && $reason === '' && ! $this->postMortemHasAbnormalOrgan($species, $observations)) {
+                $validator->errors()->add(
+                    "item_outcomes.{$index}.seized_part",
+                    __('Provide seized part, reason, or mark an abnormal organ for condemned animals.'),
+                );
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, array{value?: string|null, notes?: string|null}>  $observations
+     */
+    protected function postMortemHasAbnormalOrgan(string $species, array $observations): bool
+    {
+        $checklistItems = PostMortemChecklist::itemsForInspection($species, true);
+
+        foreach ($observations as $itemKey => $row) {
+            $meta = $checklistItems[$itemKey] ?? null;
+
+            if (($meta['category'] ?? '') !== 'organ') {
+                continue;
+            }
+
+            if (PostMortemChecklist::isAbnormalValue((string) ($row['value'] ?? ''))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

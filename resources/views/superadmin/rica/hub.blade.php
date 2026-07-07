@@ -12,9 +12,13 @@
                    class="inline-flex items-center px-3 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     {{ __('All slaughterhouses') }}
                 </a>
-                <a href="{{ route('rica.reports', request()->only('tenant_environment')) }}"
+                <a href="{{ route('rica.reports') }}"
+                   class="inline-flex items-center px-3 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    {{ __('Summary reports') }}
+                </a>
+                <a href="{{ route('rica.monthly-reports.index') }}"
                    class="inline-flex items-center px-3 py-2 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
-                    {{ __('Reports') }}
+                    {{ __('Monthly inspection reports') }}
                 </a>
             </div>
         </div>
@@ -22,15 +26,7 @@
 
     <div class="py-6">
         <div class="max-w-7xl mx-auto space-y-6">
-            <x-super-admin.tenant-environment-filter
-                :action="route('rica.hub')"
-                :current="$tenantEnvironmentFilter ?? null"
-            />
-
             <form method="get" action="{{ route('rica.hub') }}" class="hub-period-filter">
-                @foreach (request()->only(['tenant_environment']) as $name => $value)
-                    <input type="hidden" name="{{ $name }}" value="{{ $value }}">
-                @endforeach
                 <div class="hub-period-filter__bar">
                     <div class="hub-period-filter__toggles" role="group" aria-label="{{ __('Slaughter period') }}">
                         @foreach (['all' => __('All'), 'day' => __('Daily'), 'month' => __('Monthly'), 'year' => __('Yearly')] as $periodKey => $periodLabel)
@@ -52,7 +48,7 @@
                     <div class="hub-period-filter__actions">
                         <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
                         @if ($filters['period'] !== 'all' || $filters['has_custom_range'])
-                            <a href="{{ route('rica.hub', request()->only('tenant_environment')) }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
+                            <a href="{{ route('rica.hub') }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
                         @endif
                     </div>
                 </div>
@@ -122,7 +118,7 @@
                 :business-label="__('Operator')"
                 :empty-message="__('No slaughterhouse activity for this period.')"
                 footer-route="rica.slaughterhouses.index"
-                :footer-route-params="request()->only('tenant_environment')"
+                :footer-route-params="[]"
                 :footer-label="__('View all slaughterhouses')"
                 facility-route="rica.slaughterhouses.show"
             />

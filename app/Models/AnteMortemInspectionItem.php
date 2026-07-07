@@ -22,6 +22,8 @@ class AnteMortemInspectionItem extends Model
         'animal_intake_item_id',
         'outcome',
         'outcome_notes',
+        'conditions',
+        'action_taken',
     ];
 
     /**

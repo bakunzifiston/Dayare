@@ -14,6 +14,8 @@ use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
 use App\Models\WarehouseStorage;
 use App\Services\Processor\CertificatePdfService;
+use App\Support\BatchAnimalReleaseLookup;
+use App\Support\CertificateAnimalSelection;
 use App\Support\DomPdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -142,6 +144,10 @@ class CertificateController extends Controller
                 ->count(),
             'ready_to_issue' => Batch::whereIn('id', $batchIds)
                 ->eligibleForCertificate()
+                ->get()
+                ->filter(fn (Batch $batch) => $batch->canIssueCertificate())
+                ->pluck('slaughter_execution_id')
+                ->unique()
                 ->count(),
         ];
     }
@@ -175,16 +181,12 @@ class CertificateController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $readyBatches = Batch::whereIn('id', $batchIds)
-            ->eligibleForCertificate()
-            ->with(['slaughterExecution.slaughterPlan.facility', 'postMortemInspection'])
-            ->limit(10)
-            ->get();
+        $readyExecutions = $this->readyExecutionsForCertificate($batchIds);
 
         return view('certificates.hub', compact(
             'hubStats',
             'certificates',
-            'readyBatches',
+            'readyExecutions',
             'filters',
         ));
     }
@@ -379,61 +381,90 @@ class CertificateController extends Controller
         return $pdf->download($fileName);
     }
 
+    /**
+     * @return \Illuminate\Support\Collection<int, Batch>
+     */
+    private function certifiableBatches(Request $request): \Illuminate\Support\Collection
+    {
+        $batchIds = $this->userBatchIds($request);
+
+        return Batch::with([
+            'postMortemInspection.inspectionItems',
+            'slaughterExecution.slaughterPlan.facility',
+            'inspector',
+            'warehouseStorages',
+            'items',
+            'certificates',
+        ])
+            ->whereIn('id', $batchIds)
+            ->eligibleForCertificate()
+            ->latest()
+            ->get()
+            ->filter(fn (Batch $batch) => $batch->canIssueCertificate())
+            ->values();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Batch>  $certifiableBatches
+     * @return \Illuminate\Support\Collection<int, array{id: int, batch_id: int, label: string, facility_id: int|null, inspector_id: int|null}>
+     */
+    private function executionOptionsFromCertifiableBatches(\Illuminate\Support\Collection $certifiableBatches): \Illuminate\Support\Collection
+    {
+        return $certifiableBatches
+            ->groupBy('slaughter_execution_id')
+            ->map(function (\Illuminate\Support\Collection $batches) {
+                $batch = $batches->first();
+                $execution = $batch->slaughterExecution;
+                $plan = $execution?->slaughterPlan;
+                $facilityName = $plan?->facility?->facility_name ?? __('Unknown facility');
+                $readyCount = CertificateAnimalSelection::certifiableAnimals($batch)->count();
+
+                return [
+                    'id' => (int) $execution?->id,
+                    'batch_id' => $batch->id,
+                    'label' => ($execution?->slaughter_time?->format('d M Y H:i') ?? '—')
+                        .' — '.$facilityName
+                        .' ('.($plan?->species ?? '—').')'
+                        .' · '.__(':count animal(s) ready', ['count' => $readyCount]),
+                    'facility_id' => $plan?->facility_id,
+                    'inspector_id' => $batch->inspector_id,
+                ];
+            })
+            ->filter(fn (array $option) => $option['id'] > 0)
+            ->sortByDesc('id')
+            ->values();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, SlaughterExecution>
+     */
+    private function readyExecutionsForCertificate(\Illuminate\Support\Collection $batchIds): \Illuminate\Support\Collection
+    {
+        $certifiableBatches = Batch::whereIn('id', $batchIds)
+            ->eligibleForCertificate()
+            ->with(['slaughterExecution.slaughterPlan.facility', 'postMortemInspection'])
+            ->latest()
+            ->get()
+            ->filter(fn (Batch $batch) => $batch->canIssueCertificate());
+
+        $executionIds = $certifiableBatches->pluck('slaughter_execution_id')->unique()->filter();
+
+        return SlaughterExecution::query()
+            ->whereIn('id', $executionIds)
+            ->with(['slaughterPlan.facility'])
+            ->latest('slaughter_time')
+            ->limit(10)
+            ->get();
+    }
+
     public function create(Request $request): View
     {
         $batchIds = $this->userBatchIds($request);
         $facilityIds = $this->userFacilityIds($request);
-        $releasedBatchIds = WarehouseStorage::releasedBatchIdsFor($batchIds);
 
-        $batches = Batch::with(['postMortemInspection.inspectionItems', 'slaughterExecution.slaughterPlan.facility', 'inspector'])
-            ->whereIn('id', $releasedBatchIds)
-            ->whereDoesntHave('certificate')
-            ->latest()
-            ->get()
-            ->filter(fn (Batch $b) => $b->canIssueCertificate())
-            ->map(function (Batch $b) {
-                $facilityName = $b->slaughterExecution?->slaughterPlan?->facility?->facility_name ?? __('Unknown facility');
-                $approvedLabel = $b->postMortemInspection?->approved_quantity
-                    ?? ($b->hasReleasedStorageWithPostMortemItem() ? __('released from cold room') : '—');
-
-                return [
-                    'id' => $b->id,
-                    'label' => $b->batch_code.' — '.$facilityName.' ('.__('approved').': '.$approvedLabel.')',
-                    'facility_id' => $b->slaughterExecution?->slaughterPlan?->facility_id,
-                    'inspector_id' => $b->inspector_id,
-                ];
-            })
-            ->values();
-
-        $blockedBatches = Batch::with(['postMortemInspection.inspectionItems', 'slaughterExecution.slaughterPlan.facility', 'warehouseStorages'])
-            ->whereIn('id', $releasedBatchIds)
-            ->whereDoesntHave('certificate')
-            ->latest()
-            ->get()
-            ->reject(fn (Batch $b) => $b->canIssueCertificate())
-            ->map(fn (Batch $b) => [
-                'batch_code' => $b->batch_code,
-                'reason' => $b->certificateIssueBlockReason() ?? __('Not eligible for certification.'),
-            ])
-            ->values();
-
-        $pendingColdRoomRelease = WarehouseStorage::query()
-            ->forColdRoomUser($request)
-            ->where('status', WarehouseStorage::STATUS_IN_STORAGE)
-            ->with(['batch', 'intakeItem'])
-            ->whereIn('batch_id', $batchIds)
-            ->whereHas('batch', fn ($q) => $q->whereDoesntHave('certificate'))
-            ->latest('entry_date')
-            ->get()
-            ->map(fn (WarehouseStorage $storage) => [
-                'id' => $storage->id,
-                'batch_code' => $storage->batch?->batch_code ?? '—',
-                'ear_tag' => $storage->intakeItem?->ear_tag,
-                'quantity' => $storage->quantity_stored,
-                'unit' => $storage->quantity_unit_label,
-                'edit_url' => route('warehouse-storages.edit', $storage),
-            ])
-            ->values();
+        $certifiableBatches = $this->certifiableBatches($request);
+        $executions = $this->executionOptionsFromCertifiableBatches($certifiableBatches);
+        $certifiableExecutionIds = $executions->pluck('id');
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
             ->where('status', 'active')
@@ -447,42 +478,71 @@ class CertificateController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
-        // --- Section 2 ---
-        $selectedBatchId = $request->query('batch_id');
-        $selectedBatch = $selectedBatchId
-            ? Batch::whereIn('id', $batchIds)
-                ->with([
-                    'postMortemInspection.inspectionItems.intakeItem',
-                    'items.intakeItem',
-                    'slaughterExecution.slaughterPlan.facility',
-                    'warehouseStorages',
-                ])
-                ->find($selectedBatchId)
+        $selectedExecutionId = $request->query('slaughter_execution_id') ?? old('slaughter_execution_id');
+        if (! $selectedExecutionId && $request->filled('batch_id')) {
+            $legacyBatch = Batch::whereIn('id', $batchIds)->find($request->integer('batch_id'));
+            $selectedExecutionId = $legacyBatch?->slaughter_execution_id;
+        }
+        $selectedExecutionId = $selectedExecutionId && $certifiableExecutionIds->contains((int) $selectedExecutionId)
+            ? (int) $selectedExecutionId
             : null;
 
-        $defaultInspectorId = old('inspector_id', $selectedBatch?->canIssueCertificate() ? $selectedBatch->inspector_id : null);
+        $selectedBatch = $selectedExecutionId
+            ? Batch::certifiableForExecution($selectedExecutionId)
+            : null;
+
+        $defaultInspectorId = old('inspector_id', $selectedBatch?->inspector_id);
         $defaultFacilityId = old(
             'facility_id',
-            $selectedBatch?->canIssueCertificate()
-                ? $selectedBatch->slaughterExecution?->slaughterPlan?->facility_id
-                : null,
+            $selectedBatch?->slaughterExecution?->slaughterPlan?->facility_id,
         );
 
+        $pdfService = app(CertificatePdfService::class);
         $pdfDefaults = [];
         if ($selectedBatch?->canIssueCertificate()) {
-            $pdfDefaults = app(CertificatePdfService::class)->suggestedPdfDetails(
+            $pdfDefaults = $pdfService->suggestedPdfDetails(
                 $selectedBatch,
                 $selectedBatch->slaughterExecution?->slaughterPlan?->facility,
             );
         }
 
+        $executionPrefills = $executions
+            ->mapWithKeys(function (array $execution) use ($pdfService) {
+                $batch = Batch::find($execution['batch_id']);
+                if ($batch === null) {
+                    return [];
+                }
+
+                $facility = Facility::find($execution['facility_id']);
+                $animalIds = CertificateAnimalSelection::certifiableAnimals($batch)->pluck('animal_intake_item_id');
+
+                return [
+                    (int) $execution['id'] => $pdfService->suggestedPdfDetailsForAnimals($batch, $animalIds, $facility),
+                ];
+            });
+
+        $certifiableAnimalsByExecution = $executions
+            ->mapWithKeys(fn (array $execution) => [
+                (int) $execution['id'] => CertificateAnimalSelection::certifiableAnimals(
+                    Batch::find($execution['batch_id']) ?? new Batch,
+                )->values(),
+            ])
+            ->filter(fn ($animals, $executionId) => $executionId > 0);
+
+        $selectedAnimalIds = collect(old('animal_intake_item_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+
         return view('certificates.create', [
-            'batches' => $batches,
-            'blockedBatches' => $blockedBatches,
-            'pendingColdRoomRelease' => $pendingColdRoomRelease,
+            'executions' => $executions,
+            'executionPrefills' => $executionPrefills,
+            'certifiableAnimalsByExecution' => $certifiableAnimalsByExecution,
+            'selectedAnimalIds' => $selectedAnimalIds,
             'inspectorsByFacility' => $inspectorsByFacility,
             'facilities' => $facilities,
-            'selectedBatch' => $selectedBatch,
+            'selectedExecutionId' => $selectedExecutionId,
             'defaultInspectorId' => $defaultInspectorId,
             'defaultFacilityId' => $defaultFacilityId,
             'defaultSlaughterhouseName' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
@@ -494,12 +554,26 @@ class CertificateController extends Controller
     public function store(StoreCertificateRequest $request): RedirectResponse
     {
         $batchIds = $this->userBatchIds($request);
-        if (! $batchIds->contains((int) $request->validated('batch_id'))) {
+        $validated = $request->validated();
+
+        if (! $batchIds->contains((int) $validated['batch_id'])) {
             abort(404);
         }
 
-        $certificate = DB::transaction(function () use ($request) {
-            $certificate = Certificate::create($request->validated());
+        if ($request->filled('slaughter_execution_id')
+            && ! $this->userExecutionIds($request)->contains((int) $request->input('slaughter_execution_id'))) {
+            abort(404);
+        }
+
+        $certificate = DB::transaction(function () use ($validated) {
+            $certificate = Certificate::create($validated);
+
+            $animalIds = collect($validated['animal_intake_item_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values();
+
+            CertificateAnimalSelection::attachStoragesToCertificate($certificate, $animalIds);
 
             // --- Section 2 --- Auto-create QR so every certificate is immediately traceable
             if (! $certificate->certificateQr) {
@@ -545,7 +619,43 @@ class CertificateController extends Controller
             $certificate->load('certificateQr');
         }
 
-        return view('certificates.show', ['certificate' => $certificate]);
+        $releaseByAnimalId = $certificate->batch
+            ? \App\Support\BatchAnimalReleaseLookup::forBatch($certificate->batch)
+            : collect();
+
+        $certificateAnimalIds = \App\Support\CertificateAnimalSelection::certificateAnimalIds($certificate);
+
+        $certificateView = app(CertificatePdfService::class)->buildTraceViewData($certificate);
+        $certificateNumber = $certificate->certificate_number ?: '#'.$certificate->id;
+        $slaughterDate = $certificate->batch?->slaughterExecution?->slaughter_time?->format('d M Y') ?? '—';
+        $inspectorName = $certificate->inspector?->full_name ?? '—';
+
+        $plan = $certificate->batch?->slaughterExecution?->slaughterPlan;
+        $postMortem = $certificate->batch?->postMortemInspection;
+        $hasAnteMortem = $plan && $plan->relationLoaded('anteMortemInspections')
+            ? $plan->anteMortemInspections->isNotEmpty()
+            : ($plan?->anteMortemInspections()->exists() ?? false);
+        $hasPostMortemApproved = $postMortem && (
+            (float) $postMortem->approved_quantity > 0
+            || (int) $postMortem->approved_from_items > 0
+        );
+        $certificateValid = $certificate->status === Certificate::STATUS_ACTIVE
+            && (! $certificate->expiry_date || ! $certificate->expiry_date->isPast());
+        $legallyInspected = $hasAnteMortem && $hasPostMortemApproved;
+        $safeForSale = $certificateValid && $legallyInspected;
+
+        return view('certificates.show', compact(
+            'certificate',
+            'releaseByAnimalId',
+            'certificateAnimalIds',
+            'certificateView',
+            'certificateNumber',
+            'slaughterDate',
+            'inspectorName',
+            'certificateValid',
+            'legallyInspected',
+            'safeForSale',
+        ));
     }
 
     public function qr(Request $request, Certificate $certificate): Response
@@ -566,17 +676,6 @@ class CertificateController extends Controller
         $batchIds = $this->userBatchIds($request);
         $facilityIds = $this->userFacilityIds($request);
 
-        $batches = Batch::with(['postMortemInspection', 'slaughterExecution.slaughterPlan.facility'])
-            ->whereIn('id', $batchIds)
-            ->whereHas('postMortemInspection', fn ($q) => $q->where('approved_quantity', '>', 0))
-            ->latest()
-            ->get()
-            ->map(fn (Batch $b) => [
-                'id' => $b->id,
-                'label' => $b->batch_code.' — '.$b->slaughterExecution->slaughterPlan->facility->facility_name,
-                'facility_id' => $b->slaughterExecution->slaughterPlan->facility_id,
-            ]);
-
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
             ->where('status', 'active')
             ->orderBy('first_name')
@@ -589,16 +688,19 @@ class CertificateController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
-        $certificate->load(['batch', 'facility', 'transportTrips']);
+        $certificate->load(['batch.slaughterExecution.slaughterPlan.facility', 'facility', 'transportTrips']);
         $pdfDefaults = app(CertificatePdfService::class)->suggestedPdfDetails(
             $certificate->batch,
             $certificate->facility,
             $certificate->transportTrips->sortByDesc('departure_date')->first(),
         );
 
+        $executionLabel = $certificate->batch?->slaughterExecution?->slaughter_time?->format('d M Y H:i')
+            .' — '.($certificate->batch?->slaughterExecution?->slaughterPlan?->facility?->facility_name ?? '—');
+
         return view('certificates.edit', [
             'certificate' => $certificate,
-            'batches' => $batches,
+            'executionLabel' => $executionLabel,
             'inspectorsByFacility' => $inspectorsByFacility,
             'facilities' => $facilities,
             'pdfDefaults' => $pdfDefaults,
@@ -627,5 +729,35 @@ class CertificateController extends Controller
 
         return redirect()->route('certificates.hub')
             ->with('status', __('Certificate removed.'));
+    }
+
+    private function releasedAnimalsLabel(Batch $batch): string
+    {
+        $releaseByAnimal = BatchAnimalReleaseLookup::forBatch($batch);
+        $batch->loadMissing(['items.intakeItem']);
+
+        $released = $batch->items
+            ->map(function ($item) use ($releaseByAnimal) {
+                $storage = $releaseByAnimal->get((int) $item->animal_intake_item_id);
+                if ($storage === null || ! $storage->isReleased()) {
+                    return null;
+                }
+
+                $tag = trim((string) ($item->intakeItem?->ear_tag ?? ''));
+                if ($tag === '') {
+                    return number_format((float) $storage->quantity_stored, 2).' kg';
+                }
+
+                return $tag.' · '.number_format((float) $storage->quantity_stored, 2).' kg';
+            })
+            ->filter()
+            ->values();
+
+        if ($released->isNotEmpty()) {
+            return $released->implode(', ');
+        }
+
+        return (string) ($batch->postMortemInspection?->approved_quantity
+            ?? ($batch->hasReleasedStorageWithPostMortemItem() ? __('released from cold room') : '—'));
     }
 }

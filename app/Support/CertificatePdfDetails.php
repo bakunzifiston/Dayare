@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Models\Facility;
+
 class CertificatePdfDetails
 {
     /** @var list<string> */
@@ -11,6 +13,7 @@ class CertificatePdfDetails
         'facility_phone',
         'facility_registration',
         'animal_names',
+        'species',
         'butcher_name',
         'selling_location',
         'owner_phone',
@@ -23,6 +26,7 @@ class CertificatePdfDetails
         'vehicle_plate_number',
         'driver_name',
         'departure_destination',
+        'departure_time',
         'transporter_phone',
     ];
 
@@ -41,18 +45,20 @@ class CertificatePdfDetails
             "{$prefix}.facility_phone" => $string,
             "{$prefix}.facility_registration" => $string,
             "{$prefix}.animal_names" => $string,
+            "{$prefix}.species" => $string,
             "{$prefix}.butcher_name" => $string,
             "{$prefix}.selling_location" => $string,
             "{$prefix}.owner_phone" => $string,
             "{$prefix}.shop_name" => $string,
             "{$prefix}.shop_phone" => $string,
-            "{$prefix}.carcass_meat_kg" => $numeric,
-            "{$prefix}.other_meat_kg" => $numeric,
+            "{$prefix}.carcass_meat_kg" => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            "{$prefix}.other_meat_kg" => ['nullable', 'numeric', 'min:0', 'max:999999'],
             "{$prefix}.temperature_celsius" => ['nullable', 'numeric', 'min:-50', 'max:50'],
             "{$prefix}.transporter_license_holder" => $string,
             "{$prefix}.vehicle_plate_number" => $string,
             "{$prefix}.driver_name" => $string,
             "{$prefix}.departure_destination" => $string,
+            "{$prefix}.departure_time" => $string,
             "{$prefix}.transporter_phone" => $string,
         ];
     }
@@ -90,5 +96,29 @@ class CertificatePdfDetails
         }
 
         return $normalized === [] ? null : $normalized;
+    }
+
+    public static function facilityLocationIsComplete(?Facility $facility): bool
+    {
+        if ($facility === null) {
+            return false;
+        }
+
+        $facility->loadMissing(['districtDivision', 'sectorDivision', 'cell']);
+
+        return self::nonEmptyString($facility->districtDivision?->name ?? $facility->getRawOriginal('district')) !== null
+            && self::nonEmptyString($facility->sectorDivision?->name ?? $facility->getRawOriginal('sector')) !== null
+            && self::nonEmptyString($facility->cell?->name) !== null;
+    }
+
+    private static function nonEmptyString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed !== '' ? $trimmed : null;
     }
 }

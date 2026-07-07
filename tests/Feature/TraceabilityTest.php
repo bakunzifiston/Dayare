@@ -252,11 +252,10 @@ class TraceabilityTest extends TestCase
         $response = $this->get(route('traceability.show', ['slug' => $slug]));
 
         $response->assertOk();
-        $response->assertSee('Individual animals', false);
+        $response->assertSee('Inspection traceability', false);
         $response->assertSee('RW-TRACE-001', false);
-        $response->assertSee('250.00 kg', false);
         $response->assertSee('Approved', false);
-        $response->assertSee('Tap to view inspection details', false);
+        $response->assertSee('IBIRANGA ITUNGO', false);
         $response->assertSee('Ante-mortem inspection', false);
         $response->assertSee('Post-mortem inspection', false);
         $response->assertSee('Locomotion', false);

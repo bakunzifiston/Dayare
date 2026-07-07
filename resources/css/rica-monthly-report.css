@@ -1,0 +1,322 @@
+/* RICA FPU/FRM/018 — web UI aligned with PDF (green official form) */
+
+.rica-report-page {
+    --rica-green: #00a651;
+    --rica-green-dark: #047857;
+    --rica-green-light: #edf9f1;
+    --rica-green-border: #b8dcc6;
+    --rica-green-muted: #c8e6d4;
+
+    @apply max-w-5xl mx-auto space-y-5 pb-12;
+}
+
+.rica-toolbar {
+    @apply flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white px-4 py-3 shadow-sm print:hidden;
+    border-color: var(--rica-green-border);
+}
+
+.rica-toolbar__actions {
+    @apply flex flex-wrap items-center gap-2;
+}
+
+.rica-btn {
+    @apply inline-flex items-center px-3.5 py-2 rounded-md text-sm font-semibold transition-colors;
+}
+
+.rica-btn--primary {
+    background-color: var(--rica-green);
+    @apply text-white;
+}
+
+.rica-btn--primary:hover {
+    background-color: var(--rica-green-dark);
+}
+
+.rica-btn--secondary {
+    @apply border text-slate-700 hover:bg-slate-50;
+    border-color: var(--rica-green-border);
+}
+
+.rica-report {
+    @apply rounded-xl border bg-white shadow-sm overflow-hidden print:shadow-none;
+    border-color: var(--rica-green-border);
+}
+
+/* Cover — matches PDF */
+.rica-report__cover {
+    @apply relative overflow-hidden px-5 py-5 sm:px-6 sm:py-6 text-center;
+    background-color: var(--rica-green);
+    color: #fff;
+}
+
+.rica-report__cover-flag {
+    @apply grid grid-cols-3 gap-0 w-full mb-0;
+}
+
+.rica-report__cover-flag span {
+    @apply block h-1;
+}
+
+.rica-report__cover-flag .flag-blue { background-color: #00a1de; }
+.rica-report__cover-flag .flag-yellow { background-color: #fad201; }
+.rica-report__cover-flag .flag-green { background-color: #ffffff; }
+
+.rica-report__cover-republic {
+    @apply mt-2 text-[11px] font-bold uppercase tracking-[0.08em];
+}
+
+.rica-report__cover-republic-rw {
+    @apply mt-0.5 text-[10px] opacity-90;
+}
+
+.rica-report__cover-title {
+    @apply mt-2 text-sm sm:text-base font-bold leading-snug uppercase;
+}
+
+.rica-report__cover-subtitle {
+    @apply mt-1 text-xs sm:text-sm opacity-90;
+}
+
+.rica-report__cover-note {
+    @apply mt-2 text-[11px] italic opacity-90;
+}
+
+.rica-report__cover-meta {
+    @apply mt-3 flex flex-wrap justify-center gap-2;
+}
+
+.rica-report__badge {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium;
+    background-color: rgb(255 255 255 / 18%);
+    border-color: rgb(255 255 255 / 35%);
+}
+
+.rica-report__badge--highlight {
+    background-color: rgb(255 255 255 / 28%);
+    @apply font-bold;
+}
+
+.rica-report__cover-dates {
+    @apply mt-3 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm border-t border-white/25 pt-3;
+}
+
+.rica-report__body {
+    @apply px-4 py-5 sm:px-6 sm:py-6 space-y-5 text-sm;
+    color: #1a1a1a;
+}
+
+.rica-section {
+    @apply space-y-2;
+}
+
+.rica-section-title {
+    @apply text-sm font-bold pb-2 mb-2 border-b-2;
+    color: var(--rica-green-dark);
+    border-color: var(--rica-green);
+}
+
+.rica-section-num {
+    color: var(--rica-green);
+    @apply font-bold;
+}
+
+.rica-section-title-rw {
+    @apply text-xs font-normal normal-case;
+    color: #333;
+}
+
+/* Field tables (sections 1–2) */
+.rica-field-table {
+    @apply w-full border-collapse text-sm mt-1;
+}
+
+.rica-field-table td {
+    @apply px-3 py-2 align-top border;
+    border-color: var(--rica-green-muted);
+}
+
+.rica-field-table .field-label {
+    @apply w-[26%] text-xs font-bold;
+    color: var(--rica-green-dark);
+    background-color: var(--rica-green-light);
+}
+
+.rica-field-table .field-value {
+    @apply font-semibold text-slate-900;
+}
+
+/* Data tables (sections 3–6) */
+.rica-table-wrap {
+    @apply mt-1 overflow-x-auto rounded-sm border;
+    border-color: var(--rica-green-border);
+}
+
+.rica-table {
+    @apply w-full min-w-[32rem] text-sm border-collapse;
+}
+
+.rica-table th {
+    @apply text-left text-xs font-bold px-3 py-2 border;
+    color: var(--rica-green-dark);
+    background-color: var(--rica-green-light);
+    border-color: var(--rica-green-border);
+}
+
+.rica-table td {
+    @apply px-3 py-2 align-top border text-slate-800;
+    border-color: var(--rica-green-border);
+}
+
+.rica-table tbody tr:nth-child(even) td {
+    background-color: #fafdfb;
+}
+
+.rica-table tfoot td {
+    @apply font-bold;
+    color: var(--rica-green-dark);
+    background-color: #e4f5ea;
+    border-color: var(--rica-green-border);
+}
+
+.rica-empty {
+    @apply text-center italic py-6 text-sm text-slate-500;
+}
+
+.rica-note,
+.rica-cert-note {
+    @apply text-xs mt-1 mb-2 font-medium;
+    color: var(--rica-green-dark);
+}
+
+.rica-closure {
+    @apply rounded-xl border bg-white p-5 sm:p-6 shadow-sm space-y-5 print:hidden;
+    border-color: var(--rica-green-border);
+}
+
+.rica-challenges-box {
+    @apply border rounded-sm min-h-[4.5rem] p-3 text-sm whitespace-pre-wrap;
+    border-color: var(--rica-green-border);
+    background-color: #fafdfb;
+}
+
+.rica-sub-heading {
+    @apply text-xs font-bold mt-4 mb-2;
+    color: var(--rica-green-dark);
+}
+
+.rica-signature-block {
+    @apply border rounded-sm p-3 mb-2 text-sm;
+    border-color: var(--rica-green-border);
+    background-color: #fafdfb;
+}
+
+.rica-signature-block table {
+    @apply w-full text-xs;
+}
+
+.rica-signature-block td {
+    @apply py-1 align-top;
+}
+
+.rica-submitted-note {
+    @apply text-xs font-bold mt-3;
+    color: var(--rica-green-dark);
+}
+
+.rica-status {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+}
+
+.rica-status--submitted {
+    @apply bg-green-100 text-green-800;
+}
+
+.rica-status--draft {
+    @apply bg-amber-100 text-amber-800;
+}
+
+.rica-status--pending {
+    @apply bg-slate-100 text-slate-600;
+}
+
+.rica-index-filters {
+    @apply rounded-xl border bg-white p-4 shadow-sm;
+    border-color: var(--rica-green-border);
+}
+
+.rica-index-tabs {
+    @apply flex flex-wrap gap-2;
+}
+
+.rica-index-tabs__link {
+    @apply inline-flex items-center rounded-lg border px-4 py-2 text-sm font-semibold transition-colors;
+    border-color: var(--rica-green-border);
+    color: var(--rica-green-dark);
+    background-color: #fff;
+}
+
+.rica-index-tabs__link:hover {
+    background-color: var(--rica-green-light);
+}
+
+.rica-index-tabs__link--active {
+    @apply text-white;
+    background-color: var(--rica-green);
+    border-color: var(--rica-green);
+}
+
+.rica-index-hint {
+    @apply rounded-lg border px-3 py-2 text-xs text-slate-600;
+    border-color: var(--rica-green-border);
+    background-color: var(--rica-green-light);
+}
+
+.rica-index-table {
+    @apply w-full text-sm;
+}
+
+.rica-index-table thead {
+    @apply border-b-2 text-left text-xs font-bold uppercase tracking-wide;
+    color: var(--rica-green-dark);
+    background-color: var(--rica-green-light);
+    border-color: var(--rica-green);
+}
+
+.rica-index-table th {
+    @apply px-4 py-3;
+}
+
+.rica-index-table td {
+    @apply px-4 py-3 border-t;
+    border-color: var(--rica-green-border);
+}
+
+.rica-index-table tbody tr:hover {
+    background-color: #fafdfb;
+}
+
+.rica-muted {
+    @apply text-slate-500 italic;
+}
+
+.rica-section-hint {
+    @apply mb-3 text-xs text-slate-600;
+}
+
+.rica-pending-note {
+    @apply rounded-lg border px-4 py-3 text-sm;
+    border-color: #fcd34d;
+    background-color: #fffbeb;
+    color: #92400e;
+}
+
+@media print {
+    .rica-report {
+        @apply border-0 shadow-none;
+    }
+
+    .rica-toolbar,
+    .rica-closure form {
+        display: none !important;
+    }
+}

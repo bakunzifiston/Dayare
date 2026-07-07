@@ -10,6 +10,9 @@ use App\Models\PostMortemInspectionItem;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
+use App\Models\RicaMonthlyInspectionReport;
+use App\Services\SuperAdmin\RicaMonthlyInspectionReportService;
+use App\Services\SuperAdmin\RicaMonthlyInspectionReportPdfService;
 use App\Services\SuperAdmin\RicaReportService;
 use App\Services\SuperAdmin\SuperAdminSlaughterDashboardService;
 use App\Support\TenantEnvironmentScope;
@@ -24,6 +27,8 @@ class RicaController extends Controller
 {
     public function __construct(
         private readonly RicaReportService $reportService,
+        private readonly RicaMonthlyInspectionReportService $monthlyReportService,
+        private readonly RicaMonthlyInspectionReportPdfService $monthlyReportPdfService,
         private readonly SuperAdminSlaughterDashboardService $slaughterDashboard,
     ) {}
 
@@ -32,8 +37,18 @@ class RicaController extends Controller
      */
     private function slaughterhouseQuery(): Builder
     {
-        return Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)
+        return Facility::query()
+            ->eligibleForRicaMonthlyReport()
             ->with('business');
+    }
+
+    private function assertRicaMonthlyReportFacility(Facility $facility): void
+    {
+        abort_unless(
+            $facility->facility_type === Facility::TYPE_SLAUGHTERHOUSE
+            || $facility->slaughterPlans()->exists(),
+            404,
+        );
     }
 
     /**
@@ -44,9 +59,14 @@ class RicaController extends Controller
         return SlaughterPlan::whereIn('facility_id', $facilityIds)->pluck('id');
     }
 
+    private function useAllTenantEnvironments(): void
+    {
+        TenantEnvironmentScope::setFilter(TenantEnvironmentScope::FILTER_ALL);
+    }
+
     public function hub(Request $request): View
     {
-        TenantEnvironmentScope::setFilter(TenantEnvironmentScope::resolveFromRequest($request));
+        $this->useAllTenantEnvironments();
 
         $filters = $this->slaughterDashboard->resolveHubFilters($request);
 
@@ -66,7 +86,7 @@ class RicaController extends Controller
             'facilitySlaughterRows',
             'filters',
             'chartSpecs',
-        ))->with('tenantEnvironmentFilter', TenantEnvironmentScope::current());
+        ));
     }
 
     /**
@@ -155,43 +175,14 @@ class RicaController extends Controller
     {
         abort_unless($facility->facility_type === Facility::TYPE_SLAUGHTERHOUSE, 404);
 
+        $this->useAllTenantEnvironments();
+
+        ['dateFrom' => $dateFrom, 'dateTo' => $dateTo] = $this->reportService->resolveDashboardDateRange($request);
+        $dashboard = $this->reportService->facilityPeriodDashboard($facility, $dateFrom, $dateTo);
+        $stats = $dashboard['stats'];
+        $speciesBreakdown = $dashboard['speciesBreakdown'];
+
         $planIds = SlaughterPlan::where('facility_id', $facility->id)->pluck('id');
-
-        $dateFrom = $request->date_from
-            ? Carbon::parse($request->date_from)->startOfDay()
-            : now()->startOfMonth();
-        $dateTo = $request->date_to
-            ? Carbon::parse($request->date_to)->endOfDay()
-            : now()->endOfDay();
-
-        $execItemsBase = SlaughterExecutionItem::whereHas('execution', fn ($q) => $q
-            ->whereIn('slaughter_plan_id', $planIds)
-            ->whereBetween('slaughter_time', [$dateFrom, $dateTo]));
-
-        $stats = [
-            'animals_slaughtered' => (clone $execItemsBase)->count(),
-            'total_meat_kg' => (float) (clone $execItemsBase)->sum('meat_quantity_kg'),
-            'condemned' => PostMortemInspectionItem::whereHas(
-                'inspection.batch.slaughterExecution',
-                fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
-                    ->whereBetween('slaughter_time', [$dateFrom, $dateTo])
-            )->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)
-                ->count(),
-            'certificates' => Certificate::whereHas(
-                'batch.slaughterExecution',
-                fn ($q) => $q->whereIn('slaughter_plan_id', $planIds)
-                    ->whereBetween('slaughter_time', [$dateFrom, $dateTo])
-            )->count(),
-        ];
-
-        $speciesBreakdown = SlaughterExecutionItem::whereHas('execution', fn ($q) => $q
-            ->whereIn('slaughter_plan_id', $planIds)
-            ->whereBetween('slaughter_time', [$dateFrom, $dateTo]))
-            ->join('animal_intake_items', 'slaughter_execution_items.animal_intake_item_id', '=', 'animal_intake_items.id')
-            ->selectRaw('animal_intake_items.species, COUNT(*) as count, SUM(slaughter_execution_items.meat_quantity_kg) as total_kg')
-            ->groupBy('animal_intake_items.species')
-            ->orderByDesc('count')
-            ->get();
 
         $recentExecutions = SlaughterExecution::whereIn('slaughter_plan_id', $planIds)
             ->with([
@@ -214,7 +205,7 @@ class RicaController extends Controller
 
     public function reports(Request $request): View
     {
-        TenantEnvironmentScope::setFilter(TenantEnvironmentScope::resolveFromRequest($request));
+        $this->useAllTenantEnvironments();
 
         $report = $this->reportService->buildReport($request);
 
@@ -229,13 +220,163 @@ class RicaController extends Controller
             'dateTo' => $report['dateTo'],
             'dateBasis' => $report['dateBasis'],
             'businesses' => $businesses,
-            'tenantEnvironmentFilter' => TenantEnvironmentScope::current(),
         ]);
+    }
+
+    public function monthlyReportsIndex(Request $request): View
+    {
+        $this->useAllTenantEnvironments();
+
+        $view = $request->string('view', 'submitted')->toString();
+        if (! in_array($view, ['submitted', 'facilities'], true)) {
+            $view = 'submitted';
+        }
+
+        $period = $this->monthlyReportService->resolvePeriod($request);
+        $allPeriods = $this->resolveMonthlyReportAllPeriodsFilter($request, $view);
+        $scopedFacility = $request->filled('facility_id')
+            ? TenantEnvironmentScope::applyToFacilities(Facility::query())->find($request->integer('facility_id'))
+            : null;
+
+        $businesses = TenantEnvironmentScope::applyToBusinesses(
+            Business::whereHas('facilities', fn ($q) => $q->eligibleForRicaMonthlyReport())
+        )->orderBy('business_name')->get();
+
+        if ($view === 'submitted' && $allPeriods) {
+            $submittedReports = RicaMonthlyInspectionReport::query()
+                ->where('status', RicaMonthlyInspectionReport::STATUS_SUBMITTED)
+                ->with(['facility.business', 'facility.districtDivision', 'submittedBy'])
+                ->when($request->filled('search'), fn ($q) => $q->whereHas(
+                    'facility',
+                    fn ($facilityQuery) => $facilityQuery->where('facility_name', 'like', '%'.$request->string('search').'%')
+                ))
+                ->when($request->filled('business_id'), fn ($q) => $q->whereHas(
+                    'facility',
+                    fn ($facilityQuery) => $facilityQuery->where('business_id', $request->integer('business_id'))
+                ))
+                ->when($request->filled('facility_id'), fn ($q) => $q->where('facility_id', $request->integer('facility_id')))
+                ->orderByDesc('submitted_at')
+                ->orderByDesc('period_year')
+                ->orderByDesc('period_month')
+                ->paginate(50)
+                ->withQueryString();
+
+            return view('superadmin.rica.monthly-reports.index', [
+                'view' => $view,
+                'periodScoped' => false,
+                'submittedReports' => $submittedReports,
+                'businesses' => $businesses,
+                'year' => $period['year'],
+                'month' => $period['month'],
+                'periodStart' => $period['periodStart'],
+                'periodEnd' => $period['periodEnd'],
+                'allPeriods' => $allPeriods,
+                'scopedFacility' => $scopedFacility,
+            ]);
+        }
+
+        $facilities = $this->ricaMonthlyReportFacilitiesQuery($request)
+            ->paginate(50)
+            ->withQueryString();
+
+        $submissionStatuses = RicaMonthlyInspectionReport::query()
+            ->where('period_year', $period['year'])
+            ->where('period_month', $period['month'])
+            ->whereIn('facility_id', $facilities->pluck('id'))
+            ->get()
+            ->keyBy('facility_id');
+
+        return view('superadmin.rica.monthly-reports.index', [
+            'view' => $view,
+            'periodScoped' => true,
+            'facilities' => $facilities,
+            'submissionStatuses' => $submissionStatuses,
+            'businesses' => $businesses,
+            'year' => $period['year'],
+            'month' => $period['month'],
+            'periodStart' => $period['periodStart'],
+            'periodEnd' => $period['periodEnd'],
+            'allPeriods' => $allPeriods,
+            'scopedFacility' => $scopedFacility,
+        ]);
+    }
+
+    private function ricaMonthlyReportFacilitiesQuery(Request $request): Builder
+    {
+        return TenantEnvironmentScope::applyToFacilities(
+            Facility::query()
+                ->eligibleForRicaMonthlyReport()
+                ->with(['business', 'districtDivision'])
+        )
+            ->when($request->filled('facility_id'), fn ($q) => $q->where('id', $request->integer('facility_id')))
+            ->when($request->filled('search'), fn ($q) => $q->where('facility_name', 'like', '%'.$request->string('search').'%'))
+            ->when($request->filled('business_id'), fn ($q) => $q->where('business_id', $request->integer('business_id')))
+            ->orderBy('facility_name');
+    }
+
+    private function resolveMonthlyReportAllPeriodsFilter(Request $request, string $view): bool
+    {
+        if ($view !== 'submitted') {
+            return false;
+        }
+
+        if (! $request->has('apply')) {
+            return true;
+        }
+
+        $value = $request->input('all_periods');
+
+        if (is_array($value)) {
+            return in_array('1', $value, true) || in_array(1, $value, true);
+        }
+
+        return $request->boolean('all_periods');
+    }
+
+    public function monthlyReportShow(Request $request, Facility $facility): View
+    {
+        $this->assertRicaMonthlyReportFacility($facility);
+
+        $this->useAllTenantEnvironments();
+
+        $period = $this->monthlyReportService->resolvePeriod($request);
+        $report = $this->monthlyReportService->build(
+            $facility,
+            $period['periodStart'],
+            $period['periodEnd'],
+        );
+
+        $facility->load('business');
+
+        return view('superadmin.rica.monthly-reports.show', [
+            'facility' => $facility,
+            'report' => $report,
+            'year' => $period['year'],
+            'month' => $period['month'],
+        ]);
+    }
+
+    public function monthlyReportPdf(Request $request, Facility $facility): \Symfony\Component\HttpFoundation\Response
+    {
+        $this->assertRicaMonthlyReportFacility($facility);
+
+        $this->useAllTenantEnvironments();
+
+        $period = $this->monthlyReportService->resolvePeriod($request);
+        $pdf = $this->monthlyReportPdfService->generate(
+            $facility,
+            $period['periodStart'],
+            $period['periodEnd'],
+        );
+
+        return $pdf->download(
+            $this->monthlyReportPdfService->downloadFilename($facility, $period['periodStart'])
+        );
     }
 
     public function export(Request $request): StreamedResponse
     {
-        TenantEnvironmentScope::setFilter(TenantEnvironmentScope::resolveFromRequest($request));
+        $this->useAllTenantEnvironments();
         $report = $this->reportService->buildReport($request);
         $rows = $this->reportService->allRowsForExport($request);
 

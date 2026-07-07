@@ -83,7 +83,8 @@
                                     <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Outcome') }}</th>
                                     <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Before PM (kg)') }}</th>
                                     <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('After PM (kg)') }}</th>
-                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Notes') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Seized part / organ') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Reason') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 bg-white">
@@ -95,7 +96,8 @@
                                             {{ $item->batchItem ? number_format($item->batchItem->meat_quantity_kg, 2).' kg' : '—' }}
                                         </td>
                                         <td class="px-3 py-2 tabular-nums">{{ $item->carcass_weight_kg ? number_format($item->carcass_weight_kg, 2).' kg' : '—' }}</td>
-                                        <td class="px-3 py-2">{{ $item->outcome_notes ?: '—' }}</td>
+                                        <td class="px-3 py-2">{{ $item->seized_part ?: '—' }}</td>
+                                        <td class="px-3 py-2">{{ $item->reason ?: ($item->outcome_notes ?: '—') }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

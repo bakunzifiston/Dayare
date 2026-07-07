@@ -87,39 +87,11 @@ class BatchController extends Controller
         ];
     }
 
-    public function hub(Request $request): View
+    public function hub(Request $request): RedirectResponse
     {
-        $executionIds = $this->userExecutionIds($request);
-        $filters = $this->resolveHubFilters($request);
-
-        $scopeBatches = function ($query) use ($executionIds, $filters): void {
-            $query->whereIn('slaughter_execution_id', $executionIds);
-            if ($filters['is_filtered']) {
-                $query->whereDate('created_at', '>=', $filters['start']->toDateString())
-                    ->whereDate('created_at', '<=', $filters['end']->toDateString());
-            }
-        };
-
-        $hubStats = $this->buildBatchHubStats($executionIds, $filters);
-
-        $batches = Batch::query()
-            ->where($scopeBatches)
-            ->with([
-                'slaughterExecution.slaughterPlan.facility',
-                'inspector',
-                'postMortemInspection',
-                'certificate',
-                'items',
-            ])
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
-
-        return view('batches.hub', compact(
-            'hubStats',
-            'batches',
-            'filters',
-        ));
+        return redirect()
+            ->route('post-mortem-inspections.hub')
+            ->with('status', __('Batches are created automatically when you record post-mortem inspections.'));
     }
 
     public function index(Request $request): RedirectResponse
@@ -266,77 +238,22 @@ class BatchController extends Controller
         return $this->hubFiltersAllTime();
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): RedirectResponse
     {
-        $executionIds = $this->userExecutionIds($request);
-        $facilityIds = $this->userFacilityIds($request);
+        $params = [];
+        $executionId = $request->query('slaughter_execution_id');
+        if ($executionId && $this->userExecutionIds($request)->contains((int) $executionId)) {
+            $params['slaughter_execution_id'] = (int) $executionId;
+        }
 
-        $executionModels = SlaughterExecution::with(['executionItems.intakeItem', 'slaughterPlan.facility'])
-            ->whereIn('id', $executionIds)
-            ->where('status', SlaughterExecution::STATUS_COMPLETED)
-            ->latest('slaughter_time')
-            ->get();
-
-        $alreadyBatchedAnimalIds = BatchItem::query()
-            ->whereHas('batch', fn ($q) => $q->whereIn('slaughter_execution_id', $executionIds))
-            ->pluck('animal_intake_item_id')
-            ->unique()
-            ->values()
-            ->all();
-
-        $sameDayBatchData = $this->buildSameDayBatchData($executionModels, $alreadyBatchedAnimalIds);
-
-        $facilities = Facility::query()
-            ->whereIn('id', $facilityIds)
-            ->whereIn('id', $executionModels->pluck('slaughterPlan.facility_id')->unique())
-            ->orderBy('facility_name')
-            ->get(['id', 'facility_name']);
-
-        $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
-            ->where('status', 'active')
-            ->orderBy('first_name')
-            ->get()
-            ->groupBy('facility_id')
-            ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
-
-        $units = $request->user()->configuredUnitsForBusinessIds()
-            ->map(fn ($unit) => ['code' => $unit->code, 'name' => $unit->name])
-            ->values();
-
-        $selectedExecutionId = $request->query('slaughter_execution_id');
-        $selectedExecutionId = $selectedExecutionId && $executionIds->contains((int) $selectedExecutionId)
-            ? (int) $selectedExecutionId
-            : null;
-
-        $selectedExecution = $selectedExecutionId
-            ? $executionModels->firstWhere('id', $selectedExecutionId)
-            : null;
-
-        $selectedFacilityId = old('facility_id', $selectedExecution?->slaughterPlan->facility_id);
-        $selectedSlaughterDate = old(
-            'slaughter_date',
-            $selectedExecution?->slaughter_time->toDateString() ?? now()->toDateString(),
-        );
-
-        $dayKey = $selectedFacilityId && $selectedSlaughterDate
-            ? ((int) $selectedFacilityId).'|'.$selectedSlaughterDate
-            : null;
-        $selectedDayData = $dayKey ? ($sameDayBatchData[$dayKey] ?? null) : null;
-
-        return view('batches.create', [
-            'facilities' => $facilities,
-            'inspectorsByFacility' => $inspectorsByFacility,
-            'units' => $units,
-            'selectedExecutionId' => $selectedExecutionId,
-            'selectedFacilityId' => $selectedFacilityId,
-            'selectedSlaughterDate' => $selectedSlaughterDate,
-            'selectedDayData' => $selectedDayData,
-            'sameDayBatchData' => $sameDayBatchData,
-            'alreadyBatchedAnimalIds' => $alreadyBatchedAnimalIds,
-        ]);
+        return redirect()
+            ->route('post-mortem-inspections.create', $params)
+            ->with('status', __('Record post-mortem inspections directly from slaughter executions. Batches are created automatically.'));
     }
 
     /**
+     * @deprecated UI removed — batches are created automatically during post-mortem.
+     *
      * @param  Collection<int, SlaughterExecution>  $executionModels
      * @param  array<int, int>  $alreadyBatchedAnimalIds
      * @return array<string, array<string, mixed>>
@@ -474,51 +391,29 @@ class BatchController extends Controller
             'slaughterExecution.slaughterPlan.facility',
             'postMortemInspection',
             'certificate',
+            'certificates',
             'warehouseStorage.coldRoom',
+            'warehouseStorages.intakeItem',
             'transportTrips',
             'inspector',
         ]);
 
-        return view('batches.show', ['batch' => $batch]);
+        $releaseByAnimalId = \App\Support\BatchAnimalReleaseLookup::forBatch($batch);
+
+        return view('batches.show', compact('batch', 'releaseByAnimalId'));
     }
 
-    public function edit(Request $request, Batch $batch): View|RedirectResponse
+    public function edit(Request $request, Batch $batch): RedirectResponse
     {
         $this->authorizeBatch($request, $batch);
+        $batch->loadMissing('postMortemInspection');
 
-        // --- Section 3 ---
-        $batch->load(['items.intakeItem', 'items.executionItem']);
+        if ($batch->postMortemInspection) {
+            return redirect()->route('post-mortem-inspections.edit', $batch->postMortemInspection);
+        }
 
-        $executionIds = $this->userExecutionIds($request);
-        $facilityIds = $this->userFacilityIds($request);
-
-        $executions = SlaughterExecution::with('slaughterPlan.facility')
-            ->whereIn('id', $executionIds)
-            ->latest('slaughter_time')
-            ->get()
-            ->map(fn (SlaughterExecution $e) => [
-                'id' => $e->id,
-                'label' => $e->slaughter_time->format('d M Y H:i').' — '.$e->slaughterPlan->facility->facility_name.' — '.$e->slaughterPlan->species,
-                'facility_id' => $e->slaughterPlan->facility_id,
-                'species' => $e->slaughterPlan->species,
-            ]);
-
-        $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
-            ->where('status', 'active')
-            ->orderBy('first_name')
-            ->get()
-            ->groupBy('facility_id')
-            ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
-
-        $units = $request->user()->configuredUnitsForBusinessIds()
-            ->map(fn ($unit) => ['code' => $unit->code, 'name' => $unit->name])
-            ->values();
-
-        return view('batches.edit', [
-            'batch' => $batch,
-            'executions' => $executions,
-            'inspectorsByFacility' => $inspectorsByFacility,
-            'units' => $units,
+        return redirect()->route('post-mortem-inspections.create', [
+            'slaughter_execution_id' => $batch->slaughter_execution_id,
         ]);
     }
 
@@ -546,7 +441,7 @@ class BatchController extends Controller
             }
         });
 
-        return redirect()->route('batches.hub')
+        return redirect()->route('post-mortem-inspections.hub')
             ->with('status', __('Batch updated successfully.'));
     }
 
@@ -555,7 +450,7 @@ class BatchController extends Controller
         $this->authorizeBatch($request, $batch);
         $batch->delete();
 
-        return redirect()->route('batches.hub')
+        return redirect()->route('post-mortem-inspections.hub')
             ->with('status', __('Batch removed.'));
     }
 }

@@ -1,3 +1,6 @@
+@php
+    use App\Models\ColdRoomStandard;
+@endphp
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -13,62 +16,71 @@
         </div>
     </x-slot>
 
-    <div class="py-8">
-        <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white shadow-sm sm:rounded-lg border border-slate-200/60 overflow-hidden">
-                <div class="px-6 py-4 border-b border-slate-100">
-                    <p class="text-sm text-slate-600">
-                        {{ __('Define allowed temperature bands and how long an excursion can last before batches are flagged. Link each standard to a room under Manage cold rooms in the Cold Room module.') }}
-                    </p>
-                </div>
+    <div class="py-10">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="profile-list-shell">
+                <p class="text-sm text-slate-600">
+                    {{ __('Define allowed temperature bands and how long an excursion can last before batches are flagged. Link each standard to a room under Manage cold rooms in the Cold Room module.') }}
+                </p>
+
                 @if (session('status'))
-                    <div class="mx-6 mt-4 rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
+                    <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
                         {{ session('status') }}
                     </div>
                 @endif
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200 text-sm">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Name') }}</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Type') }}</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Min °C') }}</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Max °C') }}</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Tolerance (min)') }}</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ __('Rooms') }}</th>
-                                <th class="px-4 py-3 text-right font-semibold text-slate-700">{{ __('Actions') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 bg-white">
-                            @forelse ($standards as $row)
-                                <tr>
-                                    <td class="px-4 py-3 font-medium text-slate-900">{{ $row->name }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $row->type }}</td>
-                                    <td class="px-4 py-3 text-slate-600 tabular-nums">{{ $row->min_temperature }}</td>
-                                    <td class="px-4 py-3 text-slate-600 tabular-nums">{{ $row->max_temperature }}</td>
-                                    <td class="px-4 py-3 text-slate-600 tabular-nums">{{ $row->tolerance_minutes }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $row->cold_rooms_count }}</td>
-                                    <td class="px-4 py-3 text-right space-x-2">
-                                        <a href="{{ route('cold-room-standards.edit', $row) }}" class="text-bucha-primary hover:text-bucha-burgundy font-medium">{{ __('Edit') }}</a>
-                                        <form method="post" action="{{ route('cold-room-standards.destroy', $row) }}" class="inline" onsubmit="return confirm('{{ __('Delete this standard?') }}');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-800 font-medium">{{ __('Delete') }}</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="7" class="px-4 py-8 text-center text-slate-500">
-                                        {{ __('No standards yet. Add one to attach to your cold rooms.') }}
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                @if ($standards->hasPages())
-                    <div class="px-4 py-3 border-t border-slate-100">{{ $standards->links() }}</div>
+
+                @if ($standards->isEmpty())
+                    <div class="profile-empty">
+                        <p class="mb-4">{{ __('No standards yet. Add one to attach to your cold rooms.') }}</p>
+                        <a href="{{ route('cold-room-standards.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                            {{ __('Add first standard') }}
+                        </a>
+                    </div>
+                @else
+                    <div class="profile-cards-grid">
+                        @foreach ($standards as $standard)
+                            @php
+                                $typeTone = $standard->type === ColdRoomStandard::TYPE_CHILLER ? 'active' : 'muted';
+                                $initial = strtoupper(substr($standard->name, 0, 1));
+                            @endphp
+                            <x-entity.profile-card>
+                                <x-slot:avatar>{{ $initial }}</x-slot:avatar>
+                                <x-slot:title>{{ $standard->name }}</x-slot:title>
+                                <x-slot:subtitle>{{ ucfirst($standard->type) }}</x-slot:subtitle>
+                                <x-slot:badge>
+                                    <x-entity.status-pill :tone="$typeTone" :label="ucfirst($standard->type)" />
+                                </x-slot:badge>
+
+                                <x-entity.profile-row :label="__('Min °C')">{{ number_format((float) $standard->min_temperature, 1) }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Max °C')">{{ number_format((float) $standard->max_temperature, 1) }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Tolerance (min)')">{{ number_format((int) $standard->tolerance_minutes) }}</x-entity.profile-row>
+                                <x-entity.profile-row :label="__('Linked rooms')">{{ number_format($standard->cold_rooms_count) }}</x-entity.profile-row>
+
+                                <x-slot:highlights>
+                                    <x-entity.profile-highlight
+                                        :value="number_format((float) $standard->min_temperature, 1).'–'.number_format((float) $standard->max_temperature, 1).'°C'"
+                                        :label="__('Range')"
+                                    />
+                                    <x-entity.profile-highlight
+                                        :value="number_format($standard->cold_rooms_count)"
+                                        :label="__('Rooms')"
+                                    />
+                                </x-slot:highlights>
+
+                                <x-slot:actions>
+                                    <x-entity.text-action :href="route('cold-room-standards.edit', $standard)">{{ __('Edit') }}</x-entity.text-action>
+                                    <x-entity.text-action-delete
+                                        :action="route('cold-room-standards.destroy', $standard)"
+                                        :confirm="__('Delete this standard?')"
+                                    >{{ __('Delete') }}</x-entity.text-action-delete>
+                                </x-slot:actions>
+                            </x-entity.profile-card>
+                        @endforeach
+                    </div>
+
+                    @if ($standards->hasPages())
+                        <div class="mt-4">{{ $standards->links() }}</div>
+                    @endif
                 @endif
             </div>
         </div>

@@ -340,6 +340,36 @@ class ColdRoomMonitoringTest extends TestCase
         $page->assertSee($availablePmItem->intakeItem->ear_tag);
     }
 
+    public function test_released_animals_stay_excluded_from_create_selection(): void
+    {
+        [, , $pmItem] = $this->createBatchWithApprovedPostMortemMeat(carcassKg: 72.00);
+
+        $this->actingAs($this->user)->post(route('warehouse-storages.store'), [
+            'warehouse_facility_id' => $this->facility->id,
+            'cold_room_id' => $this->coldRoom->id,
+            'post_mortem_inspection_item_ids' => [$pmItem->id],
+            'entry_date' => today()->toDateString(),
+            'quantity_unit' => 'kg',
+        ])->assertRedirect();
+
+        $storage = WarehouseStorage::query()->where('post_mortem_inspection_item_id', $pmItem->id)->firstOrFail();
+        $storage->update([
+            'status' => WarehouseStorage::STATUS_RELEASED,
+            'released_date' => today(),
+        ]);
+
+        $request = Request::create('/warehouse-storages/create', 'GET');
+        $request->setUserResolver(fn () => $this->user);
+
+        $optionIds = StorablePostMortemMeat::optionsFor($request)->pluck('id')->map(fn ($id) => (int) $id);
+        $this->assertNotContains($pmItem->id, $optionIds->all());
+
+        $pmItem->load('intakeItem');
+        $page = $this->actingAs($this->user)->get(route('warehouse-storages.create'));
+        $page->assertOk();
+        $page->assertDontSee($pmItem->intakeItem->ear_tag);
+    }
+
     public function test_storage_create_rejects_condemned_post_mortem_meat(): void
     {
         [, , $pmItem] = $this->createBatchWithApprovedPostMortemMeat(outcome: PostMortemInspectionItem::OUTCOME_CONDEMNED);

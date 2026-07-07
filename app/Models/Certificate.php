@@ -18,6 +18,7 @@ class Certificate extends Model
 
     protected $fillable = [
         'batch_id',
+        'animal_intake_item_ids',
         'inspector_id',
         'facility_id',
         'slaughterhouse_display_name',
@@ -34,6 +35,7 @@ class Certificate extends Model
             'issued_at' => 'date',
             'expiry_date' => 'date',
             'pdf_details' => 'array',
+            'animal_intake_item_ids' => 'array',
         ];
     }
 

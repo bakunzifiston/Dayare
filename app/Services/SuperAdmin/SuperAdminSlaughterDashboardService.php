@@ -46,6 +46,22 @@ class SuperAdminSlaughterDashboardService
             return $this->hubFiltersAllTime();
         }
 
+        if (in_array($period, ['day', 'month', 'year'], true)) {
+            $preset = $this->presetRangeForPeriod($period);
+
+            return [
+                'period' => $period,
+                'date_from' => $preset['date_from'],
+                'date_to' => $preset['date_to'],
+                'start' => $preset['start'],
+                'end' => $preset['end'],
+                'range_label' => $preset['range_label'],
+                'slaughter_label' => $preset['slaughter_label'],
+                'has_custom_range' => false,
+                'is_filtered' => true,
+            ];
+        }
+
         if ($rawFrom !== '' && $rawTo !== '') {
             $start = Carbon::parse($rawFrom)->startOfDay();
             $end = Carbon::parse($rawTo)->endOfDay();
@@ -64,22 +80,6 @@ class SuperAdminSlaughterDashboardService
                 'range_label' => $start->format('M j, Y').' – '.$end->format('M j, Y'),
                 'slaughter_label' => __('Slaughtered in range'),
                 'has_custom_range' => true,
-                'is_filtered' => true,
-            ];
-        }
-
-        if (in_array($period, ['day', 'month', 'year'], true)) {
-            $preset = $this->presetRangeForPeriod($period);
-
-            return [
-                'period' => $period,
-                'date_from' => $preset['date_from'],
-                'date_to' => $preset['date_to'],
-                'start' => $preset['start'],
-                'end' => $preset['end'],
-                'range_label' => $preset['range_label'],
-                'slaughter_label' => $preset['slaughter_label'],
-                'has_custom_range' => false,
                 'is_filtered' => true,
             ];
         }

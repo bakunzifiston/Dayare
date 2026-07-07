@@ -102,7 +102,6 @@
                         @foreach ($intakes as $intake)
                             @php
                                 $health = $intake->health_summary;
-                                $expiry = $intake->health_certificate_expiry_date;
                                 $sourceName = $intake->source_type === AnimalIntake::SOURCE_TYPE_CLIENT
                                     ? ($intake->client?->name ?? $intake->clientSourceDisplayName())
                                     : (trim(($intake->supplier?->first_name ?? '').' '.($intake->supplier?->last_name ?? ''))
@@ -138,15 +137,6 @@
                                 <x-entity.profile-row :label="__('Animals')">{{ number_format($intake->number_of_animals) }}</x-entity.profile-row>
                                 <x-entity.profile-row :label="__('Species')">{{ $intake->species_mix_label ?: '—' }}</x-entity.profile-row>
                                 <x-entity.profile-row :label="__('Health')">{{ $healthParts !== '' ? $healthParts : '—' }}</x-entity.profile-row>
-                                <x-entity.profile-row :label="__('Cert expiry')">
-                                    @if ($expiry)
-                                        <span class="{{ $expiry->isPast() ? 'text-red-600 font-medium' : ($expiry->lte(today()->addDays(30)) ? 'text-amber-700 font-medium' : '') }}">
-                                            {{ $expiry->format('d M Y') }}
-                                        </span>
-                                    @else
-                                        <span class="text-amber-700">{{ __('Missing') }}</span>
-                                    @endif
-                                </x-entity.profile-row>
                                 <x-entity.profile-row :label="__('Available')">
                                     {{ number_format($intake->remainingAnimalsAvailable()) }}
                                 </x-entity.profile-row>

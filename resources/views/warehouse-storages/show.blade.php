@@ -127,10 +127,6 @@
                         <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->entry_date->format('d M Y') }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-slate-500">{{ __('Storage location') }}</dt>
-                        <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->storage_location ?? '—' }}</dd>
-                    </div>
-                    <div>
                         <dt class="text-sm font-medium text-slate-500">{{ __('Temperature at entry (°C)') }}</dt>
                         <dd class="mt-1 text-sm text-slate-900">{{ $warehouseStorage->temperature_at_entry !== null ? $warehouseStorage->temperature_at_entry : '—' }}</dd>
                     </div>

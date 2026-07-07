@@ -6,6 +6,7 @@ use App\Models\Batch;
 use App\Models\Certificate;
 use App\Models\Facility;
 use App\Models\PostMortemInspectionItem;
+use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
 use App\Models\TemperatureLog;
@@ -22,6 +23,113 @@ class RicaReportService
     public const DATE_BASIS_SLAUGHTER = 'slaughter';
 
     public const DATE_BASIS_RECORD = 'record';
+
+    /**
+     * @return array{
+     *   stats: array{animals_slaughtered: int, total_meat_kg: float, condemned: int, certificates: int},
+     *   speciesBreakdown: Collection<int, object{species: string, count: int, total_kg: float}>
+     * }
+     */
+    public function facilityPeriodDashboard(Facility $facility, Carbon $dateFrom, Carbon $dateTo): array
+    {
+        $metrics = $this->aggregateMetrics(collect([$facility->id]), $dateFrom, $dateTo, self::DATE_BASIS_SLAUGHTER);
+        $row = $metrics[(int) $facility->id] ?? $this->emptyMetrics();
+
+        return [
+            'stats' => [
+                'animals_slaughtered' => (int) $row['animals'],
+                'total_meat_kg' => (float) $row['total_meat_kg'],
+                'condemned' => (int) $row['condemned'],
+                'certificates' => (int) $row['certificates'],
+            ],
+            'speciesBreakdown' => $this->speciesBreakdownForFacility($facility, $dateFrom, $dateTo),
+        ];
+    }
+
+    /**
+     * @return Collection<int, object{species: string, count: int, total_kg: float}>
+     */
+    public function speciesBreakdownForFacility(Facility $facility, Carbon $dateFrom, Carbon $dateTo): Collection
+    {
+        $planIds = SlaughterPlan::query()
+            ->where('facility_id', $facility->id)
+            ->pluck('id');
+
+        if ($planIds->isEmpty()) {
+            return collect();
+        }
+
+        $executionFilter = fn ($query) => $query
+            ->whereIn('slaughter_plan_id', $planIds)
+            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereNotNull('slaughter_time')
+            ->whereBetween('slaughter_time', [$dateFrom, $dateTo]);
+
+        $fromItems = SlaughterExecutionItem::query()
+            ->whereHas('execution', $executionFilter)
+            ->join('animal_intake_items', 'slaughter_execution_items.animal_intake_item_id', '=', 'animal_intake_items.id')
+            ->selectRaw('animal_intake_items.species as species, COUNT(*) as count, COALESCE(SUM(slaughter_execution_items.meat_quantity_kg), 0) as total_kg')
+            ->groupBy('animal_intake_items.species')
+            ->get()
+            ->keyBy('species');
+
+        $fromExecutions = SlaughterExecution::query()
+            ->join('slaughter_plans', 'slaughter_executions.slaughter_plan_id', '=', 'slaughter_plans.id')
+            ->whereIn('slaughter_plans.id', $planIds)
+            ->where('slaughter_executions.status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereNotNull('slaughter_executions.slaughter_time')
+            ->whereBetween('slaughter_executions.slaughter_time', [$dateFrom, $dateTo])
+            ->whereDoesntHave('executionItems')
+            ->selectRaw('slaughter_plans.species as species, COALESCE(SUM(slaughter_executions.actual_animals_slaughtered), 0) as count, 0 as total_kg')
+            ->groupBy('slaughter_plans.species')
+            ->get();
+
+        /** @var array<string, array{species: string, count: int, total_kg: float}> $merged */
+        $merged = [];
+
+        foreach ($fromItems as $species => $row) {
+            $merged[$species] = [
+                'species' => (string) $species,
+                'count' => (int) $row->count,
+                'total_kg' => (float) $row->total_kg,
+            ];
+        }
+
+        foreach ($fromExecutions as $row) {
+            $species = (string) $row->species;
+            if (! isset($merged[$species])) {
+                $merged[$species] = [
+                    'species' => $species,
+                    'count' => (int) $row->count,
+                    'total_kg' => 0.0,
+                ];
+
+                continue;
+            }
+
+            $merged[$species]['count'] += (int) $row->count;
+        }
+
+        return collect($merged)
+            ->sortByDesc('count')
+            ->map(fn (array $row) => (object) $row)
+            ->values();
+    }
+
+    /**
+     * @return array{dateFrom: Carbon, dateTo: Carbon}
+     */
+    public function resolveDashboardDateRange(Request $request): array
+    {
+        $dateFrom = $request->filled('date_from')
+            ? Carbon::parse($request->string('date_from'))->startOfDay()
+            : now()->startOfYear();
+        $dateTo = $request->filled('date_to')
+            ? Carbon::parse($request->string('date_to'))->endOfDay()
+            : now()->endOfDay();
+
+        return compact('dateFrom', 'dateTo');
+    }
 
     /**
      * @return array{
@@ -160,23 +268,56 @@ class RicaReportService
      */
     private function applySlaughterMetrics(array &$metrics, array $planIds, array $planToFacility, Carbon $dateFrom, Carbon $dateTo): void
     {
-        $rows = SlaughterExecutionItem::query()
-            ->join('slaughter_executions', 'slaughter_execution_items.slaughter_execution_id', '=', 'slaughter_executions.id')
-            ->join('slaughter_plans', 'slaughter_executions.slaughter_plan_id', '=', 'slaughter_plans.id')
+        $executionConstraints = fn ($query) => $query
             ->whereIn('slaughter_plans.id', $planIds)
-            ->whereBetween('slaughter_executions.slaughter_time', [$dateFrom, $dateTo])
+            ->where('slaughter_executions.status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereNotNull('slaughter_executions.slaughter_time')
+            ->whereBetween('slaughter_executions.slaughter_time', [$dateFrom, $dateTo]);
+
+        $animalRows = SlaughterExecution::query()
+            ->join('slaughter_plans', 'slaughter_executions.slaughter_plan_id', '=', 'slaughter_plans.id')
+            ->tap($executionConstraints)
             ->select([
                 'slaughter_plans.facility_id',
-                DB::raw('COUNT(*) as animals'),
+                DB::raw('COALESCE(SUM(slaughter_executions.actual_animals_slaughtered), 0) as animals'),
+            ])
+            ->groupBy('slaughter_plans.facility_id')
+            ->get();
+
+        foreach ($animalRows as $row) {
+            $metrics[(int) $row->facility_id]['animals'] = (int) $row->animals;
+        }
+
+        $meatRows = SlaughterExecutionItem::query()
+            ->join('slaughter_executions', 'slaughter_execution_items.slaughter_execution_id', '=', 'slaughter_executions.id')
+            ->join('slaughter_plans', 'slaughter_executions.slaughter_plan_id', '=', 'slaughter_plans.id')
+            ->tap($executionConstraints)
+            ->select([
+                'slaughter_plans.facility_id',
                 DB::raw('COALESCE(SUM(slaughter_execution_items.meat_quantity_kg), 0) as total_meat_kg'),
             ])
             ->groupBy('slaughter_plans.facility_id')
             ->get();
 
-        foreach ($rows as $row) {
+        foreach ($meatRows as $row) {
+            $metrics[(int) $row->facility_id]['total_meat_kg'] = (float) $row->total_meat_kg;
+        }
+
+        $batchMeatRows = Batch::query()
+            ->join('slaughter_executions', 'batches.slaughter_execution_id', '=', 'slaughter_executions.id')
+            ->join('slaughter_plans', 'slaughter_executions.slaughter_plan_id', '=', 'slaughter_plans.id')
+            ->tap($executionConstraints)
+            ->whereHas('slaughterExecution', fn ($query) => $query->whereDoesntHave('executionItems'))
+            ->select([
+                'slaughter_plans.facility_id',
+                DB::raw('COALESCE(SUM(batches.quantity), 0) as total_meat_kg'),
+            ])
+            ->groupBy('slaughter_plans.facility_id')
+            ->get();
+
+        foreach ($batchMeatRows as $row) {
             $facilityId = (int) $row->facility_id;
-            $metrics[$facilityId]['animals'] = (int) $row->animals;
-            $metrics[$facilityId]['total_meat_kg'] = (float) $row->total_meat_kg;
+            $metrics[$facilityId]['total_meat_kg'] += (float) $row->total_meat_kg;
         }
     }
 
@@ -349,12 +490,7 @@ class RicaReportService
      */
     private function resolveFilters(Request $request): array
     {
-        $dateFrom = $request->filled('date_from')
-            ? Carbon::parse($request->string('date_from'))->startOfDay()
-            : now()->startOfMonth();
-        $dateTo = $request->filled('date_to')
-            ? Carbon::parse($request->string('date_to'))->endOfDay()
-            : now()->endOfMonth();
+        ['dateFrom' => $dateFrom, 'dateTo' => $dateTo] = $this->resolveDashboardDateRange($request);
         $dateBasis = $request->string('date_basis', self::DATE_BASIS_SLAUGHTER);
         if (! in_array($dateBasis, [self::DATE_BASIS_SLAUGHTER, self::DATE_BASIS_RECORD], true)) {
             $dateBasis = self::DATE_BASIS_SLAUGHTER;

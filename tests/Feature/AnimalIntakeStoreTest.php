@@ -82,6 +82,68 @@ class AnimalIntakeStoreTest extends TestCase
         $this->assertDatabaseHas('animal_intake_items', ['ear_tag' => $earTag]);
     }
 
+    public function test_store_persists_per_animal_service_fee(): void
+    {
+        $user = User::factory()->create();
+        $business = Business::create([
+            'user_id' => $user->id,
+            'business_name' => 'Intake Service Fee Co',
+            'registration_number' => 'REG-AIS-'.uniqid(),
+            'contact_phone' => '+250788000504',
+            'email' => 'ais-fee@test.com',
+            'status' => 'active',
+        ]);
+        BusinessUser::query()->create([
+            'business_id' => $business->id,
+            'user_id' => $user->id,
+            'role' => BusinessUser::ROLE_ORG_ADMIN,
+        ]);
+        $facility = Facility::create([
+            'business_id' => $business->id,
+            'facility_name' => 'Service Fee Slaughterhouse',
+            'facility_type' => Facility::TYPE_SLAUGHTERHOUSE,
+            'status' => 'active',
+        ]);
+        $client = Client::create([
+            'business_id' => $business->id,
+            'name' => 'Fee Client Ltd',
+            'email' => 'fee-client@test.com',
+            'phone' => '+250788000505',
+            'country' => 'Rwanda',
+            'is_active' => true,
+        ]);
+        $goats = Species::query()->firstOrCreate(
+            ['code' => 'goat'],
+            ['name' => 'Goats', 'sort_order' => 2, 'is_active' => true],
+        );
+        $business->configuredSpecies()->syncWithoutDetaching([$goats->id]);
+
+        $earTag = 'EAR-FEE-'.uniqid();
+
+        $this->actingAs($user)->post(route('animal-intakes.store'), [
+            'facility_id' => $facility->id,
+            'source_type' => AnimalIntake::SOURCE_TYPE_CLIENT,
+            'client_id' => $client->id,
+            'intake_date' => now('Africa/Kigali')->format('Y-m-d\TH:i'),
+            'is_draft' => '0',
+            'animals' => [
+                [
+                    'ear_tag' => $earTag,
+                    'species' => 'Goats',
+                    'sex' => AnimalIntake::SEX_MALE,
+                    'health_status' => 'healthy',
+                    'body_condition_score' => 'good',
+                    'service_fee' => 2500,
+                ],
+            ],
+        ])->assertRedirect(route('animal-intakes.hub'));
+
+        $this->assertDatabaseHas('animal_intake_items', [
+            'ear_tag' => $earTag,
+            'service_fee' => 2500,
+        ]);
+    }
+
     public function test_store_rejects_supplier_source_type(): void
     {
         $user = User::factory()->create();

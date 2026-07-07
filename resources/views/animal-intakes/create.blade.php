@@ -1,9 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <div>
-            <a href="{{ route('animal-intakes.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Animal intake') }}</a>
-            <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">{{ __('Record animal intake') }}</h2>
-            <p class="mt-1 text-sm text-slate-500">{{ __('Register each animal individually — ear tag, species, health status, and price.') }}</p>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <a href="{{ route('animal-intakes.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy shrink-0">{{ __('← Animal intake') }}</a>
+            <span class="hidden sm:inline text-slate-300" aria-hidden="true">·</span>
+            <h2 class="font-semibold text-xl text-slate-800 leading-tight shrink-0">{{ __('Record animal intake') }}</h2>
         </div>
     </x-slot>
 

@@ -10,12 +10,11 @@
 @endphp
 
 <div class="space-y-4">
-    <div class="hidden flex-wrap items-end gap-3 px-4 sm:flex">
+        <div class="hidden flex-wrap items-end gap-3 px-4 sm:flex">
         <div class="min-w-0 flex-1 text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Animal') }}</div>
         <div class="w-36 text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Outcome') }}</div>
         <div class="w-24 text-right text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Before PM (kg)') }}</div>
         <div class="w-28 text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('After PM (kg)') }}</div>
-        <div class="flex-1 text-xs font-medium uppercase tracking-wide text-slate-500">{{ __('Notes') }}</div>
     </div>
 
     @foreach ($animals as $animal)
@@ -60,6 +59,14 @@
                         $selectedOutcome = isset($oldRow['outcome'])
                             ? $oldRow['outcome']
                             : ($existing?->outcome ?? ($existingData['outcome'] ?? ''));
+                        $seizedPart = old(
+                            "item_outcomes.{$index}.seized_part",
+                            $oldRow['seized_part'] ?? $existing?->seized_part ?? $existingData['seized_part'] ?? '',
+                        );
+                        $reason = old(
+                            "item_outcomes.{$index}.reason",
+                            $oldRow['reason'] ?? $existing?->reason ?? $existingData['reason'] ?? '',
+                        );
                     @endphp
                     <select name="item_outcomes[{{ $index }}][outcome]"
                             class="pm-animal-outcome block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"
@@ -85,13 +92,38 @@
                            placeholder="kg"
                            class="pm-carcass-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
                 </div>
-                <div class="w-full sm:flex-1">
-                    <input type="text"
-                           name="item_outcomes[{{ $index }}][outcome_notes]"
-                           value="{{ old("item_outcomes.{$index}.outcome_notes", $oldRow['outcome_notes'] ?? $existing?->outcome_notes ?? $existingData['outcome_notes'] ?? '') }}"
-                           placeholder="{{ __('Outcome notes (optional)') }}"
-                           class="block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+            </div>
+
+            <div @class([
+                'pm-condemnation-fields border-b border-slate-100 bg-amber-50/60 px-4 py-3',
+                'hidden' => $selectedOutcome !== 'condemned',
+            ]) data-pm-condemnation-fields>
+                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-800">{{ __('Condemnation details (RICA report)') }}</p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-slate-600">{{ __('Seized part / organ') }}</label>
+                        <input type="text"
+                               name="item_outcomes[{{ $index }}][seized_part]"
+                               value="{{ $seizedPart }}"
+                               placeholder="{{ __('e.g. Liver, whole carcass') }}"
+                               class="block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                        @error("item_outcomes.{$index}.seized_part")
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-slate-600">{{ __('Reason for condemnation') }}</label>
+                        <input type="text"
+                               name="item_outcomes[{{ $index }}][reason]"
+                               value="{{ $reason }}"
+                               placeholder="{{ __('e.g. Cysts, abscess') }}"
+                               class="block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                        @error("item_outcomes.{$index}.reason")
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
                 </div>
+                <p class="mt-2 text-xs text-slate-500">{{ __('Required for condemned animals unless an organ is marked abnormal in the checklist below.') }}</p>
             </div>
 
             <div class="p-4">

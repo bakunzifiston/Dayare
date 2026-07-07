@@ -225,6 +225,20 @@ class Facility extends Model
     }
 
     /**
+     * Facilities eligible for the RICA FPU/FRM/018 monthly inspection report.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeEligibleForRicaMonthlyReport($query)
+    {
+        return $query->where(function ($facilityQuery) {
+            $facilityQuery->where('facility_type', self::TYPE_SLAUGHTERHOUSE)
+                ->orWhereHas('slaughterPlans');
+        });
+    }
+
+    /**
      * Parse free-text GPS (e.g. "-1.9536, 30.0606") into lat/lng for maps.
      * Accepts comma or semicolon separators; strips degree symbols.
      *

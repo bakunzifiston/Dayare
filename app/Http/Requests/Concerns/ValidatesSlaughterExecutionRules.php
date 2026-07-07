@@ -134,6 +134,15 @@ trait ValidatesSlaughterExecutionRules
         $execution = $this->route('slaughter_execution');
         $ignoreExecutionId = $execution instanceof SlaughterExecution ? (int) $execution->id : null;
 
+        if ($ignoreExecutionId === null && $plan->slaughterExecutions()->exists()) {
+            $validator->errors()->add(
+                'slaughter_plan_id',
+                __('This slaughter session already has an execution recorded. Edit the existing execution to add more animals.'),
+            );
+
+            return;
+        }
+
         $itemSlaughters = $this->input('item_slaughters');
         if (is_array($itemSlaughters) && $itemSlaughters !== [] && $plan !== null) {
             $approvedItemIds = AnteMortemInspectionItem::query()

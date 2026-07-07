@@ -38,7 +38,7 @@
                             <li class="p-4 flex justify-between items-center hover:bg-slate-50/80 transition-colors">
                                 <div>
                                     <a href="{{ route('slaughter-plans.show', $plan) }}" class="font-medium text-slate-900 hover:text-bucha-primary">
-                                        {{ $plan->slaughter_date->format('d M Y') }} — {{ $plan->facility->facility_name }}
+                                        {{ $plan->slaughterDateDisplay() }} — {{ $plan->facility->facility_name }}
                                     </a>
                                     <p class="text-sm text-slate-500">
                                         {{ $plan->species }} · {{ $plan->number_of_animals_scheduled }} {{ __('animals') }}

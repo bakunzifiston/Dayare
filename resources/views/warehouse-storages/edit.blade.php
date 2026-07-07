@@ -42,12 +42,6 @@
                         <x-input-error class="mt-2" :messages="$errors->get('cold_room_id')" />
                     </div>
 
-                    <div>
-                        <x-input-label for="storage_location" :value="__('Storage location (room/freezer)')" />
-                        <x-text-input id="storage_location" name="storage_location" type="text" class="mt-1 block w-full" :value="old('storage_location', $warehouseStorage->storage_location)" />
-                        <x-input-error class="mt-2" :messages="$errors->get('storage_location')" />
-                    </div>
-
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <x-input-label for="temperature_at_entry" :value="__('Temperature at entry (°C)')" />

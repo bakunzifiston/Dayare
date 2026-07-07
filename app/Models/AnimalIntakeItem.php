@@ -46,6 +46,7 @@ class AnimalIntakeItem extends Model
         'live_weight_kg',
         'body_condition_score',
         'unit_price',
+        'service_fee',
         'health_status',
         'notes',
         'slaughter_plan_id',
@@ -55,6 +56,7 @@ class AnimalIntakeItem extends Model
     {
         return [
             'unit_price' => 'decimal:2',
+            'service_fee' => 'decimal:2',
             'live_weight_kg' => 'decimal:2',
             'age_months' => 'integer',
         ];

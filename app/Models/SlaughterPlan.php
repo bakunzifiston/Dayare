@@ -31,8 +31,19 @@ class SlaughterPlan extends Model
     protected function casts(): array
     {
         return [
-            'slaughter_date' => 'date',
+            'slaughter_date' => 'datetime',
         ];
+    }
+
+    public function slaughterDateDisplay(): string
+    {
+        if (! $this->slaughter_date) {
+            return '—';
+        }
+
+        return $this->slaughter_date
+            ->timezone((string) config('app.display_timezone', 'Africa/Kigali'))
+            ->format('d M Y H:i');
     }
 
     public const STATUS_PLANNED = 'planned';
@@ -134,7 +145,7 @@ class SlaughterPlan extends Model
     /** Label for slaughter session dropdowns (ante-mortem, execution, etc.). */
     public function sessionSelectLabel(): string
     {
-        $date = $this->slaughter_date?->format('d M Y') ?? '—';
+        $date = $this->slaughterDateDisplay();
         $facility = $this->facility?->facility_name ?? '—';
         $species = $this->species ?? '—';
         $animalCount = $this->assigned_count > 0

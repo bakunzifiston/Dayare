@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Concerns;
 
+use App\Models\AnteMortemInspectionItem;
 use App\Models\SlaughterPlan;
 use App\Support\AnteMortemChecklist;
 use Illuminate\Contracts\Validation\Validator;
@@ -71,6 +72,74 @@ trait ValidatesAnteMortemItemOutcomes
         }
 
         $this->validatePerAnimalObservations($validator, $species, $itemOutcomes);
+        $this->validateUnhealthyAnteMortemDetails($validator, $species, $itemOutcomes);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>|null  $itemOutcomes
+     */
+    protected function validateUnhealthyAnteMortemDetails(
+        Validator $validator,
+        string $species,
+        mixed $itemOutcomes,
+    ): void {
+        if (! is_array($itemOutcomes) || $itemOutcomes === []) {
+            return;
+        }
+
+        foreach ($itemOutcomes as $index => $outcome) {
+            if (! in_array($outcome['outcome'] ?? '', [
+                AnteMortemInspectionItem::OUTCOME_REJECTED,
+                AnteMortemInspectionItem::OUTCOME_DEFERRED,
+            ], true)) {
+                continue;
+            }
+
+            $observations = is_array($outcome['observations'] ?? null) ? $outcome['observations'] : [];
+            $conditions = trim((string) ($outcome['conditions'] ?? ''));
+            $actionTaken = trim((string) ($outcome['action_taken'] ?? ''));
+            $outcomeNotes = trim((string) ($outcome['outcome_notes'] ?? ''));
+
+            if ($conditions === '' && ! $this->anteMortemHasUnhealthyFinding($species, $observations)) {
+                $validator->errors()->add(
+                    "item_outcomes.{$index}.conditions",
+                    __('Provide condition(s) or mark an abnormal finding for rejected/deferred animals.'),
+                );
+            }
+
+            if ($actionTaken === '' && $outcomeNotes === '') {
+                $validator->errors()->add(
+                    "item_outcomes.{$index}.action_taken",
+                    __('Action taken is required for rejected/deferred animals.'),
+                );
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, array{value?: string|null, notes?: string|null}>  $observations
+     */
+    protected function anteMortemHasUnhealthyFinding(string $species, array $observations): bool
+    {
+        $checklistItems = AnteMortemChecklist::itemsForInspection($species, true);
+
+        foreach ($observations as $itemKey => $row) {
+            $value = trim((string) ($row['value'] ?? ''));
+
+            if ($itemKey === 'observation' && $value !== '') {
+                return true;
+            }
+
+            if (! array_key_exists($itemKey, $checklistItems)) {
+                continue;
+            }
+
+            if (in_array($value, ['abnormal', 'no'], true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

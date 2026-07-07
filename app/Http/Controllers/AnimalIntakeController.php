@@ -14,6 +14,7 @@ use App\Support\AnimalIntakeMovementPermitStorage;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -740,10 +741,6 @@ class AnimalIntakeController extends Controller
                 ],
                 'vehicle_plate' => ['nullable', 'string', 'max:50'],
                 'driver_name' => ['nullable', 'string', 'max:100'],
-                'health_certificate_number' => ['nullable', 'string', 'max:100'],
-                'health_certificate_issue_date' => ['nullable', 'date'],
-                'health_certificate_expiry_date' => ['nullable', 'date', 'after:health_certificate_issue_date'],
-                'movement_permit_number' => ['nullable', 'string', 'max:100'],
                 'movement_permit_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
                 'contract_id' => [
                     'nullable',
@@ -763,12 +760,13 @@ class AnimalIntakeController extends Controller
                 'animals.*.live_weight_kg' => ['nullable', 'numeric', 'min:0.1', 'max:9999'],
                 'animals.*.body_condition_score' => ['nullable', Rule::in(AnimalIntakeItem::BODY_CONDITIONS)],
                 'animals.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+                'animals.*.service_fee' => ['nullable', 'numeric', 'min:0'],
                 'animals.*.health_status' => ['required', Rule::in(AnimalIntakeItem::HEALTH_STATUSES)],
                 'animals.*.notes' => ['nullable', 'string', 'max:1000'],
             ],
             [
-                'animals.*.ear_tag.unique' => __('Ear tag :input is already registered in the system.'),
-                'animals.*.ear_tag.distinct' => __('Each ear tag must be unique within this intake.'),
+                'animals.*.ear_tag.unique' => __('Tag number :input is already registered in the system.'),
+                'animals.*.ear_tag.distinct' => __('Each tag number must be unique within this intake.'),
             ],
         );
 
@@ -805,32 +803,37 @@ class AnimalIntakeController extends Controller
         bool $isDraft,
         ?AnimalIntake $existing,
     ): array {
-        $data = array_merge($validated, [
-            'transport_vehicle_plate' => $validated['vehicle_plate'] ?? null,
-            'animal_health_certificate_number' => $validated['health_certificate_number'] ?? null,
-            'movement_permit_no' => $validated['movement_permit_number'] ?? null,
-            'status' => $isDraft ? AnimalIntake::STATUS_RECEIVED : AnimalIntake::STATUS_APPROVED,
-            'is_draft' => $isDraft,
-            'submitted_at' => $isDraft ? null : now(),
-        ]);
+        $vehiclePlate = $validated['vehicle_plate'] ?? null;
 
-        $uploadedFile = $request->file('movement_permit_document');
+        $data = array_merge(
+            Arr::except($validated, [
+                'animals',
+                'vehicle_plate',
+                'is_draft',
+            ]),
+            [
+                'transport_vehicle_plate' => $vehiclePlate,
+                'status' => $isDraft ? AnimalIntake::STATUS_RECEIVED : AnimalIntake::STATUS_APPROVED,
+                'is_draft' => $isDraft,
+                'submitted_at' => $isDraft ? null : now(),
+            ],
+        );
+
+        if (! $existing) {
+            $data['animal_health_certificate_number'] = null;
+            $data['health_certificate_issue_date'] = null;
+            $data['health_certificate_expiry_date'] = null;
+            $data['movement_permit_document_path'] = null;
+        }
+
         $data = $this->hydrateIntakeSourceData($request, $data);
 
-        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT) {
-            if ($uploadedFile) {
-                if ($existing?->movement_permit_document_path) {
-                    AnimalIntakeMovementPermitStorage::delete($existing->movement_permit_document_path);
-                }
-                $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
-            } elseif (! $existing) {
-                $data['movement_permit_document_path'] = null;
+        $uploadedFile = $request->file('movement_permit_document');
+        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT && $uploadedFile) {
+            if ($existing?->movement_permit_document_path) {
+                AnimalIntakeMovementPermitStorage::delete($existing->movement_permit_document_path);
             }
-        } elseif ($existing?->movement_permit_document_path) {
-            AnimalIntakeMovementPermitStorage::delete($existing->movement_permit_document_path);
-            $data['movement_permit_document_path'] = null;
-        } elseif (! $existing) {
-            $data['movement_permit_document_path'] = null;
+            $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
         }
 
         return $data;
@@ -850,6 +853,7 @@ class AnimalIntakeController extends Controller
             'live_weight_kg' => $animal['live_weight_kg'] ?? null,
             'body_condition_score' => $animal['body_condition_score'] ?? null,
             'unit_price' => $animal['unit_price'] ?? 0,
+            'service_fee' => $animal['service_fee'] ?? 0,
             'health_status' => $animal['health_status'],
             'notes' => $animal['notes'] ?? null,
         ];
@@ -861,7 +865,7 @@ class AnimalIntakeController extends Controller
     private function syncLegacyIntakeColumns(AnimalIntake $intake, array $animals): void
     {
         $count = count($animals);
-        $totalPrice = round(collect($animals)->sum(fn (array $a) => (float) ($a['unit_price'] ?? 0)), 2);
+        $totalPrice = round(collect($animals)->sum(fn (array $a) => (float) ($a['unit_price'] ?? 0) + (float) ($a['service_fee'] ?? 0)), 2);
 
         $intake->update([
             'number_of_animals' => $count,

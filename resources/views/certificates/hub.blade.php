@@ -80,16 +80,20 @@
                     </x-entity.kpi-stat>
                 </div>
 
-                @if ($readyBatches->isNotEmpty())
+                @if ($readyExecutions->isNotEmpty())
                     <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
                         <p class="text-sm font-medium text-blue-900">
-                            {{ __(':count batch(es) ready for certification', ['count' => $hubStats['ready_to_issue']]) }}
+                            {{ __(':count slaughter execution(s) ready for certification', ['count' => $hubStats['ready_to_issue']]) }}
                         </p>
                         <ul class="mt-2 space-y-1.5">
-                            @foreach ($readyBatches as $batch)
+                            @foreach ($readyExecutions as $execution)
                                 <li class="flex flex-wrap items-center justify-between gap-2 text-sm">
-                                    <span class="font-mono text-blue-950">{{ $batch->batch_code }}</span>
-                                    <a href="{{ route('certificates.create', ['batch_id' => $batch->id]) }}" class="text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
+                                    <span class="text-blue-950">
+                                        {{ $execution->slaughter_time?->format('d M Y H:i') }}
+                                        — {{ $execution->slaughterPlan?->facility?->facility_name ?? '—' }}
+                                        ({{ $execution->slaughterPlan?->species ?? '—' }})
+                                    </span>
+                                    <a href="{{ route('certificates.create', ['slaughter_execution_id' => $execution->id]) }}" class="text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
                                         {{ __('Issue →') }}
                                     </a>
                                 </li>

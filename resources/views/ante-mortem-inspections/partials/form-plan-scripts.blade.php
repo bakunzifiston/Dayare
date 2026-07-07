@@ -154,12 +154,51 @@
         }).join('');
     }
 
-    function buildAnimalCard(animal, index, existing, speciesName) {
+    function toggleUnhealthyFields(card) {
+        if (!card) {
+            return;
+        }
+
+        var select = card.querySelector('.am-animal-outcome');
+        var fields = card.querySelector('[data-am-unhealthy-fields]');
+        if (!select || !fields) {
+            return;
+        }
+
+        if (select.value === 'rejected' || select.value === 'deferred') {
+            fields.classList.remove('hidden');
+        } else {
+            fields.classList.add('hidden');
+        }
+    }
+
+    function bindUnhealthyFieldListeners(root) {
+        if (!root) {
+            return;
+        }
+
+        root.querySelectorAll('[data-am-animal-card]').forEach(function (card) {
+            toggleUnhealthyFields(card);
+        });
+
+        root.querySelectorAll('.am-animal-outcome').forEach(function (select) {
+            select.addEventListener('change', function () {
+                toggleUnhealthyFields(select.closest('[data-am-animal-card]'));
+            });
+        });
+    }
+
+    function buildAnimalCard(animal, index, existing, speciesName, animalCount) {
         var isObs = animal.health_status === 'under_observation';
         var badge = getHealthBadgeClass(animal.health_status);
         var legacy = String(animal.ear_tag || '').startsWith('LEGACY-')
-            ? '<span class="ml-1 text-xs font-normal text-gray-400 bg-gray-100 px-1 rounded">[legacy]</span>'
+            ? '<span class="ml-1 rounded bg-gray-100 px-1 text-xs font-normal text-gray-400">[legacy]</span>'
             : '';
+        var defaultOpen = animalCount <= 3 || isObs;
+        var currentOutcome = existing.outcome || '';
+        var conditions = existing.conditions || '';
+        var actionTaken = existing.action_taken || '';
+        var isUnhealthy = currentOutcome === 'rejected' || currentOutcome === 'deferred';
         var outcomeOptions = ['approved', 'rejected', 'deferred'].map(function (outcome) {
             var selected = existing.outcome
                 ? (outcome === existing.outcome ? ' selected' : '')
@@ -169,40 +208,89 @@
                 + outcome.charAt(0).toUpperCase() + outcome.slice(1) + '</option>';
         }).join('');
 
-        return '<div class="overflow-hidden rounded-lg border border-slate-200' + (isObs ? ' ring-1 ring-yellow-200' : '') + '">'
-            + '<div class="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">'
-            + '<div class="min-w-0 flex-1">'
+        return '<details class="am-animal-card overflow-hidden rounded-lg border border-slate-200 bg-white'
+            + (isObs ? ' ring-1 ring-yellow-200' : '')
+            + '" data-am-animal-card' + (defaultOpen ? ' open' : '') + '>'
+            + '<summary class="flex cursor-pointer list-none flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">'
+            + '<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">'
+            + (index + 1) + '</span>'
+            + '<div class="min-w-[10rem] flex-1">'
             + '<p class="font-mono text-sm font-medium text-slate-900">' + escapeHtml(animal.ear_tag || '—') + legacy + '</p>'
             + '<p class="mt-0.5 text-xs text-slate-500">' + escapeHtml(animal.sex || '—')
             + ' <span class="mx-1">·</span>'
             + '<span class="inline-flex rounded-full px-2 py-0.5 text-xs ' + badge + '">'
             + escapeHtml(animal.health_status_label || animal.health_status || '—') + '</span></p>'
             + '</div>'
-            + '<div class="w-full sm:w-40">'
+            + '<div class="w-full sm:w-44" onclick="event.stopPropagation()">'
             + '<input type="hidden" name="item_outcomes[' + index + '][animal_intake_item_id]" value="' + animal.id + '">'
+            + '<label class="mb-1 block text-xs font-medium text-slate-500 sm:sr-only">' + @json(__('Outcome')) + '</label>'
             + '<select name="item_outcomes[' + index + '][outcome]"'
-            + ' class="block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">'
+            + ' class="am-animal-outcome block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">'
             + outcomeOptions + '</select>'
             + '</div>'
-            + '<div class="w-full sm:flex-1">'
-            + '<textarea name="item_outcomes[' + index + '][outcome_notes]" rows="1"'
-            + ' placeholder=' + @json(__('Outcome notes (optional)'))
-            + ' class="block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">'
-            + escapeHtml(existing.outcome_notes || '') + '</textarea>'
+            + '<span class="ml-auto hidden text-slate-400 sm:inline" aria-hidden="true">▾</span>'
+            + '</summary>'
+            + '<div class="space-y-4 p-4">'
+            + '<div class="' + (isUnhealthy
+                ? 'am-unhealthy-fields rounded-lg border border-amber-200 bg-amber-50/60 p-4'
+                : 'am-unhealthy-fields hidden rounded-lg border border-amber-200 bg-amber-50/60 p-4') + '" data-am-unhealthy-fields>'
+            + '<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-800">' + @json(__('Unhealthy animal details (RICA report)')) + '</p>'
+            + '<div class="grid gap-3 sm:grid-cols-2">'
+            + '<div><label class="mb-1 block text-xs font-medium text-slate-600">' + @json(__('Condition(s)')) + '</label>'
+            + '<input type="text" name="item_outcomes[' + index + '][conditions]" value="' + escapeHtml(conditions) + '"'
+            + ' placeholder=' + @json(__('e.g. Lameness, fever'))
+            + ' class="block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"></div>'
+            + '<div><label class="mb-1 block text-xs font-medium text-slate-600">' + @json(__('Action taken')) + '</label>'
+            + '<input type="text" name="item_outcomes[' + index + '][action_taken]" value="' + escapeHtml(actionTaken) + '"'
+            + ' placeholder=' + @json(__('e.g. Deferred, sent back'))
+            + ' class="block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"></div>'
             + '</div>'
+            + '<p class="mt-2 text-xs text-slate-500">' + @json(__('Required for rejected/deferred animals unless abnormal findings are recorded in the checklist below.')) + '</p>'
             + '</div>'
-            + '<div class="p-4">'
+            + '<div>'
             + '<h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">'
             + @json(__('Inspection checklist')) + '</h4>'
-            + '<div class="overflow-hidden rounded-lg border border-slate-200">'
+            + '<div class="overflow-x-auto rounded-lg border border-slate-200">'
             + '<table class="min-w-full divide-y divide-slate-200 text-sm">'
             + '<thead class="bg-slate-50"><tr>'
             + '<th class="px-3 py-2 text-left font-medium text-slate-600">' + @json(__('Item')) + '</th>'
-            + '<th class="px-3 py-2 text-left font-medium text-slate-600">' + @json(__('Result')) + '</th>'
-            + '<th class="px-3 py-2 text-left font-medium text-slate-600">' + @json(__('Notes (optional)')) + '</th>'
+            + '<th class="px-3 py-2 text-left font-medium text-slate-600 min-w-[10rem]">' + @json(__('Result')) + '</th>'
+            + '<th class="px-3 py-2 text-left font-medium text-slate-600 min-w-[12rem]">' + @json(__('Notes (optional)')) + '</th>'
             + '</tr></thead><tbody class="divide-y divide-slate-100 bg-white">'
             + buildChecklistRows(index, existing.observations || {}, speciesName)
-            + '</tbody></table></div></div></div>';
+            + '</tbody></table></div></div></div></details>';
+    }
+
+    function updateAnimalListToolbar(animals) {
+        var toolbar = document.getElementById('per-animal-toolbar');
+        var countLabel = document.getElementById('per-animal-count-label');
+        var count = animals ? animals.length : 0;
+
+        if (toolbar) {
+            if (count > 1) {
+                toolbar.classList.remove('hidden');
+                toolbar.classList.add('flex');
+            } else {
+                toolbar.classList.add('hidden');
+                toolbar.classList.remove('flex');
+            }
+        }
+
+        if (countLabel) {
+            if (count === 0) {
+                countLabel.textContent = '';
+            } else {
+                countLabel.textContent = count === 1
+                    ? @json(__('1 animal assigned — expand each card to complete the checklist.'))
+                    : String(count) + ' ' + @json(__('animals assigned — use expand/collapse or open each card to complete checklists.'));
+            }
+        }
+    }
+
+    function setAllAnimalCardsOpen(open) {
+        document.querySelectorAll('[data-am-animal-card]').forEach(function (card) {
+            card.open = open;
+        });
     }
 
     function toggleInspectionSections(animals, meta) {
@@ -276,19 +364,24 @@
             container.innerHTML = '<p class="text-sm text-gray-500">'
                 + @json(__('No individually assigned animals for the selected species. Choose another session or species, or use the manual counts below for legacy plans.'))
                 + '</p>';
+            updateAnimalListToolbar([]);
             toggleAggregateCountsSection([]);
             return;
         }
 
-        container.innerHTML = '<div class="space-y-4">'
+        container.innerHTML = '<div class="space-y-3 max-h-[min(70vh,48rem)] overflow-y-auto pr-1" data-am-animal-list>'
             + animals.map(function (animal, index) {
-                return buildAnimalCard(animal, index, outcomes[animal.id] || {}, speciesName);
+                return buildAnimalCard(animal, index, outcomes[animal.id] || {}, speciesName, animals.length);
             }).join('')
             + '</div>';
+
+        updateAnimalListToolbar(animals);
 
         container.querySelectorAll('select[name*="[outcome]"]').forEach(function (select) {
             select.addEventListener('change', syncAggregateCounts);
         });
+
+        bindUnhealthyFieldListeners(container);
 
         toggleAggregateCountsSection(animals);
     }
@@ -442,6 +535,30 @@
 
         if (speciesSelect) {
             speciesSelect.addEventListener('change', refreshAnimalsForSpecies);
+        }
+
+        var expandAllBtn = document.getElementById('expand-all-animals');
+        var collapseAllBtn = document.getElementById('collapse-all-animals');
+        if (expandAllBtn) {
+            expandAllBtn.addEventListener('click', function () {
+                setAllAnimalCardsOpen(true);
+            });
+        }
+        if (collapseAllBtn) {
+            collapseAllBtn.addEventListener('click', function () {
+                setAllAnimalCardsOpen(false);
+            });
+        }
+
+        var initialContainer = document.getElementById('per-animal-outcomes-container');
+        if (initialContainer) {
+            bindUnhealthyFieldListeners(initialContainer);
+            var initialCards = initialContainer.querySelectorAll('[data-am-animal-card]');
+            if (initialCards.length > 0) {
+                updateAnimalListToolbar(Array.from(initialCards).map(function () {
+                    return {};
+                }));
+            }
         }
     });
 }());

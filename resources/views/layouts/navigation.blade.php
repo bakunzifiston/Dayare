@@ -18,7 +18,7 @@
                     <x-nav-link :href="route('businesses.hub')" :active="request()->routeIs('businesses.*')">
                         {{ __('Businesses') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('inspectors.hub')" :active="request()->routeIs('inspectors.*')">
+                    <x-nav-link :href="route('inspectors.hub')" :active="request()->routeIs('inspectors.*') || request()->routeIs('monthly-inspection-reports.*')">
                         {{ __('Inspectors') }}
                     </x-nav-link>
                     <x-nav-link :href="route('slaughter-plans.hub')" :active="request()->routeIs('slaughter-plans.*')">
@@ -109,7 +109,7 @@
             <x-responsive-nav-link :href="route('businesses.hub')" :active="request()->routeIs('businesses.*')">
                 {{ __('Businesses') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('inspectors.hub')" :active="request()->routeIs('inspectors.*')">
+            <x-responsive-nav-link :href="route('inspectors.hub')" :active="request()->routeIs('inspectors.*') || request()->routeIs('monthly-inspection-reports.*')">
                 {{ __('Inspectors') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('slaughter-plans.hub')" :active="request()->routeIs('slaughter-plans.*')">

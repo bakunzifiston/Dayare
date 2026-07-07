@@ -11,81 +11,14 @@
     <div class="py-12">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                <p class="text-sm text-gray-500 mb-4">
-                    {{ __('Batches appear here after meat is released from cold room storage and no certificate exists yet.') }}
-                </p>
-
-                @if ($selectedBatch ?? null)
-                    @if ($selectedBatch->canIssueCertificate())
-                        <div class="mb-4 rounded bg-green-50 border border-green-200 p-3">
-                            <p class="text-xs font-medium text-green-700 mb-2">
-                                {{ __('Ready for certification') }}
-                            </p>
-                            <div class="flex flex-wrap gap-6 text-sm text-green-800">
-                                <span>{{ __('Batch') }}: <strong class="font-mono">{{ $selectedBatch->batch_code }}</strong></span>
-                                <span>{{ __('Species') }}: <strong>{{ $selectedBatch->species }}</strong></span>
-                                @if ($selectedBatch->hasPerAnimalData())
-                                    <span>{{ __('Animals') }}: <strong>{{ $selectedBatch->animal_count }}</strong></span>
-                                @endif
-                                @if ($selectedBatch->postMortemInspection)
-                                    <span>{{ __('PM approved') }}: <strong>{{ $selectedBatch->postMortemInspection->approved_quantity }}</strong></span>
-                                @endif
-                            </div>
-                        </div>
-                    @else
-                        <div class="mb-4 rounded bg-amber-50 border border-amber-200 p-3">
-                            <p class="text-sm font-medium text-amber-800">
-                                {{ __('Batch :code cannot be certified yet', ['code' => $selectedBatch->batch_code]) }}
-                            </p>
-                            <p class="mt-1 text-sm text-amber-700">{{ $selectedBatch->certificateIssueBlockReason() }}</p>
-                            @if (! $selectedBatch->hasReleasedColdRoomStorage())
-                                <a href="{{ route('cold-rooms.hub') }}" class="mt-2 inline-block text-sm font-medium text-amber-900 underline">
-                                    {{ __('Go to cold room →') }}
-                                </a>
-                            @endif
-                        </div>
-                    @endif
-                @endif
-
-                @if ($batches->isEmpty())
-                    <div class="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
-                        <p class="font-medium text-slate-900">{{ __('No batches are ready for certification') }}</p>
-                        <p class="mt-1">{{ __('Complete post-mortem inspection, store meat in the cold room, and release it before issuing a certificate.') }}</p>
-                        @if (($pendingColdRoomRelease ?? collect())->isNotEmpty())
-                            <div class="mt-4 border-t border-slate-200 pt-3">
-                                <p class="font-medium text-slate-800">{{ __('Meat still in cold room (not released yet)') }}</p>
-                                <p class="mt-1 text-slate-600">{{ __('Open each storage record, set status to Released, and save. The batch will appear here after release.') }}</p>
-                                <ul class="mt-2 space-y-2">
-                                    @foreach ($pendingColdRoomRelease as $pending)
-                                        <li class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                            <span class="font-mono text-xs">{{ $pending['batch_code'] }}</span>
-                                            @if ($pending['ear_tag'])
-                                                <span class="text-slate-600">· {{ $pending['ear_tag'] }}</span>
-                                            @endif
-                                            <span class="text-slate-600">· {{ number_format((float) $pending['quantity'], 2) }} {{ $pending['unit'] }}</span>
-                                            <a href="{{ $pending['edit_url'] }}" class="text-sm font-medium text-bucha-primary hover:underline">{{ __('Release in cold room →') }}</a>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        @endif
-                        @if (($blockedBatches ?? collect())->isNotEmpty())
-                            <div class="mt-4 border-t border-slate-200 pt-3">
-                                <p class="font-medium text-slate-800">{{ __('Released storage found, but these batches are still blocked') }}</p>
-                                <ul class="mt-2 space-y-1">
-                                    @foreach ($blockedBatches as $blocked)
-                                        <li>
-                                            <span class="font-mono text-xs">{{ $blocked['batch_code'] }}</span>
-                                            <span class="text-slate-600"> — {{ $blocked['reason'] }}</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        @endif
-                        <div class="mt-3 flex flex-wrap gap-3">
-                            <a href="{{ route('cold-rooms.hub') }}" class="text-sm font-medium text-bucha-primary hover:underline">{{ __('Cold room') }}</a>
-                            <a href="{{ route('post-mortem-inspections.hub') }}" class="text-sm font-medium text-bucha-primary hover:underline">{{ __('Post-mortem inspections') }}</a>
-                        </div>
+                @if ($errors->any())
+                    <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                        <p class="font-medium">{{ __('Please fix the following:') }}</p>
+                        <ul class="mt-2 list-disc list-inside space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
                     </div>
                 @endif
 
@@ -93,25 +26,45 @@
                     @csrf
 
                     <div>
-                        <x-input-label for="batch_id" :value="__('Batch')" />
-                        <select id="batch_id" name="batch_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($batches->isEmpty())>
-                            <option value="">{{ __('Select batch') }}</option>
-                            @foreach ($batches as $b)
+                        <x-input-label for="slaughter_execution_id" :value="__('Slaughter execution')" />
+                        <select id="slaughter_execution_id" name="slaughter_execution_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($executions->isEmpty())>
+                            <option value="">{{ __('Select slaughter execution') }}</option>
+                            @foreach ($executions as $execution)
                                 <option
-                                    value="{{ $b['id'] }}"
-                                    data-facility-id="{{ $b['facility_id'] }}"
-                                    data-inspector-id="{{ $b['inspector_id'] }}"
-                                    @selected((string) old('batch_id', $selectedBatch?->canIssueCertificate() ? $selectedBatch->id : '') === (string) $b['id'])
-                                >{{ $b['label'] }}</option>
+                                    value="{{ $execution['id'] }}"
+                                    data-facility-id="{{ $execution['facility_id'] }}"
+                                    data-inspector-id="{{ $execution['inspector_id'] }}"
+                                    @selected((string) old('slaughter_execution_id', $selectedExecutionId ?? '') === (string) $execution['id'])
+                                >{{ $execution['label'] }}</option>
                             @endforeach
                         </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('batch_id')" />
+                        <x-input-error class="mt-2" :messages="$errors->get('slaughter_execution_id')" />
+                        @if ($executions->isEmpty())
+                            <p class="mt-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                                {{ __('No slaughter executions are ready for certification yet. Complete post-mortem inspection, store the meat in cold room, then release it from cold room before issuing a certificate.') }}
+                            </p>
+                        @endif
+                    </div>
+
+                    <div id="animal-selection-panel" class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-900">{{ __('Animals for this certificate') }}</h3>
+                                <p class="mt-1 text-xs text-slate-600">{{ __('Select one animal or multiple. Each animal needs released cold room storage and post-mortem approval.') }}</p>
+                            </div>
+                            <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+                                <input type="checkbox" id="select-all-animals" class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary">
+                                {{ __('Select all ready animals') }}
+                            </label>
+                        </div>
+                        <div id="animal-selection-list" class="space-y-2"></div>
+                        <x-input-error class="mt-2" :messages="$errors->get('animal_intake_item_ids')" />
                     </div>
 
                     <div>
                         <x-input-label for="inspector_id" :value="__('Inspector')" />
-                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($batches->isEmpty())>
-                            <option value="">{{ __('Select batch first') }}</option>
+                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($executions->isEmpty())>
+                            <option value="">{{ __('Select slaughter execution first') }}</option>
                             @foreach ($inspectorsByFacility as $fid => $inspectors)
                                 @foreach ($inspectors as $insp)
                                     <option
@@ -127,8 +80,8 @@
 
                     <div>
                         <x-input-label for="facility_id" :value="__('Facility')" />
-                        <select id="facility_id" name="facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($batches->isEmpty())>
-                            <option value="">{{ __('Select batch first') }}</option>
+                        <select id="facility_id" name="facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($executions->isEmpty())>
+                            <option value="">{{ __('Select slaughter execution first') }}</option>
                             @foreach ($facilities as $f)
                                 <option
                                     value="{{ $f['id'] }}"
@@ -189,7 +142,7 @@
                     </div>
 
                     <div class="flex gap-4">
-                        <x-primary-button :disabled="$batches->isEmpty()">{{ __('Issue certificate') }}</x-primary-button>
+                        <x-primary-button :disabled="$executions->isEmpty()">{{ __('Issue certificate') }}</x-primary-button>
                         <a href="{{ route('certificates.hub') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
                             {{ __('Cancel') }}
                         </a>
@@ -202,12 +155,115 @@
     @push('scripts')
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                var batchSelect = document.getElementById('batch_id');
+                var executionSelect = document.getElementById('slaughter_execution_id');
                 var inspectorSelect = document.getElementById('inspector_id');
                 var facilitySelect = document.getElementById('facility_id');
+                var executionPrefills = @json($executionPrefills ?? []);
+                var animalsByExecution = @json($certifiableAnimalsByExecution ?? []);
+                var selectedAnimalIds = @json($selectedAnimalIds ?? []);
+                var pdfDetailKeys = @json(\App\Support\CertificatePdfDetails::KEYS);
                 var labelSelectInspector = @json(__('Select inspector'));
-                var labelSelectBatchFirst = @json(__('Select batch first'));
+                var labelSelectExecutionFirst = @json(__('Select slaughter execution first'));
                 var labelSlaughterFacility = @json(__('Slaughter facility'));
+                var animalPanel = document.getElementById('animal-selection-panel');
+                var animalList = document.getElementById('animal-selection-list');
+                var selectAllAnimals = document.getElementById('select-all-animals');
+
+                function selectedAnimalCheckboxes() {
+                    return animalList ? Array.from(animalList.querySelectorAll('input[name="animal_intake_item_ids[]"]')) : [];
+                }
+
+                function selectedAnimalIdsFromDom() {
+                    return selectedAnimalCheckboxes()
+                        .filter(function (input) { return input.checked; })
+                        .map(function (input) { return parseInt(input.value, 10); });
+                }
+
+                function renderAnimalSelection(executionId) {
+                    if (!animalList || !animalPanel) {
+                        return;
+                    }
+
+                    var animals = animalsByExecution[executionId] || [];
+                    animalList.innerHTML = '';
+
+                    if (!executionId || animals.length === 0) {
+                        animalPanel.classList.add('hidden');
+                        return;
+                    }
+
+                    animalPanel.classList.remove('hidden');
+
+                    animals.forEach(function (animal) {
+                        var checked = selectedAnimalIds.length
+                            ? selectedAnimalIds.indexOf(animal.animal_intake_item_id) !== -1
+                            : true;
+                        var row = document.createElement('label');
+                        row.className = 'flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm';
+                        row.innerHTML =
+                            '<input type="checkbox" name="animal_intake_item_ids[]" value="' + animal.animal_intake_item_id + '" class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary"' + (checked ? ' checked' : '') + '>'
+                            + '<span class="font-mono text-xs font-semibold text-slate-900">' + animal.ear_tag + '</span>'
+                            + '<span class="text-slate-600">' + animal.species + (animal.sex ? ' · ' + animal.sex : '') + '</span>'
+                            + '<span class="ml-auto tabular-nums text-slate-700">' + Number(animal.released_kg).toFixed(2) + ' kg</span>';
+                        animalList.appendChild(row);
+                    });
+
+                    selectedAnimalCheckboxes().forEach(function (input) {
+                        input.addEventListener('change', function () {
+                            syncSelectAllState();
+                            applySelectionPrefill(executionSelect ? executionSelect.value : '');
+                        });
+                    });
+
+                    syncSelectAllState();
+                }
+
+                function syncSelectAllState() {
+                    if (!selectAllAnimals) {
+                        return;
+                    }
+                    var boxes = selectedAnimalCheckboxes();
+                    selectAllAnimals.checked = boxes.length > 0 && boxes.every(function (input) { return input.checked; });
+                }
+
+                function applySelectionPrefill(executionId) {
+                    var prefill = executionPrefills[executionId] || {};
+                    var animals = animalsByExecution[executionId] || [];
+                    var selectedIds = selectedAnimalIdsFromDom();
+                    var selected = animals.filter(function (animal) {
+                        return selectedIds.indexOf(animal.animal_intake_item_id) !== -1;
+                    });
+
+                    pdfDetailKeys.forEach(function (key) {
+                        var input = document.querySelector('[name="pdf_details[' + key + ']"]');
+                        if (!input) {
+                            return;
+                        }
+
+                        if (key === 'animal_names') {
+                            input.value = selected.map(function (animal) { return animal.ear_tag; }).join(', ');
+                            return;
+                        }
+
+                        if (key === 'carcass_meat_kg') {
+                            var total = selected.reduce(function (sum, animal) {
+                                return sum + Number(animal.released_kg || 0);
+                            }, 0);
+                            input.value = total > 0 ? total.toFixed(2) : '';
+                            return;
+                        }
+
+                        if (Object.prototype.hasOwnProperty.call(prefill, key)) {
+                            input.value = prefill[key] ?? '';
+                        } else {
+                            input.value = '';
+                        }
+                    });
+                }
+
+                function applyPdfPrefill(executionId) {
+                    applySelectionPrefill(executionId);
+                }
 
                 function setOptionVisibility(select, facilityId) {
                     if (!select) {
@@ -218,7 +274,7 @@
                         if (opt.value === '') {
                             opt.disabled = false;
                             opt.hidden = false;
-                            opt.textContent = facilityId ? labelSelectInspector : labelSelectBatchFirst;
+                            opt.textContent = facilityId ? labelSelectInspector : labelSelectExecutionFirst;
                             return;
                         }
 
@@ -228,8 +284,8 @@
                     });
                 }
 
-                function syncFromBatch() {
-                    var selected = batchSelect && batchSelect.options[batchSelect.selectedIndex];
+                function syncFromExecution() {
+                    var selected = executionSelect && executionSelect.options[executionSelect.selectedIndex];
                     var facilityId = selected && selected.dataset.facilityId ? selected.dataset.facilityId : '';
                     var inspectorId = selected && selected.dataset.inspectorId ? selected.dataset.inspectorId : '';
 
@@ -240,7 +296,7 @@
                             if (opt.value === '') {
                                 opt.disabled = !facilityId;
                                 opt.hidden = false;
-                                opt.textContent = facilityId ? labelSlaughterFacility : labelSelectBatchFirst;
+                                opt.textContent = facilityId ? labelSlaughterFacility : labelSelectExecutionFirst;
                                 return;
                             }
 
@@ -264,13 +320,30 @@
                             inspectorSelect.value = inspectorOption.value;
                         }
                     }
+
+                    if (executionSelect && executionSelect.value) {
+                        renderAnimalSelection(executionSelect.value);
+                        applyPdfPrefill(executionSelect.value);
+                    } else {
+                        renderAnimalSelection('');
+                        applyPdfPrefill('');
+                    }
                 }
 
-                if (batchSelect) {
-                    batchSelect.addEventListener('change', syncFromBatch);
+                if (executionSelect) {
+                    executionSelect.addEventListener('change', syncFromExecution);
                 }
 
-                syncFromBatch();
+                if (selectAllAnimals) {
+                    selectAllAnimals.addEventListener('change', function () {
+                        selectedAnimalCheckboxes().forEach(function (input) {
+                            input.checked = selectAllAnimals.checked;
+                        });
+                        applySelectionPrefill(executionSelect ? executionSelect.value : '');
+                    });
+                }
+
+                syncFromExecution();
             });
         </script>
     @endpush

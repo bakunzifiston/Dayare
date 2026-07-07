@@ -376,7 +376,7 @@
 
         if (!planId) {
             if (container) {
-                container.innerHTML = '<p class="text-sm text-gray-500">' + @json(__('Select a slaughter session with ante-mortem approved animals.')) + '</p>';
+                container.innerHTML = '<p class="text-sm text-gray-500">' + @json(__('Select a slaughter session with ante-mortem approved animals and no execution recorded yet.')) + '</p>';
             }
             if (perAnimalSection) {
                 perAnimalSection.classList.add('hidden');

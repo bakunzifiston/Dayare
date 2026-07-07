@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\AnimalIntake;
 use App\Models\AnimalIntakeItem;
 use App\Services\Processor\SlaughterPlanAssignmentService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -112,5 +113,10 @@ class UpdateSlaughterPlanRequest extends FormRequest
                 );
             }
         });
+    }
+
+    private function displayTimezone(): string
+    {
+        return (string) config('app.display_timezone', 'Africa/Kigali');
     }
 }

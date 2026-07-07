@@ -322,7 +322,7 @@ class BatchTest extends TestCase
         );
 
         return array_merge([
-            'batch_id' => $batch->id,
+            'slaughter_execution_id' => $batch->slaughter_execution_id,
             'inspector_id' => $this->inspector->id,
             'species' => 'Cattle',
             'notes' => null,
@@ -564,6 +564,8 @@ class BatchTest extends TestCase
                 'animal_intake_item_id' => $bi->animal_intake_item_id,
                 'outcome' => $index === 0 ? 'condemned' : 'approved',
                 'carcass_weight_kg' => $index === 0 ? 98.50 : 110.00,
+                'seized_part' => $index === 0 ? 'Liver' : null,
+                'reason' => $index === 0 ? 'Abscess detected' : null,
                 'outcome_notes' => null,
                 'observations' => $perAnimalObservations,
             ];
@@ -582,6 +584,8 @@ class BatchTest extends TestCase
             'animal_intake_item_id' => $items[0]->animal_intake_item_id,
             'outcome' => 'condemned',
             'carcass_weight_kg' => 98.50,
+            'seized_part' => 'Liver',
+            'reason' => 'Abscess detected',
         ]);
         $this->assertDatabaseHas('post_mortem_inspections', [
             'batch_id' => $batch->id,
@@ -671,9 +675,7 @@ class BatchTest extends TestCase
         $response = $this->actingAs($this->user)
             ->get(route('batches.hub'));
 
-        $response->assertOk();
-        $response->assertSee($ownBatch->batch_code);
-        $response->assertDontSee($otherBatch->batch_code);
+        $response->assertRedirect(route('post-mortem-inspections.hub'));
     }
 
     public function test_animal_count_and_total_meat_correct(): void

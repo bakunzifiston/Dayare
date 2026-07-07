@@ -313,10 +313,10 @@ class AnimalIntake extends Model
     {
         if ($this->relationLoaded('items')) {
             if ($this->items->isNotEmpty()) {
-                return (float) $this->items->sum('unit_price');
+                return (float) $this->items->sum(fn (AnimalIntakeItem $item) => (float) $item->unit_price + (float) $item->service_fee);
             }
         } elseif ($this->items()->exists()) {
-            return (float) $this->items()->sum('unit_price');
+            return (float) $this->items()->get()->sum(fn (AnimalIntakeItem $item) => (float) $item->unit_price + (float) $item->service_fee);
         }
 
         return (float) ($value ?? 0);

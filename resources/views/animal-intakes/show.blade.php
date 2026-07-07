@@ -30,16 +30,6 @@
                 <div class="p-4 rounded-md bg-green-50 text-green-800">{{ session('status') }}</div>
             @endif
 
-            @if ($intake->isHealthCertificateExpired())
-                <div class="p-4 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                    {{ __('Health certificate has expired. This is informational only — slaughter planning is not blocked.') }}
-                </div>
-            @elseif (blank($intake->health_certificate_expiry_date))
-                <div class="p-4 rounded-md bg-slate-50 text-slate-600 border border-slate-200">
-                    {{ __('No health certificate on file. You can add certificate details when available.') }}
-                </div>
-            @endif
-
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6">
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Facility') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->facility->facility_name ?? '' }}</dd></div>
@@ -61,7 +51,7 @@
                     @endif
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Origin (location)') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->village?->name ?? $intake->sector?->name ?? $intake->district?->name ?? $intake->province?->name ?? $intake->country?->name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Species') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ __($intake->species) }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Species ear tag') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->species_ear_tag ?? '—' }}</dd></div>
+                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Tag number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->species_ear_tag ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Sex') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->sex ? ucfirst($intake->sex) : '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Age') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->age ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Number of animals') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->number_of_animals }}</dd></div>
@@ -72,9 +62,6 @@
                         <div><dt class="text-sm font-medium text-slate-500">{{ __('Vehicle plate') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->transport_vehicle_plate ?? '—' }}</dd></div>
                         <div><dt class="text-sm font-medium text-slate-500">{{ __('Driver name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->driver_name ?? '—' }}</dd></div>
                     @endif
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Health certificate number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->animal_health_certificate_number ?? '—' }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Health cert. issue date') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->health_certificate_issue_date?->format('d M Y') ?? '—' }}</dd></div>
-                    <div><dt class="text-sm font-medium text-slate-500">{{ __('Health cert. expiry date') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->health_certificate_expiry_date?->format('d M Y') ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Observation') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->observation ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Meat inspector name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->meat_inspector_name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Status') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ ucfirst($intake->status) }}</dd></div>

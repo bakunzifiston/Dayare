@@ -7,9 +7,14 @@
             <h2 class="font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Inspectors') }}
             </h2>
-            <a href="{{ route('inspectors.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
-                {{ __('Register inspector') }}
-            </a>
+            <div class="flex flex-wrap gap-2 shrink-0">
+                <a href="{{ route('monthly-inspection-reports.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-bucha-primary rounded-md font-semibold text-xs text-bucha-primary uppercase tracking-widest hover:bg-bucha-primary/5">
+                    {{ __('Monthly reports') }}
+                </a>
+                <a href="{{ route('inspectors.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                    {{ __('Register inspector') }}
+                </a>
+            </div>
         </div>
     </x-slot>
 

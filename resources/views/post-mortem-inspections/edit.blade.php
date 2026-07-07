@@ -6,7 +6,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 @if ($errors->any())
                     <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -23,14 +23,15 @@
                     @csrf
                     @method('put')
 
+                    <input type="hidden" name="batch_id" value="{{ $inspection->batch_id }}">
+
                     <div>
-                        <x-input-label for="batch_id" :value="__('Batch')" />
-                        <select id="batch_id" name="batch_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach ($batches as $b)
-                                <option value="{{ $b['id'] }}" data-facility-id="{{ $b['facility_id'] }}" data-species="{{ $b['species'] }}" @selected(old('batch_id', $inspection->batch_id) == $b['id'])>{{ $b['label'] }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('batch_id')" />
+                        <x-input-label :value="__('Slaughter execution')" />
+                        <p class="mt-1 text-sm text-slate-900">
+                            {{ $inspection->batch->slaughterExecution->slaughter_time->format('d M Y H:i') }}
+                            — {{ $inspection->batch->slaughterExecution->slaughterPlan->facility->facility_name }}
+                            ({{ $inspection->batch->species }})
+                        </p>
                     </div>
 
                     <div>
@@ -64,23 +65,16 @@
                         <x-input-error class="mt-2" :messages="$errors->get('inspection_date')" />
                     </div>
 
-                    <p id="animal-source-notice"
-                       class="@if (! is_array($selectedBatchData ?? null) || ($selectedBatchData['source'] ?? '') !== 'execution') hidden @endif rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        @if (is_array($selectedBatchData ?? null) && ($selectedBatchData['source'] ?? '') === 'execution')
-                            {{ __('Showing slaughtered animals from the linked execution because this batch has no individual animal rows yet.') }}
-                        @endif
-                    </p>
+                    <input type="hidden" id="slaughter_execution_id" value="{{ $selectedExecutionId }}">
 
-                    <div id="per-animal-outcomes-section"
-                         class="rounded-lg border border-slate-200 bg-white @if (! ($selectedBatchData['has_per_animal'] ?? false)) hidden @endif">
+                    <div id="per-animal-outcomes-section" @class(['rounded-lg border border-slate-200 bg-white', 'hidden' => ! $hasPerAnimal])>
                         <div class="border-b border-slate-200 px-4 py-3">
                             <div class="flex flex-wrap items-start justify-between gap-4">
                                 <div>
                                     <h3 class="text-sm font-semibold text-slate-800">{{ __('Individual animal post-mortem') }}</h3>
-                                    <p class="mt-1 text-xs text-slate-500">{{ __('Update outcome and checklist for each animal.') }}</p>
+                                    <p class="mt-1 text-xs text-slate-500">{{ __('Animals from this slaughter execution are listed below. Update outcomes or complete pending animals.') }}</p>
                                 </div>
-                                <div id="per-animal-aggregate-summary"
-                                     class="@if (! ($selectedBatchData['has_per_animal'] ?? false)) hidden @endif grid min-w-[14rem] grid-cols-3 gap-2 sm:gap-3">
+                                <div id="per-animal-aggregate-summary" @class(['grid min-w-[14rem] grid-cols-3 gap-2 sm:gap-3', 'hidden' => ! $hasPerAnimal])>
                                     <div class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-center sm:px-3">
                                         <p class="text-[10px] font-medium uppercase tracking-wide text-slate-500">{{ __('Total meat examined') }}</p>
                                         <p class="text-lg font-semibold tabular-nums text-slate-900"><span id="pm-summary-examined">{{ number_format((float) old('total_examined', $inspection->total_examined), 2) }}</span> <span class="text-xs font-normal text-slate-500">kg</span></p>
@@ -96,10 +90,35 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div id="execution-animals-roster" @class(['border-b border-slate-200 bg-white px-4 py-4', 'hidden' => ! $hasPerAnimal])>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Animals in this slaughter execution') }}</p>
+                            <p class="mt-1 text-xs text-slate-500">
+                                <span id="execution-animals-count">{{ $pmExecutionData['animal_count'] ?? 0 }}</span>
+                                {{ __('animal(s) slaughtered — pending animals are loaded for inspection below.') }}
+                            </p>
+                            @include('post-mortem-inspections.partials._execution-animals-roster', [
+                                'executionAnimals' => $executionAnimals,
+                                'inspectedAnimalIds' => $inspectedAnimalIds,
+                            ])
+                        </div>
+
+                        <div id="animal-tag-lookup" class="hidden border-b border-slate-200 bg-slate-50 px-4 py-4">
+                            <x-input-label for="animal_tag_search" :value="__('Ear tag or tag number')" />
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <x-text-input id="animal_tag_search" type="text" class="block min-w-[12rem] flex-1" placeholder="{{ __('Scan or type tag…') }}" autocomplete="off" />
+                                <button type="button" id="add-animal-by-tag" class="inline-flex items-center rounded-md border border-transparent bg-bucha-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-bucha-burgundy focus:outline-none focus:ring-2 focus:ring-bucha-primary focus:ring-offset-2">
+                                    {{ __('Add animal') }}
+                                </button>
+                            </div>
+                            <p id="animal-tag-feedback" class="mt-2 hidden text-sm"></p>
+                            <p class="mt-2 text-xs text-slate-500">{{ __('Pending animals for this execution:') }} <span id="pending-animal-count">{{ $pmExecutionData['pending_count'] ?? 0 }}</span></p>
+                        </div>
+
                         <div id="per-animal-outcomes-container" class="p-4">
-                            @if (($selectedBatchData['has_per_animal'] ?? false) && ! empty($selectedBatchData['animals']))
+                            @if ($hasPerAnimal && ! empty($displayAnimals))
                                 @include('post-mortem-inspections.partials._per-animal-outcomes', [
-                                    'animals' => $selectedBatchData['animals'],
+                                    'animals' => $displayAnimals,
                                     'species' => old('species', $inspection->species ?? $inspection->batch->species),
                                     'inspectionItems' => $inspection->inspectionItems,
                                     'existingInspectionOutcomes' => $existingInspectionOutcomes ?? [],
@@ -109,58 +128,58 @@
                         <x-input-error class="px-4 pb-3" :messages="$errors->get('item_outcomes')" />
                     </div>
 
-                    <div id="legacy-checklist-section" class="@if ($selectedBatchData['has_per_animal'] ?? false) hidden @endif space-y-6">
-                    <div>
-                        <h3 class="text-base font-semibold text-slate-800">{{ __('Carcass inspection') }}</h3>
-                        <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
-                            <table class="min-w-full divide-y divide-slate-200 text-sm">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Status') }}</th>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="carcass-checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
-                            </table>
+                    <div id="legacy-checklist-section" @class(['space-y-6', 'hidden' => $hasPerAnimal])>
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800">{{ __('Carcass inspection') }}</h3>
+                            <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
+                                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Status') }}</th>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="carcass-checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800">{{ __('Organ inspection') }}</h3>
+                            <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
+                                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Status') }}</th>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="organ-checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                                </table>
+                            </div>
+                            <p id="checklist-empty" class="mt-2 text-xs text-slate-500 hidden">{{ __('No checklist configured for this species.') }}</p>
+                            <x-input-error class="mt-2" :messages="$errors->get('observations')" />
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800">{{ __('Decision & comment') }}</h3>
+                            <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
+                                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Status') }}</th>
+                                            <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="decision-checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
-                    <div>
-                        <h3 class="text-base font-semibold text-slate-800">{{ __('Organ inspection') }}</h3>
-                        <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
-                            <table class="min-w-full divide-y divide-slate-200 text-sm">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Status') }}</th>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="organ-checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
-                            </table>
-                        </div>
-                        <p id="checklist-empty" class="mt-2 text-xs text-slate-500 hidden">{{ __('No checklist configured for this species.') }}</p>
-                        <x-input-error class="mt-2" :messages="$errors->get('observations')" />
-                    </div>
-                    <div>
-                        <h3 class="text-base font-semibold text-slate-800">{{ __('Decision & comment') }}</h3>
-                        <div class="mt-2 rounded-lg border border-slate-200 overflow-hidden">
-                            <table class="min-w-full divide-y divide-slate-200 text-sm">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Item') }}</th>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Status') }}</th>
-                                        <th class="px-3 py-2 text-left font-medium text-slate-600">{{ __('Notes') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="decision-checklist-body" class="divide-y divide-slate-100 bg-white"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    </div>
-
-                    <div id="aggregate-counts-section" class="grid grid-cols-1 gap-4 sm:grid-cols-3 @if ($selectedBatchData['has_per_animal'] ?? false) hidden @endif">
+                    <div id="aggregate-counts-section" @class(['grid grid-cols-1 gap-4 sm:grid-cols-3', 'hidden' => $hasPerAnimal])>
                         <div>
                             <x-input-label for="total_examined" :value="__('Total examined')" />
                             <x-text-input id="total_examined" name="total_examined" type="number" min="0" step="0.01" class="mt-1 block w-full" :value="old('total_examined', $inspection->total_examined)" required />
@@ -197,10 +216,12 @@
     </div>
 
     @include('post-mortem-inspections.partials.form-batch-scripts', [
-        'batchAnimalsByBatchId' => $batchAnimalsByBatchId,
+        'executionAnimalsByExecutionId' => $executionAnimalsByExecutionId,
         'checklists' => $checklists,
         'existingInspectionOutcomes' => $existingInspectionOutcomes ?? [],
         'preserveExistingOutcomes' => $preserveExistingOutcomes ?? false,
+        'selectedAnimals' => $displayAnimals ?? [],
+        'incrementalAnimalSelection' => false,
         'legacyObservations' => $inspection->observations
             ->whereNull('animal_intake_item_id')
             ->mapWithKeys(fn ($o) => [$o->item => ['value' => $o->value, 'notes' => $o->notes]])

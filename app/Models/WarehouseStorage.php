@@ -57,6 +57,22 @@ class WarehouseStorage extends Model
         self::STATUS_DISPOSED,
     ];
 
+    /** Statuses that mean this animal already went through cold room storage. */
+    public const STATUSES_BLOCKING_RESTORAGE = [
+        self::STATUS_IN_STORAGE,
+        self::STATUS_RELEASED,
+        self::STATUS_DISPOSED,
+    ];
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeBlockingRestorage($query)
+    {
+        return $query->whereIn('status', self::STATUSES_BLOCKING_RESTORAGE);
+    }
+
     /** Display label for quantity_unit (from configured Unit name, or Demand legacy label, or code). */
     public function getQuantityUnitLabelAttribute(): string
     {

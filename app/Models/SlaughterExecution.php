@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 /**
  * Slaughter Execution – record of actual slaughter for a session.
@@ -209,5 +210,94 @@ class SlaughterExecution extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Animals slaughtered in this execution scope (same facility and day) available for post-mortem.
+     *
+     * @return Collection<int, array{
+     *     batch_item_id: int|null,
+     *     slaughter_execution_item_id: int,
+     *     animal_intake_item_id: int,
+     *     ear_tag: string,
+     *     tag_number: string|null,
+     *     species: string,
+     *     sex: string,
+     *     meat_quantity_kg: float,
+     *     session_label: string,
+     *     source: string
+     * }>
+     */
+    public function inspectableAnimalsForPostMortem(): Collection
+    {
+        $this->loadMissing(['slaughterPlan', 'executionItems.intakeItem.intake']);
+
+        $executionIds = self::query()
+            ->sameDayAndFacility($this)
+            ->pluck('id');
+
+        return SlaughterExecutionItem::query()
+            ->whereIn('slaughter_execution_id', $executionIds)
+            ->with(['intakeItem.intake', 'execution'])
+            ->orderBy('id')
+            ->get()
+            ->unique('animal_intake_item_id')
+            ->map(function (SlaughterExecutionItem $executionItem) {
+                $intake = $executionItem->intakeItem;
+
+                return [
+                    'batch_item_id' => null,
+                    'slaughter_execution_item_id' => $executionItem->id,
+                    'animal_intake_item_id' => (int) $executionItem->animal_intake_item_id,
+                    'ear_tag' => $intake->ear_tag,
+                    'tag_number' => filled($intake->intake?->species_ear_tag)
+                        ? (string) $intake->intake->species_ear_tag
+                        : null,
+                    'species' => $intake->species,
+                    'sex' => ucfirst($intake->sex),
+                    'meat_quantity_kg' => (float) $executionItem->meat_quantity_kg,
+                    'session_label' => $executionItem->execution?->slaughter_time?->format('H:i') ?? '—',
+                    'source' => 'execution',
+                ];
+            })
+            ->values();
+    }
+
+    /**
+     * Whether every slaughtered animal in this execution scope has a post-mortem outcome.
+     */
+    public function isPostMortemComplete(): bool
+    {
+        $animals = $this->inspectableAnimalsForPostMortem();
+        if ($animals->isEmpty()) {
+            return false;
+        }
+
+        $inspectedIds = $this->inspectedAnimalIntakeItemIds();
+
+        return $animals->every(
+            fn (array $animal) => $inspectedIds->contains((int) $animal['animal_intake_item_id']),
+        );
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    public function inspectedAnimalIntakeItemIds(): Collection
+    {
+        $batchIds = Batch::query()
+            ->whereIn('slaughter_execution_id', self::query()->sameDayAndFacility($this)->pluck('id'))
+            ->pluck('id');
+
+        if ($batchIds->isEmpty()) {
+            return collect();
+        }
+
+        return PostMortemInspectionItem::query()
+            ->whereHas('inspection', fn ($query) => $query->whereIn('batch_id', $batchIds))
+            ->pluck('animal_intake_item_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
     }
 }

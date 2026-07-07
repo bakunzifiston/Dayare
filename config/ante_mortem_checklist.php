@@ -26,7 +26,7 @@ return [
             'respiratory_system' => ['label' => 'Respiratory system', 'type' => 'normal_abnormal'],
             'circulatory_system' => ['label' => 'Circulatory system', 'type' => 'normal_abnormal'],
             'decision' => ['label' => 'Decision', 'type' => 'decision'],
-            'observation' => ['label' => 'Observation', 'type' => 'free_text'],
+            'observation' => ['label' => 'Condition(s) / clinical observation', 'type' => 'free_text'],
         ],
     ],
 

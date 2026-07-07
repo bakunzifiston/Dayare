@@ -1,298 +1,416 @@
 <!doctype html>
-<html lang="en">
+<html lang="rw">
 <head>
     <meta charset="utf-8">
-    <title>{{ __('Veterinary Meat Inspection Certificate') }}</title>
+    <title>ICYEMEZO CYA VETERINERI KU BUGENZUZI BW'INYAMA</title>
     <style>
-        @page { margin: 11mm 13mm; }
+        @page { margin: 8mm 10mm; }
+        * { box-sizing: border-box; }
         body {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 11px;
+            font-size: 9.5px;
             color: #000;
-            line-height: 1.4;
+            line-height: 1.25;
+            margin: 0;
         }
-        .header {
+        table { border-collapse: collapse; width: 100%; }
+        td, th { vertical-align: middle; }
+
+        .form-shell { width: 100%; border: 2px solid #000; }
+        .form-shell td { border: 1px solid #000; }
+
+        .seal-cell {
+            width: 72px;
             text-align: center;
-            margin-bottom: 14px;
+            vertical-align: middle;
+            padding: 6px 4px;
         }
-        .slaughterhouse-name {
-            font-size: 13px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            margin-bottom: 8px;
+        .seal-placeholder {
+            width: 58px;
+            height: 58px;
+            border: 1px solid #333;
+            border-radius: 50%;
+            margin: 0 auto 4px;
+            font-size: 7px;
+            color: #444;
+            line-height: 1.1;
+            padding-top: 18px;
         }
-        .republic {
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .location-line {
-            font-size: 11px;
+        .republic-line {
+            font-size: 8px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            margin-top: 2px;
         }
-        .doc-title {
-            margin-top: 10px;
-            font-size: 12px;
+
+        .header-main {
+            padding: 6px 8px;
+            text-align: center;
+        }
+        .facility-name {
+            font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.03em;
+            margin-bottom: 4px;
         }
-        .section {
-            margin-top: 12px;
-            page-break-inside: avoid;
-        }
-        .section-heading {
-            font-size: 11px;
+        .division-row td {
+            font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 6px;
+            text-align: center;
+            padding: 3px 6px;
         }
-        .form-line {
-            margin-bottom: 7px;
-            width: 100%;
+
+        .title-sidebar {
+            width: 28px;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            text-align: center;
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 8px 2px;
+            line-height: 1.2;
         }
-        .form-label {
-            white-space: nowrap;
+
+        .section-title {
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 4px 6px;
+            background: #f3f4f6;
         }
-        .form-value {
-            border-bottom: 1px solid #000;
-            display: inline-block;
-            min-width: 68%;
-            padding: 0 2px 1px 6px;
+
+        .field-table { width: 100%; }
+        .field-table td {
+            border: 1px solid #000;
+            padding: 0;
+        }
+        .field-label {
+            width: 34%;
+            font-size: 8.5px;
+            font-weight: bold;
+            padding: 5px 6px;
+            background: #fafafa;
+        }
+        .field-value {
+            font-size: 9.5px;
             font-weight: 600;
+            padding: 5px 8px;
+            min-height: 22px;
         }
-        .form-value-inline {
-            border-bottom: 1px solid #000;
-            display: inline-block;
-            min-width: 24%;
-            padding: 0 2px 1px 4px;
-            font-weight: 600;
-        }
-        .inline-sep {
-            margin: 0 6px;
-        }
-        .meat-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 2px;
-        }
+
         .meat-table th,
         .meat-table td {
             border: 1px solid #000;
-            padding: 8px 6px;
+            padding: 6px 4px;
             text-align: center;
-            font-size: 10px;
+            font-size: 8.5px;
         }
         .meat-table th {
             font-weight: bold;
-            text-transform: none;
+            background: #fafafa;
         }
         .meat-table td {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
-            min-height: 28px;
+            min-height: 26px;
         }
+
         .cert-text {
-            margin-top: 4px;
+            padding: 6px 8px;
             text-align: justify;
-            font-size: 10.5px;
-            line-height: 1.45;
+            font-size: 8.5px;
+            line-height: 1.4;
         }
-        .signature-row {
-            margin-top: 16px;
-            width: 100%;
+
+        .date-row td {
+            padding: 6px 8px;
+            font-size: 9px;
+        }
+        .date-box {
+            display: inline-block;
+            border-bottom: 1px solid #000;
+            min-width: 28px;
+            text-align: center;
+            font-weight: 600;
+            padding: 0 4px 1px;
+        }
+
+        .signature-cell {
+            padding: 6px 8px;
+            vertical-align: top;
         }
         .signature-label {
-            font-size: 10px;
+            font-size: 8.5px;
             font-weight: bold;
+            margin-bottom: 4px;
         }
         .signature-line {
             border-bottom: 1px solid #000;
-            min-height: 28px;
-            margin-top: 8px;
+            min-height: 32px;
+            margin-top: 6px;
+        }
+        .inspector-name {
+            margin-top: 4px;
+            font-size: 9px;
+            font-weight: 600;
         }
         .stamp-box {
             border: 1px dashed #444;
-            width: 120px;
-            height: 72px;
+            min-height: 64px;
             text-align: center;
-            font-size: 9px;
-            color: #555;
-            padding-top: 28px;
-            margin-left: auto;
+            font-size: 7.5px;
+            color: #333;
+            padding: 8px 6px;
+            line-height: 1.35;
         }
-        .footer-row {
-            margin-top: 14px;
-            width: 100%;
-            font-size: 8px;
-            color: #666;
-        }
-        .qr-wrap {
-            text-align: right;
-        }
-        .qr-caption {
+
+        .footer-row td {
+            border: none;
+            padding-top: 8px;
             font-size: 7px;
+            color: #555;
+            vertical-align: bottom;
+        }
+        .qr-wrap { text-align: right; }
+        .qr-caption {
+            font-size: 6.5px;
             color: #666;
-            margin-top: 3px;
+            margin-top: 2px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="slaughterhouse-name">{{ $slaughterhouseDisplayName }}</div>
-        <div class="republic">{{ __('REPUBLIC OF RWANDA') }}</div>
-        <div class="location-line">{{ $headerDistrictLine }}</div>
-        <div class="location-line">{{ $headerSectorLine }}</div>
-        <div class="location-line">{{ $headerCellLine }}</div>
-        <div class="doc-title">{{ __('TITLE: VETERINARY MEAT INSPECTION CERTIFICATE') }}</div>
-    </div>
+@php
+    $blank = fn ($value) => ($value !== null && trim((string) $value) !== '') ? $value : '—';
+    $ownerLocation = $sellingLocationLine;
+    $ownerName = $butcherName ?: ($owner->name ?? '—');
+@endphp
 
-    <div class="section">
-        <div class="section-heading">1. {{ __('SLAUGHTERHOUSE') }}</div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Name of Slaughterhouse') }}:</span>
-            <span class="form-value">{{ $slaughterhouseDisplayName }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Location (District, Sector, Cell)') }}:</span>
-            <span class="form-value">{{ $facilityLocationLine }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Type') }}:</span>
-            <span class="form-value">{{ $facilityTypeLabel }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Telephone') }}:</span>
-            <span class="form-value-inline">{{ $facilityPhone ?: '—' }}</span>
-            <span class="inline-sep">|</span>
-            <span class="form-label">{{ __('Registration No.') }}:</span>
-            <span class="form-value-inline">{{ $facilityRegistrationNumber ?: '—' }}</span>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-heading">2. {{ __('ANIMAL IDENTIFICATION') }}</div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Names') }}:</span>
-            <span class="form-value">{{ $ownerNames }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __("Butcher's Name") }}:</span>
-            <span class="form-value">{{ $butcherName ?: '—' }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Selling Location (District, Sector, Cell)') }}:</span>
-            <span class="form-value">{{ $sellingLocationLine }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Telephone') }}:</span>
-            <span class="form-value">{{ $ownerPhone ?: '—' }}</span>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-heading">3. {{ __('IDENTIFICATION OF THE BUTCHER / MEAT SELLING SHOP') }}</div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Names') }}:</span>
-            <span class="form-value">{{ $shopName ?: '—' }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Telephone') }}:</span>
-            <span class="form-value">{{ $shopPhone ?: '—' }}</span>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-heading">4. {{ __('MEAT WEIGHT AND TEMPERATURE') }}</div>
-        <table class="meat-table">
-            <thead>
+<table class="form-shell">
+    {{-- Header: seal + slaughterhouse + divisions --}}
+    <tr>
+        <td class="seal-cell" rowspan="4">
+            <div class="seal-placeholder">REPUBULIKA<br>Y'U RWANDA</div>
+            <div class="republic-line">Republika y'u Rwanda</div>
+        </td>
+        <td class="header-main" colspan="2">
+            <div class="facility-name">{{ $slaughterhouseDisplayName }}</div>
+        </td>
+    </tr>
+    <tr>
+        <td class="division-row" colspan="2">
+            <table class="field-table">
                 <tr>
-                    <th>{{ __('Carcass Meat (Kg)') }}</th>
-                    <th>{{ __('Other Meat (Kg)') }}</th>
-                    <th>{{ __('Temperature (°C)') }}</th>
+                    <td class="field-label" style="width: 22%;">District</td>
+                    <td class="field-value">{{ $headerDistrictLine }}</td>
                 </tr>
-            </thead>
-            <tbody>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td class="division-row" colspan="2">
+            <table class="field-table">
                 <tr>
-                    <td>{{ number_format($carcassMeatKg, 2) }}</td>
-                    <td>{{ number_format($otherMeatKg, 2) }}</td>
-                    <td>{{ $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
+                    <td class="field-label" style="width: 22%;">Sector</td>
+                    <td class="field-value">{{ $headerSectorLine }}</td>
                 </tr>
-            </tbody>
-        </table>
-    </div>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td class="division-row" colspan="2">
+            <table class="field-table">
+                <tr>
+                    <td class="field-label" style="width: 22%;">Cell</td>
+                    <td class="field-value">{{ $headerCellLine }}</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
 
-    <div class="section">
-        <div class="section-heading">5. {{ __('IDENTIFICATION OF THE AUTHORIZED MEAT TRANSPORTER') }}</div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Name of License Holder') }}:</span>
-            <span class="form-value">{{ $transporterLicenseHolder ?: '—' }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Vehicle Plate Number') }}:</span>
-            <span class="form-value">{{ $vehiclePlateNumber ?: '—' }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __("Driver's Name") }}:</span>
-            <span class="form-value">{{ $driverName ?: '—' }}</span>
-        </div>
-        <div class="form-line">
-            <span class="form-label">{{ __('Departure Destination') }}:</span>
-            <span class="form-value-inline">{{ $departureDestination ?: '—' }}</span>
-            <span class="inline-sep">|</span>
-            <span class="form-label">{{ __('Telephone') }}:</span>
-            <span class="form-value-inline">{{ $transporterPhone ?: '—' }}</span>
-        </div>
-    </div>
+    {{-- Main body with vertical title --}}
+    <tr>
+        <td class="title-sidebar" rowspan="20">
+            INYITO: ICYEMEZO CYA VETERINERI KU BUGENZUZI BW'INYAMA
+        </td>
+        <td colspan="2" style="padding: 0;">
+            {{-- Section 1: IBAGIRO --}}
+            <div class="section-title">1. IBAGIRO</div>
+            <table class="field-table">
+                <tr>
+                    <td class="field-label">IZINA RY'IBAGIRO</td>
+                    <td class="field-value">{{ $blank($ownerName) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">Aho ribarizwa (District, Sector, Cell)</td>
+                    <td class="field-value">{{ $blank($ownerLocation) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">TELEPHONE</td>
+                    <td class="field-value">{{ $blank($ownerPhone) }}</td>
+                </tr>
+            </table>
 
-    <div class="section">
-        <div class="section-heading">6. {{ __('CERTIFICATION') }}</div>
-        <p class="cert-text">
-            {{ __('I, the undersigned Veterinarian, certify that I have inspected the meat at the slaughterhouse, and that the meat meets all Rwanda standards. It has been examined for all diseases and conditions, is fit for human consumption, and falls within the categories permitted by the relevant authority.') }}
-        </p>
-        <div class="form-line" style="margin-top: 12px;">
-            <span class="form-label">{{ __('Date') }}:</span>
-            <span class="form-value-inline" style="min-width: 12%; text-align: center;">{{ $issuedDay }}</span>
-            <span class="inline-sep">/</span>
-            <span class="form-value-inline" style="min-width: 12%; text-align: center;">{{ $issuedMonth }}</span>
-            <span class="inline-sep">/</span>
-            <span class="form-value-inline" style="min-width: 18%; text-align: center;">{{ $issuedYear }}</span>
-        </div>
+            {{-- Section 2: IBIRANGA ITUNGO --}}
+            <div class="section-title">2. IBIRANGA ITUNGO</div>
+            <table class="field-table">
+                <tr>
+                    <td class="field-label">Ubwoko</td>
+                    <td class="field-value">{{ $blank($species) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">Iherena n°</td>
+                    <td class="field-value">{{ $blank($earTagNumbers) }}</td>
+                </tr>
+            </table>
 
-        <table class="signature-row">
-            <tr>
-                <td width="58%" style="vertical-align: top;">
-                    <div class="signature-label">{{ __("Veterinarian's Signature and Stamp") }}:</div>
-                    <div class="signature-line"></div>
-                    @if ($certificate->inspector?->full_name)
-                        <div style="margin-top: 6px; font-size: 10px; font-weight: 600;">{{ $certificate->inspector->full_name }}</div>
+            {{-- Section 3: Butcher / shop --}}
+            <div class="section-title">3. UMWIRONDORO WA NYIRI BUSHERI / IDUKA RICURURIZA INYAMA</div>
+            <table class="field-table">
+                <tr>
+                    <td class="field-label">Amazina</td>
+                    <td class="field-value">{{ $blank($butcherName ?: ($owner->name ?? null)) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">Izina rya busheri</td>
+                    <td class="field-value">{{ $blank($shopName) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">Aho acururiza (District, Sector, Cell)</td>
+                    <td class="field-value">{{ $blank($ownerLocation) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">TELEPHONE</td>
+                    <td class="field-value">{{ $blank($shopPhone) }}</td>
+                </tr>
+            </table>
+
+            {{-- Section 4: Weight / temperature --}}
+            <div class="section-title">4. UBUREMERE N'IGIPIMO CY'UBUSHYUHE</div>
+            <table class="meat-table">
+                <thead>
+                    <tr>
+                        <th>Iherena n°</th>
+                        <th>Inyama z'umubiri (Kg)</th>
+                        <th>Izindi nyama (Kg)</th>
+                        <th>Igipimo cy'ubushyuhe (°C)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (! empty($releasedAnimals))
+                        @foreach ($releasedAnimals as $releasedAnimal)
+                            <tr>
+                                <td>{{ $releasedAnimal['ear_tag'] }}</td>
+                                <td>{{ number_format($releasedAnimal['quantity_kg'], 2) }}</td>
+                                <td>{{ $loop->first ? number_format($otherMeatKg, 2) : '—' }}</td>
+                                <td>{{ $loop->first && $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
+                            </tr>
+                        @endforeach
+                        @if (count($releasedAnimals) > 1)
+                            <tr>
+                                <td style="font-weight: bold;">Igiteranyo</td>
+                                <td style="font-weight: bold;">{{ number_format($carcassMeatKg, 2) }}</td>
+                                <td style="font-weight: bold;">{{ number_format($otherMeatKg, 2) }}</td>
+                                <td>{{ $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
+                            </tr>
+                        @endif
+                    @else
+                        <tr>
+                            <td>—</td>
+                            <td>{{ number_format($carcassMeatKg, 2) }}</td>
+                            <td>{{ number_format($otherMeatKg, 2) }}</td>
+                            <td>{{ $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
+                        </tr>
                     @endif
-                </td>
-                <td width="42%" style="vertical-align: top;">
-                    <div class="stamp-box">{{ __('Official Stamp') }}</div>
-                </td>
-            </tr>
-        </table>
-    </div>
+                </tbody>
+            </table>
 
-    <table class="footer-row">
-        <tr>
-            <td>
-                {{ __('Batch') }}: {{ $batch->batch_code }}
-                @if ($certificate->certificate_number)
-                    · {{ __('Certificate No.') }} {{ $certificate->certificate_number }}
-                @endif
-            </td>
-            <td class="qr-wrap" width="130">
-                <img src="{{ $qrImage }}" width="90" height="90" alt="QR">
-                <div class="qr-caption">{{ __('Scan to verify traceability') }}</div>
-            </td>
-        </tr>
-    </table>
+            {{-- Section 5: Transporter --}}
+            <div class="section-title">5. UMWIRONDORO W'UTWAYE INYAMA</div>
+            <table class="field-table">
+                <tr>
+                    <td class="field-label">Amazina y'uhawe uruhushya</td>
+                    <td class="field-value">{{ $blank($transporterLicenseHolder) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">Purake</td>
+                    <td class="field-value">{{ $blank($vehiclePlateNumber) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">Amazina y'umushoferi</td>
+                    <td class="field-value">{{ $blank($driverName) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">Isaha ahagurukiye</td>
+                    <td class="field-value">{{ $blank($departureTime) }}</td>
+                </tr>
+                <tr>
+                    <td class="field-label">TELEPHONE</td>
+                    <td class="field-value">{{ $blank($transporterPhone) }}</td>
+                </tr>
+            </table>
+
+            {{-- Section 6: Certification --}}
+            <div class="section-title">6. KWEMEZA</div>
+            <div class="cert-text">
+                Jyewe wampaye umukono, ndemeza ko nagenzuye inyama mu ibagiro, kandi ko inyama zihuye n'amahame y'u Rwanda.
+                Zagenzuwe ku ndwara zose, zemerewe kurya, kandi ziri mu byiciro byemewe n'inzego zishinzwe.
+            </div>
+
+            <table class="date-row" style="width: 100%;">
+                <tr>
+                    <td style="border: none; width: 18%; font-weight: bold;">Tariki:</td>
+                    <td style="border: none;">
+                        <span class="date-box">{{ $issuedDay }}</span>
+                        /
+                        <span class="date-box">{{ $issuedMonth }}</span>
+                        /
+                        <span class="date-box">{{ $issuedYear }}</span>
+                    </td>
+                </tr>
+            </table>
+
+            <table style="width: 100%;">
+                <tr>
+                    <td class="signature-cell" style="width: 55%; border: none;">
+                        <div class="signature-label">Umukono na kashe bya veterineri:</div>
+                        <div class="signature-line"></div>
+                        @if ($certificate->inspector?->full_name)
+                            <div class="inspector-name">{{ $certificate->inspector->full_name }}</div>
+                        @endif
+                    </td>
+                    <td class="signature-cell" style="width: 45%; border: none;">
+                        <div class="stamp-box">
+                            Tera muri aya magambo cashe y'ibagiro:<br>
+                            <strong>{{ $slaughterhouseDisplayName }}</strong>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+<table class="footer-row">
+    <tr>
+        <td>
+            {{ __('Batch') }}: {{ $batch->batch_code }}
+            @if ($certificate->certificate_number)
+                · {{ __('Certificate No.') }} {{ $certificate->certificate_number }}
+            @endif
+            @if ($departureDestination)
+                · {{ $departureDestination }}
+            @endif
+        </td>
+        <td class="qr-wrap" width="100">
+            <img src="{{ $qrImage }}" width="72" height="72" alt="QR">
+            <div class="qr-caption">{{ __('Scan to verify traceability') }}</div>
+        </td>
+    </tr>
+</table>
 </body>
 </html>

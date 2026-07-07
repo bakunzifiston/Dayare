@@ -195,7 +195,7 @@ class ProcessorDashboardService
                 $this->kpi(__('Animals received'), $animalsReceived, $periodHint, 'info', 'arrow-down'),
                 $this->kpi(__('Slaughter plans'), $plansInPeriod, __(':count AM pending', ['count' => $antePending]), $antePending > 0 ? 'warning' : 'positive', 'calendar'),
                 $this->kpi(__('Animals executed'), $animalsExecuted, $periodHint, 'positive', 'player-play'),
-                $this->kpi(__('Batches created'), $batchesInPeriod, __(':count certified', ['count' => $batchesCertified]), 'positive', 'box'),
+                $this->kpi(__('PM inspections'), $this->postMortemCountForPeriod($ctx, $filters), __(':count certified', ['count' => $batchesCertified]), 'positive', 'clipboard'),
                 $this->kpi(__('Certification rate'), $certRate.'%', $periodHint, $certRate >= 90 ? 'positive' : 'warning', 'certificate'),
             ],
             'workTable' => [
@@ -213,7 +213,7 @@ class ProcessorDashboardService
             'quickActions' => [
                 $this->action(__('New intake'), 'arrow-down', 'animal-intakes.create', BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE),
                 $this->action(__('Plan slaughter'), 'calendar', 'slaughter-plans.create', BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER),
-                $this->action(__('New batch'), 'box', 'batches.create', BusinessUser::PERMISSION_CREATE_BATCH),
+                $this->action(__('Record post-mortem'), 'clipboard', 'post-mortem-inspections.create', BusinessUser::PERMISSION_RECORD_POST_MORTEM),
                 $this->action(__('Assign inspector'), 'user', 'inspectors.hub', BusinessUser::PERMISSION_ASSIGN_BATCH_TO_INSPECTOR),
                 $this->action(__('Certificates'), 'certificate', 'certificates.hub', BusinessUser::PERMISSION_VIEW_CERTIFICATES),
                 $this->action(__('Executions'), 'player-play', 'slaughter-executions.hub', BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER),
@@ -328,24 +328,22 @@ class ProcessorDashboardService
             'roleKey' => BusinessUser::ROLE_INSPECTOR,
             'headerBadge' => ['label' => __('Inspector'), 'variant' => 'info'],
             'kpiCards' => [
-                $this->kpi(__('Assigned batches'), $assignedBatches, $periodHint, 'info', 'box'),
                 $this->kpi(__('AM inspections'), $amCount, $periodHint, 'positive', 'clipboard-list'),
-                $this->kpi(__('PM inspections'), $pmCount, $periodHint, 'positive', 'clipboard-list'),
+                $this->kpi(__('PM inspections'), $pmCount, $periodHint, 'positive', 'clipboard'),
                 $this->kpi(__('Certificates issued'), $certsIssued, $periodHint, 'positive', 'certificate'),
-                $this->kpi(__('PM pending'), $pmPendingBatches, __(':count ready to certify', ['count' => $readyToCertify]), $pmPendingBatches > 0 ? 'warning' : 'positive', 'alert-triangle'),
+                $this->kpi(__('Executions pending PM'), $pmPendingBatches, __(':count ready to certify', ['count' => $readyToCertify]), $pmPendingBatches > 0 ? 'warning' : 'positive', 'alert-triangle'),
             ],
             'workTable' => [
-                'title' => __('Assigned batches'),
+                'title' => __('Post-mortem workload'),
                 'subtitle' => __('Your inspection workload for the selected period.'),
-                'rows' => $this->inspectorBatchTableRows($ctx, $inspectorId, $filters),
-                'footerRoute' => 'batches.hub',
-                'footerLabel' => __('View all batches'),
+                'rows' => $this->inspectorPostMortemTableRows($ctx, $inspectorId, $filters),
+                'footerRoute' => 'post-mortem-inspections.hub',
+                'footerLabel' => __('View all inspections'),
             ],
             'quickActions' => [
                 $this->action(__('Record AM'), 'clipboard-list', 'ante-mortem-inspections.create', BusinessUser::PERMISSION_RECORD_ANTE_MORTEM),
                 $this->action(__('Record PM'), 'clipboard', 'post-mortem-inspections.create', BusinessUser::PERMISSION_RECORD_POST_MORTEM),
                 $this->action(__('Issue certificate'), 'certificate', 'certificates.create', BusinessUser::PERMISSION_ISSUE_CERTIFICATE),
-                $this->action(__('My batches'), 'box', 'batches.hub', BusinessUser::PERMISSION_VIEW_ASSIGNED_BATCHES),
             ],
         ];
     }
@@ -977,6 +975,90 @@ class ProcessorDashboardService
                 ];
             })
             ->all();
+    }
+
+    private function postMortemCountForPeriod(ProcessorDashboardContext $ctx, array $filters): int
+    {
+        $query = PostMortemInspection::query()->whereIn('batch_id', $ctx->batchIds);
+        $this->applyDashboardDateFilter($query, 'inspection_date', $filters);
+
+        return (int) (clone $query)->count();
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array<int, array{
+     *     id: string,
+     *     species: string,
+     *     status: string,
+     *     status_tone: string,
+     *     updated_at: string,
+     *     route: string,
+     *     route_params: array<string, int>
+     * }>
+     */
+    private function inspectorPostMortemTableRows(ProcessorDashboardContext $ctx, ?int $inspectorId, array $filters): array
+    {
+        $query = PostMortemInspection::query()
+            ->whereIn('batch_id', $ctx->batchIds)
+            ->when($inspectorId, fn ($q) => $q->where('inspector_id', $inspectorId))
+            ->with(['batch.certificate', 'batch.slaughterExecution.slaughterPlan']);
+        $this->applyDashboardDateFilter($query, 'inspection_date', $filters);
+
+        $inspections = $query
+            ->latest('inspection_date')
+            ->limit(50)
+            ->get();
+
+        if ($inspections->isEmpty()) {
+            $pendingExecutions = SlaughterExecution::query()
+                ->whereIn('slaughter_plan_id', $ctx->planIds)
+                ->where('status', SlaughterExecution::STATUS_COMPLETED)
+                ->whereHas('executionItems')
+                ->latest('slaughter_time')
+                ->limit(10)
+                ->get()
+                ->filter(fn (SlaughterExecution $execution) => ! $execution->isPostMortemComplete());
+
+            if ($pendingExecutions->isEmpty()) {
+                return [];
+            }
+
+            return $pendingExecutions->map(function (SlaughterExecution $execution): array {
+                return [
+                    'id' => $execution->slaughter_time->format('d M Y H:i'),
+                    'species' => (string) ($execution->slaughterPlan?->species ?? '—'),
+                    'status' => __('PM pending'),
+                    'status_tone' => 'amber',
+                    'updated_at' => $execution->slaughter_time->format('d M Y H:i'),
+                    'route' => 'post-mortem-inspections.create',
+                    'route_params' => ['slaughter_execution_id' => $execution->id],
+                ];
+            })->all();
+        }
+
+        return $inspections->map(function (PostMortemInspection $inspection): array {
+            $batch = $inspection->batch;
+            $species = (string) ($batch?->slaughterExecution?->slaughterPlan?->species ?? $batch?->species ?? '—');
+            $certified = $batch?->certificate !== null;
+            $complete = $batch?->isPostMortemComplete() ?? false;
+
+            return [
+                'id' => (string) ($batch?->batch_code ?? __('Inspection #:id', ['id' => $inspection->id])),
+                'species' => $species,
+                'status' => $certified
+                    ? __('Certified')
+                    : ($complete ? __('Ready to certify') : __('In progress')),
+                'status_tone' => $certified ? 'green' : ($complete ? 'blue' : 'amber'),
+                'updated_at' => $inspection->inspection_date?->format('d M Y') ?? '—',
+                'route' => 'post-mortem-inspections.edit',
+                'route_params' => ['post_mortem_inspection' => $inspection->id],
+            ];
+        })->all();
     }
 
     /**

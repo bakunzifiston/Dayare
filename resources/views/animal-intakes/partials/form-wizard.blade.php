@@ -17,6 +17,7 @@
         'live_weight_kg' => '',
         'body_condition_score' => 'good',
         'unit_price' => '',
+        'service_fee' => '',
         'health_status' => AnimalIntakeItem::HEALTH_HEALTHY,
         'notes' => '',
         'slaughter_plan_id' => null,
@@ -33,6 +34,7 @@
                 'live_weight_kg' => '',
                 'body_condition_score' => 'good',
                 'unit_price' => '',
+                'service_fee' => '',
                 'health_status' => AnimalIntakeItem::HEALTH_HEALTHY,
                 'notes' => '',
                 'slaughter_plan_id' => null,
@@ -48,6 +50,7 @@
             'live_weight_kg' => $item->live_weight_kg ?? '',
             'body_condition_score' => $item->body_condition_score ?? 'good',
             'unit_price' => $item->unit_price,
+            'service_fee' => $item->service_fee,
             'health_status' => $item->health_status,
             'notes' => $item->notes ?? '',
             'slaughter_plan_id' => $item->slaughter_plan_id,
@@ -71,11 +74,6 @@
     }
     if ($hasAnimalErrors) {
         $errorStep = 2;
-    } elseif ($errors->hasAny([
-        'health_certificate_number', 'health_certificate_issue_date', 'health_certificate_expiry_date',
-        'movement_permit_number', 'movement_permit_document',
-    ])) {
-        $errorStep = 3;
     } elseif ($errors->any()) {
         $errorStep = 1;
     }
@@ -146,7 +144,7 @@
                 this.animals.splice(index, 1);
             },
             nextStep() {
-                if (this.step < 4) this.step++;
+                if (this.step < 3) this.step++;
             },
             healthCount(status) {
                 return this.animals.filter((a) => a.health_status === status).length;
@@ -186,12 +184,6 @@
                 const el = document.getElementById('client_id');
                 const manual = [this.reviewField('manual_client_firstname'), this.reviewField('manual_client_lastname')].filter((v) => v && v !== '—').join(' ');
                 return el?.value ? (el.selectedOptions[0]?.text?.trim() || @js(__('Client'))) : (manual || @js(__('Client')));
-            },
-            reviewCertDates() {
-                const issue = this.reviewField('health_certificate_issue_date');
-                const expiry = this.reviewField('health_certificate_expiry_date');
-                if (issue === '—' && expiry === '—') return '—';
-                return issue + ' → ' + expiry;
             },
         };
     }
@@ -265,37 +257,6 @@
     window.clientsForIntake = @json($clientsForIntake);
 
     document.addEventListener('DOMContentLoaded', function () {
-        const expiryInput = document.getElementById('health_certificate_expiry_date');
-        const expiryWarning = document.getElementById('health_certificate_expiry_warning');
-        function updateExpiryWarning() {
-            if (!expiryInput || !expiryWarning) return;
-            const value = expiryInput.value;
-            if (!value) {
-                expiryWarning.textContent = '';
-                expiryWarning.classList.add('hidden');
-                expiryWarning.classList.remove('text-amber-600', 'text-red-600');
-                return;
-            }
-            const expiry = new Date(value + 'T00:00:00');
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const daysUntil = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-            expiryWarning.classList.remove('hidden', 'text-amber-600', 'text-red-600');
-            if (daysUntil < 0) {
-                expiryWarning.textContent = @js(__('Certificate has expired — informational only, slaughter is not blocked.'));
-                expiryWarning.classList.add('text-red-600');
-            } else if (daysUntil <= 30) {
-                expiryWarning.textContent = @js(__('Certificate expires within 30 days.'));
-                expiryWarning.classList.add('text-amber-600');
-            } else {
-                expiryWarning.textContent = '';
-                expiryWarning.classList.add('hidden');
-            }
-        }
-        expiryInput?.addEventListener('change', updateExpiryWarning);
-        expiryInput?.addEventListener('input', updateExpiryWarning);
-        updateExpiryWarning();
-
         document.getElementById('client_id')?.addEventListener('change', function () {
             const data = window.clientsForIntake?.[this.value];
             if (!data) return;
@@ -340,8 +301,7 @@
     <nav class="intake-step-nav" aria-label="{{ __('Intake wizard steps') }}">
         <div class="intake-step-pill" :class="{ 'is-current': step === 1, 'is-done': step > 1 }">{{ __('1. Client') }}</div>
         <div class="intake-step-pill" :class="{ 'is-current': step === 2, 'is-done': step > 2 }">{{ __('2. Animals') }}</div>
-        <div class="intake-step-pill" :class="{ 'is-current': step === 3, 'is-done': step > 3 }">{{ __('3. Compliance') }}</div>
-        <div class="intake-step-pill" :class="{ 'is-current': step === 4 }">{{ __('4. Review') }}</div>
+        <div class="intake-step-pill" :class="{ 'is-current': step === 3 }">{{ __('3. Review') }}</div>
     </nav>
 
     <form method="post" action="{{ $formAction }}" enctype="multipart/form-data" id="animal-intake-wizard-form" novalidate
@@ -397,7 +357,7 @@
                                 · {{ $intake->supplier->phone }}
                             @endif
                         </p>
-                        <p class="mt-2 text-xs text-amber-800">{{ __('New intakes are recorded against clients only. You can still edit animals and compliance for this legacy record.') }}</p>
+                        <p class="mt-2 text-xs text-amber-800">{{ __('New intakes are recorded against clients only. You can still edit animals for this legacy record.') }}</p>
                     </div>
                 @else
                     <input type="hidden" name="source_type" value="{{ AnimalIntake::SOURCE_TYPE_CLIENT }}">
@@ -472,6 +432,27 @@
                     </div>
                 @endforeach
             </div>
+
+            @if (! $isLegacySupplierIntake)
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
+                    <h3 class="text-base font-semibold text-slate-800">{{ __('Movement permit') }}</h3>
+                    <div>
+                        <x-input-label for="movement_permit_document" :value="__('Movement permit document (upload)')" />
+                        <input id="movement_permit_document" name="movement_permit_document" type="file" accept=".pdf,image/jpeg,image/png,image/webp"
+                            class="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-bucha-primary file:text-white hover:file:bg-bucha-burgundy" />
+                        <p class="mt-1 text-xs text-slate-500">{{ __('PDF or image, max 10 MB. Optional — you can add or replace it later.') }}</p>
+                        @if ($intake?->movement_permit_document_path)
+                            <p class="mt-2 text-xs text-slate-600">
+                                {{ __('Current file on record.') }}
+                                @if ($intake->movementPermitDocumentUrl())
+                                    <a href="{{ $intake->movementPermitDocumentUrl() }}" target="_blank" rel="noopener noreferrer" class="text-bucha-primary hover:underline">{{ __('View') }}</a>
+                                @endif
+                            </p>
+                        @endif
+                        <x-input-error class="mt-2" :messages="$errors->get('movement_permit_document')" />
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- Step 2: Individual animals --}}
@@ -516,7 +497,7 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">{{ __('Ear tag') }} <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-slate-700">{{ __('Tag number') }} <span class="text-red-500">*</span></label>
                             <input type="text" :name="'animals[' + index + '][ear_tag]'" x-model="animal.ear_tag" maxlength="100"
                                 :readonly="animal.slaughter_plan_id"
                                 class="mt-1 block w-full rounded-md border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm text-sm">
@@ -559,6 +540,13 @@
                             </select>
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-slate-700">{{ __('Service fee') }}</label>
+                            <input type="number" step="0.01" min="0" :name="'animals[' + index + '][service_fee]'" x-model="animal.service_fee"
+                                class="mt-1 block w-full rounded-md border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm text-sm"
+                                placeholder="0">
+                            <p class="mt-1 text-xs text-red-600" x-show="fieldError(index, 'service_fee')" x-text="fieldError(index, 'service_fee')"></p>
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-slate-700">{{ __('Health status') }} <span class="text-red-500">*</span></label>
                             <select :name="'animals[' + index + '][health_status]'" x-model="animal.health_status"
                                 class="mt-1 block w-full rounded-md border-slate-300 focus:border-bucha-primary focus:ring-bucha-primary shadow-sm text-sm">
@@ -582,57 +570,8 @@
             </button>
         </div>
 
-        {{-- Step 3: Compliance --}}
+        {{-- Step 3: Review --}}
         <div class="intake-wizard-step space-y-6" :class="{ 'is-active': step === 3 }">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
-                <h3 class="text-base font-semibold text-slate-800">{{ __('Compliance documents (optional)') }}</h3>
-                <p class="text-sm text-slate-500">{{ __('Health certificate and movement permit details are optional. You can add or update them at any time.') }}</p>
-
-                <h4 class="text-sm font-semibold text-slate-700">{{ __('Animal health certificate') }}</h4>
-                <div>
-                    <x-input-label for="health_certificate_number" :value="__('Health certificate number')" />
-                    <x-text-input id="health_certificate_number" name="health_certificate_number" type="text" class="mt-1 block w-full"
-                        :value="old('health_certificate_number', $intake?->animal_health_certificate_number)" />
-                    <x-input-error class="mt-2" :messages="$errors->get('health_certificate_number')" />
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <x-input-label for="health_certificate_issue_date" :value="__('Issue date')" />
-                        <x-text-input id="health_certificate_issue_date" name="health_certificate_issue_date" type="date" class="mt-1 block w-full"
-                            :value="old('health_certificate_issue_date', $intake?->health_certificate_issue_date?->format('Y-m-d'))" />
-                        <x-input-error class="mt-2" :messages="$errors->get('health_certificate_issue_date')" />
-                    </div>
-                    <div>
-                        <x-input-label for="health_certificate_expiry_date" :value="__('Expiry date')" />
-                        <x-text-input id="health_certificate_expiry_date" name="health_certificate_expiry_date" type="date" class="mt-1 block w-full"
-                            :value="old('health_certificate_expiry_date', $intake?->health_certificate_expiry_date?->format('Y-m-d'))" />
-                        <p id="health_certificate_expiry_warning" class="mt-1 text-xs hidden"></p>
-                        <x-input-error class="mt-2" :messages="$errors->get('health_certificate_expiry_date')" />
-                    </div>
-                </div>
-
-                <h4 class="text-sm font-semibold text-slate-700 pt-2">{{ __('Movement permit') }}</h4>
-                <div>
-                    <x-input-label for="movement_permit_number" :value="__('Movement permit number')" />
-                    <x-text-input id="movement_permit_number" name="movement_permit_number" type="text" class="mt-1 block w-full"
-                        :value="old('movement_permit_number', $intake?->movement_permit_no)" />
-                    <x-input-error class="mt-2" :messages="$errors->get('movement_permit_number')" />
-                </div>
-                <div>
-                    <x-input-label for="movement_permit_document" :value="__('Movement permit document (upload)')" />
-                    <input id="movement_permit_document" name="movement_permit_document" type="file" accept=".pdf,image/jpeg,image/png,image/webp"
-                        class="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-bucha-primary file:text-white hover:file:bg-bucha-burgundy" />
-                    <p class="mt-1 text-xs text-slate-500">{{ __('PDF or image, max 10 MB.') }}</p>
-                    @if ($intake?->movement_permit_document_path)
-                        <p class="mt-2 text-xs text-slate-600">{{ __('Current file on record.') }}</p>
-                    @endif
-                    <x-input-error class="mt-2" :messages="$errors->get('movement_permit_document')" />
-                </div>
-            </div>
-        </div>
-
-        {{-- Step 4: Review --}}
-        <div class="intake-wizard-step space-y-6" :class="{ 'is-active': step === 4 }">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-3">
                 <h3 class="text-base font-semibold text-slate-800">{{ __('Review before submitting') }}</h3>
                 <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -640,8 +579,6 @@
                     <div><dt class="text-slate-500">{{ __('Intake date & time') }}</dt><dd class="font-medium text-slate-800" x-text="reviewField('intake_date')"></dd></div>
                     <div><dt class="text-slate-500">{{ __('Source') }}</dt><dd class="font-medium text-slate-800" x-text="reviewSource()"></dd></div>
                     <div><dt class="text-slate-500">{{ __('Animals') }}</dt><dd class="font-medium text-slate-800" x-text="animals.length"></dd></div>
-                    <div><dt class="text-slate-500">{{ __('Health certificate') }}</dt><dd class="font-medium text-slate-800" x-text="reviewField('health_certificate_number')"></dd></div>
-                    <div><dt class="text-slate-500">{{ __('Certificate validity') }}</dt><dd class="font-medium text-slate-800" x-text="reviewCertDates()"></dd></div>
                 </dl>
             </div>
 
@@ -652,8 +589,9 @@
                         <thead class="text-left text-slate-500 border-b border-slate-200">
                             <tr>
                                 <th class="py-2 pr-4">#</th>
-                                <th class="py-2 pr-4">{{ __('Ear tag') }}</th>
+                                <th class="py-2 pr-4">{{ __('Tag number') }}</th>
                                 <th class="py-2 pr-4">{{ __('Species') }}</th>
+                                <th class="py-2 pr-4">{{ __('Service fee') }}</th>
                                 <th class="py-2 pr-4">{{ __('Health') }}</th>
                             </tr>
                         </thead>
@@ -663,6 +601,7 @@
                                     <td class="py-2 pr-4" x-text="index + 1"></td>
                                     <td class="py-2 pr-4 font-medium" x-text="animal.ear_tag || '—'"></td>
                                     <td class="py-2 pr-4" x-text="animal.species"></td>
+                                    <td class="py-2 pr-4" x-text="animal.service_fee !== '' && animal.service_fee !== null ? Number(animal.service_fee).toLocaleString() : '—'"></td>
                                     <td class="py-2 pr-4">
                                         <span class="intake-health-badge"
                                             :class="{
@@ -686,21 +625,21 @@
                 class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">
                 {{ __('Back') }}
             </button>
-            <button type="button" x-show="step < 4" @click="nextStep()"
+            <button type="button" x-show="step < 3" @click="nextStep()"
                 class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy ml-auto">
                 {{ __('Next') }}
             </button>
             <button type="submit" name="is_draft" value="1"
-                :class="step === 4 ? 'inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50 ml-auto' : 'hidden'">
+                :class="step === 3 ? 'inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50 ml-auto' : 'hidden'">
                 {{ __('Save as draft') }}
             </button>
             <button type="submit" name="is_draft" value="0" id="animal-intake-submit-btn"
-                :class="step === 4 ? 'inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy' : 'hidden'">
+                :class="step === 3 ? 'inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy' : 'hidden'">
                 {{ __('Submit intake') }}
             </button>
             <a href="{{ route('animal-intakes.hub') }}"
                 class="inline-flex items-center px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-widest hover:text-slate-700"
-                :class="{ 'ml-auto': step < 4 }">
+                :class="{ 'ml-auto': step < 3 }">
                 {{ __('Cancel') }}
             </a>
         </div>

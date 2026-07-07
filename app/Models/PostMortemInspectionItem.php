@@ -30,6 +30,8 @@ class PostMortemInspectionItem extends Model
         'animal_intake_item_id',
         'outcome',
         'outcome_notes',
+        'seized_part',
+        'reason',
         'carcass_weight_kg',
     ];
 
@@ -105,24 +107,36 @@ class PostMortemInspectionItem extends Model
      */
     public function scopeNotAlreadyInColdStorage(Builder $query, Collection|array $batchIds): Builder
     {
-        $batchIds = collect($batchIds)->map(fn ($id) => (int) $id)->filter()->values();
-
         return $query
             ->whereDoesntHave(
                 'warehouseStorages',
-                fn (Builder $q) => $q->where('status', WarehouseStorage::STATUS_IN_STORAGE)
+                fn (Builder $q) => $q->blockingRestorage()
             )
-            ->when($batchIds->isNotEmpty(), function (Builder $q) use ($batchIds): void {
-                $q->whereNotExists(function ($sub) use ($batchIds): void {
-                    $sub->selectRaw('1')
-                        ->from('warehouse_storages')
-                        ->whereColumn(
-                            'warehouse_storages.animal_intake_item_id',
-                            'post_mortem_inspection_items.animal_intake_item_id'
-                        )
-                        ->where('warehouse_storages.status', WarehouseStorage::STATUS_IN_STORAGE)
-                        ->whereIn('warehouse_storages.batch_id', $batchIds);
-                });
+            ->whereNotExists(function ($sub): void {
+                $sub->selectRaw('1')
+                    ->from('warehouse_storages')
+                    ->whereIn('warehouse_storages.status', WarehouseStorage::STATUSES_BLOCKING_RESTORAGE)
+                    ->whereNotNull('post_mortem_inspection_items.animal_intake_item_id')
+                    ->whereColumn(
+                        'warehouse_storages.animal_intake_item_id',
+                        'post_mortem_inspection_items.animal_intake_item_id'
+                    );
+            })
+            ->whereNotExists(function ($sub): void {
+                $sub->selectRaw('1')
+                    ->from('warehouse_storages')
+                    ->join(
+                        'post_mortem_inspection_items as stored_pm_items',
+                        'stored_pm_items.id',
+                        '=',
+                        'warehouse_storages.post_mortem_inspection_item_id'
+                    )
+                    ->whereIn('warehouse_storages.status', WarehouseStorage::STATUSES_BLOCKING_RESTORAGE)
+                    ->whereNotNull('post_mortem_inspection_items.animal_intake_item_id')
+                    ->whereColumn(
+                        'stored_pm_items.animal_intake_item_id',
+                        'post_mortem_inspection_items.animal_intake_item_id'
+                    );
             });
     }
 }

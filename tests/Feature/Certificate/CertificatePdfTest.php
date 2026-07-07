@@ -163,6 +163,51 @@ class CertificatePdfTest extends TestCase
         ]);
     }
 
+    public function test_store_rejects_future_issue_date(): void
+    {
+        $batch = $this->createCertifiableBatch();
+
+        $response = $this->actingAs($this->user)->post(route('certificates.store'), $this->certificateStorePayload($batch, [
+            'issued_at' => now()->addDay()->toDateString(),
+        ]));
+
+        $response->assertSessionHasErrors('issued_at');
+    }
+
+    public function test_store_rejects_duplicate_certificate_number(): void
+    {
+        $batch = $this->createCertifiableBatch();
+
+        $response = $this->actingAs($this->user)->post(route('certificates.store'), $this->certificateStorePayload($batch, [
+            'certificate_number' => $this->certificate->certificate_number,
+        ]));
+
+        $response->assertSessionHasErrors('certificate_number');
+    }
+
+    public function test_store_rejects_inactive_inspector(): void
+    {
+        $batch = $this->createCertifiableBatch();
+        $this->inspector->update(['status' => 'inactive']);
+
+        $response = $this->actingAs($this->user)->post(route('certificates.store'), $this->certificateStorePayload($batch));
+
+        $response->assertSessionHasErrors('inspector_id');
+    }
+
+    public function test_store_rejects_zero_carcass_meat_weight(): void
+    {
+        $batch = $this->createCertifiableBatch();
+
+        $response = $this->actingAs($this->user)->post(route('certificates.store'), $this->certificateStorePayload($batch, [
+            'pdf_details' => [
+                'carcass_meat_kg' => 0,
+            ],
+        ]));
+
+        $response->assertSessionHasErrors('pdf_details.carcass_meat_kg');
+    }
+
     public function test_certificate_can_be_issued_after_cold_room_storage_is_released(): void
     {
         $batch = Batch::create([
@@ -347,7 +392,8 @@ class CertificatePdfTest extends TestCase
 
         $response = $this->actingAs($this->user)->get(route('certificates.create'));
         $response->assertOk();
-        $response->assertSee($batch->batch_code, false);
+        $response->assertSee($batch->slaughterExecution->slaughter_time->format('d M Y H:i'), false);
+        $response->assertSee(__('Select slaughter execution'), false);
     }
 
     public function test_certificate_can_be_issued_when_released_storage_links_via_post_mortem_item_only(): void
@@ -427,10 +473,12 @@ class CertificatePdfTest extends TestCase
 
         $response = $this->actingAs($this->user)->get(route('certificates.create'));
         $response->assertOk();
-        $response->assertSee($batch->batch_code, false);
+        $response->assertSee($batch->slaughterExecution->slaughter_time->format('d M Y H:i'), false);
+        $response->assertSee(__('Select slaughter execution'), false);
 
         $storeResponse = $this->actingAs($this->user)->post(route('certificates.store'), [
-            'batch_id' => $batch->id,
+            'slaughter_execution_id' => $batch->slaughter_execution_id,
+            'animal_intake_item_ids' => [$intakeItem->id],
             'inspector_id' => $this->inspector->id,
             'facility_id' => $this->slaughterFacility->id,
             'slaughterhouse_display_name' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
@@ -570,6 +618,9 @@ class CertificatePdfTest extends TestCase
         $this->assertSame('Jean Butcher', $data['owner']->name);
         $this->assertSame('Nyagatare Prime Butchery', $data['owner']->business_name);
         $this->assertSame(['RW-TAG-005'], $data['releasedEarTags']);
+        $this->assertCount(1, $data['releasedAnimals']);
+        $this->assertSame('RW-TAG-005', $data['releasedAnimals'][0]['ear_tag']);
+        $this->assertSame(55.5, $data['releasedAnimals'][0]['quantity_kg']);
         $this->assertSame('Paul Driver', $data['transportTrip']->driver_name);
         $this->assertSame(CertificatePdfService::NYAGATARE_FACILITY_NAME, $data['slaughterhouseDisplayName']);
         $this->assertNotEmpty($data['qrImage']);
@@ -632,6 +683,9 @@ class CertificatePdfTest extends TestCase
             'number_of_animals' => 1,
             'status' => AnimalIntake::STATUS_APPROVED,
             'is_draft' => false,
+            'district_id' => $this->slaughterFacility->district_id,
+            'sector_id' => $this->slaughterFacility->sector_id,
+            'cell_id' => $this->slaughterFacility->cell_id,
         ]);
 
         $intakeItem = AnimalIntakeItem::create([
@@ -752,5 +806,50 @@ class CertificatePdfTest extends TestCase
             'status' => WarehouseStorage::STATUS_RELEASED,
             'released_date' => now()->toDateString(),
         ]);
+    }
+
+    private function createCertifiableBatch(): Batch
+    {
+        $batch = Batch::create([
+            'slaughter_execution_id' => $this->batch->slaughter_execution_id,
+            'inspector_id' => $this->inspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'quantity' => 80,
+            'quantity_unit' => 'kg',
+            'batch_code' => 'BAT-NMS-VALID-'.strtoupper(substr(uniqid(), -6)),
+            'status' => Batch::STATUS_APPROVED,
+            'cold_chain_status' => Batch::COLD_CHAIN_OK,
+        ]);
+
+        PostMortemInspection::create([
+            'batch_id' => $batch->id,
+            'inspector_id' => $this->inspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'total_examined' => 80,
+            'approved_quantity' => 80,
+            'condemned_quantity' => 0,
+            'inspection_date' => today(),
+            'result' => PostMortemInspection::RESULT_APPROVED,
+        ]);
+
+        $this->createReleasedStorageForBatch($batch, 'RW-TAG-VALID-'.strtoupper(substr(uniqid(), -6)));
+
+        return $batch->fresh();
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function certificateStorePayload(Batch $batch, array $overrides = []): array
+    {
+        return array_replace_recursive([
+            'batch_id' => $batch->id,
+            'inspector_id' => $this->inspector->id,
+            'facility_id' => $this->slaughterFacility->id,
+            'slaughterhouse_display_name' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
+            'issued_at' => now()->toDateString(),
+            'status' => Certificate::STATUS_ACTIVE,
+        ], $overrides);
     }
 }

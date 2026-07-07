@@ -53,9 +53,24 @@ class StorablePostMortemMeat
             return collect();
         }
 
+        $blockedAnimalIds = WarehouseStorage::query()
+            ->forColdRoomUser($request)
+            ->blockingRestorage()
+            ->whereNotNull('animal_intake_item_id')
+            ->pluck('animal_intake_item_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
         return PostMortemInspectionItem::query()
             ->approved()
             ->notAlreadyInColdStorage($batchIds)
+            ->when($blockedAnimalIds->isNotEmpty(), function ($query) use ($blockedAnimalIds): void {
+                $query->where(function ($animalQuery) use ($blockedAnimalIds): void {
+                    $animalQuery->whereNull('animal_intake_item_id')
+                        ->orWhereNotIn('animal_intake_item_id', $blockedAnimalIds);
+                });
+            })
             ->with(['intakeItem.slaughterExecutionItems', 'inspection.batch'])
             ->whereHas('inspection', fn ($q) => $q->whereIn('batch_id', $batchIds))
             ->latest('id')

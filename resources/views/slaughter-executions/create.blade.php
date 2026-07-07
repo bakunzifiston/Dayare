@@ -49,7 +49,7 @@
                                 ])
                             @else
                                 <p class="text-sm text-gray-500">
-                                    {{ __('Select a slaughter session with ante-mortem approved animals.') }}
+                                    {{ __('Select a slaughter session with ante-mortem approved animals and no execution recorded yet.') }}
                                 </p>
                             @endif
                         </div>

@@ -106,7 +106,16 @@
                                         {{ ucfirst($inspItem->outcome) }}
                                     </span>
                                 </div>
-                                @if ($inspItem->outcome_notes)
+                                @if ($inspItem->conditions || $inspItem->action_taken)
+                                    <div class="border-b border-slate-100 px-4 py-2 text-sm text-slate-600 space-y-1">
+                                        @if ($inspItem->conditions)
+                                            <p><span class="font-medium text-slate-500">{{ __('Condition(s)') }}:</span> {{ $inspItem->conditions }}</p>
+                                        @endif
+                                        @if ($inspItem->action_taken)
+                                            <p><span class="font-medium text-slate-500">{{ __('Action taken') }}:</span> {{ $inspItem->action_taken }}</p>
+                                        @endif
+                                    </div>
+                                @elseif ($inspItem->outcome_notes)
                                     <div class="border-b border-slate-100 px-4 py-2 text-sm text-slate-600">
                                         {{ $inspItem->outcome_notes }}
                                     </div>

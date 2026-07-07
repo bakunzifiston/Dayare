@@ -168,6 +168,14 @@ class AnteMortemInspectionTest extends TestCase
             return [
                 'animal_intake_item_id' => $item->id,
                 'outcome' => $outcome,
+                'conditions' => in_array($outcome, [
+                    AnteMortemInspectionItem::OUTCOME_REJECTED,
+                    AnteMortemInspectionItem::OUTCOME_DEFERRED,
+                ], true) ? 'Lameness observed' : null,
+                'action_taken' => in_array($outcome, [
+                    AnteMortemInspectionItem::OUTCOME_REJECTED,
+                    AnteMortemInspectionItem::OUTCOME_DEFERRED,
+                ], true) ? 'Held for review' : null,
                 'observations' => $observations,
             ];
         })->values()->all();

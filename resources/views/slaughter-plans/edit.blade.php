@@ -4,7 +4,7 @@
             <div>
                 <a href="{{ route('slaughter-plans.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Slaughter planning') }}</a>
                 <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('Edit slaughter plan') }} — {{ $plan->slaughter_date->format('d M Y') }}
+                    {{ __('Edit slaughter plan') }} — {{ $plan->slaughterDateDisplay() }}
                 </h2>
             </div>
             <a href="{{ route('slaughter-plans.show', $plan) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">{{ __('Back to plan') }}</a>
@@ -30,9 +30,15 @@
                     @csrf
                     @method('put')
 
+                    @php
+                        $slaughterDateValue = old(
+                            'slaughter_date',
+                            $plan->slaughter_date?->timezone(config('app.display_timezone', 'Africa/Kigali'))->format('Y-m-d\TH:i'),
+                        );
+                    @endphp
                     <div>
-                        <x-input-label for="slaughter_date" :value="__('Slaughter date')" />
-                        <x-text-input id="slaughter_date" name="slaughter_date" type="date" class="mt-1 block w-full" :value="old('slaughter_date', $plan->slaughter_date->format('Y-m-d'))" required />
+                        <x-input-label for="slaughter_date" :value="__('Slaughter date & time')" />
+                        <x-text-input id="slaughter_date" name="slaughter_date" type="datetime-local" class="mt-1 block w-full" :value="$slaughterDateValue" required />
                         <x-input-error class="mt-2" :messages="$errors->get('slaughter_date')" />
                     </div>
 

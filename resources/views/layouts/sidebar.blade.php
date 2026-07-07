@@ -5,16 +5,22 @@
     $tenantNav = [
         ['label' => __('Dashboard'), 'route' => 'dashboard', 'icon' => 'dashboard', 'permission' => null],
         [
+            'group' => __('Inspectors'),
+            'icon' => 'user',
+            'children' => [
+                ['label' => __('Overview'), 'route' => 'inspectors.hub', 'icon' => 'user', 'permission' => 'assign_batch_to_inspector', 'routeIs' => ['inspectors.hub', 'inspectors.index', 'inspectors.create', 'inspectors.edit', 'inspectors.show']],
+                ['label' => __('Monthly reports'), 'route' => 'monthly-inspection-reports.index', 'icon' => 'clipboard-list', 'permission' => 'view_inspections', 'routeIs' => ['monthly-inspection-reports.*']],
+            ],
+        ],
+        [
             'group' => __('Operations'),
             'icon' => 'box',
             'children' => [
                 ['label' => __('Businesses'), 'route' => 'businesses.hub', 'icon' => 'building', 'permission' => 'view_all_modules', 'routeIs' => ['businesses.hub', 'businesses.index', 'businesses.create', 'businesses.edit', 'businesses.show', 'businesses.facilities.*']],
-                ['label' => __('Inspectors'), 'route' => 'inspectors.hub', 'icon' => 'user', 'permission' => 'assign_batch_to_inspector', 'routeIs' => ['inspectors.hub', 'inspectors.index', 'inspectors.create', 'inspectors.edit', 'inspectors.show']],
                 ['label' => __('Animal intake'), 'route' => 'animal-intakes.hub', 'icon' => 'intake', 'permission' => 'create_animal_intake', 'routeIs' => ['animal-intakes.hub', 'animal-intakes.index', 'animal-intakes.create', 'animal-intakes.edit', 'animal-intakes.show']],
                 ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.hub', 'icon' => 'calendar', 'permission' => 'schedule_slaughter', 'routeIs' => ['slaughter-plans.hub', 'slaughter-plans.index', 'slaughter-plans.create', 'slaughter-plans.edit', 'slaughter-plans.show']],
                 ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list', 'permission' => 'view_inspections'],
                 ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.hub', 'icon' => 'play', 'permission' => 'schedule_slaughter', 'routeIs' => ['slaughter-executions.hub', 'slaughter-executions.index', 'slaughter-executions.create', 'slaughter-executions.edit', 'slaughter-executions.show']],
-                ['label' => __('Batches'), 'route' => 'batches.hub', 'icon' => 'box', 'permission' => 'create_batch', 'routeIs' => ['batches.hub', 'batches.index', 'batches.create', 'batches.edit', 'batches.show']],
                 ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.hub', 'icon' => 'clipboard', 'permission' => 'record_post_mortem', 'routeIs' => ['post-mortem-inspections.hub', 'post-mortem-inspections.index', 'post-mortem-inspections.create', 'post-mortem-inspections.edit', 'post-mortem-inspections.show']],
                 ['label' => __('Cold Room'), 'route' => 'cold-rooms.hub', 'icon' => 'box', 'permission' => 'monitor_temperature_logs', 'routeIs' => ['cold-rooms.hub', 'cold-rooms.manage.*', 'warehouse-storages.*']],
                 ['label' => __('Certificates'), 'route' => 'certificates.hub', 'icon' => 'certificate', 'permission' => 'view_certificates', 'routeIs' => ['certificates.hub', 'certificates.index', 'certificates.create', 'certificates.edit', 'certificates.show', 'certificates.qr']],

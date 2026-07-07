@@ -10,13 +10,17 @@
 
     <div class="py-12">
         <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
+            @php
+                $slaughterLocalNow = now(config('app.display_timezone', 'Africa/Kigali'))->format('Y-m-d\TH:i');
+            @endphp
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <form method="post" action="{{ route('slaughter-plans.store') }}" class="space-y-6" id="slaughter-plan-form">
                     @csrf
 
                     <div>
-                        <x-input-label for="slaughter_date" :value="__('Slaughter date')" />
-                        <x-text-input id="slaughter_date" name="slaughter_date" type="date" class="mt-1 block w-full" :value="old('slaughter_date')" required min="{{ date('Y-m-d') }}" />
+                        <x-input-label for="slaughter_date" :value="__('Slaughter date & time')" />
+                        <x-text-input id="slaughter_date" name="slaughter_date" type="datetime-local" class="mt-1 block w-full"
+                            :value="old('slaughter_date', $slaughterLocalNow)" required min="{{ $slaughterLocalNow }}" />
                         <x-input-error class="mt-2" :messages="$errors->get('slaughter_date')" />
                     </div>
 

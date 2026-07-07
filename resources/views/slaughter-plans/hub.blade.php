@@ -95,7 +95,7 @@
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 <tr>
-                                    <th class="px-4 py-3">{{ __('Date') }}</th>
+                                    <th class="px-4 py-3">{{ __('Date & time') }}</th>
                                     <th class="px-4 py-3">{{ __('Facility') }}</th>
                                     <th class="px-4 py-3">{{ __('Species') }}</th>
                                     <th class="px-4 py-3">{{ __('Assigned') }}</th>
@@ -108,7 +108,7 @@
                             <tbody class="divide-y divide-slate-100">
                                 @foreach ($plans as $plan)
                                     <tr class="plan-row cursor-pointer hover:bg-slate-50/80 transition-colors" data-plan-id="{{ $plan->id }}">
-                                        <td class="px-4 py-3 whitespace-nowrap text-slate-800">{{ $plan->slaughter_date->format('d M Y') }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-slate-800">{{ $plan->slaughterDateDisplay() }}</td>
                                         <td class="px-4 py-3 text-slate-800">{{ $plan->facility->facility_name ?? '—' }}</td>
                                         <td class="px-4 py-3 text-slate-700">{{ $plan->species }}</td>
                                         <td class="px-4 py-3">

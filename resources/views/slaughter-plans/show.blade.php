@@ -4,7 +4,7 @@
             <div>
                 <a href="{{ route('slaughter-plans.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Slaughter planning') }}</a>
                 <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('Slaughter plan') }} — {{ $plan->slaughter_date->format('d M Y') }}
+                    {{ __('Slaughter plan') }} — {{ $plan->slaughterDateDisplay() }}
                 </h2>
             </div>
             <div class="flex flex-wrap gap-2">
@@ -30,8 +30,8 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Slaughter date') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $plan->slaughter_date->format('l, d M Y') }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Slaughter date & time') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $plan->slaughterDateDisplay() }}</dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">{{ __('Status') }}</dt>

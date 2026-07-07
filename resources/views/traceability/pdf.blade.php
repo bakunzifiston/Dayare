@@ -1,213 +1,259 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <title>Traceability - {{ $certificateNumber }}</title>
+    <title>{{ __('Veterinary meat inspection certificate') }} — {{ $certificateNumber }}</title>
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #111827; }
-        h1 { font-size: 20px; margin: 0 0 4px; }
-        .sub { color: #4b5563; margin: 0 0 14px; }
-        .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-        .yes { background: #dcfce7; color: #166534; }
-        .no { background: #fee2e2; color: #991b1b; }
-        .section { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-        .section-title { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; font-weight: 700; }
-        table { width: 100%; border-collapse: collapse; }
-        td { border: 1px solid #e5e7eb; padding: 7px; vertical-align: top; }
-        .label { font-size: 10px; color: #6b7280; text-transform: uppercase; }
-        .value { font-size: 12px; font-weight: 600; margin-top: 2px; }
-        .footer { margin-top: 14px; font-size: 10px; color: #6b7280; }
-        .checklist th { text-align: left; font-size: 9px; text-transform: uppercase; color: #6b7280; padding: 4px; }
-        .checklist td { font-size: 11px; padding: 4px; }
-        .subh { font-size: 10px; font-weight: 700; color: #374151; margin: 8px 0 4px; }
+        @page { margin: 10mm 12mm; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 9.5px;
+            color: #1a1a1a;
+            line-height: 1.3;
+            margin: 0;
+        }
+
+        .cover {
+            background-color: #00a651;
+            color: #fff;
+            text-align: center;
+            padding: 10px 8px 12px;
+            margin-bottom: 10px;
+        }
+        .flag-row { width: 100%; margin-bottom: 6px; }
+        .flag-row td { padding: 0; height: 3px; }
+        .flag-blue { background: #00a1de; }
+        .flag-yellow { background: #fad201; }
+        .flag-white { background: #ffffff; }
+        .cover-republic {
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .cover-facility {
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 4px 0;
+        }
+        .cover-title {
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+        .cover-badges {
+            margin-top: 8px;
+            font-size: 8px;
+        }
+        .badge {
+            display: inline-block;
+            border: 1px solid rgba(255,255,255,0.45);
+            padding: 2px 6px;
+            margin: 2px;
+            border-radius: 3px;
+        }
+        .badge-highlight {
+            background: rgba(255,255,255,0.15);
+            font-weight: bold;
+        }
+        .cover-dates {
+            margin-top: 6px;
+            font-size: 8px;
+            border-top: 1px solid rgba(255,255,255,0.25);
+            padding-top: 5px;
+        }
+
+        .verify-row {
+            width: 100%;
+            margin-bottom: 10px;
+            border-collapse: separate;
+            border-spacing: 4px 0;
+        }
+        .verify-row td {
+            width: 33.33%;
+            text-align: center;
+            border: 1px solid #b8dcc6;
+            background: #edf9f1;
+            padding: 6px 4px;
+            vertical-align: top;
+        }
+        .verify-row td.no {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+        .verify-label {
+            font-size: 7px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .verify-value {
+            font-size: 10px;
+            font-weight: bold;
+            color: #047857;
+            margin-top: 2px;
+        }
+        .verify-row td.no .verify-value { color: #991b1b; }
+
+        .section {
+            margin-bottom: 8px;
+            page-break-inside: avoid;
+        }
+        .section-title {
+            font-size: 9px;
+            font-weight: bold;
+            color: #047857;
+            border-bottom: 2px solid #00a651;
+            padding-bottom: 3px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .field-table, .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .field-table td, .data-table th, .data-table td {
+            border: 1px solid #c8e6d4;
+            padding: 4px 6px;
+            vertical-align: top;
+        }
+        .field-label {
+            width: 24%;
+            font-size: 8px;
+            font-weight: bold;
+            color: #047857;
+            background: #edf9f1;
+        }
+        .field-value {
+            font-size: 9px;
+            font-weight: 600;
+        }
+        .data-table th {
+            font-size: 8px;
+            font-weight: bold;
+            color: #047857;
+            background: #edf9f1;
+            text-align: center;
+        }
+        .data-table td.num { text-align: center; }
+        .data-table tr.total-row td {
+            font-weight: bold;
+            background: #e4f5ea;
+        }
+
+        .cert-note {
+            font-size: 8px;
+            color: #047857;
+            margin: 4px 0 0;
+        }
+
+        .appendix-title {
+            font-size: 9px;
+            font-weight: bold;
+            color: #047857;
+            border-bottom: 1px solid #b8dcc6;
+            padding-bottom: 3px;
+            margin: 12px 0 6px;
+            text-transform: uppercase;
+        }
+        .animal-row {
+            border: 1px solid #c8e6d4;
+            padding: 5px 6px;
+            margin-bottom: 4px;
+            background: #fafdfb;
+        }
+        .animal-tag {
+            font-weight: bold;
+            color: #047857;
+        }
+
+        .footer {
+            margin-top: 12px;
+            padding-top: 6px;
+            border-top: 1px solid #c8e6d4;
+            font-size: 7px;
+            color: #64748b;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <h1>Meat Traceability</h1>
-    <p class="sub">Certificate: {{ $certificateNumber }}</p>
+@php
+    $v = $certificateView;
+@endphp
 
-    <div class="section">
-        <div class="section-title">Quick answers</div>
-        <p><span class="label">Legally inspected</span> <span class="badge {{ $legallyInspected ? 'yes' : 'no' }}">{{ $legallyInspected ? 'Yes' : 'No' }}</span></p>
-        <p><span class="label">Certificate valid</span> <span class="badge {{ $certificateValid ? 'yes' : 'no' }}">{{ $certificateValid ? 'Yes' : 'No' }}</span></p>
-        <p><span class="label">Safe for sale</span> <span class="badge {{ $safeForSale ? 'yes' : 'no' }}">{{ $safeForSale ? 'Yes' : 'No' }}</span></p>
+<div class="cover">
+    <table class="flag-row" aria-hidden="true">
+        <tr>
+            <td class="flag-blue"></td>
+            <td class="flag-yellow"></td>
+            <td class="flag-white"></td>
+        </tr>
+    </table>
+    <div class="cover-republic">{{ __('REPUBLIC OF RWANDA') }} · Republika y'u Rwanda</div>
+    <div class="cover-facility">{{ $v['slaughterhouseDisplayName'] }}</div>
+    <div class="cover-title">INYITO: ICYEMEZO CYA VETERINERI KU BUGENZUZI BW'INYAMA</div>
+    <div class="cover-badges">
+        <span class="badge">{{ $v['headerDistrictLine'] }}</span>
+        <span class="badge">{{ $v['headerSectorLine'] }}</span>
+        <span class="badge">{{ $v['headerCellLine'] }}</span>
+        <span class="badge badge-highlight">{{ __('Certificate') }}: {{ $certificateNumber }}</span>
     </div>
-
-    <div class="section">
-        <div class="section-title">Where did it come from?</div>
-        <table>
-            <tr>
-                <td><div class="label">Slaughter facility</div><div class="value">{{ $facilityName }}</div></td>
-                <td><div class="label">Slaughter date</div><div class="value">{{ $slaughterDate }}</div></td>
-            </tr>
-            <tr>
-                <td><div class="label">Batch</div><div class="value">{{ $batchCode }}</div></td>
-                <td><div class="label">Farm location</div><div class="value">{{ $originLocation ?: '—' }}</div></td>
-            </tr>
-        </table>
-    </div>
-
-    <div class="section">
-        <div class="section-title">Certificate</div>
-        <table>
-            <tr>
-                <td><div class="label">Inspector (certificate)</div><div class="value">{{ $inspectorName }}</div></td>
-                <td><div class="label">Certificate status</div><div class="value">{{ ucfirst((string) $certificate->status) }}</div></td>
-            </tr>
-        </table>
-    </div>
-
-    @if (!empty($animalsDetail))
-        <div class="section">
-            <div class="section-title">Individual animals ({{ count($animalsDetail) }})</div>
-            @foreach ($animalsDetail as $animal)
-                <p class="subh">{{ $loop->iteration }}. {{ $animal['ear_tag'] }} · {{ $animal['species'] }} · {{ $animal['sex'] }}</p>
-                <p class="sub">Live weight: {{ $animal['live_weight_kg'] !== null ? number_format((float) $animal['live_weight_kg'], 2).' kg' : '—' }}
-                    · Meat qty: {{ $animal['meat_quantity_kg'] !== null ? number_format((float) $animal['meat_quantity_kg'], 2).' kg' : '—' }}
-                    · PM outcome: {{ $animal['pm_outcome'] ?: 'Not recorded' }}</p>
-
-                @if (!empty($animal['ante_mortem']))
-                    <p class="subh">Ante-mortem</p>
-                    @foreach ($animal['ante_mortem'] as $am)
-                        <p class="sub">{{ $am['inspection_date'] }} · Outcome: {{ $am['outcome'] }}
-                            @if (!empty($am['inspector'])) · Inspector: {{ $am['inspector'] }} @endif
-                        </p>
-                        @if (!empty($am['outcome_notes']))
-                            <p class="sub">{{ $am['outcome_notes'] }}</p>
-                        @endif
-                        @if (!empty($am['rows']))
-                            <table class="checklist">
-                                <tr><th>Item</th><th>Result</th><th>Notes</th></tr>
-                                @foreach ($am['rows'] as $row)
-                                    <tr>
-                                        <td>{{ $row['label'] }}</td>
-                                        <td>{{ $row['value'] }}</td>
-                                        <td>{{ $row['notes'] ?: '—' }}</td>
-                                    </tr>
-                                @endforeach
-                            </table>
-                        @endif
-                    @endforeach
-                @endif
-
-                @if (!empty($animal['post_mortem']))
-                    @php $pmAnimal = $animal['post_mortem']; @endphp
-                    <p class="subh">Post-mortem</p>
-                    <p class="sub">{{ $pmAnimal['inspection_date'] }}
-                        @if (!empty($pmAnimal['outcome'])) · Outcome: {{ $pmAnimal['outcome'] }} @endif
-                        @if (!empty($pmAnimal['inspector'])) · Inspector: {{ $pmAnimal['inspector'] }} @endif
-                    </p>
-                    @if (!empty($pmAnimal['outcome_notes']))
-                        <p class="sub">{{ $pmAnimal['outcome_notes'] }}</p>
-                    @endif
-                    @if (!empty($pmAnimal['carcass_rows']))
-                        <table class="checklist">
-                            <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
-                            @foreach ($pmAnimal['carcass_rows'] as $row)
-                                <tr>
-                                    <td>{{ $row['label'] }}</td>
-                                    <td>{{ $row['value'] }}</td>
-                                    <td>{{ $row['notes'] ?: '—' }}</td>
-                                </tr>
-                            @endforeach
-                        </table>
-                    @endif
-                    @if (!empty($pmAnimal['organ_rows']))
-                        <table class="checklist">
-                            <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
-                            @foreach ($pmAnimal['organ_rows'] as $row)
-                                <tr>
-                                    <td>{{ $row['label'] }}</td>
-                                    <td>{{ $row['value'] }}</td>
-                                    <td>{{ $row['notes'] ?: '—' }}</td>
-                                </tr>
-                            @endforeach
-                        </table>
-                    @endif
-                @endif
-                @if (!$loop->last)<div style="height:8px"></div>@endif
-            @endforeach
-        </div>
-    @endif
-
-    @if (!empty($anteMortemInspectionsDetail))
-        <div class="section">
-            <div class="section-title">Ante-mortem — checklist</div>
-            @foreach ($anteMortemInspectionsDetail as $idx => $am)
-                <p><strong>Record {{ $idx + 1 }}</strong> — {{ $am['inspection_date'] }} · {{ $am['species'] }}
-                    @if (!empty($am['inspector'])) · Inspector: {{ $am['inspector'] }} @endif
-                </p>
-                <p class="sub">Examined / approved / rejected: {{ $am['number_examined'] }} / {{ $am['number_approved'] }} / {{ $am['number_rejected'] }}</p>
-                @if (!empty($am['notes']))
-                    <p class="sub" style="white-space: pre-wrap;">{{ $am['notes'] }}</p>
-                @endif
-                @if (empty($am['rows']))
-                    <p class="sub">No checklist line items recorded.</p>
-                @else
-                    <table class="checklist">
-                        <tr>
-                            <th>Item</th>
-                            <th>Result</th>
-                            <th>Notes</th>
-                        </tr>
-                        @foreach ($am['rows'] as $row)
-                            <tr>
-                                <td>{{ $row['label'] }}</td>
-                                <td>{{ $row['value'] }}</td>
-                                <td>{{ $row['notes'] ?: '—' }}</td>
-                            </tr>
-                        @endforeach
-                    </table>
-                @endif
-                @if (!$loop->last)<div style="height:6px"></div>@endif
-            @endforeach
-        </div>
-    @endif
-
-    @if (!empty($postMortemInspectionDetail))
-        @php $pm = $postMortemInspectionDetail; @endphp
-        <div class="section">
-            <div class="section-title">Post-mortem — checklist</div>
-            <p><strong>{{ $pm['inspection_date'] }}</strong> — {{ $pm['result'] }} · {{ $pm['species'] }}
-                @if (!empty($pm['inspector'])) · Inspector: {{ $pm['inspector'] }} @endif
-            </p>
-            <p class="sub">Total examined / approved / condemned: {{ $pm['total_examined'] }} / {{ $pm['approved_quantity'] }} / {{ $pm['condemned_quantity'] }}</p>
-            @if (!empty($pm['notes']))
-                <p class="sub" style="white-space: pre-wrap;">{{ $pm['notes'] }}</p>
-            @endif
-            <p class="subh">Carcass inspection</p>
-            @if (empty($pm['carcass_rows']))
-                <p class="sub">No carcass observations recorded.</p>
-            @else
-                <table class="checklist">
-                    <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
-                    @foreach ($pm['carcass_rows'] as $row)
-                        <tr>
-                            <td>{{ $row['label'] }}</td>
-                            <td>{{ $row['value'] }}</td>
-                            <td>{{ $row['notes'] ?: '—' }}</td>
-                        </tr>
-                    @endforeach
-                </table>
-            @endif
-            <p class="subh">Organ inspection</p>
-            @if (empty($pm['organ_rows']))
-                <p class="sub">No organ observations recorded.</p>
-            @else
-                <table class="checklist">
-                    <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
-                    @foreach ($pm['organ_rows'] as $row)
-                        <tr>
-                            <td>{{ $row['label'] }}</td>
-                            <td>{{ $row['value'] }}</td>
-                            <td>{{ $row['notes'] ?: '—' }}</td>
-                        </tr>
-                    @endforeach
-                </table>
+    @if ($v['issuedAtFormatted'])
+        <div class="cover-dates">
+            <strong>Tariki</strong>: {{ $v['issuedAtFormatted'] }}
+            @if ($certificate->expiry_date)
+                · <strong>{{ __('Expires') }}</strong>: {{ $certificate->expiry_date->format('d/m/Y') }}
             @endif
         </div>
     @endif
+</div>
 
-    <p class="footer">Generated: {{ $generatedAt->format('Y-m-d H:i') }}</p>
+<table class="verify-row">
+    <tr>
+        <td class="{{ $legallyInspected ? '' : 'no' }}">
+            <div class="verify-label">{{ __('Legally inspected') }}</div>
+            <div class="verify-value">{{ $legallyInspected ? __('Yes') : __('No') }}</div>
+        </td>
+        <td class="{{ $certificateValid ? '' : 'no' }}">
+            <div class="verify-label">{{ __('Certificate valid') }}</div>
+            <div class="verify-value">{{ $certificateValid ? __('Yes') : __('No') }}</div>
+        </td>
+        <td class="{{ $safeForSale ? '' : 'no' }}">
+            <div class="verify-label">{{ __('Safe for sale') }}</div>
+            <div class="verify-value">{{ $safeForSale ? __('Yes') : __('No') }}</div>
+        </td>
+    </tr>
+</table>
+
+@include('traceability.partials.certificate-sections-pdf', [
+    'certificateView' => $certificateView,
+    'certificateNumber' => $certificateNumber,
+    'inspectorName' => $inspectorName,
+    'slaughterDate' => $slaughterDate,
+])
+
+@if (! empty($animalsDetail))
+    <div class="appendix-title">{{ __('Inspection traceability') }} ({{ count($animalsDetail) }})</div>
+    @foreach ($animalsDetail as $animal)
+        <div class="animal-row">
+            <span class="animal-tag">{{ $animal['ear_tag'] }}</span>
+            · {{ $animal['species'] }} · {{ $animal['sex'] }}
+            · {{ __('PM') }}: {{ $animal['pm_outcome'] ?: __('Not recorded') }}
+            @if ($animal['carcass_weight_kg'])
+                · {{ number_format((float) $animal['carcass_weight_kg'], 2) }} kg
+            @endif
+        </div>
+    @endforeach
+@endif
+
+<div class="footer">
+    {{ config('app.name', 'BuchaPro') }} · {{ __('Meat traceability') }}
+    · {{ __('Generated') }}: {{ $generatedAt->format('d/m/Y H:i') }}
+</div>
 </body>
 </html>

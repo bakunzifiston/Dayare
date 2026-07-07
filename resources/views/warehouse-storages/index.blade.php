@@ -16,38 +16,54 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
+    <div class="py-10">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="flex flex-nowrap items-center gap-3 mb-6 overflow-x-auto pb-1 rounded-xl border border-slate-200/60 bg-white px-4 py-3 shadow-sm">
-                <x-kpi-card inline title="{{ __('Total storages') }}" :value="$kpis['total']" color="blue" />
-                <x-kpi-card inline title="{{ __('In storage') }}" :value="$kpis['in_storage']" color="green" />
-                <x-kpi-card inline title="{{ __('Released') }}" :value="$kpis['released']" color="slate" />
+            <div class="profile-list-shell">
+                @if ($filterColdRoom)
+                    <div>
+                        <a href="{{ route('warehouse-storages.index') }}" class="text-sm text-bucha-primary hover:text-bucha-burgundy">
+                            {{ __('Clear room filter') }}
+                        </a>
+                    </div>
+                @endif
+
+                @if (session('status'))
+                    <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
+                @endif
+
+                <div class="profile-kpi-grid profile-kpi-grid--3">
+                    <x-entity.kpi-stat :label="__('Total storages')" :value="number_format($kpis['total'])" accent>
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('In storage')" :value="number_format($kpis['in_storage'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                    <x-entity.kpi-stat :label="__('Released')" :value="number_format($kpis['released'])">
+                        <x-slot:icon>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                </div>
+
+                @if ($storages->isEmpty())
+                    <div class="profile-empty">
+                        <p class="mb-4">{{ __('No cold room storage records yet.') }}</p>
+                        <p class="text-sm text-slate-500 mb-4">{{ __('Record storage of animal meat approved at post-mortem.') }}</p>
+                        <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                            {{ __('Record first storage') }}
+                        </a>
+                    </div>
+                @else
+                    @include('warehouse-storages.partials.storage-cards', [
+                        'storages' => $storages,
+                        'showPagination' => true,
+                    ])
+                @endif
             </div>
-
-            @if ($filterColdRoom)
-                <div class="mb-4">
-                    <a href="{{ route('warehouse-storages.index') }}" class="text-sm text-bucha-primary hover:text-bucha-burgundy">
-                        {{ __('Clear room filter') }}
-                    </a>
-                </div>
-            @endif
-
-            @if (session('status'))
-                <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
-            @endif
-
-            @if ($storages->isEmpty())
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-8 text-center text-slate-600">
-                    <p class="mb-4">{{ __('No cold room storage records yet.') }}</p>
-                    <p class="text-sm mb-4">{{ __('Record storage of animal meat approved at post-mortem.') }}</p>
-                    <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">{{ __('Record first storage') }}</a>
-                </div>
-            @else
-                @include('warehouse-storages.partials.storage-table', [
-                    'storages' => $storages,
-                    'showPagination' => true,
-                ])
-            @endif
         </div>
     </div>
 </x-app-layout>

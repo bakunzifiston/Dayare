@@ -527,8 +527,9 @@ class SlaughterExecutionTest extends TestCase
                 ]],
             ]));
 
-        $response->assertSessionHasErrors('item_slaughters.0.animal_intake_item_id');
+        $response->assertSessionHasErrors('slaughter_plan_id');
         $this->assertDatabaseCount('slaughter_execution_items', 1);
+        $this->assertDatabaseCount('slaughter_executions', 1);
     }
 
     public function test_store_rejects_unapproved_item_slaughter(): void
