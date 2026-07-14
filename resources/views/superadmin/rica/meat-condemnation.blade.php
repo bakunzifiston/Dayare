@@ -6,7 +6,7 @@
             'year' => __('This year'),
             'day' => __('Today'),
         ];
-        $activePeriod = $filters['period'] ?? 'month';
+        $activePeriod = $filters['period'] ?? 'all';
         $organChart = collect($chartSpecs)->firstWhere('id', 'rica-cond-organ-donut');
         $reasonChart = collect($chartSpecs)->firstWhere('id', 'rica-cond-reasons-bar');
         $speciesChart = collect($chartSpecs)->firstWhere('id', 'rica-cond-species-bar');

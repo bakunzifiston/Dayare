@@ -143,7 +143,7 @@ class RicaController extends Controller
 
         if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
             $request = $request->duplicate(
-                query: array_merge($request->query(), ['period' => 'month'])
+                query: array_merge($request->query(), ['period' => 'all'])
             );
         }
 
@@ -158,7 +158,7 @@ class RicaController extends Controller
 
         if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
             $request = $request->duplicate(
-                query: array_merge($request->query(), ['period' => 'month'])
+                query: array_merge($request->query(), ['period' => 'all'])
             );
         }
 

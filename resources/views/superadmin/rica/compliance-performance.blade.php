@@ -6,7 +6,7 @@
             'year' => __('This year'),
             'day' => __('Today'),
         ];
-        $activePeriod = $filters['period'] ?? 'month';
+        $activePeriod = $filters['period'] ?? 'all';
         $statusChart = collect($chartSpecs)->firstWhere('id', 'rica-cp-status-donut');
         $complianceChart = collect($chartSpecs)->firstWhere('id', 'rica-cp-compliance-line');
         $submissionChart = collect($chartSpecs)->firstWhere('id', 'rica-cp-submission-line');
