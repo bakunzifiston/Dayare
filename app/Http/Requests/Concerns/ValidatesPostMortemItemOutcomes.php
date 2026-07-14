@@ -128,24 +128,57 @@ trait ValidatesPostMortemItemOutcomes
                 continue;
             }
 
-            $carcassWeight = $outcome['carcass_weight_kg'] ?? null;
-            if ($carcassWeight === null || $carcassWeight === '' || (float) $carcassWeight <= 0) {
-                $validator->errors()->add(
-                    "item_outcomes.{$index}.carcass_weight_kg",
-                    __('After PM (kg) is required for condemned animals.'),
-                );
-            }
-
             $seizedPart = trim((string) ($outcome['seized_part'] ?? ''));
+            $condemnedWeight = $outcome['condemned_weight_kg'] ?? null;
             $reason = trim((string) ($outcome['reason'] ?? ''));
-            $observations = is_array($outcome['observations'] ?? null) ? $outcome['observations'] : [];
 
-            if ($seizedPart === '' && $reason === '' && ! $this->postMortemHasAbnormalOrgan($species, $observations)) {
+            if ($seizedPart === '') {
                 $validator->errors()->add(
                     "item_outcomes.{$index}.seized_part",
-                    __('Provide seized part, reason, or mark an abnormal organ for condemned animals.'),
+                    __('Condemned organ is required when the decision is condemned.'),
                 );
             }
+
+            if ($condemnedWeight === null || $condemnedWeight === '' || (float) $condemnedWeight <= 0) {
+                $validator->errors()->add(
+                    "item_outcomes.{$index}.condemned_weight_kg",
+                    __('Condemned weight (kg) is required when the decision is condemned.'),
+                );
+            }
+
+            if ($reason === '') {
+                $validator->errors()->add(
+                    "item_outcomes.{$index}.reason",
+                    __('Reason for condemnation is required when the decision is condemned.'),
+                );
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, array{value?: string|null, notes?: string|null}>  $observations
+     */
+    protected function validateLegacyCondemnationDetails(Validator $validator, array $observations): void
+    {
+        if (($observations['decision']['value'] ?? '') !== 'rejected') {
+            return;
+        }
+
+        $organ = trim((string) ($observations['condemned_organ']['value'] ?? ''));
+        $weight = $observations['condemned_weight_kg']['value'] ?? null;
+
+        if ($organ === '') {
+            $validator->errors()->add(
+                'observations.condemned_organ.value',
+                __('Condemned organ is required when the decision is rejected.'),
+            );
+        }
+
+        if ($weight === null || $weight === '' || (float) $weight <= 0) {
+            $validator->errors()->add(
+                'observations.condemned_weight_kg.value',
+                __('Condemned weight (kg) is required when the decision is rejected.'),
+            );
         }
     }
 

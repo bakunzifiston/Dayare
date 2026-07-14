@@ -96,9 +96,9 @@
                     <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div><dt class="text-sm text-gray-500">{{ __('Inspector') }}</dt><dd class="text-sm"><a href="{{ route('inspectors.show', $pm->inspector) }}" class="text-bucha-primary hover:underline">{{ $pm->inspector->full_name }}</a></dd></div>
                         <div><dt class="text-sm text-gray-500">{{ __('Inspection date') }}</dt><dd class="text-sm">{{ $pm->inspection_date?->format('d M Y') ?? '—' }}</dd></div>
-                        <div><dt class="text-sm text-gray-500">{{ __('Total examined') }}</dt><dd class="text-sm">{{ $pm->total_examined }}</dd></div>
-                        <div><dt class="text-sm text-gray-500">{{ __('Approved quantity') }}</dt><dd class="text-sm">{{ $pm->approved_quantity }}</dd></div>
-                        <div><dt class="text-sm text-gray-500">{{ __('Condemned quantity') }}</dt><dd class="text-sm">{{ $pm->condemned_quantity }}</dd></div>
+                        <div><dt class="text-sm text-gray-500">{{ __('Total examined meat') }}</dt><dd class="text-sm tabular-nums">{{ number_format((float) $pm->total_examined, 2) }} kg</dd></div>
+                        <div><dt class="text-sm text-gray-500">{{ __('Approved meat') }}</dt><dd class="text-sm tabular-nums">{{ number_format((float) $pm->approved_quantity, 2) }} kg</dd></div>
+                        <div><dt class="text-sm text-gray-500">{{ __('Condemned meat') }}</dt><dd class="text-sm tabular-nums">{{ number_format((float) $pm->condemned_quantity, 2) }} kg</dd></div>
                         @if ($pm->notes)<div class="sm:col-span-2"><dt class="text-sm text-gray-500">{{ __('Notes') }}</dt><dd class="text-sm whitespace-pre-wrap">{{ $pm->notes }}</dd></div>@endif
                     </dl>
                 </div>

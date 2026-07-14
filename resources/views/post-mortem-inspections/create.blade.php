@@ -74,20 +74,13 @@
                                     <h3 class="text-sm font-semibold text-slate-800">{{ __('Individual animal post-mortem') }}</h3>
                                     <p class="mt-1 text-xs text-slate-500">{{ __('Animals from the selected slaughter execution are listed below. Record an outcome and checklist for each.') }}</p>
                                 </div>
-                                <div id="per-animal-aggregate-summary" @class(['grid min-w-[14rem] grid-cols-3 gap-2 sm:gap-3', 'hidden' => ! $hasPerAnimal])>
-                                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-center sm:px-3">
-                                        <p class="text-[10px] font-medium uppercase tracking-wide text-slate-500">{{ __('Total meat examined') }}</p>
-                                        <p class="text-lg font-semibold tabular-nums text-slate-900"><span id="pm-summary-examined">{{ number_format((float) old('total_examined', 0), 2) }}</span> <span class="text-xs font-normal text-slate-500">kg</span></p>
-                                    </div>
-                                    <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-2 text-center sm:px-3">
-                                        <p class="text-[10px] font-medium uppercase tracking-wide text-emerald-700">{{ __('Approved meat') }}</p>
-                                        <p class="text-lg font-semibold tabular-nums text-emerald-800"><span id="pm-summary-approved">{{ number_format((float) old('approved_quantity', 0), 2) }}</span> <span class="text-xs font-normal text-emerald-600">kg</span></p>
-                                    </div>
-                                    <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-2 text-center sm:px-3">
-                                        <p class="text-[10px] font-medium uppercase tracking-wide text-red-700">{{ __('Rejected meat') }}</p>
-                                        <p class="text-lg font-semibold tabular-nums text-red-800"><span id="pm-summary-condemned">{{ number_format((float) old('condemned_quantity', 0), 2) }}</span> <span class="text-xs font-normal text-red-600">kg</span></p>
-                                    </div>
-                                </div>
+                                @include('post-mortem-inspections.partials._meat-totals-summary', [
+                                    'visible' => $hasPerAnimal,
+                                    'examinedTotal' => old('total_examined', 0),
+                                    'carcassApprovedTotal' => old('approved_carcass_kg', 0),
+                                    'otherMeatApprovedTotal' => old('approved_other_meat_kg', 0),
+                                    'condemnedTotal' => old('condemned_quantity', 0),
+                                ])
                             </div>
                         </div>
 
@@ -182,24 +175,13 @@
                         </div>
                     </div>
 
-                    <div id="aggregate-counts-section" @class(['grid grid-cols-1 gap-4 sm:grid-cols-3', 'hidden' => $hasPerAnimal])>
-                        <div>
-                            <x-input-label for="total_examined" :value="__('Total examined')" />
-                            <x-text-input id="total_examined" name="total_examined" type="number" min="0" step="0.01" class="mt-1 block w-full" :value="old('total_examined', $defaultTotalExamined ?? 0)" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('total_examined')" />
-                        </div>
-                        <div>
-                            <x-input-label for="approved_quantity" :value="__('Approved quantity')" />
-                            <x-text-input id="approved_quantity" name="approved_quantity" type="number" min="0" step="0.01" class="mt-1 block w-full" :value="old('approved_quantity', 0)" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('approved_quantity')" />
-                        </div>
-                        <div>
-                            <x-input-label for="condemned_quantity" :value="__('Condemned quantity')" />
-                            <x-text-input id="condemned_quantity" name="condemned_quantity" type="number" min="0" step="0.01" class="mt-1 block w-full" :value="old('condemned_quantity', 0)" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('condemned_quantity')" />
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 -mt-2">{{ __('Approved + Condemned cannot exceed Total Examined.') }}</p>
+                    @include('post-mortem-inspections.partials._meat-totals-fields', [
+                        'hidden' => $hasPerAnimal,
+                        'examinedValue' => old('total_examined', $defaultTotalExamined ?? 0),
+                        'carcassApprovedValue' => old('approved_carcass_kg', 0),
+                        'otherMeatApprovedValue' => old('approved_other_meat_kg', 0),
+                        'condemnedValue' => old('condemned_quantity', 0),
+                    ])
 
                     <div>
                         <x-input-label for="notes" :value="__('Notes')" />

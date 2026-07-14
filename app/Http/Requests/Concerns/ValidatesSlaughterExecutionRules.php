@@ -107,7 +107,8 @@ trait ValidatesSlaughterExecutionRules
             $approvedCount = AnteMortemInspectionItem::query()
                 ->whereHas('inspection', fn ($query) => $query->where('slaughter_plan_id', $plan->id))
                 ->approved()
-                ->count();
+                ->distinct()
+                ->count('animal_intake_item_id');
             $slaughtered = (int) $this->input('actual_animals_slaughtered');
             if ($slaughtered > $approvedCount) {
                 $validator->errors()->add(
@@ -150,6 +151,8 @@ trait ValidatesSlaughterExecutionRules
                 ->approved()
                 ->pluck('animal_intake_item_id')
                 ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
                 ->all();
 
             $alreadySlaughteredIds = $this->slaughteredItemIdsForPlan((int) $plan->id, $ignoreExecutionId);

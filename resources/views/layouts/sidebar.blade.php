@@ -163,16 +163,60 @@
             ['label' => __('Platform dashboard'), 'route' => 'super-admin.dashboard', 'icon' => 'shield', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_DASHBOARD],
             ['label' => __('Users'), 'route' => 'super-admin.tenants.index', 'icon' => 'user', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_USERS],
             ['label' => __('VIBE Programme'), 'route' => 'super-admin.vibe-programme.index', 'icon' => 'dashboard', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_VIBE_PROGRAMME],
-            ['label' => __('RICA'), 'route' => 'rica.hub', 'icon' => 'shield-check', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_RICA, 'routeIs' => ['rica.*']],
+            [
+                'group' => __('RICA'),
+                'icon' => 'shield-check',
+                'module' => \App\Models\User::SUPER_ADMIN_MODULE_RICA,
+                'children' => [
+                    ['label' => __('Dashboard'), 'route' => 'rica.dashboard', 'icon' => 'dashboard', 'routeIs' => ['rica.dashboard']],
+                    ['label' => __('Traceability'), 'route' => 'rica.traceability', 'icon' => 'qrcode', 'routeIs' => ['rica.traceability', 'rica.slaughterhouses.*']],
+                    ['label' => __('Meat & condemnation'), 'route' => 'rica.meat-condemnation', 'icon' => 'alert', 'routeIs' => ['rica.meat-condemnation']],
+                    ['label' => __('Diseases intelligence'), 'route' => 'rica.diseases-intelligence', 'icon' => 'shield', 'routeIs' => ['rica.diseases-intelligence']],
+                    ['label' => __('Supply chain'), 'route' => 'rica.supply-chain', 'icon' => 'truck', 'routeIs' => ['rica.supply-chain']],
+                    ['label' => __('Compliance performance'), 'route' => 'rica.compliance-performance', 'icon' => 'chart', 'routeIs' => ['rica.compliance-performance']],
+                    ['label' => __('Reports'), 'route' => 'rica.reports', 'icon' => 'clipboard-list', 'routeIs' => ['rica.reports', 'rica.reports.*', 'rica.monthly-reports.*']],
+                    ['label' => __('Alerts & notifications'), 'route' => 'rica.alerts-notifications', 'icon' => 'alert', 'routeIs' => ['rica.alerts-notifications']],
+                    ['label' => __('Users management'), 'route' => 'super-admin.users.index', 'icon' => 'users', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_USER_MANAGEMENT, 'routeIs' => ['super-admin.users.*']],
+                    ['label' => __('Settings'), 'route' => 'rica.settings', 'icon' => 'settings', 'routeIs' => ['rica.settings', 'rica.settings.update']],
+                ],
+            ],
             ['label' => __('Global configuration'), 'route' => 'super-admin.configurations.index', 'icon' => 'settings', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_CONFIGURATION],
             ['label' => __('Admin users'), 'route' => 'super-admin.users.index', 'icon' => 'users', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_USER_MANAGEMENT],
             ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'module' => \App\Models\User::SUPER_ADMIN_MODULE_SYSTEM_SETTINGS],
         ];
 
-        $navGroups = array_values(array_filter(
-            $superAdminNav,
-            fn (array $item): bool => $user->hasSuperAdminModuleAccess((string) ($item['module'] ?? ''))
-        ));
+        $canAccessSuperAdminItem = function (array $item) use ($user): bool {
+            $module = $item['module'] ?? null;
+
+            return $module === null || $user->hasSuperAdminModuleAccess($module);
+        };
+
+        $navGroups = [];
+        foreach ($superAdminNav as $item) {
+            if (isset($item['group'])) {
+                if (! $canAccessSuperAdminItem($item)) {
+                    continue;
+                }
+
+                $children = array_values(array_filter(
+                    $item['children'] ?? [],
+                    $canAccessSuperAdminItem
+                ));
+
+                if ($children === []) {
+                    continue;
+                }
+
+                $item['children'] = $children;
+                $navGroups[] = $item;
+
+                continue;
+            }
+
+            if ($canAccessSuperAdminItem($item)) {
+                $navGroups[] = $item;
+            }
+        }
     } else {
         $navGroups = $tenantNav;
     }
@@ -186,7 +230,7 @@
 >
     <div class="flex items-center justify-between px-5 mb-6 gap-2">
         <x-sidebar-brand
-            :href="$isSuperAdmin ? route('super-admin.dashboard') : route(Auth::user()->defaultDashboardRouteName())"
+            :href="route(Auth::user()->defaultDashboardRouteName())"
             :show-admin-badge="$isSuperAdmin"
         />
         <button @click="sidebarOpen = false" type="button" class="lg:hidden p-2 rounded-bucha text-white/80 hover:text-white hover:bg-white/10">

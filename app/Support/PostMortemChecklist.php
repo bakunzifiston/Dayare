@@ -40,10 +40,29 @@ class PostMortemChecklist
         $items = self::itemsForSpecies($species);
 
         if ($hasInspectableAnimals) {
-            unset($items['decision']);
+            unset($items['decision'], $items['comment']);
         }
 
         return $items;
+    }
+
+    /**
+     * Organs available when recording a condemnation (from checklist + whole carcass).
+     *
+     * @return list<string>
+     */
+    public static function organOptionsForSpecies(?string $species): array
+    {
+        $organs = collect(self::itemsForSpecies($species))
+            ->filter(fn (array $meta) => ($meta['category'] ?? '') === 'organ')
+            ->pluck('label')
+            ->map(fn ($label) => (string) $label)
+            ->unique()
+            ->values();
+
+        $organs->push(__('Whole carcass'));
+
+        return $organs->all();
     }
 
     public static function allowedValuesForType(string $type): array

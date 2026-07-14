@@ -73,6 +73,42 @@ class RicaMonthlyReportTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_rica_only_super_admin_home_redirects_to_rica_workspace(): void
+    {
+        $ricaAdmin = User::factory()->create([
+            'is_super_admin' => true,
+            'super_admin_permissions' => [User::SUPER_ADMIN_MODULE_RICA],
+        ]);
+
+        $this->assertSame('rica.dashboard', $ricaAdmin->defaultDashboardRouteName());
+
+        $this->actingAs($ricaAdmin)
+            ->get(route('home'))
+            ->assertRedirect(route('rica.dashboard'));
+
+        $this->actingAs($ricaAdmin)
+            ->get(route('rica.dashboard'))
+            ->assertOk()
+            ->assertSee('National Meat Inspection Overview')
+            ->assertSee('Slaughtered species trend')
+            ->assertSee('Animals by district')
+            ->assertSee('Animals received by slaughterhouse')
+            ->assertSee('Animals slaughtered by slaughterhouse');
+
+        $this->actingAs($ricaAdmin)
+            ->get(route('super-admin.dashboard'))
+            ->assertForbidden();
+
+        $this->actingAs($ricaAdmin)
+            ->get(route('rica.settings'))
+            ->assertOk()
+            ->assertSee('Settings');
+
+        $this->actingAs($ricaAdmin)
+            ->get(route('settings.edit'))
+            ->assertForbidden();
+    }
+
     public function test_super_admin_can_view_monthly_reports_index(): void
     {
         RicaMonthlyInspectionReport::create([
@@ -207,6 +243,83 @@ class RicaMonthlyReportTest extends TestCase
             ->get(route('rica.monthly-reports.index', ['view' => 'facilities']))
             ->assertOk()
             ->assertSee('Other Type With Slaughter');
+    }
+
+    public function test_rica_module_pages_are_accessible(): void
+    {
+        $this->actingAs($this->superAdmin)
+            ->get(route('rica.traceability'))
+            ->assertOk()
+            ->assertSee('Traceability overview')
+            ->assertSee('Farm to destination journey');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('rica.diseases-intelligence'))
+            ->assertOk()
+            ->assertSee('Disease intelligence')
+            ->assertSee('Unhealthy animals')
+            ->assertSee('Top diseases');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('rica.meat-condemnation'))
+            ->assertOk()
+            ->assertSee('Meat condemnation')
+            ->assertSee('Rejected meat')
+            ->assertSee('Rejection by slaughterhouse');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('rica.supply-chain'))
+            ->assertOk()
+            ->assertSee('Supply chain & distribution dashboard')
+            ->assertSee('Meat delivered (kg)')
+            ->assertSee('Rwanda destinations map');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('rica.compliance-performance'))
+            ->assertOk()
+            ->assertSee('Compliance performance')
+            ->assertSee('Reports submitted');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('rica.alerts-notifications'))
+            ->assertOk()
+            ->assertSee('Alerts & notifications')
+            ->assertSee('Alert inbox');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('rica.settings'))
+            ->assertOk()
+            ->assertSee('Settings');
+    }
+
+    public function test_rica_workspace_settings_can_be_updated(): void
+    {
+        $this->actingAs($this->superAdmin)
+            ->put(route('rica.settings.update'), [
+                'workspace_name' => 'RICA National Oversight',
+                'default_tenant_environment' => 'live',
+                'default_dashboard_period' => 'month',
+                'notification_email' => 'rica@example.com',
+                'monthly_report_deadline_day' => 10,
+                'condemnation_loss_per_kg_rwf' => 4200,
+            ])
+            ->assertRedirect(route('rica.settings'))
+            ->assertSessionHas('status');
+
+        $this->assertDatabaseHas('rica_settings', [
+            'key' => 'workspace_name',
+            'value' => 'RICA National Oversight',
+        ]);
+
+        $this->assertDatabaseHas('rica_settings', [
+            'key' => 'notification_email',
+            'value' => 'rica@example.com',
+        ]);
+
+        $this->assertDatabaseHas('rica_settings', [
+            'key' => 'condemnation_loss_per_kg_rwf',
+            'value' => '4200',
+        ]);
     }
 
     public function test_monthly_report_show_displays_form_sections(): void

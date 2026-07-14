@@ -601,4 +601,27 @@ class AnteMortemInspectionTest extends TestCase
             AnimalIntakeItem::find($item0->id)?->health_status,
         );
     }
+
+    public function test_create_form_lists_session_without_ante_mortem(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->get(route('ante-mortem-inspections.create'));
+
+        $response->assertOk()
+            ->assertViewHas('plans', fn ($plans) => $plans->contains(fn (array $plan) => $plan['id'] === $this->plan->id));
+    }
+
+    public function test_create_form_hides_fully_inspected_session(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('ante-mortem-inspections.store'), $this->validStorePayload())
+            ->assertRedirect(route('ante-mortem-inspections.index'));
+
+        $response = $this->actingAs($this->user)
+            ->get(route('ante-mortem-inspections.create'));
+
+        $response->assertOk()
+            ->assertViewHas('plans', fn ($plans) => $plans->isEmpty())
+            ->assertSee(__('No slaughter sessions are ready for ante-mortem. All assigned animals on open sessions have already been inspected.'), false);
+    }
 }

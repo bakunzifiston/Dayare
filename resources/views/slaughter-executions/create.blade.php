@@ -16,7 +16,7 @@
 
                     <div>
                         <x-input-label for="slaughter_plan_id" :value="__('Slaughter session')" />
-                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($plans->isEmpty())>
                             <option value="">{{ __('Select slaughter session') }}</option>
                             @foreach ($plans as $p)
                                 <option value="{{ $p['id'] }}"
@@ -25,11 +25,12 @@
                                 </option>
                             @endforeach
                         </select>
+                        @if ($plans->isEmpty())
+                            <p class="mt-2 text-sm text-amber-800">
+                                {{ __('No slaughter sessions are ready yet. Complete ante-mortem on an approved session first, or open an existing in-progress execution from the slaughter execution list.') }}
+                            </p>
+                        @endif
                         <x-input-error class="mt-2" :messages="$errors->get('slaughter_plan_id')" />
-                    </div>
-
-                    <div id="slaughter-progress-summary" class="hidden rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                        <span id="slaughter-progress-text"></span>
                     </div>
 
                     <div id="per-animal-slaughter-section"

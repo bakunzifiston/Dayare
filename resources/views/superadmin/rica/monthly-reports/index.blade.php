@@ -21,7 +21,7 @@
                 <a href="{{ route('rica.slaughterhouses.show', $scopedFacility) }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy shrink-0">{{ __('← :facility', ['facility' => $scopedFacility->facility_name]) }}</a>
                 <span class="hidden sm:inline text-slate-300" aria-hidden="true">·</span>
             @else
-                <a href="{{ route('rica.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy shrink-0">{{ __('← RICA') }}</a>
+                <a href="{{ route('rica.dashboard') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy shrink-0">{{ __('← RICA') }}</a>
                 <span class="hidden sm:inline text-slate-300" aria-hidden="true">·</span>
             @endif
             <div class="inline-flex items-center rounded-lg bg-gradient-to-r from-bucha-burgundy to-bucha-primary px-3 py-1.5 shrink-0">

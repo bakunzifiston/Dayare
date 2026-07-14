@@ -59,6 +59,7 @@ class StorePostMortemInspectionRequest extends FormRequest
             'item_outcomes.*.seized_part' => ['nullable', 'string', 'max:1000'],
             'item_outcomes.*.reason' => ['nullable', 'string', 'max:1000'],
             'item_outcomes.*.carcass_weight_kg' => ['nullable', 'numeric', 'min:0.1', 'max:9999'],
+            'item_outcomes.*.condemned_weight_kg' => ['nullable', 'numeric', 'min:0.1', 'max:9999'],
             'item_outcomes.*.observations' => ['nullable', 'array'],
             'item_outcomes.*.observations.*.value' => ['required_with:item_outcomes.*.observations', 'string', 'max:5000'],
             'item_outcomes.*.observations.*.notes' => ['nullable', 'string', 'max:5000'],
@@ -74,7 +75,7 @@ class StorePostMortemInspectionRequest extends FormRequest
             if ($approved + $condemned > $examined) {
                 $validator->errors()->add(
                     'approved_quantity',
-                    __('Approved + Condemned cannot exceed Total Examined.')
+                    __('Carcass + other approved + condemned cannot exceed total examined meat.')
                 );
             }
 
@@ -143,11 +144,13 @@ class StorePostMortemInspectionRequest extends FormRequest
                     );
                 }
             } else {
+                $observations = $this->input('observations', []);
                 $this->validateLegacyPostMortemObservations(
                     $validator,
                     $species,
-                    $this->input('observations', []),
+                    $observations,
                 );
+                $this->validateLegacyCondemnationDetails($validator, $observations);
             }
         });
     }

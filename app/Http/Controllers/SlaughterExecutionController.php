@@ -46,7 +46,7 @@ class SlaughterExecutionController extends Controller
 
     /**
      * @return array{
-     *     plans: Collection<int, array{id: int, label: string}>,
+     *     plans: Collection<int, array{id: int, label: string, continue_edit_url: string|null}>,
      *     approvedItemsByPlan: Collection<int, array<int, array<string, mixed>>>,
      *     slaughteredItemIdsByPlan: Collection<int, list<int>>,
      *     amDateByPlan: Collection<int, string|null>
@@ -55,13 +55,23 @@ class SlaughterExecutionController extends Controller
     // --- Section 3 ---
     private function buildPlanSelectData(
         Collection $planIds,
-        bool $includeScheduledCount = true,
         bool $onlyWithoutExecution = false,
     ): array {
+        if ($planIds->isEmpty()) {
+            return [
+                'plans' => collect(),
+                'approvedItemsByPlan' => collect(),
+                'slaughteredItemIdsByPlan' => collect(),
+                'slaughteredDetailsByPlan' => collect(),
+                'amDateByPlan' => collect(),
+            ];
+        }
+
         $planModels = SlaughterPlan::query()
             ->with([
                 'facility',
                 'anteMortemInspections' => fn ($query) => $query->latest('inspection_date')->limit(1),
+                'slaughterExecutions' => fn ($query) => $query->latest('id')->limit(1),
             ])
             ->whereIn('id', $planIds)
             ->when($onlyWithoutExecution, function ($query): void {
@@ -82,15 +92,7 @@ class SlaughterExecutionController extends Controller
             ->groupBy(fn (AnteMortemInspectionItem $item) => $item->inspection->slaughter_plan_id);
 
         $approvedItemsByPlan = $planModels->mapWithKeys(fn (SlaughterPlan $plan) => [
-            $plan->id => ($approvedItemsByPlanRaw->get($plan->id) ?? collect())
-                ->map(fn (AnteMortemInspectionItem $ai) => [
-                    'id' => $ai->intakeItem->id,
-                    'ear_tag' => $ai->intakeItem->ear_tag,
-                    'species' => $ai->intakeItem->species,
-                    'sex' => ucfirst($ai->intakeItem->sex),
-                    'live_weight_kg' => $ai->intakeItem->live_weight_kg,
-                    'am_outcome' => $ai->outcome,
-                ])->values()->toArray(),
+            $plan->id => $this->mapApprovedAnimalsForPlan($approvedItemsByPlanRaw->get($plan->id) ?? collect()),
         ]);
 
         $amDateByPlan = $planModels->mapWithKeys(fn (SlaughterPlan $plan) => [
@@ -128,31 +130,20 @@ class SlaughterExecutionController extends Controller
         );
 
         $plans = $planModels->map(function (SlaughterPlan $plan) use (
-            $includeScheduledCount,
             $approvedItemsByPlan,
             $slaughteredItemIdsByPlan,
         ) {
             $approvedCount = count($approvedItemsByPlan->get($plan->id) ?? []);
             $slaughteredCount = count($slaughteredItemIdsByPlan->get($plan->id) ?? []);
-            $remainingCount = max(0, $approvedCount - $slaughteredCount);
 
-            $label = $plan->slaughterDateDisplay()
-                .' — '.$plan->facility->facility_name
-                .' ('.$plan->species
-                .($includeScheduledCount ? ', '.$plan->number_of_animals_scheduled.' scheduled' : '')
-                .')';
-
-            if ($approvedCount > 0) {
-                $label .= ' — '.__(':slaughtered/:approved slaughtered, :remaining remaining', [
-                    'slaughtered' => $slaughteredCount,
-                    'approved' => $approvedCount,
-                    'remaining' => $remainingCount,
-                ]);
-            }
+            $latestExecution = $plan->slaughterExecutions->first();
 
             return [
                 'id' => $plan->id,
-                'label' => $label,
+                'label' => $this->planSelectLabel($plan, $approvedCount, $slaughteredCount),
+                'continue_edit_url' => $latestExecution
+                    ? route('slaughter-executions.edit', $latestExecution)
+                    : null,
             ];
         });
 
@@ -163,6 +154,75 @@ class SlaughterExecutionController extends Controller
             'slaughteredDetailsByPlan' => $slaughteredDetailsByPlan,
             'amDateByPlan' => $amDateByPlan,
         ];
+    }
+
+    /**
+     * @param  Collection<int, AnteMortemInspectionItem>  $items
+     * @return list<array<string, mixed>>
+     */
+    private function mapApprovedAnimalsForPlan(Collection $items): array
+    {
+        return $this->uniqueApprovedInspectionItems($items)
+            ->map(fn (AnteMortemInspectionItem $ai) => [
+                'id' => $ai->intakeItem->id,
+                'ear_tag' => $ai->intakeItem->ear_tag,
+                'species' => $ai->intakeItem->species,
+                'sex' => ucfirst($ai->intakeItem->sex),
+                'live_weight_kg' => $ai->intakeItem->live_weight_kg,
+                'am_outcome' => $ai->outcome,
+            ])->values()->all();
+    }
+
+    /**
+     * Keep one approved ante-mortem row per animal (latest inspection wins).
+     *
+     * @param  Collection<int, AnteMortemInspectionItem>  $items
+     * @return Collection<int, AnteMortemInspectionItem>
+     */
+    private function uniqueApprovedInspectionItems(Collection $items): Collection
+    {
+        return $items
+            ->sortBy([
+                fn (AnteMortemInspectionItem $item) => $item->inspection->inspection_date?->timestamp ?? 0,
+                fn (AnteMortemInspectionItem $item) => $item->inspection->id,
+                fn (AnteMortemInspectionItem $item) => $item->id,
+            ])
+            ->groupBy('animal_intake_item_id')
+            ->map(fn (Collection $group) => $group->last())
+            ->values();
+    }
+
+    private function approvedInspectionItemsForPlan(int $planId): Collection
+    {
+        $items = AnteMortemInspectionItem::query()
+            ->whereHas('inspection', fn ($query) => $query->where('slaughter_plan_id', $planId))
+            ->approved()
+            ->with(['intakeItem', 'inspection'])
+            ->get();
+
+        return $this->uniqueApprovedInspectionItems($items);
+    }
+
+    private function approvedAnimalCountForPlan(int $planId): int
+    {
+        return $this->approvedInspectionItemsForPlan($planId)->count();
+    }
+
+    private function planSelectLabel(SlaughterPlan $plan, int $approvedCount, int $slaughteredCount): string
+    {
+        $label = $plan->sessionSelectLabel();
+
+        if ($approvedCount <= 0) {
+            return $label;
+        }
+
+        $remainingCount = max(0, $approvedCount - $slaughteredCount);
+
+        return $label.' · '.__(':slaughtered/:approved slaughtered, :remaining remaining', [
+            'slaughtered' => $slaughteredCount,
+            'approved' => $approvedCount,
+            'remaining' => $remainingCount,
+        ]);
     }
 
     public function hub(Request $request): View
@@ -378,15 +438,69 @@ class SlaughterExecutionController extends Controller
         return $this->hubFiltersAllTime();
     }
 
-    public function create(Request $request): View
+    /**
+     * Plans that still have animals left to slaughter for the session dropdown.
+     *
+     * @return Collection<int, int>
+     */
+    private function eligiblePlanIdsForSelection(Collection $planIds, ?int $alwaysIncludePlanId = null): Collection
+    {
+        if ($planIds->isEmpty()) {
+            return $alwaysIncludePlanId !== null ? collect([$alwaysIncludePlanId]) : collect();
+        }
+
+        $eligible = SlaughterPlan::query()
+            ->whereIn('id', $planIds)
+            ->whereNotIn('status', ['cancelled'])
+            ->whereHas('anteMortemInspections')
+            ->with(['slaughterExecutions' => fn ($query) => $query->latest('id')])
+            ->orderByDesc('slaughter_date')
+            ->get()
+            ->filter(fn (SlaughterPlan $plan) => $this->planHasRemainingSlaughterWork($plan))
+            ->pluck('id')
+            ->values();
+
+        if ($alwaysIncludePlanId !== null && ! $eligible->contains($alwaysIncludePlanId)) {
+            $eligible->push($alwaysIncludePlanId);
+        }
+
+        return $eligible->values();
+    }
+
+    private function planHasRemainingSlaughterWork(SlaughterPlan $plan): bool
+    {
+        $approvedCount = $this->approvedAnimalCountForPlan($plan->id);
+
+        $slaughteredHeadCount = (int) SlaughterExecution::query()
+            ->where('slaughter_plan_id', $plan->id)
+            ->sum('actual_animals_slaughtered');
+
+        if ($approvedCount > 0) {
+            $slaughteredItemCount = SlaughterExecutionItem::query()
+                ->whereHas('execution', fn ($query) => $query->where('slaughter_plan_id', $plan->id))
+                ->distinct()
+                ->count('animal_intake_item_id');
+
+            if ($slaughteredItemCount >= $approvedCount) {
+                return false;
+            }
+
+            return $slaughteredHeadCount < $approvedCount;
+        }
+
+        if (! $plan->slaughterExecutions()->exists()) {
+            return true;
+        }
+
+        return $slaughteredHeadCount < (int) $plan->number_of_animals_scheduled;
+    }
+
+    public function create(Request $request): View|RedirectResponse
     {
         $planIds = $this->userSlaughterPlanIds($request);
+        $eligiblePlanIds = $this->eligiblePlanIdsForSelection($planIds);
 
-        $planData = $this->buildPlanSelectData(
-            $planIds,
-            includeScheduledCount: true,
-            onlyWithoutExecution: true,
-        );
+        $planData = $this->buildPlanSelectData($eligiblePlanIds);
         $plans = $planData['plans'];
         $approvedItemsByPlan = $planData['approvedItemsByPlan'];
         $slaughteredItemIdsByPlan = $planData['slaughteredItemIdsByPlan'];
@@ -397,24 +511,26 @@ class SlaughterExecutionController extends Controller
         $selectedPlanId = $request->query('slaughter_plan_id');
         $selectedPlan = $selectedPlanId
             ? SlaughterPlan::query()
-                ->whereIn('id', $this->userSlaughterPlanIds($request))
+                ->whereIn('id', $eligiblePlanIds)
                 ->with([
                     'assignedItems',
                     'anteMortemInspections' => fn ($query) => $query->latest('inspection_date')->limit(1),
+                    'slaughterExecutions' => fn ($query) => $query->latest('id')->limit(1),
                 ])
                 ->find($selectedPlanId)
             : null;
 
-        if ($selectedPlan?->slaughterExecutions()->exists()) {
-            $selectedPlan = null;
+        if ($selectedPlan?->slaughterExecutions->isNotEmpty()) {
+            $execution = $selectedPlan->slaughterExecutions->first();
+            if ($execution !== null) {
+                return redirect()
+                    ->route('slaughter-executions.edit', $execution)
+                    ->with('status', __('Continue this slaughter session on the existing execution record.'));
+            }
         }
 
         $approvedItems = $selectedPlan
-            ? AnteMortemInspectionItem::query()
-                ->whereHas('inspection', fn ($query) => $query->where('slaughter_plan_id', $selectedPlan->id))
-                ->approved()
-                ->with('intakeItem')
-                ->get()
+            ? $this->approvedInspectionItemsForPlan($selectedPlan->id)
             : collect();
 
         $slaughteredItemIds = $selectedPlan
@@ -491,7 +607,9 @@ class SlaughterExecutionController extends Controller
 
         $planIds = $this->userSlaughterPlanIds($request);
 
-        $planData = $this->buildPlanSelectData($planIds, includeScheduledCount: false);
+        $planData = $this->buildPlanSelectData(
+            $this->eligiblePlanIdsForSelection($planIds, $slaughterExecution->slaughter_plan_id),
+        );
         $plans = $planData['plans'];
         $approvedItemsByPlan = $planData['approvedItemsByPlan'];
         $slaughteredItemIdsByPlan = $planData['slaughteredItemIdsByPlan'];
@@ -501,26 +619,30 @@ class SlaughterExecutionController extends Controller
         // --- Section 3 ---
         $slaughterExecution->load([
             'executionItems.intakeItem',
+            'slaughterPlan.facility',
+            'slaughterPlan.intake',
+            'slaughterPlan.assignedItems',
             'slaughterPlan.anteMortemInspections',
         ]);
 
-        $approvedItems = AnteMortemInspectionItem::query()
-            ->whereHas('inspection', fn ($query) => $query->where('slaughter_plan_id', $slaughterExecution->slaughter_plan_id))
-            ->approved()
-            ->with('intakeItem')
-            ->get();
+        $approvedCount = count($approvedItemsByPlan->get($slaughterExecution->slaughter_plan_id) ?? []);
+        $slaughteredCount = count($slaughteredItemIdsByPlan->get($slaughterExecution->slaughter_plan_id) ?? []);
+        $sessionLabel = $this->planSelectLabel(
+            $slaughterExecution->slaughterPlan,
+            $approvedCount,
+            $slaughteredCount,
+        );
+
+        $approvedItems = $this->approvedInspectionItemsForPlan($slaughterExecution->slaughter_plan_id);
 
         $executionItems = $slaughterExecution->executionItems;
         $currentExecutionItemIds = $executionItems->pluck('animal_intake_item_id')->map(fn ($id) => (int) $id)->all();
-        $planSlaughteredIds = $slaughteredItemIdsByPlan->get($slaughterExecution->slaughter_plan_id) ?? [];
-        $slaughteredItemIds = array_values(array_diff($planSlaughteredIds, $currentExecutionItemIds));
-        $slaughteredDetails = collect($slaughteredDetailsByPlan->get($slaughterExecution->slaughter_plan_id) ?? [])
-            ->reject(fn (array $row) => in_array($row['animal_intake_item_id'], $currentExecutionItemIds, true))
-            ->values()
-            ->all();
+        $slaughteredItemIds = $slaughteredItemIdsByPlan->get($slaughterExecution->slaughter_plan_id) ?? [];
+        $slaughteredDetails = $slaughteredDetailsByPlan->get($slaughterExecution->slaughter_plan_id) ?? [];
 
         return view('slaughter-executions.edit', [
             'execution' => $slaughterExecution,
+            'sessionLabel' => $sessionLabel,
             'plans' => $plans,
             'approvedItems' => $approvedItems,
             'executionItems' => $executionItems,

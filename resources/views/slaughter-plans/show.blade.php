@@ -108,6 +108,12 @@
                             <i class="ti ti-bolt text-base" aria-hidden="true"></i>
                             {{ __('Record slaughter execution') }}
                         </a>
+                    @elseif ($plan->slaughterExecutions->isNotEmpty() && auth()->user()?->canProcessorPermission(\App\Models\BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER))
+                        <a href="{{ route('slaughter-executions.edit', $plan->slaughterExecutions->sortByDesc('id')->first()) }}"
+                           class="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700">
+                            <i class="ti ti-bolt text-base" aria-hidden="true"></i>
+                            {{ __('Continue slaughter execution') }}
+                        </a>
                     @endif
                 </div>
                 @if ($plan->slaughterExecutions->isNotEmpty())

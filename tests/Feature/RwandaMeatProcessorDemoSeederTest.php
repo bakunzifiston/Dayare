@@ -6,6 +6,8 @@ use App\Models\AnimalIntake;
 use App\Models\AnimalIntakeItem;
 use App\Models\Business;
 use App\Models\Certificate;
+use App\Models\PostMortemInspection;
+use App\Models\PostMortemInspectionItem;
 use App\Models\RicaMonthlyInspectionReport;
 use App\Models\User;
 use Database\Seeders\AdministrativeDivisionSeeder;
@@ -43,6 +45,23 @@ class RwandaMeatProcessorDemoSeederTest extends TestCase
         $this->assertGreaterThan(0, RicaMonthlyInspectionReport::query()
             ->where('status', RicaMonthlyInspectionReport::STATUS_SUBMITTED)
             ->count());
+
+        $pmInspection = PostMortemInspection::query()
+            ->whereHas('batch.slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $business->id))
+            ->first();
+        $this->assertNotNull($pmInspection);
+        $this->assertGreaterThan(10, (float) $pmInspection->total_examined, 'Total examined meat should be stored in kg');
+        $this->assertGreaterThan(0, (float) $pmInspection->approved_quantity);
+
+        $condemnedItem = PostMortemInspectionItem::query()
+            ->where('outcome', PostMortemInspectionItem::OUTCOME_CONDEMNED)
+            ->whereHas('inspection.batch.slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $business->id))
+            ->first();
+        if ($condemnedItem) {
+            $this->assertNotNull($condemnedItem->condemned_weight_kg);
+            $this->assertGreaterThan(0, (float) $condemnedItem->condemned_weight_kg);
+            $this->assertSame('Liver', $condemnedItem->seized_part);
+        }
 
         $this->seed(RwandaMeatProcessorDemoSeeder::class);
         $this->assertSame(1, Business::query()

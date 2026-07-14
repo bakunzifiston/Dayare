@@ -1,135 +1,242 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-                <span class="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">{{ __('RICA') }}</span>
-                <h1 class="text-xl font-semibold text-slate-800 tracking-tight">
-                    {{ __('Oversight dashboard') }}
-                </h1>
-            </div>
-            <div class="flex shrink-0 flex-wrap gap-2">
-                <a href="{{ route('rica.slaughterhouses.index') }}"
-                   class="inline-flex items-center px-3 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                    {{ __('All slaughterhouses') }}
-                </a>
-                <a href="{{ route('rica.reports') }}"
-                   class="inline-flex items-center px-3 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                    {{ __('Summary reports') }}
-                </a>
-                <a href="{{ route('rica.monthly-reports.index') }}"
-                   class="inline-flex items-center px-3 py-2 rounded-md text-xs font-semibold bg-bucha-primary text-white hover:bg-bucha-burgundy">
-                    {{ __('Monthly inspection reports') }}
-                </a>
-            </div>
-        </div>
-    </x-slot>
+    @php
+        $periodOptions = [
+            'all' => __('All time'),
+            'month' => __('This month'),
+            'year' => __('This year'),
+            'day' => __('Today'),
+        ];
+        $activePeriod = $filters['period'] ?? 'all';
+        $lineChart = collect($chartSpecs)->firstWhere('id', 'rica-overview-slaughtered-line');
+        $speciesChart = collect($chartSpecs)->firstWhere('id', 'rica-overview-species-donut');
+        $slaughterSpeciesChart = collect($chartSpecs)->firstWhere('id', 'rica-overview-slaughter-species-trend');
+        $overviewCharts = array_values(array_filter([
+            $slaughterSpeciesChart,
+            $lineChart,
+            $speciesChart,
+        ]));
+        $totalReceived = number_format($kpis['animals_received']['value'], 0);
+        $districtMapHasData = collect($districtMap ?? [])->contains(fn (array $district) => ($district['count'] ?? 0) > 0);
+    @endphp
 
-    <div class="py-6">
-        <div class="max-w-7xl mx-auto space-y-6">
-            <form method="get" action="{{ route('rica.hub') }}" class="hub-period-filter">
-                <div class="hub-period-filter__bar">
-                    <div class="hub-period-filter__toggles" role="group" aria-label="{{ __('Slaughter period') }}">
-                        @foreach (['all' => __('All'), 'day' => __('Daily'), 'month' => __('Monthly'), 'year' => __('Yearly')] as $periodKey => $periodLabel)
-                            <label class="hub-period-filter__toggle">
-                                <input type="radio" name="period" value="{{ $periodKey }}" @checked($filters['period'] === $periodKey)>
-                                <span>{{ $periodLabel }}</span>
-                            </label>
-                        @endforeach
-                    </div>
-
-                    <div class="hub-period-filter__range">
-                        <label for="filter_date_from" class="hub-period-filter__range-label">{{ __('From') }}</label>
-                        <input id="filter_date_from" type="date" name="date_from" value="{{ $filters['date_from'] }}" class="hub-period-filter__input" aria-label="{{ __('Date from') }}">
-                        <span class="hub-period-filter__sep" aria-hidden="true">–</span>
-                        <label for="filter_date_to" class="hub-period-filter__range-label">{{ __('To') }}</label>
-                        <input id="filter_date_to" type="date" name="date_to" value="{{ $filters['date_to'] }}" class="hub-period-filter__input" aria-label="{{ __('Date to') }}">
-                    </div>
-
-                    <div class="hub-period-filter__actions">
-                        <button type="submit" class="hub-period-filter__apply">{{ __('Apply') }}</button>
-                        @if ($filters['period'] !== 'all' || $filters['has_custom_range'])
-                            <a href="{{ route('rica.hub') }}" class="hub-period-filter__clear">{{ __('Clear') }}</a>
-                        @endif
-                    </div>
-                </div>
-                <p class="hub-period-filter__hint">{{ $filters['slaughter_label'] }} · {{ $filters['range_label'] }}</p>
-            </form>
-
-            <div class="profile-kpi-grid">
-                <x-entity.kpi-stat :label="__('Registered slaughterhouses')" :value="number_format($hubStats['total_slaughterhouses'])" accent>
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Licensed operators')" :value="number_format($hubStats['total_operators'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Animals slaughtered')" :value="number_format($hubStats['animals_slaughtered'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Meat yield (kg)')" :value="number_format($hubStats['meat_kg'], 2)">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Animals condemned')" :value="number_format($hubStats['condemned'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Certificates issued')" :value="number_format($hubStats['certificates'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-            </div>
-
-            <section class="space-y-4">
-                <div class="profile-kpi-grid">
-                    <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($speciesSlaughtered['cattle_slaughtered'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Goat')" :value="number_format($speciesSlaughtered['goat_slaughtered'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Sheep')" :value="number_format($speciesSlaughtered['sheep_slaughtered'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
+    <div class="rica-supply-chain proc-dash rica-sc-hub -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 lg:-mx-8 lg:-mt-8">
+        <div class="rica-sc-page">
+            <header class="rica-sc-header">
+                <div class="rica-sc-header__copy">
+                    <h1 class="rica-sc-header__title">{{ $pageTitle ?? __('National Meat Inspection Overview') }}</h1>
                 </div>
 
-                <x-super-admin.slaughter-charts :chart-specs="$chartSpecs" />
+                <form method="get" action="{{ route('rica.dashboard') }}" class="rica-sc-toolbar">
+                    <label class="rica-sc-select">
+                        <span class="sr-only">{{ __('Period') }}</span>
+                        <select name="period" onchange="this.form.requestSubmit()">
+                            @foreach ($periodOptions as $periodKey => $periodLabel)
+                                <option value="{{ $periodKey }}" @selected($activePeriod === $periodKey)>{{ $periodLabel }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+
+                    <label class="rica-sc-select">
+                        <span class="sr-only">{{ __('District') }}</span>
+                        <select name="district_id" onchange="this.form.requestSubmit()">
+                            <option value="all" @selected($selectedDistrictId === null)>{{ __('All districts') }}</option>
+                            @foreach ($districtOptions as $districtId => $districtName)
+                                <option value="{{ $districtId }}" @selected((int) $selectedDistrictId === (int) $districtId)>{{ $districtName }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+
+                    <label class="rica-sc-select">
+                        <span class="sr-only">{{ __('Slaughterhouse') }}</span>
+                        <select name="facility_id" onchange="this.form.requestSubmit()">
+                            <option value="all" @selected($selectedFacilityId === null)>{{ __('All slaughterhouses') }}</option>
+                            @foreach ($facilityOptions as $facilityId => $facilityName)
+                                <option value="{{ $facilityId }}" @selected((int) $selectedFacilityId === (int) $facilityId)>{{ $facilityName }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+
+                    <a href="{{ route('rica.reports') }}" class="rica-sc-export" title="{{ __('Export') }}">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        {{ __('Export') }}
+                    </a>
+                </form>
+            </header>
+
+            <section class="rica-sc-kpi-grid" aria-label="{{ __('Executive KPIs') }}">
+                @foreach ([
+                    ['key' => 'animals_received', 'label' => __('Animals received'), 'glyph' => 'clipboard-list', 'format' => 'int'],
+                    ['key' => 'active_pmis', 'label' => __('Total active inspectors'), 'glyph' => 'users', 'format' => 'int'],
+                    ['key' => 'meat_rejected_kg', 'label' => __('Rejected meat'), 'glyph' => 'trash', 'format' => 'kg'],
+                    ['key' => 'active_slaughterhouses', 'label' => __('Active slaughterhouses'), 'glyph' => 'building', 'format' => 'int'],
+                ] as $card)
+                    @php
+                        $metric = $kpis[$card['key']];
+                        $trend = $metric['trend'];
+                        $value = $card['format'] === 'kg'
+                            ? number_format($metric['value'], 0).' kg'
+                            : number_format($metric['value']);
+                        $trendClass = match ($trend['sentiment'] ?? 'neutral') {
+                            'good' => 'rica-sc-kpi-card__trend--good',
+                            'bad' => 'rica-sc-kpi-card__trend--bad',
+                            default => 'rica-sc-kpi-card__trend--neutral',
+                        };
+                        $trendPercent = (float) ($trend['percent'] ?? 0);
+                        $showTrendPercent = $trend['direction'] !== 'neutral' && $trendPercent <= 200;
+                    @endphp
+                    <article class="rica-sc-kpi-card rica-sc-kpi-card--compact">
+                        <div class="rica-sc-kpi-card__icon" aria-hidden="true">
+                            @include('layouts.partials.sidebar-icon', ['icon' => $card['glyph']])
+                        </div>
+                        <div class="rica-sc-kpi-card__content">
+                            <p class="rica-sc-kpi-card__label">{{ $card['label'] }}</p>
+                            <p class="rica-sc-kpi-card__value">{{ $value }}</p>
+                            <p class="rica-sc-kpi-card__trend {{ $trendClass }}">
+                                @if ($trend['direction'] === 'up')
+                                    <span aria-hidden="true">↑</span>
+                                @elseif ($trend['direction'] === 'down')
+                                    <span aria-hidden="true">↓</span>
+                                @else
+                                    <span>{{ __('No change') }}</span>
+                                @endif
+                                @if ($showTrendPercent)
+                                    {{ number_format($trendPercent, $trendPercent >= 10 ? 0 : 1) }}% {{ $trend['label'] }}
+                                @elseif ($trend['direction'] !== 'neutral')
+                                    {{ $trend['label'] }}
+                                @endif
+                            </p>
+                        </div>
+                    </article>
+                @endforeach
             </section>
 
-            <x-workspace.facility-activity-table
-                :rows="$facilitySlaughterRows"
-                :title="__('Slaughter by slaughterhouse')"
-                :subtitle="__('Animals received and slaughtered per registered slaughterhouse for the selected period.')"
-                :facility-label="__('Slaughterhouse')"
-                :business-label="__('Operator')"
-                :empty-message="__('No slaughterhouse activity for this period.')"
-                footer-route="rica.slaughterhouses.index"
-                :footer-route-params="[]"
-                :footer-label="__('View all slaughterhouses')"
-                facility-route="rica.slaughterhouses.show"
-            />
+            <section class="rica-sc-module-summary" aria-label="{{ __('RICA module summary') }}">
+                <div class="rica-sc-kpi-grid rica-sc-kpi-grid--three">
+                    @foreach ($moduleSummaries as $index => $module)
+                        <a href="{{ $module['href'] }}" class="rica-sc-kpi-card rica-sc-kpi-card--link rica-sc-kpi-card--compact">
+                            <div class="rica-sc-kpi-card__icon {{ $index % 2 === 1 ? 'rica-sc-kpi-card__icon--alt' : '' }}" aria-hidden="true">
+                                @include('layouts.partials.sidebar-icon', ['icon' => $module['glyph']])
+                            </div>
+                            <div class="rica-sc-kpi-card__content">
+                                <p class="rica-sc-kpi-card__label">{{ $module['title'] }}</p>
+                                <p class="rica-sc-kpi-card__value">{{ $module['metric_value'] }}</p>
+                                <p class="rica-sc-kpi-card__meta">{{ $module['metric_label'] }}</p>
+                                <p class="rica-sc-kpi-card__trend rica-sc-kpi-card__trend--link">{{ __('Open') }} →</p>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+
+            @if (count($overviewCharts) > 0)
+                <section class="rica-sc-charts-row" aria-label="{{ __('Inspection analytics') }}">
+                    <x-workspace.chart-grid :charts="$overviewCharts" />
+                </section>
+            @endif
+
+            <section class="rica-sc-charts-row rica-sc-charts-row--district" aria-label="{{ __('Animals by district') }}">
+                <article class="proc-dash__chart-card rica-sc-map-card">
+                    <h2 class="proc-dash__chart-title">{{ __('Animals by district') }}</h2>
+                    @if (! $districtMapHasData)
+                        <div class="rica-sc-empty">{{ __('No animal intake by district for this period.') }}</div>
+                    @else
+                        <div class="rica-sc-map">
+                            <div class="rica-sc-map__grid">
+                                @foreach ($districtMap as $district)
+                                    <div
+                                        class="rica-sc-map__district @if ($district['count'] <= 0) rica-sc-map__district--empty @endif"
+                                        style="--intensity: {{ $district['intensity'] }};"
+                                        title="{{ $district['name'] }}: {{ number_format($district['count']) }} {{ __('animals') }}"
+                                    >
+                                        <span class="rica-sc-map__district-name">{{ $district['name'] }}</span>
+                                        @if ($district['count'] > 0)
+                                            <span class="rica-sc-map__district-value">{{ number_format($district['count']) }}</span>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                            <div class="rica-sc-map__legend" aria-hidden="true">
+                                <span>{{ __('Low') }}</span>
+                                <span class="rica-sc-map__legend-bar"></span>
+                                <span>{{ __('High') }}</span>
+                            </div>
+                        </div>
+                    @endif
+                </article>
+            </section>
+
+            <section class="rica-sc-charts-row rica-sc-tables-row" aria-label="{{ __('Slaughterhouse activity') }}">
+                <div class="rica-sc-tables rica-sc-tables--pair">
+                    <article class="proc-dash__chart-card">
+                        <h2 class="proc-dash__chart-title">{{ __('Animals received by slaughterhouse') }}</h2>
+                        @if ($animalsReceivedRows === [])
+                            <div class="rica-sc-empty">{{ __('No animal intake for this period.') }}</div>
+                        @else
+                            <div class="rica-sc-table-wrap rica-sc-table-wrap--compact">
+                                <table class="rica-sc-table rica-sc-table--compact">
+                                    <thead>
+                                        <tr>
+                                            <th class="rica-sc-table__rank">#</th>
+                                            <th>{{ __('Facility') }}</th>
+                                            <th class="text-right">{{ __('Animals') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($animalsReceivedRows as $index => $row)
+                                            <tr>
+                                                <td class="rica-sc-table__rank tabular-nums">{{ $index + 1 }}</td>
+                                                <td>
+                                                    <span class="rica-sc-table__name" title="{{ $row['facility_name'] }}">{{ $row['facility_name'] }}</span>
+                                                </td>
+                                                <td class="text-right tabular-nums rica-sc-table__value">{{ number_format($row['animals']) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </article>
+
+                    <article class="proc-dash__chart-card">
+                        <h2 class="proc-dash__chart-title">{{ __('Animals slaughtered by slaughterhouse') }}</h2>
+                        @if ($animalsSlaughteredRows === [])
+                            <div class="rica-sc-empty">{{ __('No slaughter data for this period.') }}</div>
+                        @else
+                            <div class="rica-sc-table-wrap rica-sc-table-wrap--compact">
+                                <table class="rica-sc-table rica-sc-table--compact">
+                                    <thead>
+                                        <tr>
+                                            <th class="rica-sc-table__rank">#</th>
+                                            <th>{{ __('Facility') }}</th>
+                                            <th class="text-right">{{ __('Animals') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($animalsSlaughteredRows as $index => $row)
+                                            <tr>
+                                                <td class="rica-sc-table__rank tabular-nums">{{ $index + 1 }}</td>
+                                                <td>
+                                                    <span class="rica-sc-table__name" title="{{ $row['facility_name'] }}">{{ $row['facility_name'] }}</span>
+                                                </td>
+                                                <td class="text-right tabular-nums rica-sc-table__value">{{ number_format($row['animals']) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </article>
+                </div>
+            </section>
         </div>
     </div>
 
     @push('scripts')
         <script>
             window.buchaChartColors = @json(config('bucha.chart'));
-            window.superAdminChartSpecs = @json($chartSpecs);
+            window.ricaOverviewChartSpecs = @json($chartSpecs);
+            window.ricaOverviewDonutCenter = @json($totalReceived);
         </script>
-        @vite('resources/js/super-admin-charts.js')
+        @vite(['resources/js/rica-overview-charts.js'])
     @endpush
 </x-app-layout>

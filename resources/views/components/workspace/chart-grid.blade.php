@@ -14,7 +14,7 @@
                 $showTrendLegend = ($isStackedBar || $isTrendLine) && ! empty($chart['legend']);
                 if ($isPie) {
                     $chartDataTotal = array_sum($chart['data'] ?? []);
-                } elseif (($isStackedBar || $isTrendLine) && ! empty($chart['datasets'])) {
+                } elseif (! empty($chart['datasets'])) {
                     $chartDataTotal = array_sum(array_map(
                         fn (array $dataset) => array_sum($dataset['data'] ?? []),
                         $chart['datasets'],
@@ -24,7 +24,7 @@
                 }
                 $pieLegend = $isPie
                     ? collect($chart['legend'] ?? [])->map(function (array $item, int $index) use ($chart, $chartDataTotal) {
-                        $value = (int) ($chart['data'][$index] ?? 0);
+                        $value = (float) ($chart['data'][$index] ?? 0);
                         $percent = $chartDataTotal > 0 ? (int) round($value / $chartDataTotal * 100) : 0;
 
                         return array_merge($item, [
@@ -48,7 +48,7 @@
                     </div>
                 @endif
 
-                @if ($chartDataTotal === 0)
+                @if ($chartDataTotal === 0 || $chartDataTotal === 0.0)
                     <div class="proc-dash__chart-empty">{{ $chart['emptyMessage'] ?? __('No data for this period.') }}</div>
                 @elseif ($isPie)
                     <div class="proc-dash__chart-pie">
@@ -67,7 +67,7 @@
                                         <span>{{ $item['label'] }}</span>
                                     </span>
                                     <span class="proc-dash__chart-pie-legend-value">
-                                        {{ number_format($item['value']) }}
+                                        {{ number_format($item['value'], $item['value'] == floor($item['value']) ? 0 : 1) }}
                                         <span class="proc-dash__chart-pie-legend-percent">({{ $item['percent'] }}%)</span>
                                     </span>
                                 </div>

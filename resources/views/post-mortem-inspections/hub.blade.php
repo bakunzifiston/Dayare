@@ -124,9 +124,9 @@
                                     <th class="px-4 py-3">{{ __('Facility') }}</th>
                                     <th class="px-4 py-3">{{ __('Inspector') }}</th>
                                     <th class="px-4 py-3">{{ __('Species') }}</th>
-                                    <th class="px-4 py-3">{{ __('Examined') }}</th>
-                                    <th class="px-4 py-3">{{ __('Approved') }}</th>
-                                    <th class="px-4 py-3">{{ __('Condemned') }}</th>
+                                    <th class="px-4 py-3">{{ __('Examined (kg)') }}</th>
+                                    <th class="px-4 py-3">{{ __('Approved (kg)') }}</th>
+                                    <th class="px-4 py-3">{{ __('Condemned (kg)') }}</th>
                                     <th class="px-4 py-3">{{ __('Per-animal') }}</th>
                                     <th class="px-4 py-3">{{ __('Result') }}</th>
                                     <th class="px-4 py-3">{{ __('Certificate') }}</th>

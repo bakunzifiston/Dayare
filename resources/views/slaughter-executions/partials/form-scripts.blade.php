@@ -12,10 +12,11 @@
     foreach ($plans ?? [] as $plan) {
         $planId = $plan['id'];
         $slaughterExecutionPlanData[$planId] = [
-            'approved_items' => $approvedItemsByPlan[$planId] ?? [],
-            'slaughtered_ids' => $slaughteredItemIdsByPlan[$planId] ?? [],
-            'slaughtered_details' => $slaughteredDetailsByPlan[$planId] ?? [],
-            'am_date' => $amDateByPlan[$planId] ?? '',
+            'approved_items' => $approvedItemsByPlan->get($planId, $approvedItemsByPlan[$planId] ?? []),
+            'slaughtered_ids' => $slaughteredItemIdsByPlan->get($planId, $slaughteredItemIdsByPlan[$planId] ?? []),
+            'slaughtered_details' => $slaughteredDetailsByPlan->get($planId, $slaughteredDetailsByPlan[$planId] ?? []),
+            'am_date' => $amDateByPlan->get($planId, $amDateByPlan[$planId] ?? ''),
+            'continue_edit_url' => $plan['continue_edit_url'] ?? null,
         ];
     }
 @endphp
@@ -98,36 +99,29 @@
     }
 
     function isAlreadySlaughtered(animalId) {
-        return currentSlaughteredIds.indexOf(Number(animalId)) !== -1
-            && currentExecutionIds.indexOf(Number(animalId)) === -1;
+        return currentSlaughteredIds.indexOf(Number(animalId)) !== -1;
     }
 
-    function syncSlaughteredSummary() {
-        var checked = document.querySelectorAll('.slaughter-animal-checkbox:checked').length;
-        var pending = currentApprovedAnimals.filter(function (animal) {
-            return !isAlreadySlaughtered(animal.id);
-        }).length;
-        var summary = document.getElementById('slaughter-progress-summary');
-        var summaryText = document.getElementById('slaughter-progress-text');
-        if (!summary || !summaryText) return;
+    function recordedMeatQuantity(animalId, detail) {
+        var existing = existingExecutionItems[animalId] || {};
 
-        if (currentApprovedAnimals.length === 0) {
-            summary.classList.add('hidden');
-            return;
-        }
+        return existing.meat_quantity_kg || detail.meat_quantity_kg || '';
+    }
 
-        summary.classList.remove('hidden');
-        summaryText.textContent = String(checked) + ' '
-            + @json(__('selected now')) + ' · '
-            + String(currentSlaughteredIds.length) + ' '
-            + @json(__('already slaughtered')) + ' · '
-            + String(Math.max(0, pending - checked)) + ' '
-            + @json(__('still pending'));
+    function recordedNotes(animalId) {
+        return (existingExecutionItems[animalId] || {}).notes || '';
     }
 
     function updateYieldTotal() {
         var total = 0;
-        var count = 0;
+        var newCount = 0;
+
+        document.querySelectorAll('.slaughter-recorded-inputs [data-field="meat_quantity_kg"]').forEach(function (input) {
+            var value = parseFloat(input.value);
+            if (!isNaN(value) && value > 0) {
+                total += value;
+            }
+        });
 
         document.querySelectorAll('.slaughter-animal-card').forEach(function (card) {
             var checkbox = card.querySelector('.slaughter-animal-checkbox');
@@ -137,26 +131,27 @@
             var value = parseFloat(qtyInput.value);
             if (!isNaN(value) && value > 0) {
                 total += value;
-                count++;
+                newCount++;
             }
         });
+
+        var recordedCount = document.querySelectorAll('.slaughter-recorded-row').length;
+        var totalCount = recordedCount + newCount;
 
         var summary = document.getElementById('yield-summary');
         var totalEl = document.getElementById('yield-total');
         var countEl = document.getElementById('yield-count');
-        if (summary) summary.style.display = count > 0 ? '' : 'none';
+        if (summary) summary.style.display = totalCount > 0 ? '' : 'none';
         if (totalEl) totalEl.textContent = total.toFixed(2);
-        if (countEl) countEl.textContent = String(count);
+        if (countEl) countEl.textContent = String(newCount > 0 ? newCount : totalCount);
 
         var countInput = document.getElementById('actual_animals_slaughtered');
-        if (countInput) countInput.value = String(count);
+        if (countInput) countInput.value = String(totalCount);
 
         var statusSelect = document.getElementById('status');
-        if (statusSelect && isCreateForm && count > 0) {
+        if (statusSelect && isCreateForm && totalCount > 0) {
             statusSelect.value = 'completed';
         }
-
-        syncSlaughteredSummary();
     }
 
     function toggleAnimalCard(card, checked) {
@@ -212,6 +207,18 @@
 
     function reindexSlaughterFields() {
         var index = 0;
+
+        document.querySelectorAll('.slaughter-recorded-inputs').forEach(function (row) {
+            var idInput = row.querySelector('[data-field="animal_intake_item_id"]');
+            var qtyInput = row.querySelector('[data-field="meat_quantity_kg"]');
+            var notesInput = row.querySelector('[data-field="notes"]');
+
+            if (idInput) idInput.name = 'item_slaughters[' + index + '][animal_intake_item_id]';
+            if (qtyInput) qtyInput.name = 'item_slaughters[' + index + '][meat_quantity_kg]';
+            if (notesInput) notesInput.name = 'item_slaughters[' + index + '][notes]';
+            index++;
+        });
+
         document.querySelectorAll('.slaughter-animal-card').forEach(function (card) {
             var checkbox = card.querySelector('.slaughter-animal-checkbox');
             if (!checkbox || !checkbox.checked) return;
@@ -281,20 +288,20 @@
             return !isAlreadySlaughtered(animal.id);
         });
         var approvedCount = currentApprovedAnimals.length;
-        var slaughteredCount = slaughteredAnimals.length;
-        var remainingCount = pendingAnimals.length;
+        var recordedCount = slaughteredAnimals.length;
+        var pendingCount = pendingAnimals.length;
 
         var html = '<div class="mb-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">'
-            + '<span class="font-semibold">' + slaughteredCount + '</span> / ' + approvedCount + ' '
+            + '<span class="font-semibold">' + recordedCount + '</span> / ' + approvedCount + ' '
             + @json(__('slaughtered on this session'))
             + ' <span class="mx-1">·</span> '
-            + '<span class="font-semibold">' + remainingCount + '</span> '
-            + @json(__('remaining'))
+            + '<span class="font-semibold">' + pendingCount + '</span> '
+            + @json(__('remaining to record'))
             + '</div>';
 
-        if (slaughteredCount > 0) {
+        if (recordedCount > 0) {
             html += '<div class="mb-6"><h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-green-800">'
-                + @json(__('Already slaughtered')) + ' (' + slaughteredCount + ')</h4>'
+                + @json(__('Already slaughtered')) + ' (' + recordedCount + ')</h4>'
                 + '<div class="overflow-hidden rounded-lg border border-green-200">'
                 + '<table class="min-w-full divide-y divide-green-100 text-sm">'
                 + '<thead class="bg-green-50"><tr>'
@@ -306,53 +313,60 @@
 
             slaughteredAnimals.forEach(function (animal) {
                 var detail = currentSlaughteredDetails[Number(animal.id)] || {};
-                html += '<tr>'
-                    + '<td class="px-3 py-2 font-mono text-xs">' + (detail.ear_tag || animal.ear_tag) + '</td>'
-                    + '<td class="px-3 py-2 text-slate-700">' + (detail.species || animal.species) + ' · ' + (detail.sex || animal.sex) + '</td>'
-                    + '<td class="px-3 py-2 text-slate-700">' + formatMeatKg(detail.meat_quantity_kg) + '</td>'
-                    + '<td class="px-3 py-2 text-slate-600">' + (detail.slaughter_time || '—') + '</td>'
-                    + '</tr>';
+                var meatQty = recordedMeatQuantity(animal.id, detail);
+                var notes = recordedNotes(animal.id);
+
+                html += '<tr class="slaughter-recorded-row" data-animal-id="' + animal.id + '">'
+                    + '<td class="px-3 py-2 font-mono text-xs"><span class="inline-flex items-center gap-2">'
+                    + '<span class="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-800">' + @json(__('Done')) + '</span>'
+                    + escapeHtml(detail.ear_tag || animal.ear_tag) + '</span></td>'
+                    + '<td class="px-3 py-2 text-slate-700">' + escapeHtml(detail.species || animal.species) + ' · ' + escapeHtml(detail.sex || animal.sex) + '</td>'
+                    + '<td class="px-3 py-2 text-slate-700">' + formatMeatKg(meatQty) + '</td>'
+                    + '<td class="px-3 py-2 text-slate-600">' + escapeHtml(detail.slaughter_time || '—') + '</td>'
+                    + '</tr>'
+                    + '<tr class="hidden slaughter-recorded-inputs" aria-hidden="true"><td colspan="4">'
+                    + '<input type="hidden" data-field="animal_intake_item_id" value="' + animal.id + '">'
+                    + '<input type="hidden" data-field="meat_quantity_kg" value="' + escapeHtml(meatQty) + '">'
+                    + '<input type="hidden" data-field="notes" value="' + escapeHtml(notes) + '">'
+                    + '</td></tr>';
             });
 
             html += '</tbody></table></div></div>';
         }
 
-        if (remainingCount > 0) {
+        if (pendingCount > 0) {
             html += '<div><h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-600">'
-                + @json(__('Remaining animals')) + ' (' + remainingCount + ')</h4>'
+                + @json(__('Add slaughter now')) + ' (' + pendingCount + ')</h4>'
                 + '<div class="space-y-4">';
 
             pendingAnimals.forEach(function (animal) {
-                var existing = existingExecutionItems[animal.id] || {};
-                var checked = Object.keys(existing).length > 0;
-                var meatQty = existing.meat_quantity_kg || defaultMeatQuantity(animal);
+                var meatQty = defaultMeatQuantity(animal);
                 var liveWeight = animal.live_weight_kg
                     ? Number(animal.live_weight_kg).toFixed(2) + ' kg ' + @json(__('live'))
                     : '';
 
-                html += '<div class="overflow-hidden rounded-lg border border-slate-200 slaughter-animal-card" data-animal-id="' + animal.id + '">'
+                html += '<div class="overflow-hidden rounded-lg border border-slate-200 slaughter-animal-card slaughter-animal-card--pending" data-animal-id="' + animal.id + '">'
                     + '<div class="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">'
                     + '<label class="inline-flex items-center gap-2">'
-                    + '<input type="checkbox" class="slaughter-animal-checkbox rounded border-gray-300 text-bucha-primary focus:ring-bucha-primary"' + (checked ? ' checked' : '') + '>'
+                    + '<input type="checkbox" class="slaughter-animal-checkbox rounded border-gray-300 text-bucha-primary focus:ring-bucha-primary">'
                     + '<span class="text-xs font-medium uppercase tracking-wide text-slate-500">' + @json(__('Slaughter now')) + '</span></label>'
-                    + '<div class="min-w-0 flex-1"><p class="font-mono text-sm font-medium text-slate-900">' + animal.ear_tag + '</p>'
-                    + '<p class="mt-0.5 text-xs text-slate-500">' + animal.species + ' · ' + animal.sex
+                    + '<div class="min-w-0 flex-1"><p class="font-mono text-sm font-medium text-slate-900">' + escapeHtml(animal.ear_tag) + '</p>'
+                    + '<p class="mt-0.5 text-xs text-slate-500">' + escapeHtml(animal.species) + ' · ' + escapeHtml(animal.sex)
                     + (liveWeight ? ' · ' + liveWeight : '') + '</p></div></div>'
-                    + '<div class="slaughter-animal-fields grid grid-cols-1 gap-3 p-4 sm:grid-cols-2' + (checked ? '' : ' hidden') + '">'
-                    + '<input type="hidden" class="slaughter-animal-id" value="' + animal.id + '"' + (checked ? '' : ' disabled') + '>'
+                    + '<div class="slaughter-animal-fields grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 hidden">'
+                    + '<input type="hidden" class="slaughter-animal-id" value="' + animal.id + '" disabled>'
                     + '<div><label class="block text-xs font-medium text-slate-600">' + @json(__('Meat quantity (kg)')) + '</label>'
                     + '<input type="number" class="slaughter-meat-qty mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"'
-                    + ' value="' + (checked ? meatQty : '') + '" min="0.1" max="9999" step="0.01" placeholder="kg"' + (checked ? '' : ' disabled') + '></div>'
+                    + ' value="" min="0.1" max="9999" step="0.01" placeholder="kg" disabled></div>'
                     + '<div><label class="block text-xs font-medium text-slate-600">' + @json(__('Notes (optional)')) + '</label>'
-                    + '<input type="text" class="slaughter-notes mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"'
-                    + ' value="' + (existing.notes || '') + '"' + (checked ? '' : ' disabled') + '></div>'
+                    + '<input type="text" class="slaughter-notes mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary" value="" disabled></div>'
                     + '</div></div>';
             });
 
             html += '</div><p class="mt-3 text-xs text-slate-500">'
-                + @json(__('Check the animal(s) you are slaughtering now, enter dressed weight, and save. Return later to record the next animal(s).'))
+                + @json(__('Check the animal(s) you are slaughtering now, enter dressed weight, and save. Animals marked Done above are already recorded.'))
                 + '</p></div>';
-        } else {
+        } else if (recordedCount > 0) {
             html += '<div class="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">'
                 + @json(__('All approved animals on this session have been slaughtered.'))
                 + '</div>';
@@ -386,11 +400,16 @@
             return;
         }
 
+        var planData = planDataForId(planId);
+        if (isCreateForm && planData.continue_edit_url) {
+            window.location.href = planData.continue_edit_url;
+            return;
+        }
+
         if (perAnimalSection) {
             perAnimalSection.classList.remove('hidden');
         }
 
-        var planData = planDataForId(planId);
         rebuildSlaughterTable(
             planData.approved_items || [],
             planData.slaughtered_ids || [],

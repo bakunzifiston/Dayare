@@ -11,9 +11,17 @@ use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
 use App\Models\RicaMonthlyInspectionReport;
+use App\Models\RicaSetting;
 use App\Services\SuperAdmin\RicaMonthlyInspectionReportService;
 use App\Services\SuperAdmin\RicaMonthlyInspectionReportPdfService;
+use App\Services\SuperAdmin\RicaAlertsNotificationsDashboardService;
+use App\Services\SuperAdmin\RicaCompliancePerformanceDashboardService;
+use App\Services\SuperAdmin\RicaDiseaseIntelligenceDashboardService;
+use App\Services\SuperAdmin\RicaCondemnationDashboardService;
+use App\Services\SuperAdmin\RicaOverviewDashboardService;
 use App\Services\SuperAdmin\RicaReportService;
+use App\Services\SuperAdmin\RicaTraceabilityDashboardService;
+use App\Services\SuperAdmin\RicaSupplyChainDashboardService;
 use App\Services\SuperAdmin\SuperAdminSlaughterDashboardService;
 use App\Support\TenantEnvironmentScope;
 use Carbon\Carbon;
@@ -59,34 +67,171 @@ class RicaController extends Controller
         return SlaughterPlan::whereIn('facility_id', $facilityIds)->pluck('id');
     }
 
-    private function useAllTenantEnvironments(): void
+    private function applyRicaTenantScope(): void
     {
-        TenantEnvironmentScope::setFilter(TenantEnvironmentScope::FILTER_ALL);
+        TenantEnvironmentScope::setFilter(
+            RicaSetting::get('default_tenant_environment', TenantEnvironmentScope::FILTER_ALL)
+        );
+    }
+
+    private function applyRicaDashboardDefaults(Request $request): Request
+    {
+        if ($request->hasAny(['period', 'date_from', 'date_to'])) {
+            return $request;
+        }
+
+        $defaultPeriod = RicaSetting::get('default_dashboard_period', 'all');
+        if ($defaultPeriod === 'all') {
+            return $request;
+        }
+
+        return $request->duplicate(
+            query: array_merge($request->query(), ['period' => $defaultPeriod])
+        );
     }
 
     public function hub(Request $request): View
     {
-        $this->useAllTenantEnvironments();
+        $this->applyRicaTenantScope();
+        $request = $this->applyRicaDashboardDefaults($request);
 
-        $filters = $this->slaughterDashboard->resolveHubFilters($request);
+        $dashboard = app(RicaOverviewDashboardService::class)->build($request);
 
-        $facilityIds = TenantEnvironmentScope::applyToFacilities(
-            Facility::where('facility_type', Facility::TYPE_SLAUGHTERHOUSE)
-        )->pluck('id');
-        $planIds = $this->planIdsForFacilities($facilityIds);
+        $pageTitle = __('National Meat Inspection Overview');
 
-        $hubStats = $this->hubStats($filters, $facilityIds, $planIds);
-        $speciesSlaughtered = $this->slaughterDashboard->speciesSlaughteredCounts($filters);
-        $facilitySlaughterRows = $this->slaughterDashboard->facilitySlaughterRows($filters, Facility::TYPE_SLAUGHTERHOUSE);
-        $chartSpecs = $this->slaughterDashboard->workspaceChartSpecs($filters, $speciesSlaughtered);
+        return view('superadmin.rica.hub', array_merge($dashboard, compact('pageTitle')));
+    }
 
-        return view('superadmin.rica.hub', compact(
-            'hubStats',
-            'speciesSlaughtered',
-            'facilitySlaughterRows',
-            'filters',
-            'chartSpecs',
-        ));
+    public function traceability(Request $request): View
+    {
+        $this->applyRicaTenantScope();
+        $request = $this->applyRicaDashboardDefaults($request);
+
+        $dashboard = app(RicaTraceabilityDashboardService::class)->build($request);
+
+        return view('superadmin.rica.traceability', $dashboard);
+    }
+
+    public function diseasesIntelligence(Request $request): View
+    {
+        $this->applyRicaTenantScope();
+
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            $request = $request->duplicate(
+                query: array_merge($request->query(), ['period' => 'all'])
+            );
+        }
+
+        $dashboard = app(RicaDiseaseIntelligenceDashboardService::class)->build($request);
+
+        return view('superadmin.rica.diseases-intelligence', $dashboard);
+    }
+
+    public function supplyChain(Request $request): View
+    {
+        $this->applyRicaTenantScope();
+        $request = $this->applyRicaDashboardDefaults($request);
+
+        $dashboard = app(RicaSupplyChainDashboardService::class)->build($request);
+
+        return view('superadmin.rica.supply-chain', $dashboard);
+    }
+
+    public function meatCondemnation(Request $request): View
+    {
+        $this->applyRicaTenantScope();
+
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            $request = $request->duplicate(
+                query: array_merge($request->query(), ['period' => 'month'])
+            );
+        }
+
+        $dashboard = app(RicaCondemnationDashboardService::class)->build($request);
+
+        return view('superadmin.rica.meat-condemnation', $dashboard);
+    }
+
+    public function compliancePerformance(Request $request): View
+    {
+        $this->applyRicaTenantScope();
+
+        if (! $request->hasAny(['period', 'date_from', 'date_to'])) {
+            $request = $request->duplicate(
+                query: array_merge($request->query(), ['period' => 'month'])
+            );
+        }
+
+        $dashboard = app(RicaCompliancePerformanceDashboardService::class)->build($request);
+
+        return view('superadmin.rica.compliance-performance', $dashboard);
+    }
+
+    public function alertsNotifications(Request $request): View
+    {
+        $this->applyRicaTenantScope();
+
+        $dashboard = app(RicaAlertsNotificationsDashboardService::class)->build($request);
+
+        return view('superadmin.rica.alerts-notifications', $dashboard);
+    }
+
+    private function renderModule(string $module): View
+    {
+        $this->applyRicaTenantScope();
+
+        $definition = $this->moduleDefinitions()[$module] ?? abort(404);
+
+        return view('superadmin.rica.modules.show', $definition);
+    }
+
+    /**
+     * @return array<string, array{title: string, description: string, icon: string, highlights: list<string>}>
+     */
+    private function moduleDefinitions(): array
+    {
+        return [
+            'diseases-intelligence' => [
+                'title' => __('Diseases intelligence'),
+                'description' => __('Monitor ante-mortem rejections, post-mortem condemnations, and emerging disease patterns across registered operators.'),
+                'icon' => 'shield',
+                'highlights' => [
+                    __('Species-level condemnation trends'),
+                    __('District and operator risk heatmaps'),
+                    __('Outbreak early-warning signals'),
+                ],
+            ],
+            'supply-chain' => [
+                'title' => __('Supply chain'),
+                'description' => __('Track meat movement from slaughter through cold storage, transport, and delivery confirmation.'),
+                'icon' => 'truck',
+                'highlights' => [
+                    __('Certificate-linked dispatch records'),
+                    __('Cold-chain compliance by route'),
+                    __('Cross-border export visibility'),
+                ],
+            ],
+            'compliance-performance' => [
+                'title' => __('Compliance performance'),
+                'description' => __('Measure operator adherence to inspection schedules, monthly reporting, and regulatory benchmarks.'),
+                'icon' => 'chart',
+                'highlights' => [
+                    __('Monthly FPU/FRM/018 submission rates'),
+                    __('Inspection completion by facility'),
+                    __('Operator compliance scorecards'),
+                ],
+            ],
+            'alerts-notifications' => [
+                'title' => __('Alerts & notifications'),
+                'description' => __('Central inbox for temperature violations, overdue reports, condemned carcass alerts, and licence expiries.'),
+                'icon' => 'alert',
+                'highlights' => [
+                    __('Configurable alert thresholds'),
+                    __('District inspector notifications'),
+                    __('Acknowledgement and escalation workflow'),
+                ],
+            ],
+        ];
     }
 
     /**
@@ -175,7 +320,7 @@ class RicaController extends Controller
     {
         abort_unless($facility->facility_type === Facility::TYPE_SLAUGHTERHOUSE, 404);
 
-        $this->useAllTenantEnvironments();
+        $this->applyRicaTenantScope();
 
         ['dateFrom' => $dateFrom, 'dateTo' => $dateTo] = $this->reportService->resolveDashboardDateRange($request);
         $dashboard = $this->reportService->facilityPeriodDashboard($facility, $dateFrom, $dateTo);
@@ -205,7 +350,7 @@ class RicaController extends Controller
 
     public function reports(Request $request): View
     {
-        $this->useAllTenantEnvironments();
+        $this->applyRicaTenantScope();
 
         $report = $this->reportService->buildReport($request);
 
@@ -225,7 +370,7 @@ class RicaController extends Controller
 
     public function monthlyReportsIndex(Request $request): View
     {
-        $this->useAllTenantEnvironments();
+        $this->applyRicaTenantScope();
 
         $view = $request->string('view', 'submitted')->toString();
         if (! in_array($view, ['submitted', 'facilities'], true)) {
@@ -337,7 +482,7 @@ class RicaController extends Controller
     {
         $this->assertRicaMonthlyReportFacility($facility);
 
-        $this->useAllTenantEnvironments();
+        $this->applyRicaTenantScope();
 
         $period = $this->monthlyReportService->resolvePeriod($request);
         $report = $this->monthlyReportService->build(
@@ -360,7 +505,7 @@ class RicaController extends Controller
     {
         $this->assertRicaMonthlyReportFacility($facility);
 
-        $this->useAllTenantEnvironments();
+        $this->applyRicaTenantScope();
 
         $period = $this->monthlyReportService->resolvePeriod($request);
         $pdf = $this->monthlyReportPdfService->generate(
@@ -376,7 +521,7 @@ class RicaController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        $this->useAllTenantEnvironments();
+        $this->applyRicaTenantScope();
         $report = $this->reportService->buildReport($request);
         $rows = $this->reportService->allRowsForExport($request);
 

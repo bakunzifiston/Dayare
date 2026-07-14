@@ -1,5 +1,7 @@
 @import './processor-dashboard.css';
 @import './rica-monthly-report.css';
+@import './rica-supply-chain.css';
+@import './rica-traceability.css';
 
 @tailwind base;
 @tailwind components;

@@ -42,6 +42,8 @@ use App\Models\TransportTrip;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WarehouseStorage;
+use App\Support\PostMortemMeatTotals;
+use App\Support\RicaDiseaseLabelResolver;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -516,13 +518,40 @@ class ProcessorWorkspaceSeedBuilder
             if ($slaughterDay->greaterThan($this->rangeEnd)) {
                 $slaughterDay = $this->rangeEnd->copy()->subDay()->setTime(6, 0, 0);
             }
+
+            $recentPipelineSlots = min(12, $pipelineCount);
+            $recentPipelineStart = $pipelineCount - $recentPipelineSlots;
+            if ($k >= $recentPipelineStart) {
+                $slot = $k - $recentPipelineStart;
+                $monthsBack = $slot < 6 ? 1 : 0;
+                $dayOffsets = [1, 5, 9, 13, 17, 21];
+                $anchor = $this->rangeEnd->copy()->startOfMonth()->subMonths($monthsBack);
+                $targetDay = $dayOffsets[$slot % count($dayOffsets)];
+                if ($monthsBack === 0) {
+                    $targetDay = min($targetDay, max(1, $this->rangeEnd->day));
+                } else {
+                    $targetDay = min($targetDay, $anchor->daysInMonth);
+                }
+
+                $slaughterDay = $anchor->copy()
+                    ->addDays($targetDay - 1)
+                    ->setTime(6 + ($slot % 4), ($slot % 2) * 30, 0);
+            }
+
             $slaughterTime = $slaughterDay->copy()->addHours(2);
 
-            $rejectedAnteItemId = ($global % 11 === 0 && $items->count() > 3)
+            $diseaseEntry = RicaDiseaseLabelResolver::catalogEntry($global);
+            $rejectAnteItemId = ($global % 11 === 0 && $items->count() > 3)
                 ? $items->last()->id
                 : null;
-            $slaughterItems = $rejectedAnteItemId
-                ? $items->where('id', '!=', $rejectedAnteItemId)
+            if ($k >= $recentPipelineStart && $items->count() > 3) {
+                $slot = $k - $recentPipelineStart;
+                if ($slot % 3 === 0) {
+                    $rejectAnteItemId = $items->values()->get($slot % $items->count())->id;
+                }
+            }
+            $slaughterItems = $rejectAnteItemId
+                ? $items->where('id', '!=', $rejectAnteItemId)
                 : $items;
             $slaughterCount = $slaughterItems->count();
 
@@ -538,7 +567,7 @@ class ProcessorWorkspaceSeedBuilder
 
             AnimalIntakeItem::query()->whereIn('id', $slaughterItems->pluck('id'))->update(['slaughter_plan_id' => $plan->id]);
 
-            $anteRejected = $rejectedAnteItemId ? 1 : 0;
+            $anteRejected = $rejectAnteItemId ? 1 : 0;
             $ante = AnteMortemInspection::query()->create([
                 'slaughter_plan_id' => $plan->id,
                 'inspector_id' => $inspector->id,
@@ -552,14 +581,14 @@ class ProcessorWorkspaceSeedBuilder
             ]);
 
             foreach ($items as $itemIndex => $item) {
-                $isRejected = $item->id === $rejectedAnteItemId;
+                $isRejected = $item->id === $rejectAnteItemId;
                 AnteMortemInspectionItem::query()->create([
                     'ante_mortem_inspection_id' => $ante->id,
                     'animal_intake_item_id' => $item->id,
                     'outcome' => $isRejected
                         ? AnteMortemInspectionItem::OUTCOME_REJECTED
                         : AnteMortemInspectionItem::OUTCOME_APPROVED,
-                    'conditions' => $isRejected ? __('Lameness and dehydration after transport') : null,
+                    'conditions' => $isRejected ? $diseaseEntry['condition'] : null,
                     'action_taken' => $isRejected ? __('Held in isolation pen; returned to supplier') : null,
                 ]);
 
@@ -569,7 +598,15 @@ class ProcessorWorkspaceSeedBuilder
                         'animal_intake_item_id' => $item->id,
                         'item' => 'locomotion',
                         'value' => 'abnormal',
-                        'notes' => __('Non-weight-bearing on left hind limb'),
+                        'notes' => $diseaseEntry['condition'],
+                    ]);
+                } elseif ($k >= $recentPipelineStart && $itemIndex % 6 === 0) {
+                    AnteMortemObservation::query()->create([
+                        'ante_mortem_inspection_id' => $ante->id,
+                        'animal_intake_item_id' => $item->id,
+                        'item' => ['respiratory_system', 'lymphnodes', 'hair_and_skin'][$itemIndex % 3],
+                        'value' => 'abnormal',
+                        'notes' => $diseaseEntry['condition'],
                     ]);
                 }
             }
@@ -620,39 +657,69 @@ class ProcessorWorkspaceSeedBuilder
                 ]));
             }
 
-            $condemnedBatchItemId = ($global % 8 === 0 && $batchItems->count() > 1)
-                ? $batchItems->last()->id
-                : null;
-            $condemnedQtyKg = 0.0;
+            $condemnedBatchItemId = null;
+            if ($batchItems->count() > 1) {
+                if ($k >= $recentPipelineStart) {
+                    $slot = $k - $recentPipelineStart;
+                    $condemnInRecent = ($slot < 6 && $slot % 3 === 0) || ($slot >= 6 && $slot % 2 === 0);
+                    if ($condemnInRecent) {
+                        $condemnedBatchItemId = $batchItems->last()->id;
+                    }
+                } elseif ($global % 8 === 0) {
+                    $condemnedBatchItemId = $batchItems->last()->id;
+                }
+            }
+
+            $animalsById = $batchItems->mapWithKeys(fn (BatchItem $batchItem) => [
+                (int) $batchItem->animal_intake_item_id => [
+                    'meat_quantity_kg' => (float) $batchItem->meat_quantity_kg,
+                ],
+            ]);
+
+            $itemOutcomes = [];
+            foreach ($batchItems as $batchItem) {
+                $meatKg = (float) $batchItem->meat_quantity_kg;
+                $isCondemned = $batchItem->id === $condemnedBatchItemId;
+
+                $itemOutcomes[] = [
+                    'animal_intake_item_id' => (int) $batchItem->animal_intake_item_id,
+                    'outcome' => $isCondemned
+                        ? PostMortemInspectionItem::OUTCOME_CONDEMNED
+                        : PostMortemInspectionItem::OUTCOME_APPROVED,
+                    'carcass_weight_kg' => $isCondemned ? null : round($meatKg * 0.82, 2),
+                    'condemned_weight_kg' => $isCondemned ? round(min($meatKg * 0.15, 18.5), 2) : null,
+                ];
+            }
+
+            $meatTotals = PostMortemMeatTotals::fromItemOutcomes($itemOutcomes, $animalsById);
 
             $pm = PostMortemInspection::query()->create([
                 'batch_id' => $batch->id,
                 'inspector_id' => $inspector->id,
                 'species' => $species,
-                'total_examined' => $slaughterCount,
-                'approved_quantity' => $condemnedBatchItemId ? $slaughterCount - 1 : $slaughterCount,
-                'condemned_quantity' => $condemnedBatchItemId ? 1 : 0,
+                'total_examined' => $meatTotals['total_examined'],
+                'approved_quantity' => $meatTotals['approved_quantity'],
+                'condemned_quantity' => $meatTotals['condemned_quantity'],
                 'notes' => __('Post-mortem — :batch', ['batch' => $batch->batch_code ?? ('#'.$batch->id)]),
                 'inspection_date' => $slaughterDay->toDateString(),
-                'result' => PostMortemInspection::RESULT_APPROVED,
+                'result' => $condemnedBatchItemId
+                    ? PostMortemInspection::RESULT_PARTIAL
+                    : PostMortemInspection::RESULT_APPROVED,
             ]);
 
-            foreach ($batchItems as $batchItem) {
+            foreach ($batchItems as $index => $batchItem) {
                 $isCondemned = $batchItem->id === $condemnedBatchItemId;
-                if ($isCondemned) {
-                    $condemnedQtyKg = (float) $batchItem->meat_quantity_kg;
-                }
+                $outcome = $itemOutcomes[$index];
 
                 PostMortemInspectionItem::query()->create([
                     'post_mortem_inspection_id' => $pm->id,
                     'batch_item_id' => $batchItem->id,
                     'animal_intake_item_id' => $batchItem->animal_intake_item_id,
-                    'outcome' => $isCondemned
-                        ? PostMortemInspectionItem::OUTCOME_CONDEMNED
-                        : PostMortemInspectionItem::OUTCOME_APPROVED,
-                    'carcass_weight_kg' => $batchItem->meat_quantity_kg,
-                    'seized_part' => $isCondemned ? __('Liver, kidneys') : null,
-                    'reason' => $isCondemned ? __('Multifocal abscesses; unfit for human consumption') : null,
+                    'outcome' => $outcome['outcome'],
+                    'carcass_weight_kg' => $outcome['carcass_weight_kg'],
+                    'condemned_weight_kg' => $outcome['condemned_weight_kg'],
+                    'seized_part' => $isCondemned ? 'Liver' : null,
+                    'reason' => $isCondemned ? $diseaseEntry['condemnation_reason'] : null,
                 ]);
 
                 if ($isCondemned) {

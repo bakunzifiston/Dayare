@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="min-w-0">
-            <a href="{{ route('rica.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← RICA') }}</a>
+            <a href="{{ route('rica.dashboard') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← RICA') }}</a>
             <div class="mt-1 flex items-center gap-3">
                 <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200" aria-hidden="true">
                     <span class="[&>svg]:h-4 [&>svg]:w-4">

@@ -423,26 +423,94 @@ class AnteMortemInspectionController extends Controller
         return $this->hubFiltersAllTime();
     }
 
+    /**
+     * Slaughter sessions that still need ante-mortem recording.
+     *
+     * @return Collection<int, int>
+     */
+    private function eligiblePlanIdsForAnteMortemSelection(Collection $planIds, ?int $alwaysIncludePlanId = null): Collection
+    {
+        if ($planIds->isEmpty()) {
+            return $alwaysIncludePlanId !== null ? collect([$alwaysIncludePlanId]) : collect();
+        }
+
+        $eligible = SlaughterPlan::query()
+            ->whereIn('id', $planIds)
+            ->whereNotIn('status', ['cancelled'])
+            ->withCount('assignedItems')
+            ->orderByDesc('slaughter_date')
+            ->get()
+            ->filter(fn (SlaughterPlan $plan) => $this->planHasRemainingAnteMortemWork($plan))
+            ->pluck('id')
+            ->values();
+
+        if ($alwaysIncludePlanId !== null && ! $eligible->contains($alwaysIncludePlanId)) {
+            $eligible->push($alwaysIncludePlanId);
+        }
+
+        return $eligible->values();
+    }
+
+    private function planHasRemainingAnteMortemWork(SlaughterPlan $plan): bool
+    {
+        $assignedCount = (int) ($plan->assigned_items_count ?? $plan->assignedItems()->count());
+
+        if ($assignedCount > 0) {
+            $examinedItemCount = AnteMortemInspectionItem::query()
+                ->whereHas('inspection', fn ($query) => $query->where('slaughter_plan_id', $plan->id))
+                ->distinct()
+                ->count('animal_intake_item_id');
+
+            return $examinedItemCount < $assignedCount;
+        }
+
+        return ! $plan->anteMortemInspections()->exists();
+    }
+
+    /**
+     * @param  Collection<int, int>  $planIds
+     * @return Collection<int, list<int>>
+     */
+    private function examinedItemIdsByPlan(Collection $planIds): Collection
+    {
+        if ($planIds->isEmpty()) {
+            return collect();
+        }
+
+        return AnteMortemInspectionItem::query()
+            ->whereHas('inspection', fn ($query) => $query->whereIn('slaughter_plan_id', $planIds))
+            ->with('inspection:id,slaughter_plan_id')
+            ->get()
+            ->groupBy(fn (AnteMortemInspectionItem $item) => $item->inspection->slaughter_plan_id)
+            ->map(fn (Collection $items) => $items
+                ->pluck('animal_intake_item_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all());
+    }
+
     public function create(Request $request): View
     {
         $planIds = $this->userSlaughterPlanIds($request);
+        $eligiblePlanIds = $this->eligiblePlanIdsForAnteMortemSelection($planIds);
 
         // --- Section 4 ---
         $selectedPlanId = $request->query('slaughter_plan_id');
         $selectedPlan = $selectedPlanId
-            ? SlaughterPlan::whereIn('id', $this->userSlaughterPlanIds($request))
+            ? SlaughterPlan::whereIn('id', $eligiblePlanIds)
                 ->with('assignedItems')
                 ->find($selectedPlanId)
             : null;
         $assignedItems = $selectedPlan?->assignedItems ?? collect();
 
         $planModels = SlaughterPlan::with(['facility', 'assignedItems', 'intake'])
-            ->whereIn('id', $planIds)
+            ->whereIn('id', $eligiblePlanIds)
             ->orderByDesc('slaughter_date')
             ->get();
 
         $plans = $this->mapPlansForSelect($planModels);
-        $assignedItemsByPlan = $this->mapAssignedItemsByPlan($planModels);
+        $assignedItemsByPlan = $this->mapPendingAssignedItemsByPlan($planModels);
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $this->userFacilityIds($request))
             ->where('status', 'active')
@@ -505,7 +573,7 @@ class AnteMortemInspectionController extends Controller
         $planIds = $this->userSlaughterPlanIds($request);
 
         $planModels = SlaughterPlan::with(['facility', 'assignedItems', 'intake'])
-            ->whereIn('id', $planIds)
+            ->whereIn('id', $this->eligiblePlanIdsForAnteMortemSelection($planIds, $anteMortemInspection->slaughter_plan_id))
             ->orderByDesc('slaughter_date')
             ->get();
 
@@ -630,6 +698,36 @@ class AnteMortemInspectionController extends Controller
             'scheduled_count' => (int) $plan->number_of_animals_scheduled,
             'assigned_count' => $plan->assigned_count,
         ])->values();
+    }
+
+    /**
+     * @param  Collection<int, SlaughterPlan>  $planModels
+     * @return Collection<int|string, array<int, array<string, mixed>>>
+     */
+    private function mapPendingAssignedItemsByPlan(Collection $planModels): Collection
+    {
+        $examinedIdsByPlan = $this->examinedItemIdsByPlan($planModels->pluck('id'));
+
+        return $planModels->mapWithKeys(function (SlaughterPlan $plan) use ($examinedIdsByPlan) {
+            $examinedIds = collect($examinedIdsByPlan->get($plan->id, []))->flip();
+
+            return [
+                $plan->id => $plan->assignedItems
+                    ->reject(fn (AnimalIntakeItem $item) => $examinedIds->has($item->id))
+                    ->map(fn (AnimalIntakeItem $item) => [
+                        'id' => $item->id,
+                        'ear_tag' => $item->ear_tag,
+                        'species' => $item->species,
+                        'sex' => ucfirst($item->sex),
+                        'age_months' => $item->age_months,
+                        'live_weight_kg' => $item->live_weight_kg,
+                        'health_status' => $item->health_status,
+                        'health_status_label' => $item->health_status_label,
+                    ])
+                    ->values()
+                    ->toArray(),
+            ];
+        });
     }
 
     /**

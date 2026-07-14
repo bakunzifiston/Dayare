@@ -320,6 +320,24 @@ function drawChart(canvas, spec) {
 
     if (spec.indexAxis === 'y') {
         options.indexAxis = 'y';
+        options.scales.y.grid = { display: false, drawBorder: false };
+        options.scales.y.border = { display: false };
+        options.scales.y.ticks = {
+            ...options.scales.y.ticks,
+            color: TICK_COLOR,
+            font: { ...CHART_FONT, size: 10 },
+            autoSkip: false,
+            callback(value) {
+                const label = this.getLabelForValue(value);
+                if (typeof label !== 'string') {
+                    return label;
+                }
+
+                return label.length > 28 ? `${label.slice(0, 26)}…` : label;
+            },
+        };
+        options.scales.x.grid = { color: GRID_COLOR, drawBorder: false };
+        options.scales.x.beginAtZero = true;
     }
 
     if (spec.referenceLine !== undefined) {

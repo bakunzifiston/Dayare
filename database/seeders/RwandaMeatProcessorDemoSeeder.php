@@ -27,6 +27,10 @@ use Illuminate\Database\Seeder;
  * Usage:
  *   php artisan db:seed --class=RwandaMeatProcessorDemoSeeder
  *
+ * Re-seed (removes existing Nyagatare Prime data first):
+ *   php artisan tinker --execute="(new \Database\Seeders\Support\RwandaMeatProcessorPurge)->run();"
+ *   php artisan db:seed --class=RwandaMeatProcessorDemoSeeder
+ *
  * Login: jeanpierre.mukamana@nyagataprime.rw / password
  */
 class RwandaMeatProcessorDemoSeeder extends Seeder

@@ -297,6 +297,7 @@ class PostMortemInspectionController extends Controller
                         'seized_part' => $item->seized_part,
                         'reason' => $item->reason,
                         'carcass_weight_kg' => $item->carcass_weight_kg,
+                        'condemned_weight_kg' => $item->condemned_weight_kg,
                     ],
                 ]);
 
@@ -331,6 +332,7 @@ class PostMortemInspectionController extends Controller
                     'seized_part' => $outcome['seized_part'] ?? null,
                     'reason' => $outcome['reason'] ?? null,
                     'carcass_weight_kg' => $outcome['carcass_weight_kg'] ?? null,
+                    'condemned_weight_kg' => $outcome['condemned_weight_kg'] ?? null,
                 ]);
             }
         }
@@ -369,6 +371,7 @@ class PostMortemInspectionController extends Controller
                 'seized_part' => $outcome['seized_part'] ?? null,
                 'reason' => $outcome['reason'] ?? null,
                 'carcass_weight_kg' => $outcome['carcass_weight_kg'] ?? null,
+                'condemned_weight_kg' => $outcome['condemned_weight_kg'] ?? null,
             ];
 
             $item = $existing->get($animalId);
@@ -451,6 +454,7 @@ class PostMortemInspectionController extends Controller
                 'seized_part' => (string) ($row['seized_part'] ?? ''),
                 'reason' => (string) ($row['reason'] ?? ''),
                 'carcass_weight_kg' => $row['carcass_weight_kg'] ?? null,
+                'condemned_weight_kg' => $row['condemned_weight_kg'] ?? null,
                 'observations' => is_array($row['observations'] ?? null) ? $row['observations'] : [],
             ];
         }
@@ -477,6 +481,7 @@ class PostMortemInspectionController extends Controller
                         'seized_part' => $item->seized_part ?? '',
                         'reason' => $item->reason ?? '',
                         'carcass_weight_kg' => $item->carcass_weight_kg,
+                        'condemned_weight_kg' => $item->condemned_weight_kg,
                         'observations' => ($obsByAnimal->get($item->animal_intake_item_id) ?? collect())
                             ->mapWithKeys(fn ($obs) => [
                                 $obs->item => [
@@ -982,7 +987,19 @@ class PostMortemInspectionController extends Controller
             'inspectionItems.batchItem.intakeItem',
         ]);
 
-        return view('post-mortem-inspections.show', ['inspection' => $postMortemInspection]);
+        $itemOutcomes = $postMortemInspection->inspectionItems->map(fn (PostMortemInspectionItem $item) => [
+            'animal_intake_item_id' => $item->animal_intake_item_id,
+            'outcome' => $item->outcome,
+            'carcass_weight_kg' => $item->carcass_weight_kg,
+            'condemned_weight_kg' => $item->condemned_weight_kg,
+        ])->all();
+        $animalsById = $postMortemInspection->batch->inspectableAnimalsForPostMortem()->keyBy('animal_intake_item_id');
+        $meatTotals = PostMortemMeatTotals::fromItemOutcomes($itemOutcomes, $animalsById);
+
+        return view('post-mortem-inspections.show', [
+            'inspection' => $postMortemInspection,
+            'meatTotals' => $meatTotals,
+        ]);
     }
 
     public function edit(Request $request, PostMortemInspection $postMortemInspection): View|RedirectResponse
@@ -1019,6 +1036,15 @@ class PostMortemInspectionController extends Controller
             $selectedExecutionData['has_per_animal'] = count($selectedExecutionData['display_animals']) > 0;
         }
 
+        $itemOutcomes = $postMortemInspection->inspectionItems->map(fn (PostMortemInspectionItem $item) => [
+            'animal_intake_item_id' => $item->animal_intake_item_id,
+            'outcome' => $item->outcome,
+            'carcass_weight_kg' => $item->carcass_weight_kg,
+            'condemned_weight_kg' => $item->condemned_weight_kg,
+        ])->all();
+        $animalsById = $postMortemInspection->batch->inspectableAnimalsForPostMortem()->keyBy('animal_intake_item_id');
+        $meatTotals = PostMortemMeatTotals::fromItemOutcomes($itemOutcomes, $animalsById);
+
         return view('post-mortem-inspections.edit', array_merge(
             $this->postMortemFormContext(is_array($selectedExecutionData) ? $selectedExecutionData : null),
             [
@@ -1037,6 +1063,7 @@ class PostMortemInspectionController extends Controller
                 'selectedExecutionData' => $selectedExecutionData,
                 'existingInspectionOutcomes' => $this->mapExistingInspectionOutcomes($postMortemInspection),
                 'preserveExistingOutcomes' => true,
+                'meatTotals' => $meatTotals,
             ],
         ));
     }

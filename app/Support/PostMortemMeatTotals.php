@@ -9,12 +9,19 @@ class PostMortemMeatTotals
     /**
      * @param  iterable<int, array<string, mixed>>  $itemOutcomes
      * @param  Collection<int, array<string, mixed>>  $animalsById  keyed by animal_intake_item_id
-     * @return array{total_examined: float, approved_quantity: float, condemned_quantity: float}
+     * @return array{
+     *     total_examined: float,
+     *     approved_quantity: float,
+     *     approved_carcass_kg: float,
+     *     approved_other_meat_kg: float,
+     *     condemned_quantity: float
+     * }
      */
     public static function fromItemOutcomes(iterable $itemOutcomes, Collection $animalsById): array
     {
         $examinedKg = 0.0;
-        $approvedKg = 0.0;
+        $carcassApprovedKg = 0.0;
+        $otherApprovedKg = 0.0;
         $condemnedKg = 0.0;
 
         foreach ($itemOutcomes as $outcome) {
@@ -36,15 +43,24 @@ class PostMortemMeatTotals
             $examinedKg += $beforeKg;
 
             if ($result === 'approved') {
-                $approvedKg += $afterKg > 0 ? $afterKg : $beforeKg;
+                $carcassPart = $afterKg > 0 ? $afterKg : $beforeKg;
+                $carcassApprovedKg += $carcassPart;
+                if ($afterKg > 0 && $beforeKg > $afterKg) {
+                    $otherApprovedKg += $beforeKg - $afterKg;
+                }
             } elseif ($result === 'condemned') {
-                $condemnedKg += $beforeKg;
+                $condemnedPartKg = (float) ($outcome['condemned_weight_kg'] ?? 0);
+                $condemnedKg += $condemnedPartKg > 0 ? $condemnedPartKg : $beforeKg;
             }
         }
+
+        $approvedKg = $carcassApprovedKg + $otherApprovedKg;
 
         return [
             'total_examined' => round($examinedKg, 2),
             'approved_quantity' => round($approvedKg, 2),
+            'approved_carcass_kg' => round($carcassApprovedKg, 2),
+            'approved_other_meat_kg' => round($otherApprovedKg, 2),
             'condemned_quantity' => round($condemnedKg, 2),
         ];
     }

@@ -93,6 +93,7 @@ use App\Http\Controllers\SuperAdminDashboardController;
 use App\Http\Controllers\SuperAdminTenantController;
 use App\Http\Controllers\SuperAdminUserController;
 use App\Http\Controllers\SuperAdmin\RicaController;
+use App\Http\Controllers\SuperAdmin\RicaSettingsController;
 use App\Http\Controllers\SuperAdminVibeProgrammeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TenantUserController;
@@ -750,7 +751,16 @@ Route::middleware(['auth', 'tenant', 'super_admin', 'super_admin.module:rica'])
     ->prefix('super-admin/rica')
     ->name('rica.')
     ->group(function () {
-        Route::get('/', [RicaController::class, 'hub'])->name('hub');
+        Route::get('/', fn () => redirect()->route('rica.dashboard'));
+        Route::get('dashboard', [RicaController::class, 'hub'])->name('dashboard');
+        Route::get('traceability', [RicaController::class, 'traceability'])->name('traceability');
+        Route::get('diseases-intelligence', [RicaController::class, 'diseasesIntelligence'])->name('diseases-intelligence');
+        Route::get('meat-condemnation', [RicaController::class, 'meatCondemnation'])->name('meat-condemnation');
+        Route::get('supply-chain', [RicaController::class, 'supplyChain'])->name('supply-chain');
+        Route::get('compliance-performance', [RicaController::class, 'compliancePerformance'])->name('compliance-performance');
+        Route::get('alerts-notifications', [RicaController::class, 'alertsNotifications'])->name('alerts-notifications');
+        Route::get('settings', [RicaSettingsController::class, 'edit'])->name('settings');
+        Route::put('settings', [RicaSettingsController::class, 'update'])->name('settings.update');
         Route::get('slaughterhouses', [RicaController::class, 'index'])->name('slaughterhouses.index');
         Route::get('slaughterhouses/{facility}', [RicaController::class, 'show'])->name('slaughterhouses.show');
         Route::get('reports', [RicaController::class, 'reports'])->name('reports');

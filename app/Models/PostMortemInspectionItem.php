@@ -33,12 +33,14 @@ class PostMortemInspectionItem extends Model
         'seized_part',
         'reason',
         'carcass_weight_kg',
+        'condemned_weight_kg',
     ];
 
     protected function casts(): array
     {
         return [
             'carcass_weight_kg' => 'decimal:2',
+            'condemned_weight_kg' => 'decimal:2',
         ];
     }
 

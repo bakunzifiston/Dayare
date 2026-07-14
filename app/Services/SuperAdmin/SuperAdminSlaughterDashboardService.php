@@ -10,8 +10,10 @@ use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
 use App\Support\TenantEnvironmentScope;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class SuperAdminSlaughterDashboardService
 {
@@ -352,6 +354,149 @@ class SuperAdminSlaughterDashboardService
             'type' => 'bar',
             'stacked' => true,
         ];
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?Carbon,
+     *     end: ?Carbon
+     * }  $filters
+     * @return array{labels: list<string>, datasets: list<array<string, mixed>>, type: string, stacked: bool}
+     */
+    public function chartSpeciesSlaughterTrend(
+        array $filters,
+        ?int $districtId = null,
+        ?int $facilityId = null,
+    ): array {
+        [$start, $end, $groupByMonth] = $this->trendChartRange($filters);
+        [$periodKeys, $labels] = $this->buildTrendPeriods($start, $end, $groupByMonth);
+
+        $speciesMeta = $this->slaughterSpeciesChartMeta();
+        $counts = collect($speciesMeta)
+            ->mapWithKeys(fn (array $meta, string $species) => [
+                $species => array_fill_keys($periodKeys, 0),
+            ])
+            ->all();
+
+        $executions = TenantEnvironmentScope::applyToSlaughterExecutions(SlaughterExecution::query())
+            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereNotNull('slaughter_time')
+            ->whereBetween('slaughter_time', [$start, $end])
+            ->whereHas('slaughterPlan', function (Builder $planQuery) use ($districtId, $facilityId): void {
+                TenantEnvironmentScope::applyToSlaughterPlans($planQuery);
+                if ($facilityId !== null) {
+                    $planQuery->where('facility_id', $facilityId);
+                }
+                if ($districtId !== null) {
+                    $planQuery->whereHas(
+                        'facility',
+                        fn (Builder $facilityQuery) => $facilityQuery->where('district_id', $districtId),
+                    );
+                }
+            })
+            ->with([
+                'executionItems.intakeItem:id,species',
+                'slaughterPlan:id,species',
+            ])
+            ->get(['id', 'slaughter_plan_id', 'slaughter_time', 'actual_animals_slaughtered']);
+
+        foreach ($executions as $execution) {
+            $slaughterTime = $execution->slaughter_time;
+            if ($slaughterTime === null) {
+                continue;
+            }
+
+            $periodKey = $groupByMonth
+                ? Carbon::parse($slaughterTime)->format('Y-m')
+                : Carbon::parse($slaughterTime)->format('Y-m-d');
+
+            if (! isset($counts[SlaughterPlan::SPECIES_CATTLE][$periodKey])) {
+                continue;
+            }
+
+            if ($execution->relationLoaded('executionItems') && $execution->executionItems->isNotEmpty()) {
+                foreach ($execution->executionItems as $executionItem) {
+                    $species = $this->normalizeSlaughterSpecies(
+                        (string) ($executionItem->intakeItem?->species ?? $execution->slaughterPlan?->species ?? ''),
+                    );
+                    if (! isset($counts[$species][$periodKey])) {
+                        $species = SlaughterPlan::SPECIES_OTHER;
+                    }
+                    $counts[$species][$periodKey]++;
+                }
+
+                continue;
+            }
+
+            $species = $this->normalizeSlaughterSpecies((string) ($execution->slaughterPlan?->species ?? ''));
+            if (! isset($counts[$species][$periodKey])) {
+                $species = SlaughterPlan::SPECIES_OTHER;
+            }
+
+            $counts[$species][$periodKey] += max(0, (int) $execution->actual_animals_slaughtered);
+        }
+
+        $datasets = [];
+        foreach ($speciesMeta as $species => $meta) {
+            $datasets[] = [
+                'label' => $meta['label'],
+                'data' => array_map(fn (string $key) => (int) $counts[$species][$key], $periodKeys),
+                'backgroundColor' => $meta['color'],
+                'borderColor' => 'transparent',
+                'borderWidth' => 0,
+                'borderRadius' => 6,
+            ];
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => $datasets,
+            'type' => 'bar',
+            'stacked' => true,
+        ];
+    }
+
+    /**
+     * @return array<string, array{label: string, color: string}>
+     */
+    private function slaughterSpeciesChartMeta(): array
+    {
+        return [
+            SlaughterPlan::SPECIES_CATTLE => [
+                'label' => __('Cattle'),
+                'color' => (string) config('bucha.chart.species.cattle'),
+            ],
+            SlaughterPlan::SPECIES_GOAT => [
+                'label' => __('Goat'),
+                'color' => (string) config('bucha.chart.species.goat'),
+            ],
+            SlaughterPlan::SPECIES_SHEEP => [
+                'label' => __('Sheep'),
+                'color' => (string) config('bucha.chart.species.sheep'),
+            ],
+            SlaughterPlan::SPECIES_PIG => [
+                'label' => __('Pigs'),
+                'color' => (string) config('bucha.chart.series.3', '#718096'),
+            ],
+            SlaughterPlan::SPECIES_OTHER => [
+                'label' => __('Others'),
+                'color' => (string) config('bucha.chart.series.2', '#3C3C3B'),
+            ],
+        ];
+    }
+
+    private function normalizeSlaughterSpecies(string $species): string
+    {
+        $normalized = Str::lower(trim($species));
+
+        return match (true) {
+            str_contains($normalized, 'cattle'), str_contains($normalized, 'cow') => SlaughterPlan::SPECIES_CATTLE,
+            str_contains($normalized, 'goat') => SlaughterPlan::SPECIES_GOAT,
+            str_contains($normalized, 'sheep') => SlaughterPlan::SPECIES_SHEEP,
+            str_contains($normalized, 'pig') => SlaughterPlan::SPECIES_PIG,
+            default => SlaughterPlan::SPECIES_OTHER,
+        };
     }
 
     /**

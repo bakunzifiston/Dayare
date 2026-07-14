@@ -13,7 +13,7 @@
 
                     <div>
                         <x-input-label for="slaughter_plan_id" :value="__('Slaughter session')" />
-                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($plans->isEmpty())>
                             <option value="">{{ __('Select slaughter session') }}</option>
                             @foreach ($plans as $p)
                                 <option value="{{ $p['id'] }}"
@@ -21,6 +21,11 @@
                                     @selected(old('slaughter_plan_id', $selectedPlan?->id ?? '') == $p['id'])>{{ $p['label'] }}</option>
                             @endforeach
                         </select>
+                        @if ($plans->isEmpty())
+                            <p class="mt-2 text-sm text-amber-800">
+                                {{ __('No slaughter sessions are ready for ante-mortem. All assigned animals on open sessions have already been inspected.') }}
+                            </p>
+                        @endif
                         <p class="mt-1 text-xs text-gray-500">{{ __('Slaughter Session ID') }}: selected plan</p>
                         <x-input-error class="mt-2" :messages="$errors->get('slaughter_plan_id')" />
                     </div>

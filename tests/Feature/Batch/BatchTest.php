@@ -543,7 +543,7 @@ class BatchTest extends TestCase
         $this->assertDatabaseCount('post_mortem_inspection_items', 5);
         $this->assertDatabaseHas('post_mortem_inspections', [
             'batch_id' => $batch->id,
-            'approved_quantity' => 550.00,
+            'approved_quantity' => 625.00,
             'condemned_quantity' => 0,
             'total_examined' => 625.00,
         ]);
@@ -563,7 +563,8 @@ class BatchTest extends TestCase
                 'batch_item_id' => $bi->id,
                 'animal_intake_item_id' => $bi->animal_intake_item_id,
                 'outcome' => $index === 0 ? 'condemned' : 'approved',
-                'carcass_weight_kg' => $index === 0 ? 98.50 : 110.00,
+                'carcass_weight_kg' => $index === 0 ? null : 110.00,
+                'condemned_weight_kg' => $index === 0 ? 18.50 : null,
                 'seized_part' => $index === 0 ? 'Liver' : null,
                 'reason' => $index === 0 ? 'Abscess detected' : null,
                 'outcome_notes' => null,
@@ -583,14 +584,14 @@ class BatchTest extends TestCase
         $this->assertDatabaseHas('post_mortem_inspection_items', [
             'animal_intake_item_id' => $items[0]->animal_intake_item_id,
             'outcome' => 'condemned',
-            'carcass_weight_kg' => 98.50,
+            'condemned_weight_kg' => 18.50,
             'seized_part' => 'Liver',
             'reason' => 'Abscess detected',
         ]);
         $this->assertDatabaseHas('post_mortem_inspections', [
             'batch_id' => $batch->id,
-            'approved_quantity' => 440.00,
-            'condemned_quantity' => 125.00,
+            'approved_quantity' => 500.00,
+            'condemned_quantity' => 18.50,
             'total_examined' => 625.00,
         ]);
     }
@@ -730,7 +731,7 @@ class BatchTest extends TestCase
         $this->assertDatabaseCount('post_mortem_inspection_items', 5);
         $this->assertDatabaseHas('post_mortem_inspections', [
             'batch_id' => $batch->id,
-            'approved_quantity' => 550.00,
+            'approved_quantity' => 625.00,
             'condemned_quantity' => 0,
             'total_examined' => 625.00,
         ]);

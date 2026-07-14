@@ -117,6 +117,40 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public static function superAdminModuleHomeRoutes(): array
+    {
+        return [
+            self::SUPER_ADMIN_MODULE_DASHBOARD => 'super-admin.dashboard',
+            self::SUPER_ADMIN_MODULE_VIBE_PROGRAMME => 'super-admin.vibe-programme.index',
+            self::SUPER_ADMIN_MODULE_CONFIGURATION => 'super-admin.configurations.index',
+            self::SUPER_ADMIN_MODULE_USER_MANAGEMENT => 'super-admin.users.index',
+            self::SUPER_ADMIN_MODULE_USERS => 'super-admin.tenants.index',
+            self::SUPER_ADMIN_MODULE_SYSTEM_SETTINGS => 'settings.edit',
+            self::SUPER_ADMIN_MODULE_RICA => 'rica.dashboard',
+        ];
+    }
+
+    public function defaultSuperAdminHomeRouteName(): string
+    {
+        $routes = self::superAdminModuleHomeRoutes();
+        $permissions = $this->normalizedSuperAdminPermissions();
+
+        if ($permissions === []) {
+            return $routes[self::SUPER_ADMIN_MODULE_DASHBOARD];
+        }
+
+        foreach (self::superAdminModules() as $module) {
+            if (in_array($module, $permissions, true) && isset($routes[$module])) {
+                return $routes[$module];
+            }
+        }
+
+        return $routes[self::SUPER_ADMIN_MODULE_DASHBOARD];
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $user): void {
@@ -517,7 +551,7 @@ class User extends Authenticatable
     public function defaultDashboardRouteName(): string
     {
         if ($this->isSuperAdmin()) {
-            return 'super-admin.dashboard';
+            return $this->defaultSuperAdminHomeRouteName();
         }
 
         return match ($this->tenantWorkspaceType()) {

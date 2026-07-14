@@ -52,15 +52,19 @@
                         <dd class="mt-1 text-sm text-gray-900">{{ str($inspection->result ?? 'approved')->replace('_', ' ')->title() }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Total meat examined') }}</dt>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Total examined meat') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900 tabular-nums">{{ number_format((float) $inspection->total_examined, 2) }} kg</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Approved meat') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900 tabular-nums">{{ number_format((float) $inspection->approved_quantity, 2) }} kg</dd>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Carcass meat approved') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900 tabular-nums">{{ number_format((float) ($meatTotals['approved_carcass_kg'] ?? $inspection->approved_quantity), 2) }} kg</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Rejected meat') }}</dt>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Other meat approved') }}</dt>
+                        <dd class="mt-1 text-sm text-gray-900 tabular-nums">{{ number_format((float) ($meatTotals['approved_other_meat_kg'] ?? 0), 2) }} kg</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">{{ __('Condemned meat') }}</dt>
                         <dd class="mt-1 text-sm text-gray-900 tabular-nums">{{ number_format((float) $inspection->condemned_quantity, 2) }} kg</dd>
                     </div>
                     @if ($inspection->notes)
@@ -83,7 +87,8 @@
                                     <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Outcome') }}</th>
                                     <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Before PM (kg)') }}</th>
                                     <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('After PM (kg)') }}</th>
-                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Seized part / organ') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Condemned organ') }}</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Condemned (kg)') }}</th>
                                     <th class="px-3 py-2 text-left font-medium text-gray-600">{{ __('Reason') }}</th>
                                 </tr>
                             </thead>
@@ -97,6 +102,7 @@
                                         </td>
                                         <td class="px-3 py-2 tabular-nums">{{ $item->carcass_weight_kg ? number_format($item->carcass_weight_kg, 2).' kg' : '—' }}</td>
                                         <td class="px-3 py-2">{{ $item->seized_part ?: '—' }}</td>
+                                        <td class="px-3 py-2 tabular-nums">{{ $item->condemned_weight_kg ? number_format($item->condemned_weight_kg, 2).' kg' : '—' }}</td>
                                         <td class="px-3 py-2">{{ $item->reason ?: ($item->outcome_notes ?: '—') }}</td>
                                     </tr>
                                 @endforeach

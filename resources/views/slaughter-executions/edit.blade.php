@@ -16,20 +16,10 @@
                     @method('put')
 
                     <div>
-                        <x-input-label for="slaughter_plan_id" :value="__('Slaughter session')" />
-                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach ($plans as $p)
-                                <option value="{{ $p['id'] }}"
-                                    @selected(old('slaughter_plan_id', $execution->slaughter_plan_id) == $p['id'])>
-                                    {{ $p['label'] }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <x-input-label :value="__('Slaughter session')" />
+                        <input type="hidden" name="slaughter_plan_id" value="{{ $execution->slaughter_plan_id }}">
+                        <p class="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">{{ $sessionLabel }}</p>
                         <x-input-error class="mt-2" :messages="$errors->get('slaughter_plan_id')" />
-                    </div>
-
-                    <div id="slaughter-progress-summary" class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                        <span id="slaughter-progress-text"></span>
                     </div>
 
                     <div id="per-animal-slaughter-section"
