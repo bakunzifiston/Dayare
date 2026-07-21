@@ -13,6 +13,7 @@ use App\Models\CertificateQr;
 use App\Models\Client;
 use App\Models\Facility;
 use App\Models\Inspector;
+use App\Models\MobileApiToken;
 use App\Models\PostMortemInspection;
 use App\Models\PostMortemInspectionItem;
 use App\Models\SlaughterExecution;
@@ -851,5 +852,132 @@ class CertificatePdfTest extends TestCase
             'issued_at' => now()->toDateString(),
             'status' => Certificate::STATUS_ACTIVE,
         ], $overrides);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function mobileAuthHeaders(): array
+    {
+        $plainToken = 'mobile-test-'.uniqid();
+        MobileApiToken::create([
+            'user_id' => $this->user->id,
+            'name' => 'test',
+            'token_hash' => hash('sha256', $plainToken),
+            'expires_at' => now()->addDay(),
+        ]);
+
+        return ['Authorization' => 'Bearer '.$plainToken];
+    }
+
+    public function test_mobile_certificates_index_and_show_list_accessible_certificates(): void
+    {
+        $index = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/certificates');
+
+        $index->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.data.0.id', $this->certificate->id);
+
+        $show = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/certificates/'.$this->certificate->id);
+
+        $show->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $this->certificate->id)
+            ->assertJsonPath('data.batch_id', $this->batch->id);
+    }
+
+    public function test_mobile_certificates_show_returns_404_for_certificate_outside_workspace(): void
+    {
+        $otherUser = User::factory()->create();
+        $otherBusiness = Business::create([
+            'user_id' => $otherUser->id,
+            'business_name' => 'Other Cert Co',
+            'registration_number' => 'REG-CERT-OTHER-'.uniqid(),
+            'contact_phone' => '+250788000400',
+            'email' => 'cert-other-'.uniqid().'@test.com',
+            'status' => 'active',
+        ]);
+        $otherFacility = Facility::create([
+            'business_id' => $otherBusiness->id,
+            'facility_name' => 'Other Cert Slaughterhouse',
+            'facility_type' => Facility::TYPE_SLAUGHTERHOUSE,
+            'status' => Facility::STATUS_ACTIVE,
+        ]);
+        $otherInspector = Inspector::create([
+            'facility_id' => $otherFacility->id,
+            'first_name' => 'Other',
+            'last_name' => 'Cert',
+            'national_id' => (string) random_int(100000000000, 999999999999),
+            'phone_number' => '+250788'.random_int(100000, 999999),
+            'email' => 'insp-cert-other-'.uniqid().'@test.com',
+            'dob' => '1988-01-01',
+            'nationality' => 'Rwandan',
+            'country' => 'Rwanda',
+            'district' => 'Kigali',
+            'sector' => 'Gasabo',
+            'authorization_number' => 'AUTH-CERT-OTHER-'.uniqid(),
+            'authorization_issue_date' => now()->subYear(),
+            'authorization_expiry_date' => now()->addYear(),
+            'species_allowed' => 'Cattle',
+            'status' => 'active',
+        ]);
+
+        $otherCertificate = Certificate::create([
+            'batch_id' => null,
+            'inspector_id' => $otherInspector->id,
+            'facility_id' => $otherFacility->id,
+            'slaughterhouse_display_name' => 'Other Slaughterhouse',
+            'certificate_number' => 'CERT-OTHER-'.uniqid(),
+            'issued_at' => today(),
+            'status' => Certificate::STATUS_ACTIVE,
+        ]);
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/certificates/'.$otherCertificate->id)
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_mobile_certificate_qr_returns_trace_payload(): void
+    {
+        $response = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/certificates/'.$this->certificate->id.'/qr');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure(['data' => ['slug', 'trace_url', 'qr_svg']]);
+    }
+
+    public function test_mobile_certificate_pdf_download(): void
+    {
+        $this->createReleasedStorage('RW-TAG-MOBILE-'.strtoupper(substr(uniqid(), -6)));
+
+        $response = $this->withHeaders($this->mobileAuthHeaders())
+            ->get('/api/v1/certificates/'.$this->certificate->id.'/pdf');
+
+        $response->assertOk();
+        $this->assertStringContainsString('pdf', strtolower((string) $response->headers->get('content-type')));
+    }
+
+    public function test_mobile_certificate_update_and_destroy(): void
+    {
+        $payload = $this->certificateStorePayload($this->batch, [
+            'slaughterhouse_display_name' => 'Updated Mobile Name',
+        ]);
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->putJson('/api/v1/certificates/'.$this->certificate->id, $payload)
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.slaughterhouse_display_name', 'Updated Mobile Name');
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->deleteJson('/api/v1/certificates/'.$this->certificate->id)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('certificates', ['id' => $this->certificate->id]);
     }
 }

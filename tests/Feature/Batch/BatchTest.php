@@ -10,6 +10,8 @@ use App\Models\Batch;
 use App\Models\Business;
 use App\Models\Facility;
 use App\Models\Inspector;
+use App\Models\MobileApiToken;
+use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
@@ -752,5 +754,151 @@ class BatchTest extends TestCase
         }
 
         $this->assertTrue($batch->fresh()->isPostMortemComplete());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function mobileAuthHeaders(): array
+    {
+        $plainToken = 'mobile-test-'.uniqid();
+        MobileApiToken::create([
+            'user_id' => $this->user->id,
+            'name' => 'test',
+            'token_hash' => hash('sha256', $plainToken),
+            'expires_at' => now()->addDay(),
+        ]);
+
+        return ['Authorization' => 'Bearer '.$plainToken];
+    }
+
+    public function test_mobile_post_mortem_index_and_show_list_accessible_inspections(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('batches.store'), $this->validStorePayload());
+
+        $batch = Batch::with('items')->firstOrFail();
+
+        $this->actingAs($this->user)
+            ->post(route('post-mortem-inspections.store'), $this->validPmPayload($batch));
+
+        $inspection = PostMortemInspection::query()->firstOrFail();
+
+        $index = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/post-mortem-inspections');
+
+        $index->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.data.0.id', $inspection->id);
+
+        $show = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/post-mortem-inspections/'.$inspection->id);
+
+        $show->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $inspection->id)
+            ->assertJsonPath('data.batch_id', $batch->id);
+    }
+
+    public function test_mobile_post_mortem_show_returns_404_for_inspection_outside_workspace(): void
+    {
+        $otherBusiness = Business::create([
+            'user_id' => User::factory()->create()->id,
+            'business_name' => 'Other PM Co',
+            'registration_number' => 'REG-PM-OTHER-'.uniqid(),
+            'contact_phone' => '+250788000300',
+            'email' => 'pm-other-'.uniqid().'@test.com',
+            'status' => 'active',
+        ]);
+        $otherFacility = Facility::create([
+            'business_id' => $otherBusiness->id,
+            'facility_name' => 'Other PM Slaughterhouse',
+            'facility_type' => 'slaughterhouse',
+            'status' => 'active',
+        ]);
+        $otherInspector = Inspector::create([
+            'facility_id' => $otherFacility->id,
+            'first_name' => 'Other',
+            'last_name' => 'PM',
+            'national_id' => (string) random_int(100000000000, 999999999999),
+            'phone_number' => '+250788'.random_int(100000, 999999),
+            'email' => 'insp-pm-other-'.uniqid().'@test.com',
+            'dob' => '1988-01-01',
+            'nationality' => 'Rwandan',
+            'country' => 'Rwanda',
+            'district' => 'Kigali',
+            'sector' => 'Gasabo',
+            'authorization_number' => 'AUTH-PM-OTHER-'.uniqid(),
+            'authorization_issue_date' => now()->subYear(),
+            'authorization_expiry_date' => now()->addYear(),
+            'species_allowed' => 'Cattle',
+            'status' => 'active',
+        ]);
+
+        $otherBatch = Batch::factory()
+            ->withPostMortem()
+            ->create([
+                'inspector_id' => $otherInspector->id,
+            ]);
+
+        $otherInspection = $otherBatch->postMortemInspection;
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/post-mortem-inspections/'.$otherInspection->id)
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_mobile_batches_index_and_show_list_accessible_batches(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('batches.store'), $this->validStorePayload());
+
+        $batch = Batch::firstOrFail();
+
+        $index = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/batches');
+
+        $index->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.data.0.id', $batch->id);
+
+        $show = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/batches/'.$batch->id);
+
+        $show->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $batch->id)
+            ->assertJsonPath('data.slaughter_execution_id', $this->execution->id);
+    }
+
+    public function test_mobile_batches_show_returns_404_for_batch_outside_workspace(): void
+    {
+        $otherBatch = Batch::factory()->create();
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/batches/'.$otherBatch->id)
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_mobile_post_mortem_destroy(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('batches.store'), $this->validStorePayload());
+
+        $batch = Batch::with('items')->firstOrFail();
+
+        $this->actingAs($this->user)
+            ->post(route('post-mortem-inspections.store'), $this->validPmPayload($batch));
+
+        $inspection = PostMortemInspection::query()->firstOrFail();
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->deleteJson('/api/v1/post-mortem-inspections/'.$inspection->id)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('post_mortem_inspections', ['id' => $inspection->id]);
     }
 }

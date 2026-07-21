@@ -569,6 +569,95 @@ class AnteMortemInspectionTest extends TestCase
         $this->assertDatabaseCount('ante_mortem_inspection_items', 5);
     }
 
+    public function test_mobile_index_and_show_list_accessible_inspections(): void
+    {
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->postJson('/api/v1/ante-mortem-inspections', $this->validStorePayload())
+            ->assertCreated();
+
+        $inspection = AnteMortemInspection::query()->firstOrFail();
+
+        $index = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/ante-mortem-inspections');
+
+        $index->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.data.0.id', $inspection->id);
+
+        $show = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/ante-mortem-inspections/'.$inspection->id);
+
+        $show->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $inspection->id)
+            ->assertJsonPath('data.slaughter_plan_id', $this->plan->id);
+    }
+
+    public function test_mobile_show_returns_404_for_inspection_outside_workspace(): void
+    {
+        $otherBusiness = Business::create([
+            'user_id' => User::factory()->create()->id,
+            'business_name' => 'Other AM Co',
+            'registration_number' => 'REG-AM-OTHER-'.uniqid(),
+            'contact_phone' => '+250788000200',
+            'email' => 'am-other-'.uniqid().'@test.com',
+            'status' => 'active',
+        ]);
+        $otherFacility = Facility::create([
+            'business_id' => $otherBusiness->id,
+            'facility_name' => 'Other Slaughterhouse',
+            'facility_type' => 'slaughterhouse',
+            'status' => 'active',
+        ]);
+        $otherInspector = Inspector::create([
+            'facility_id' => $otherFacility->id,
+            'first_name' => 'Other',
+            'last_name' => 'Insp',
+            'national_id' => (string) random_int(100000000000, 999999999999),
+            'phone_number' => '+250788'.random_int(100000, 999999),
+            'email' => 'insp-other-'.uniqid().'@test.com',
+            'dob' => '1988-01-01',
+            'nationality' => 'Rwandan',
+            'country' => 'Rwanda',
+            'district' => 'Kigali',
+            'sector' => 'Gasabo',
+            'authorization_number' => 'AUTH-OTHER-'.uniqid(),
+            'authorization_issue_date' => now()->subYear(),
+            'authorization_expiry_date' => now()->addYear(),
+            'species_allowed' => 'Cattle',
+            'status' => 'active',
+        ]);
+        $otherIntake = AnimalIntake::create([
+            'facility_id' => $otherFacility->id,
+            'intake_date' => now(),
+            'supplier_firstname' => 'O',
+            'supplier_lastname' => 'S',
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'number_of_animals' => 1,
+            'status' => AnimalIntake::STATUS_APPROVED,
+            'is_draft' => false,
+        ]);
+        $otherPlan = SlaughterPlan::create([
+            'slaughter_date' => now()->addDay()->toDateString(),
+            'facility_id' => $otherFacility->id,
+            'animal_intake_id' => $otherIntake->id,
+            'inspector_id' => $otherInspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'number_of_animals_scheduled' => 1,
+            'status' => SlaughterPlan::STATUS_APPROVED,
+        ]);
+        $otherInspection = AnteMortemInspection::factory()->create([
+            'slaughter_plan_id' => $otherPlan->id,
+            'inspector_id' => $otherInspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+        ]);
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/ante-mortem-inspections/'.$otherInspection->id)
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+    }
+
     public function test_update_restores_health_status_for_removed_rejection(): void
     {
         $item0 = $this->assignedItems[0];
@@ -623,5 +712,28 @@ class AnteMortemInspectionTest extends TestCase
         $response->assertOk()
             ->assertViewHas('plans', fn ($plans) => $plans->isEmpty())
             ->assertSee(__('No slaughter sessions are ready for ante-mortem. All assigned animals on open sessions have already been inspected.'), false);
+    }
+
+    public function test_mobile_ante_mortem_update_and_destroy(): void
+    {
+        $inspection = AnteMortemInspection::factory()->create([
+            'slaughter_plan_id' => $this->plan->id,
+            'inspector_id' => $this->inspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+        ]);
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->putJson('/api/v1/ante-mortem-inspections/'.$inspection->id, $this->validStorePayload([
+                'notes' => 'Updated via mobile API',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.notes', 'Updated via mobile API');
+
+        $this->withHeaders($this->mobileAuthHeaders())
+            ->deleteJson('/api/v1/ante-mortem-inspections/'.$inspection->id)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('ante_mortem_inspections', ['id' => $inspection->id]);
     }
 }

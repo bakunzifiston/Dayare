@@ -141,15 +141,36 @@ use OpenApi\Attributes as OA;
     ],
 )]
 #[OA\Get(
+    path: '/api/v1/dashboard',
+    operationId: 'mobileDashboard',
+    summary: 'Role-based processor dashboard KPI cards',
+    tags: ['Mobile API', 'Dashboard', 'Businesses'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'period', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['all', 'day', 'month', 'year'])),
+        new OA\Parameter(name: 'date_from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'date_to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: 'Dashboard KPI payload in `data` (role, headerBadge, kpiCards, filters).',
+            content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess'),
+        ),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
     path: '/api/v1/lookups',
     operationId: 'mobileLookups',
-    summary: 'Facilities, inspectors, species, status enums for mobile forms',
+    summary: 'Facilities, inspectors, species, status enums, and inspection checklists for mobile forms',
     tags: ['Mobile API', 'Facilities', 'Inspectors', 'Businesses'],
     security: [['bearerAuth' => []]],
     responses: [
         new OA\Response(
             response: 200,
-            description: 'Nested lookup payload in `data` (facilities, inspectors, species, statuses).',
+            description: 'Nested lookup payload in `data` (facilities, inspectors, species, statuses, ante_mortem_checklists, ante_mortem_checklist_meta, post_mortem_checklists, post_mortem_checklist_meta).',
             content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess'),
         ),
         new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
@@ -251,6 +272,25 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Post(
+    path: '/api/v1/animal-intakes/{animalIntake}/submit',
+    operationId: 'mobileAnimalIntakesSubmit',
+    summary: 'Submit draft animal intake',
+    description: 'Marks a draft intake as submitted (requires at least one animal line item). Sets status to approved and records `submitted_at`.',
+    tags: ['Mobile API', 'Animal Intakes', 'Businesses', 'Livestock', 'AnimalHealthRecord'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'animalIntake', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Submitted intake in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Not a draft or no animals on intake', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 500, description: 'Submit transaction failed', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
 #[OA\Delete(
@@ -421,7 +461,7 @@ use OpenApi\Attributes as OA;
         new OA\Parameter(name: 'slaughterExecution', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
     ],
     responses: [
-        new OA\Response(response: 200, description: 'Execution in standard success envelope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 200, description: 'Execution in `data` with slaughter plan; includes `post_mortem_inspection` helper (inspectable animals, pending counts).', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
         new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
@@ -466,6 +506,227 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 422, description: 'Cannot delete due to related records', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
+#[OA\Get(
+    path: '/api/v1/monthly-inspection-reports',
+    operationId: 'mobileMonthlyInspectionReportsIndex',
+    summary: 'Paginated RICA monthly inspection reports for accessible facilities',
+    tags: ['Mobile API', 'Monthly Inspection Reports', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20, minimum: 1, maximum: 100)),
+        new OA\Parameter(name: 'facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['draft', 'submitted'])),
+        new OA\Parameter(name: 'year', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'month', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 12)),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiPaginatedSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Facility filter not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/monthly-inspection-reports/{facility}',
+    operationId: 'mobileMonthlyInspectionReportsShow',
+    summary: 'Full RICA monthly inspection report data for a facility and period',
+    tags: ['Mobile API', 'Monthly Inspection Reports', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'facility', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'year', in: 'query', required: false, schema: new OA\Schema(type: 'integer', description: 'Defaults to current year')),
+        new OA\Parameter(name: 'month', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 12, description: 'Defaults to current month')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Full report payload in `data` (facility_id, year, month, report{meta, received_animals, ante_mortem, post_mortem, meat_supply, closure, submission}).', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Facility not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Post(
+    path: '/api/v1/monthly-inspection-reports/{facility}/closure',
+    operationId: 'mobileMonthlyInspectionReportsClosure',
+    summary: 'Save or submit RICA monthly inspection report closure',
+    tags: ['Mobile API', 'Monthly Inspection Reports', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'facility', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess'),
+    ),
+    responses: [
+        new OA\Response(response: 200, description: 'Saved draft or submitted report record in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Facility not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation or submission requirements not met', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/inspectors',
+    operationId: 'mobileInspectorsIndex',
+    summary: 'Paginated inspectors for accessible facilities',
+    tags: ['Mobile API', 'Inspectors', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20, minimum: 1, maximum: 100)),
+        new OA\Parameter(name: 'facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['active', 'expired'])),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiPaginatedSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Facility filter not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/inspectors/{inspector}',
+    operationId: 'mobileInspectorsShow',
+    summary: 'Show inspector',
+    tags: ['Mobile API', 'Inspectors', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'inspector', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Inspector in `data` with facility.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Post(
+    path: '/api/v1/inspectors',
+    operationId: 'mobileInspectorsStore',
+    summary: 'Register a new inspector',
+    tags: ['Mobile API', 'Inspectors', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+    responses: [
+        new OA\Response(response: 201, description: 'Created inspector in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Facility not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Put(
+    path: '/api/v1/inspectors/{inspector}',
+    operationId: 'mobileInspectorsUpdate',
+    summary: 'Update inspector',
+    tags: ['Mobile API', 'Inspectors', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'inspector', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+    responses: [
+        new OA\Response(response: 200, description: 'Updated inspector in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Delete(
+    path: '/api/v1/inspectors/{inspector}',
+    operationId: 'mobileInspectorsDestroy',
+    summary: 'Delete inspector',
+    tags: ['Mobile API', 'Inspectors', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'inspector', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Deleted successfully.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Cannot delete due to related records', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/batches',
+    operationId: 'mobileBatchesIndex',
+    summary: 'Paginated batches for accessible slaughter executions',
+    tags: ['Mobile API', 'Batches', 'Slaughter Executions'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20, minimum: 1, maximum: 100)),
+        new OA\Parameter(name: 'slaughter_execution_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'species', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['pending', 'approved', 'rejected'])),
+        new OA\Parameter(name: 'inspector_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'cold_chain_status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['ok', 'at_risk', 'compromised'])),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiPaginatedSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Slaughter execution filter not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/batches/{batch}',
+    operationId: 'mobileBatchesShow',
+    summary: 'Show batch',
+    tags: ['Mobile API', 'Batches', 'Slaughter Executions'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'batch', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Batch in `data` with items, post-mortem inspection, and certificates when present.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/ante-mortem-inspections',
+    operationId: 'mobileAnteMortemIndex',
+    summary: 'Paginated ante-mortem inspections for accessible slaughter plans',
+    tags: ['Mobile API', 'Ante Mortem Inspections', 'Slaughter Plans'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20, minimum: 1, maximum: 100)),
+        new OA\Parameter(name: 'slaughter_plan_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'species', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        new OA\Parameter(name: 'inspector_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'inspection_date_from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'inspection_date_to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: 'Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ApiPaginatedSuccess'),
+        ),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Slaughter plan filter not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/ante-mortem-inspections/{anteMortemInspection}',
+    operationId: 'mobileAnteMortemShow',
+    summary: 'Show ante-mortem inspection',
+    tags: ['Mobile API', 'Ante Mortem Inspections', 'Slaughter Plans'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'anteMortemInspection', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Inspection in `data` with observations and item outcomes.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
 #[OA\Post(
     path: '/api/v1/ante-mortem-inspections',
     operationId: 'mobileAnteMortemStore',
@@ -484,6 +745,86 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 422, description: 'Totals or checklist validation failed', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
+#[OA\Put(
+    path: '/api/v1/ante-mortem-inspections/{anteMortemInspection}',
+    operationId: 'mobileAnteMortemUpdate',
+    summary: 'Update ante-mortem inspection',
+    tags: ['Mobile API', 'Ante Mortem Inspections', 'Slaughter Plans'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'anteMortemInspection', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/AnteMortemCreateRequest'),
+    ),
+    responses: [
+        new OA\Response(response: 200, description: 'Updated inspection in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Delete(
+    path: '/api/v1/ante-mortem-inspections/{anteMortemInspection}',
+    operationId: 'mobileAnteMortemDestroy',
+    summary: 'Delete ante-mortem inspection',
+    tags: ['Mobile API', 'Ante Mortem Inspections', 'Slaughter Plans'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'anteMortemInspection', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Deleted successfully.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Cannot delete due to related records', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/post-mortem-inspections',
+    operationId: 'mobilePostMortemIndex',
+    summary: 'Paginated post-mortem inspections for accessible batches',
+    tags: ['Mobile API', 'Post Mortem Inspections', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20, minimum: 1, maximum: 100)),
+        new OA\Parameter(name: 'batch_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'species', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        new OA\Parameter(name: 'inspector_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'result', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['approved', 'partial', 'rejected'])),
+        new OA\Parameter(name: 'inspection_date_from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'inspection_date_to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: 'Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ApiPaginatedSuccess'),
+        ),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Batch filter not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/post-mortem-inspections/{postMortemInspection}',
+    operationId: 'mobilePostMortemShow',
+    summary: 'Show post-mortem inspection',
+    tags: ['Mobile API', 'Post Mortem Inspections', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'postMortemInspection', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Inspection in `data` with observations and item outcomes.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
 #[OA\Post(
     path: '/api/v1/post-mortem-inspections',
     operationId: 'mobilePostMortemStore',
@@ -500,6 +841,158 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 404, description: 'Batch not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 422, description: 'Totals or checklist validation failed', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Put(
+    path: '/api/v1/post-mortem-inspections/{postMortemInspection}',
+    operationId: 'mobilePostMortemUpdate',
+    summary: 'Update post-mortem inspection',
+    tags: ['Mobile API', 'Post Mortem Inspections', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'postMortemInspection', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/PostMortemCreateRequest'),
+    ),
+    responses: [
+        new OA\Response(response: 200, description: 'Updated inspection in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Delete(
+    path: '/api/v1/post-mortem-inspections/{postMortemInspection}',
+    operationId: 'mobilePostMortemDestroy',
+    summary: 'Delete post-mortem inspection',
+    tags: ['Mobile API', 'Post Mortem Inspections', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'postMortemInspection', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Deleted successfully.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Cannot delete due to related records', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/certificates',
+    operationId: 'mobileCertificatesIndex',
+    summary: 'Paginated certificates for accessible batches and facilities',
+    tags: ['Mobile API', 'Certificates', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20, minimum: 1, maximum: 100)),
+        new OA\Parameter(name: 'batch_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'inspector_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['active', 'expired', 'revoked'])),
+        new OA\Parameter(name: 'issued_at_from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'issued_at_to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'certificate_number', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: 'Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ApiPaginatedSuccess'),
+        ),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Batch or facility filter not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/certificates/{certificate}',
+    operationId: 'mobileCertificatesShow',
+    summary: 'Show certificate',
+    tags: ['Mobile API', 'Certificates', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'certificate', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Certificate in `data` with batch, facility, inspector, and QR when present.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Put(
+    path: '/api/v1/certificates/{certificate}',
+    operationId: 'mobileCertificatesUpdate',
+    summary: 'Update certificate',
+    tags: ['Mobile API', 'Certificates', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'certificate', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/CertificateCreateRequest'),
+    ),
+    responses: [
+        new OA\Response(response: 200, description: 'Updated certificate in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation or certificate eligibility error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Delete(
+    path: '/api/v1/certificates/{certificate}',
+    operationId: 'mobileCertificatesDestroy',
+    summary: 'Delete certificate',
+    tags: ['Mobile API', 'Certificates', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'certificate', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Deleted successfully.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Cannot delete due to related records', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/certificates/{certificate}/qr',
+    operationId: 'mobileCertificatesQr',
+    summary: 'Certificate traceability QR payload',
+    tags: ['Mobile API', 'Certificates', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'certificate', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: '`data` contains `slug`, `trace_url`, and `qr_svg`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/certificates/{certificate}/pdf',
+    operationId: 'mobileCertificatesPdf',
+    summary: 'Download certificate PDF',
+    tags: ['Mobile API', 'Certificates', 'Batches'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'certificate', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'PDF file download.', content: new OA\MediaType(mediaType: 'application/pdf')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'PDF generation prerequisites not met', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
 #[OA\Post(
@@ -538,6 +1031,44 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 404, description: 'Facility or certificate not found / outside workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 422, description: 'Validation or business rule error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/transport-trips',
+    operationId: 'mobileTransportTripsIndex',
+    summary: 'Paginated transport trips for accessible certificates',
+    tags: ['Mobile API', 'Transport Trips', 'Certificates'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20, minimum: 1, maximum: 100)),
+        new OA\Parameter(name: 'certificate_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        new OA\Parameter(name: 'origin_facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'destination_facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'departure_date_from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'departure_date_to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Paginated envelope: `data.data` rows + `data.meta` + `data.filters`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiPaginatedSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Filter references resource outside workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/transport-trips/{transportTrip}',
+    operationId: 'mobileTransportTripsShow',
+    summary: 'Show transport trip',
+    tags: ['Mobile API', 'Transport Trips', 'Certificates'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'transportTrip', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Trip in `data` with certificate and facilities.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Resource not found or outside current workspace scope (ownership-protected).', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
 #[OA\Post(
