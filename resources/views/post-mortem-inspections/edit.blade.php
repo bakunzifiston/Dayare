@@ -69,31 +69,8 @@
 
                     <div id="per-animal-outcomes-section" @class(['rounded-lg border border-slate-200 bg-white', 'hidden' => ! $hasPerAnimal])>
                         <div class="border-b border-slate-200 px-4 py-3">
-                            <div class="flex flex-wrap items-start justify-between gap-4">
-                                <div>
-                                    <h3 class="text-sm font-semibold text-slate-800">{{ __('Individual animal post-mortem') }}</h3>
-                                    <p class="mt-1 text-xs text-slate-500">{{ __('Animals from this slaughter execution are listed below. Update outcomes or complete pending animals.') }}</p>
-                                </div>
-                                @include('post-mortem-inspections.partials._meat-totals-summary', [
-                                    'visible' => $hasPerAnimal,
-                                    'examinedTotal' => old('total_examined', $inspection->total_examined),
-                                    'carcassApprovedTotal' => old('approved_carcass_kg', $meatTotals['approved_carcass_kg'] ?? $inspection->approved_quantity),
-                                    'otherMeatApprovedTotal' => old('approved_other_meat_kg', $meatTotals['approved_other_meat_kg'] ?? 0),
-                                    'condemnedTotal' => old('condemned_quantity', $inspection->condemned_quantity),
-                                ])
-                            </div>
-                        </div>
-
-                        <div id="execution-animals-roster" @class(['border-b border-slate-200 bg-white px-4 py-4', 'hidden' => ! $hasPerAnimal])>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Animals in this slaughter execution') }}</p>
-                            <p class="mt-1 text-xs text-slate-500">
-                                <span id="execution-animals-count">{{ $pmExecutionData['animal_count'] ?? 0 }}</span>
-                                {{ __('animal(s) slaughtered — pending animals are loaded for inspection below.') }}
-                            </p>
-                            @include('post-mortem-inspections.partials._execution-animals-roster', [
-                                'executionAnimals' => $executionAnimals,
-                                'inspectedAnimalIds' => $inspectedAnimalIds,
-                            ])
+                            <h3 class="text-sm font-semibold text-slate-800">{{ __('Individual animal post-mortem') }}</h3>
+                            <p class="mt-1 text-xs text-slate-500">{{ __('Animals from this slaughter execution are listed below. Update outcomes or complete pending animals.') }}</p>
                         </div>
 
                         <div id="animal-tag-lookup" class="hidden border-b border-slate-200 bg-slate-50 px-4 py-4">
@@ -119,6 +96,28 @@
                             @endif
                         </div>
                         <x-input-error class="px-4 pb-3" :messages="$errors->get('item_outcomes')" />
+
+                        <div id="execution-animals-roster" @class(['border-t border-slate-200 bg-white px-4 py-4', 'hidden' => ! $hasPerAnimal])>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Animals in this slaughter execution') }}</p>
+                            <p class="mt-1 text-xs text-slate-500">
+                                <span id="execution-animals-count">{{ $pmExecutionData['animal_count'] ?? 0 }}</span>
+                                {{ __('animal(s) slaughtered — pending animals are loaded for inspection above.') }}
+                            </p>
+                            @include('post-mortem-inspections.partials._execution-animals-roster', [
+                                'executionAnimals' => $executionAnimals,
+                                'inspectedAnimalIds' => $inspectedAnimalIds,
+                            ])
+                        </div>
+
+                        <div class="border-t border-slate-200 px-4 py-4">
+                            @include('post-mortem-inspections.partials._meat-totals-summary', [
+                                'visible' => $hasPerAnimal,
+                                'examinedTotal' => old('total_examined', $inspection->total_examined),
+                                'carcassApprovedTotal' => old('approved_carcass_kg', $meatTotals['approved_carcass_kg'] ?? $inspection->approved_quantity),
+                                'otherMeatApprovedTotal' => old('approved_other_meat_kg', $meatTotals['approved_other_meat_kg'] ?? 0),
+                                'condemnedTotal' => old('condemned_quantity', $inspection->condemned_quantity),
+                            ])
+                        </div>
                     </div>
 
                     <div id="legacy-checklist-section" @class(['space-y-6', 'hidden' => $hasPerAnimal])>

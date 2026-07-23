@@ -175,6 +175,9 @@
                                 </x-slot:highlights>
 
                                 <x-slot:actions>
+                                    @if ($execution->status === SlaughterExecution::STATUS_IN_PROGRESS)
+                                        <x-entity.text-action :href="route('slaughter-executions.edit', $execution)">{{ __('Continue') }}</x-entity.text-action>
+                                    @endif
                                     <x-entity.text-action :href="route('slaughter-executions.show', $execution)">{{ __('View') }}</x-entity.text-action>
                                     <x-entity.text-action :href="route('slaughter-executions.edit', $execution)">{{ __('Edit') }}</x-entity.text-action>
                                     @if ($execution->status === SlaughterExecution::STATUS_COMPLETED && $execution->batches->isEmpty() && auth()->user()?->canProcessorPermission(BusinessUser::PERMISSION_CREATE_BATCH))

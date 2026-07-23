@@ -4,6 +4,8 @@ namespace App\Http\Requests\Concerns;
 
 use App\Models\Certificate;
 use App\Services\Processor\CertificateTransportDefaultsService;
+use App\Support\CertificatePdfDetails;
+use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
 
 trait ValidatesTransportTripAgainstCertificate
@@ -21,6 +23,8 @@ trait ValidatesTransportTripAgainstCertificate
                 return;
             }
 
+            $this->validateDepartureDateAgainstCertificate($validator, $certificate);
+
             $locked = app(CertificateTransportDefaultsService::class)->lockedTripFields($certificate);
             foreach ($locked as $field => $expected) {
                 $submitted = $this->input($field);
@@ -36,5 +40,50 @@ trait ValidatesTransportTripAgainstCertificate
                 }
             }
         });
+    }
+
+    protected function validateDepartureDateAgainstCertificate(Validator $validator, Certificate $certificate): void
+    {
+        $departureRaw = $this->input('departure_date');
+        if ($departureRaw === null || $departureRaw === '') {
+            return;
+        }
+
+        try {
+            $departureDate = Carbon::parse($departureRaw)->startOfDay();
+        } catch (\Throwable) {
+            return;
+        }
+
+        if ($certificate->issued_at !== null
+            && $departureDate->lt($certificate->issued_at->copy()->startOfDay())) {
+            $validator->errors()->add(
+                'departure_date',
+                __('Departure date cannot be before the certificate issue date (:date).', [
+                    'date' => $certificate->issued_at->format('d M Y'),
+                ])
+            );
+        }
+
+        if ($certificate->expiry_date !== null
+            && $departureDate->gt($certificate->expiry_date->copy()->startOfDay())) {
+            $validator->errors()->add(
+                'departure_date',
+                __('Departure date cannot be after the certificate expiry date (:date).', [
+                    'date' => $certificate->expiry_date->format('d M Y'),
+                ])
+            );
+        }
+
+        $pdf = is_array($certificate->pdf_details) ? $certificate->pdf_details : [];
+        $certificateDeparture = CertificatePdfDetails::departureTimeDate($pdf['departure_time'] ?? null);
+        if ($certificateDeparture !== null && ! $departureDate->equalTo($certificateDeparture)) {
+            $validator->errors()->add(
+                'departure_date',
+                __('Departure date must match the departure date on the certificate (:date).', [
+                    'date' => $certificateDeparture->format('d M Y'),
+                ])
+            );
+        }
     }
 }

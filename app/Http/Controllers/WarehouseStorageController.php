@@ -79,6 +79,17 @@ class WarehouseStorageController extends Controller
             $query->where('status', $request->string('status')->toString());
         }
 
+        $search = trim((string) $request->input('q', ''));
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($builder) use ($like): void {
+                $builder
+                    ->whereHas('intakeItem', fn ($q) => $q->where('ear_tag', 'like', $like))
+                    ->orWhereHas('postMortemInspectionItem.intakeItem', fn ($q) => $q->where('ear_tag', 'like', $like))
+                    ->orWhereHas('batch', fn ($q) => $q->where('batch_code', 'like', $like));
+            });
+        }
+
         return $query;
     }
 
@@ -93,7 +104,8 @@ class WarehouseStorageController extends Controller
                 'postMortemInspectionItem.intakeItem',
                 'coldRoom',
             ])
-            ->latest('entry_date')
+            ->latest('created_at')
+            ->latest('id')
             ->paginate(10)
             ->withQueryString();
 

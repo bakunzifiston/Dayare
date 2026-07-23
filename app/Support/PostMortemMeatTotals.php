@@ -45,7 +45,13 @@ class PostMortemMeatTotals
             if ($result === 'approved') {
                 $carcassPart = $afterKg > 0 ? $afterKg : $beforeKg;
                 $carcassApprovedKg += $carcassPart;
-                if ($afterKg > 0 && $beforeKg > $afterKg) {
+                $condemnedPartKg = (float) ($outcome['condemned_weight_kg'] ?? 0);
+                if ($condemnedPartKg > 0) {
+                    $condemnedKg += $condemnedPartKg;
+                    if ($beforeKg > $carcassPart + $condemnedPartKg) {
+                        $otherApprovedKg += $beforeKg - $carcassPart - $condemnedPartKg;
+                    }
+                } elseif ($afterKg > 0 && $beforeKg > $afterKg) {
                     $otherApprovedKg += $beforeKg - $afterKg;
                 }
             } elseif ($result === 'condemned') {

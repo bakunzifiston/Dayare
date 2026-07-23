@@ -100,7 +100,11 @@ trait ValidatesCertificateIssue
             ->values()
             ->all();
 
-        $error = CertificateAnimalSelection::validateSelection($batch, $selectedIds);
+        $error = CertificateAnimalSelection::validateSelection(
+            $batch,
+            $selectedIds,
+            $this->route('certificate')?->id ? (int) $this->route('certificate')->id : null,
+        );
         if ($error !== null) {
             $validator->errors()->add('animal_intake_item_ids', $error);
         }

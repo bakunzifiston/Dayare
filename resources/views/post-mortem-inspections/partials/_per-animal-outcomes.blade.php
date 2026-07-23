@@ -31,6 +31,7 @@
                 ? $oldRow['outcome']
                 : ($existing?->outcome ?? ($existingData['outcome'] ?? ''));
             $isCondemned = $selectedOutcome === 'condemned';
+            $showCondemnation = in_array($selectedOutcome, ['approved', 'condemned'], true);
             $seizedPart = old(
                 "item_outcomes.{$index}.seized_part",
                 $oldRow['seized_part'] ?? $existing?->seized_part ?? $existingData['seized_part'] ?? '',
@@ -64,18 +65,6 @@
                 <div class="text-right">
                     <p class="text-sm font-medium tabular-nums text-slate-900">{{ number_format($beforePmKg, 2) }} kg</p>
                     <p class="text-[10px] uppercase tracking-wide text-slate-400">{{ __('Before PM') }}</p>
-                </div>
-                <div @class([
-                    'w-full sm:w-28 pm-approved-weight-field',
-                    'hidden' => $isCondemned,
-                ])>
-                    <label class="mb-1 block text-xs font-medium text-slate-600">{{ __('After PM (kg)') }}</label>
-                    <input type="number"
-                           name="item_outcomes[{{ $index }}][carcass_weight_kg]"
-                           value="{{ old("item_outcomes.{$index}.carcass_weight_kg", $carcassDefault) }}"
-                           min="0.1" max="9999" step="0.01"
-                           placeholder="kg"
-                           class="pm-carcass-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
                 </div>
             </div>
 
@@ -145,7 +134,29 @@
                                 </td>
                             </tr>
 
-                            <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $isCondemned]) data-pm-condemnation-row>
+                            <tr @class(['pm-approved-weight-field bg-slate-50/80', 'hidden' => $isCondemned])>
+                                <td class="px-3 py-2 font-medium text-slate-800">{{ __('After PM (kg)') }}</td>
+                                <td class="px-3 py-2" colspan="2">
+                                    <input type="number"
+                                           name="item_outcomes[{{ $index }}][carcass_weight_kg]"
+                                           value="{{ old("item_outcomes.{$index}.carcass_weight_kg", $carcassDefault) }}"
+                                           min="0.1" max="9999" step="0.01"
+                                           placeholder="kg"
+                                           class="pm-carcass-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                                </td>
+                            </tr>
+
+                            <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $showCondemnation]) data-pm-condemnation-row>
+                                <td class="px-3 py-2 font-medium text-amber-900" colspan="3" data-pm-condemnation-heading>
+                                    @if ($isCondemned)
+                                        {{ __('Condemnation details') }}
+                                    @else
+                                        {{ __('Partial condemnation (optional with approved)') }}
+                                    @endif
+                                </td>
+                            </tr>
+
+                            <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $showCondemnation]) data-pm-condemnation-row>
                                 <td class="px-3 py-2 font-medium text-amber-900">{{ __('Condemned organ') }}</td>
                                 <td class="px-3 py-2" colspan="2">
                                     <select name="item_outcomes[{{ $index }}][seized_part]"
@@ -164,7 +175,7 @@
                                 </td>
                             </tr>
 
-                            <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $isCondemned]) data-pm-condemnation-row>
+                            <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $showCondemnation]) data-pm-condemnation-row>
                                 <td class="px-3 py-2 font-medium text-amber-900">{{ __('Condemned weight (kg)') }}</td>
                                 <td class="px-3 py-2" colspan="2">
                                     <input type="number"
@@ -179,7 +190,7 @@
                                 </td>
                             </tr>
 
-                            <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $isCondemned]) data-pm-condemnation-row>
+                            <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $showCondemnation]) data-pm-condemnation-row>
                                 <td class="px-3 py-2 font-medium text-amber-900">{{ __('Reason for condemnation') }}</td>
                                 <td class="px-3 py-2" colspan="2">
                                     <input type="text"

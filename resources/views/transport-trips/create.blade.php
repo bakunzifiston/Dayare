@@ -32,25 +32,20 @@
                         <x-input-error class="mt-2" :messages="$errors->get('origin_facility_id')" />
                     </div>
 
-                    @include('transport-trips.partials.destination-fields', ['trip' => $trip ?? null])
+                    @include('transport-trips.partials.destination-fields', [
+                        'transportDefaults' => $transportDefaults ?? [],
+                        'lockedTransportFields' => $lockedTransportFields ?? [],
+                    ])
 
                     @include('transport-trips.partials.transport-logistics-fields', [
                         'transportDefaults' => $transportDefaults ?? [],
                         'lockedTransportFields' => $lockedTransportFields ?? [],
                     ])
 
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <x-input-label for="departure_date" :value="__('Departure date')" />
-                            <x-text-input id="departure_date" name="departure_date" type="date" class="mt-1 block w-full" :value="old('departure_date')" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('departure_date')" />
-                        </div>
-                        <div>
-                            <x-input-label for="arrival_date" :value="__('Arrival date')" />
-                            <x-text-input id="arrival_date" name="arrival_date" type="date" class="mt-1 block w-full" :value="old('arrival_date')" />
-                            <x-input-error class="mt-2" :messages="$errors->get('arrival_date')" />
-                        </div>
-                    </div>
+                    @include('transport-trips.partials.trip-date-fields', [
+                        'transportDefaults' => $transportDefaults ?? [],
+                        'lockedTransportFields' => $lockedTransportFields ?? [],
+                    ])
 
                     <div>
                         <x-input-label for="status" :value="__('Status')" />

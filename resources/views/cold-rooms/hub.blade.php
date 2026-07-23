@@ -158,11 +158,36 @@
                 </div>
 
                 <div class="space-y-3">
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">{{ __('Storage records') }}</h3>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">{{ __('Storage records') }}</h3>
+                        <form method="get" action="{{ route('cold-rooms.hub') }}" class="flex flex-wrap items-end gap-2">
+                            @foreach (request()->except('q', 'page') as $key => $value)
+                                @if (is_scalar($value))
+                                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                                @endif
+                            @endforeach
+                            <div>
+                                <label for="hub_storage_search" class="sr-only">{{ __('Search storage records') }}</label>
+                                <input id="hub_storage_search" type="search" name="q" value="{{ request('q') }}"
+                                       placeholder="{{ __('Ear tag or batch…') }}"
+                                       class="rounded-md border-slate-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                            </div>
+                            <button type="submit" class="inline-flex items-center rounded-md border border-transparent bg-bucha-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-bucha-burgundy">
+                                {{ __('Search') }}
+                            </button>
+                            @if (request()->filled('q'))
+                                <a href="{{ route('cold-rooms.hub', request()->except('q', 'page')) }}" class="text-sm text-bucha-primary hover:text-bucha-burgundy">{{ __('Clear') }}</a>
+                            @endif
+                        </form>
+                    </div>
                     @if ($storageRecords->isEmpty())
                         <div class="profile-empty">
                             <p class="mb-4">
-                                {{ $filters['is_filtered'] ? __('No storage records in this period.') : __('No storage records yet.') }}
+                                @if (request()->filled('q'))
+                                    {{ __('No storage records match your search.') }}
+                                @else
+                                    {{ $filters['is_filtered'] ? __('No storage records in this period.') : __('No storage records yet.') }}
+                                @endif
                             </p>
                             <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
                                 {{ __('Record first storage') }}

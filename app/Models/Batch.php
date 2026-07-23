@@ -479,7 +479,7 @@ class Batch extends Model
         }
 
         $executionIds = SlaughterExecution::query()
-            ->sameDayAndFacility($reference)
+            ->sameDayAndFacilityForPostMortem($reference)
             ->pluck('id');
 
         return SlaughterExecutionItem::query()

@@ -118,21 +118,38 @@ class SlaughterExecution extends Model
     }
 
     /**
-     * Completed executions at the same facility on the same calendar day as this execution.
+     * Executions at the same facility on the same calendar day as this execution.
+     *
+     * Defaults to completed only (batching). Pass statuses to include in-progress
+     * sessions when loading slaughtered animals for post-mortem.
      *
      * @param  \Illuminate\Database\Eloquent\Builder<SlaughterExecution>  $query
+     * @param  list<string>|null  $statuses
      */
-    public function scopeSameDayAndFacility($query, SlaughterExecution $reference): void
+    public function scopeSameDayAndFacility($query, SlaughterExecution $reference, ?array $statuses = null): void
     {
         $reference->loadMissing('slaughterPlan');
 
         $query
-            ->where('status', self::STATUS_COMPLETED)
+            ->whereIn('status', $statuses ?? [self::STATUS_COMPLETED])
             ->whereDate('slaughter_time', $reference->slaughter_time)
             ->whereHas(
                 'slaughterPlan',
                 fn ($planQuery) => $planQuery->where('facility_id', $reference->slaughterPlan->facility_id),
             );
+    }
+
+    /**
+     * Same-day facility executions that can contribute slaughtered animals to post-mortem.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<SlaughterExecution>  $query
+     */
+    public function scopeSameDayAndFacilityForPostMortem($query, SlaughterExecution $reference): void
+    {
+        $this->scopeSameDayAndFacility($query, $reference, [
+            self::STATUS_COMPLETED,
+            self::STATUS_IN_PROGRESS,
+        ]);
     }
 
     /**
@@ -233,7 +250,7 @@ class SlaughterExecution extends Model
         $this->loadMissing(['slaughterPlan', 'executionItems.intakeItem.intake']);
 
         $executionIds = self::query()
-            ->sameDayAndFacility($this)
+            ->sameDayAndFacilityForPostMortem($this)
             ->pluck('id');
 
         return SlaughterExecutionItem::query()
@@ -286,7 +303,7 @@ class SlaughterExecution extends Model
     public function inspectedAnimalIntakeItemIds(): Collection
     {
         $batchIds = Batch::query()
-            ->whereIn('slaughter_execution_id', self::query()->sameDayAndFacility($this)->pluck('id'))
+            ->whereIn('slaughter_execution_id', self::query()->sameDayAndFacilityForPostMortem($this)->pluck('id'))
             ->pluck('id');
 
         if ($batchIds->isEmpty()) {

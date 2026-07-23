@@ -493,6 +493,201 @@ class CertificatePdfTest extends TestCase
         ]);
     }
 
+    public function test_certificate_store_auto_selects_animals_when_none_submitted(): void
+    {
+        $batch = Batch::create([
+            'slaughter_execution_id' => $this->batch->slaughter_execution_id,
+            'inspector_id' => $this->inspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'quantity' => 70,
+            'quantity_unit' => 'kg',
+            'batch_code' => 'BAT-NMS-AUTO-'.strtoupper(substr(uniqid(), -6)),
+            'status' => Batch::STATUS_APPROVED,
+            'cold_chain_status' => Batch::COLD_CHAIN_OK,
+        ]);
+
+        $intakeItem = AnimalIntakeItem::create([
+            'animal_intake_id' => $this->batch->slaughterExecution->slaughterPlan->animal_intake_id,
+            'ear_tag' => 'RW-TAG-AUTO-SEL',
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'sex' => AnimalIntake::SEX_MALE,
+            'unit_price' => 100000,
+            'live_weight_kg' => 220,
+            'health_status' => AnimalIntakeItem::HEALTH_HEALTHY,
+        ]);
+
+        $executionItem = SlaughterExecutionItem::create([
+            'slaughter_execution_id' => $batch->slaughter_execution_id,
+            'animal_intake_item_id' => $intakeItem->id,
+            'meat_quantity_kg' => 70,
+        ]);
+
+        $batchItem = BatchItem::create([
+            'batch_id' => $batch->id,
+            'slaughter_execution_item_id' => $executionItem->id,
+            'animal_intake_item_id' => $intakeItem->id,
+            'meat_quantity_kg' => 70,
+        ]);
+
+        $pm = PostMortemInspection::create([
+            'batch_id' => $batch->id,
+            'inspector_id' => $this->inspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'total_examined' => 70,
+            'approved_quantity' => 70,
+            'condemned_quantity' => 0,
+            'inspection_date' => today(),
+            'result' => PostMortemInspection::RESULT_APPROVED,
+        ]);
+
+        $pmItem = PostMortemInspectionItem::create([
+            'post_mortem_inspection_id' => $pm->id,
+            'batch_item_id' => $batchItem->id,
+            'animal_intake_item_id' => $intakeItem->id,
+            'outcome' => PostMortemInspectionItem::OUTCOME_APPROVED,
+            'carcass_weight_kg' => 70,
+        ]);
+
+        WarehouseStorage::create([
+            'warehouse_facility_id' => $this->storageFacility->id,
+            'batch_id' => $batch->id,
+            'post_mortem_inspection_item_id' => $pmItem->id,
+            'animal_intake_item_id' => $intakeItem->id,
+            'entry_date' => now()->toDateString(),
+            'temperature_at_entry' => -2.5,
+            'quantity_stored' => 70,
+            'quantity_unit' => 'kg',
+            'status' => WarehouseStorage::STATUS_RELEASED,
+            'released_date' => now()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($this->user)->post(route('certificates.store'), [
+            'slaughter_execution_id' => $batch->slaughter_execution_id,
+            'inspector_id' => $this->inspector->id,
+            'facility_id' => $this->slaughterFacility->id,
+            'slaughterhouse_display_name' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
+            'issued_at' => now()->toDateString(),
+            'status' => Certificate::STATUS_ACTIVE,
+            'pdf_details' => [
+                'animal_names' => $intakeItem->ear_tag,
+                'selling_location' => 'Nyagatare, Nyagatare, Nyagatare',
+                'carcass_meat_kg' => 70,
+                'facility_location' => 'Nyagatare, Nyagatare, Nyagatare',
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $certificate = Certificate::query()->where('batch_id', $batch->id)->first();
+        $this->assertNotNull($certificate);
+        $this->assertSame([(int) $intakeItem->id], $certificate->animal_intake_item_ids);
+    }
+
+    public function test_certificate_update_preserves_animals_when_none_submitted(): void
+    {
+        $batch = Batch::create([
+            'slaughter_execution_id' => $this->batch->slaughter_execution_id,
+            'inspector_id' => $this->inspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'quantity' => 70,
+            'quantity_unit' => 'kg',
+            'batch_code' => 'BAT-NMS-EDT-'.strtoupper(substr(uniqid(), -6)),
+            'status' => Batch::STATUS_APPROVED,
+            'cold_chain_status' => Batch::COLD_CHAIN_OK,
+        ]);
+
+        $intakeItem = AnimalIntakeItem::create([
+            'animal_intake_id' => $this->batch->slaughterExecution->slaughterPlan->animal_intake_id,
+            'ear_tag' => 'RW-TAG-EDIT-SEL',
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'sex' => AnimalIntake::SEX_MALE,
+            'unit_price' => 100000,
+            'live_weight_kg' => 220,
+            'health_status' => AnimalIntakeItem::HEALTH_HEALTHY,
+        ]);
+
+        $executionItem = SlaughterExecutionItem::create([
+            'slaughter_execution_id' => $batch->slaughter_execution_id,
+            'animal_intake_item_id' => $intakeItem->id,
+            'meat_quantity_kg' => 70,
+        ]);
+
+        $batchItem = BatchItem::create([
+            'batch_id' => $batch->id,
+            'slaughter_execution_item_id' => $executionItem->id,
+            'animal_intake_item_id' => $intakeItem->id,
+            'meat_quantity_kg' => 70,
+        ]);
+
+        $pm = PostMortemInspection::create([
+            'batch_id' => $batch->id,
+            'inspector_id' => $this->inspector->id,
+            'species' => AnimalIntake::SPECIES_CATTLE,
+            'total_examined' => 70,
+            'approved_quantity' => 70,
+            'condemned_quantity' => 0,
+            'inspection_date' => today(),
+            'result' => PostMortemInspection::RESULT_APPROVED,
+        ]);
+
+        $pmItem = PostMortemInspectionItem::create([
+            'post_mortem_inspection_id' => $pm->id,
+            'batch_item_id' => $batchItem->id,
+            'animal_intake_item_id' => $intakeItem->id,
+            'outcome' => PostMortemInspectionItem::OUTCOME_APPROVED,
+            'carcass_weight_kg' => 70,
+        ]);
+
+        WarehouseStorage::create([
+            'warehouse_facility_id' => $this->storageFacility->id,
+            'batch_id' => $batch->id,
+            'post_mortem_inspection_item_id' => $pmItem->id,
+            'animal_intake_item_id' => $intakeItem->id,
+            'entry_date' => now()->toDateString(),
+            'temperature_at_entry' => -2.5,
+            'quantity_stored' => 70,
+            'quantity_unit' => 'kg',
+            'status' => WarehouseStorage::STATUS_RELEASED,
+            'released_date' => now()->toDateString(),
+        ]);
+
+        $certificate = Certificate::create([
+            'batch_id' => $batch->id,
+            'inspector_id' => $this->inspector->id,
+            'facility_id' => $this->slaughterFacility->id,
+            'slaughterhouse_display_name' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
+            'certificate_number' => 'CERT-EDIT-'.uniqid(),
+            'issued_at' => now(),
+            'status' => Certificate::STATUS_ACTIVE,
+            'animal_intake_item_ids' => [$intakeItem->id],
+            'pdf_details' => [
+                'animal_names' => $intakeItem->ear_tag,
+                'selling_location' => 'Nyagatare, Nyagatare, Nyagatare',
+                'carcass_meat_kg' => 70,
+                'facility_location' => 'Nyagatare, Nyagatare, Nyagatare',
+            ],
+        ]);
+
+        $response = $this->actingAs($this->user)->put(route('certificates.update', $certificate), [
+            'batch_id' => $batch->id,
+            'inspector_id' => $this->inspector->id,
+            'facility_id' => $this->slaughterFacility->id,
+            'slaughterhouse_display_name' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
+            'issued_at' => now()->toDateString(),
+            'status' => Certificate::STATUS_ACTIVE,
+            'pdf_details' => [
+                'animal_names' => $intakeItem->ear_tag,
+                'selling_location' => 'Nyagatare Market',
+                'carcass_meat_kg' => 70,
+                'facility_location' => 'Nyagatare, Nyagatare, Nyagatare',
+            ],
+        ]);
+
+        $response->assertRedirect(route('certificates.hub'));
+        $certificate->refresh();
+        $this->assertSame([(int) $intakeItem->id], $certificate->animal_intake_item_ids);
+        $this->assertSame('Nyagatare Market', $certificate->pdf_details['selling_location'] ?? null);
+    }
+
     public function test_certificate_pdf_download_succeeds_for_valid_nyagatare_certificate(): void
     {
         $this->createReleasedStorage('RW-TAG-001');
@@ -963,8 +1158,27 @@ class CertificatePdfTest extends TestCase
 
     public function test_mobile_certificate_update_and_destroy(): void
     {
+        $animalId = (int) $this->batch->items()->value('animal_intake_item_id');
+
+        WarehouseStorage::create([
+            'warehouse_facility_id' => $this->storageFacility->id,
+            'batch_id' => $this->batch->id,
+            'certificate_id' => $this->certificate->id,
+            'animal_intake_item_id' => $animalId,
+            'entry_date' => now()->toDateString(),
+            'temperature_at_entry' => -2.5,
+            'quantity_stored' => 120,
+            'quantity_unit' => 'kg',
+            'status' => WarehouseStorage::STATUS_RELEASED,
+            'released_date' => now()->toDateString(),
+        ]);
+
         $payload = $this->certificateStorePayload($this->batch, [
             'slaughterhouse_display_name' => 'Updated Mobile Name',
+            'animal_intake_item_ids' => [$animalId],
+            'pdf_details' => [
+                'carcass_meat_kg' => 120,
+            ],
         ]);
 
         $this->withHeaders($this->mobileAuthHeaders())

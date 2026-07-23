@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Facility;
+use Carbon\Carbon;
 
 class CertificatePdfDetails
 {
@@ -26,6 +27,8 @@ class CertificatePdfDetails
         'vehicle_plate_number',
         'driver_name',
         'departure_destination',
+        'destination_country',
+        'destination_address',
         'departure_time',
         'transporter_phone',
     ];
@@ -58,9 +61,92 @@ class CertificatePdfDetails
             "{$prefix}.vehicle_plate_number" => $string,
             "{$prefix}.driver_name" => $string,
             "{$prefix}.departure_destination" => $string,
-            "{$prefix}.departure_time" => $string,
+            "{$prefix}.destination_country" => $string,
+            "{$prefix}.destination_address" => ['nullable', 'string', 'max:500'],
+            "{$prefix}.departure_time" => ['nullable', 'string', 'max:32', 'date_format:d/m/Y H:i'],
             "{$prefix}.transporter_phone" => $string,
         ];
+    }
+
+    /**
+     * Value for <input type="datetime-local"> from stored PDF detail text.
+     */
+    public static function departureTimeInputValue(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return '';
+        }
+
+        foreach (['Y-m-d\TH:i:s', 'Y-m-d\TH:i', 'Y-m-d H:i:s', 'Y-m-d H:i', 'd/m/Y H:i', 'd/m/Y', 'Y-m-d'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $raw);
+                if ($parsed !== false) {
+                    return $parsed->format('Y-m-d\TH:i');
+                }
+            } catch (\Throwable) {
+                // try next format
+            }
+        }
+
+        try {
+            return Carbon::parse($raw)->format('Y-m-d\TH:i');
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * Calendar date from stored certificate departure time, if parseable.
+     */
+    public static function departureTimeDate(mixed $value): ?Carbon
+    {
+        $input = self::departureTimeInputValue($value);
+        if ($input === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($input)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Store departure as a readable date+time for the certificate PDF.
+     */
+    public static function formatDepartureTimeForStorage(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        foreach (['Y-m-d\TH:i:s', 'Y-m-d\TH:i', 'Y-m-d H:i:s', 'Y-m-d H:i', 'd/m/Y H:i', 'd/m/Y', 'Y-m-d'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $raw);
+                if ($parsed !== false) {
+                    return $parsed->format('d/m/Y H:i');
+                }
+            } catch (\Throwable) {
+                // try next format
+            }
+        }
+
+        try {
+            return Carbon::parse($raw)->format('d/m/Y H:i');
+        } catch (\Throwable) {
+            return $raw;
+        }
     }
 
     /**
@@ -81,6 +167,15 @@ class CertificatePdfDetails
 
             $value = $input[$key];
             if ($value === null || $value === '') {
+                continue;
+            }
+
+            if ($key === 'departure_time') {
+                $formatted = self::formatDepartureTimeForStorage($value);
+                if ($formatted !== null) {
+                    $normalized[$key] = $formatted;
+                }
+
                 continue;
             }
 

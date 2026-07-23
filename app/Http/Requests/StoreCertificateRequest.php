@@ -35,7 +35,13 @@ class StoreCertificateRequest extends FormRequest
             'pdf_details' => CertificatePdfDetails::normalize($this->input('pdf_details')),
         ];
 
-        if ($this->filled('slaughter_execution_id') && ! $this->filled('batch_id')) {
+        $batch = null;
+
+        if ($this->filled('batch_id')) {
+            $batch = Batch::query()
+                ->with(['items', 'certificates', 'warehouseStorages', 'postMortemInspection.inspectionItems'])
+                ->find($this->input('batch_id'));
+        } elseif ($this->filled('slaughter_execution_id')) {
             $batch = Batch::certifiableForExecution(
                 (int) $this->input('slaughter_execution_id'),
                 $this->input('animal_intake_item_ids'),
@@ -45,22 +51,23 @@ class StoreCertificateRequest extends FormRequest
             }
         }
 
-        if ($this->filled('batch_id') && ! $this->filled('animal_intake_item_ids')) {
-            $batch = Batch::find($this->input('batch_id'));
-            if ($batch?->hasPerAnimalData()) {
-                $merge['animal_intake_item_ids'] = CertificateAnimalSelection::certifiableAnimals($batch)
-                    ->pluck('animal_intake_item_id')
-                    ->all();
-            }
-        }
+        $selectedIds = collect($this->input('animal_intake_item_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
 
-        if ($this->filled('animal_intake_item_ids')) {
-            $merge['animal_intake_item_ids'] = collect($this->input('animal_intake_item_ids'))
+        if ($selectedIds->isEmpty() && $batch?->hasPerAnimalData()) {
+            $selectedIds = CertificateAnimalSelection::certifiableAnimals($batch)
+                ->pluck('animal_intake_item_id')
                 ->map(fn ($id) => (int) $id)
                 ->filter(fn (int $id) => $id > 0)
                 ->unique()
-                ->values()
-                ->all();
+                ->values();
+        }
+
+        if ($selectedIds->isNotEmpty()) {
+            $merge['animal_intake_item_ids'] = $selectedIds->all();
         }
 
         $this->merge($merge);

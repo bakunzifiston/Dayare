@@ -5,57 +5,96 @@
 
     @php
         $period = (string) ($kpiPeriod ?? 'all');
-        $money = fn ($value) => number_format((float) $value, 2);
+        $kpiCards = $kpiCards ?? [];
+        $charts = $charts ?? [];
+        $quickLinks = $quickLinks ?? [];
     @endphp
 
-    <div class="py-6 lg:py-8">
-        <div class="max-w-[1400px] mx-auto px-0 sm:px-0 space-y-5">
-            <section class="rounded-bucha border border-slate-200 bg-white px-4 py-3 sm:px-5 sm:py-4">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 class="text-2xl font-bold text-slate-900">{{ __('Finance overview') }}</h1>
-                        <p class="mt-1 text-sm text-bucha-muted">
-                            {{ __('Business: :business', ['business' => $activeBusiness?->business_name ?? __('No active business selected')]) }}
-                        </p>
-                    </div>
-                    <div class="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-0.5" role="group" aria-label="{{ __('Finance KPI time range') }}">
-                        @foreach (['all' => __('All time'), 'day' => __('Day'), 'month' => __('Month'), 'year' => __('Year')] as $q => $title)
-                            <a
-                                href="{{ request()->fullUrlWithQuery(['kpi_period' => $q]) }}"
-                                @class([
-                                    'px-3 py-1.5 text-xs font-medium rounded-md transition',
-                                    'bg-bucha-primary text-white shadow-sm' => $period === $q,
-                                    'text-slate-600 hover:text-slate-900 hover:bg-white' => $period !== $q,
-                                ])
-                            >{{ $title }}</a>
-                        @endforeach
-                    </div>
-                </div>
-                <p class="mt-2 text-xs text-slate-500">{{ __('KPI period: :label', ['label' => $kpiPeriodLabel ?? __('All time')]) }}</p>
-            </section>
+    @push('scripts')
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+        <script>
+            window.buchaChartColors = @json(config('bucha.chart'));
+            window.processorDashboardActiveRole = 'accountant';
+            window.processorDashboardCharts = {
+                accountant: @json($charts)
+            };
+        </script>
+        @vite('resources/js/processor-dashboard.js')
+    @endpush
 
-            <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <article class="rounded-bucha bg-white border border-slate-200 px-5 py-4 min-h-[132px] flex flex-col justify-between">
-                    <p class="text-[11px] font-medium uppercase tracking-wide text-bucha-muted">{{ __('Revenue (invoiced)') }}</p>
-                    <p class="text-3xl font-bold leading-none text-slate-900">{{ __('RWF :amount', ['amount' => $money($kpis['revenue'] ?? 0)]) }}</p>
-                    <p class="text-xs text-bucha-primary/80">{{ __('Sum of finance invoices in selected period.') }}</p>
-                </article>
-                <article class="rounded-bucha bg-white border border-slate-200 px-5 py-4 min-h-[132px] flex flex-col justify-between">
-                    <p class="text-[11px] font-medium uppercase tracking-wide text-bucha-muted">{{ __('AP outstanding') }}</p>
-                    <p class="text-3xl font-bold leading-none text-slate-900">{{ __('RWF :amount', ['amount' => $money($kpis['ap_outstanding'] ?? 0)]) }}</p>
-                    <p class="text-xs text-bucha-primary/80">{{ __('Open payable balance (total - paid).') }}</p>
-                </article>
-                <article class="rounded-bucha bg-white border border-slate-200 px-5 py-4 min-h-[132px] flex flex-col justify-between">
-                    <p class="text-[11px] font-medium uppercase tracking-wide text-bucha-muted">{{ __('Gross margin proxy') }}</p>
-                    <p class="text-3xl font-bold leading-none text-slate-900">{{ number_format((float) ($kpis['gross_margin_proxy_pct'] ?? 0), 1) }}%</p>
-                    <p class="text-xs text-bucha-primary/80">{{ __('(Revenue - AP outstanding - allocated costs) / Revenue') }}</p>
-                </article>
-                <article class="rounded-bucha bg-white border border-slate-200 px-5 py-4 min-h-[132px] flex flex-col justify-between">
-                    <p class="text-[11px] font-medium uppercase tracking-wide text-bucha-muted">{{ __('Overdue receivables / payables') }}</p>
-                    <p class="text-3xl font-bold leading-none text-slate-900">{{ (int) ($kpis['overdue_receivables_count'] ?? 0) }} / {{ (int) ($kpis['overdue_payables_count'] ?? 0) }}</p>
-                    <p class="text-xs text-bucha-primary/80">{{ __('Counts where due date has passed and balance remains unpaid.') }}</p>
-                </article>
-            </section>
+    <div class="proc-dash py-2">
+        <div class="proc-dash__header">
+            <div>
+                <p class="proc-dash__title">{{ __('Finance overview') }}</p>
+                <p class="proc-dash__meta">
+                    {{ __('Business: :business', ['business' => $activeBusiness?->business_name ?? __('No active business selected')]) }}
+                </p>
+            </div>
+            <span class="proc-dash__badge proc-dash__badge--finance">{{ __('Finance') }}</span>
         </div>
+
+        <form method="get" action="{{ route('finance.dashboard') }}" class="hub-period-filter proc-dash__period-filter">
+            <div class="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-0.5" role="group" aria-label="{{ __('Finance KPI time range') }}">
+                @foreach (['all' => __('All time'), 'day' => __('Day'), 'month' => __('Month'), 'year' => __('Year')] as $q => $title)
+                    <a
+                        href="{{ route('finance.dashboard', ['kpi_period' => $q]) }}"
+                        @class([
+                            'px-3 py-1.5 text-xs font-medium rounded-md transition',
+                            'bg-bucha-primary text-white shadow-sm' => $period === $q,
+                            'text-slate-600 hover:text-slate-900 hover:bg-white' => $period !== $q,
+                        ])
+                    >{{ $title }}</a>
+                @endforeach
+            </div>
+            <p class="mt-2 text-xs text-slate-500">{{ __('Period: :label', ['label' => $kpiPeriodLabel ?? __('All time')]) }}</p>
+        </form>
+
+        <section class="profile-kpi-grid proc-dash__kpi-grid profile-kpi-grid--finance" aria-label="{{ __('Key performance indicators') }}">
+            @foreach ($kpiCards as $card)
+                @if (! empty($card['href']))
+                    <a href="{{ $card['href'] }}" class="block rounded-bucha focus:outline-none focus-visible:ring-2 focus-visible:ring-bucha-primary/40">
+                        <x-entity.kpi-stat
+                            :label="$card['label']"
+                            :value="$card['value']"
+                            :hint="$card['hint'] ?? null"
+                            :accent="(bool) ($card['accent'] ?? false)"
+                        >
+                            <x-slot:icon>
+                                @include('processor.partials.dashboard-kpi-icon', ['icon' => $card['icon'] ?? 'currency-dollar'])
+                            </x-slot:icon>
+                        </x-entity.kpi-stat>
+                    </a>
+                @else
+                    <x-entity.kpi-stat
+                        :label="$card['label']"
+                        :value="$card['value']"
+                        :hint="$card['hint'] ?? null"
+                        :accent="(bool) ($card['accent'] ?? false)"
+                    >
+                        <x-slot:icon>
+                            @include('processor.partials.dashboard-kpi-icon', ['icon' => $card['icon'] ?? 'currency-dollar'])
+                        </x-slot:icon>
+                    </x-entity.kpi-stat>
+                @endif
+            @endforeach
+        </section>
+
+        @if (count($charts) > 0)
+            <x-workspace.chart-grid :charts="$charts" />
+        @endif
+
+        @if (count($quickLinks) > 0)
+            <section class="proc-dash__card mt-4" aria-label="{{ __('Quick links') }}">
+                <h3 class="proc-dash__card-title">{{ __('Finance modules') }}</h3>
+                <p class="proc-dash__card-sub">{{ __('Jump to invoices, payables, and cost tools.') }}</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach ($quickLinks as $link)
+                        <a href="{{ route($link['route']) }}" class="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-bucha-primary/30 hover:text-bucha-primary">
+                            {{ $link['label'] }}
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+        @endif
     </div>
 </x-app-layout>

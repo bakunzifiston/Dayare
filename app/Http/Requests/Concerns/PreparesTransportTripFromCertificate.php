@@ -38,16 +38,18 @@ trait PreparesTransportTripFromCertificate
             'vehicle_plate_number',
             'driver_name',
             'driver_phone',
+            'destination_name',
+            'destination_country',
+            'destination_address',
+            'departure_date',
         ] as $field) {
-            if (! $this->filled($field) && $suggested[$field] !== null) {
+            if (! $this->filled($field) && ($suggested[$field] ?? null) !== null) {
                 $merge[$field] = $suggested[$field];
             }
         }
 
         foreach ($defaultsService->lockedTripFields($certificate) as $field => $value) {
-            if (! $this->filled($field)) {
-                $merge[$field] = $value;
-            }
+            $merge[$field] = $value;
         }
 
         $this->merge($merge);

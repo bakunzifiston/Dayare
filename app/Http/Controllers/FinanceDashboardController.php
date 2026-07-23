@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\BusinessUser;
+use App\Models\FinanceInvoice;
+use App\Models\FinancePayable;
+use App\Services\Processor\ProcessorDashboardCharts;
+use App\Services\Processor\ProcessorDashboardContext;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,7 +15,7 @@ use Illuminate\View\View;
 
 class FinanceDashboardController extends Controller
 {
-    public function __invoke(Request $request): View|\Illuminate\Http\RedirectResponse
+    public function __invoke(Request $request, ProcessorDashboardCharts $charts): View|\Illuminate\Http\RedirectResponse
     {
         $user = $request->user();
         if ($user->isSuperAdmin()) {
@@ -27,78 +31,204 @@ class FinanceDashboardController extends Controller
             return redirect()->route('dashboard');
         }
 
-        if ($activeBusinessId === null || $role === null) {
-            return view('finance.dashboard', [
-                'user' => $user,
-                'role' => $role,
-                'activeBusiness' => null,
-                'kpis' => [
-                    'revenue' => 0.0,
-                    'ap_outstanding' => 0.0,
-                    'gross_margin_proxy_pct' => 0.0,
-                    'overdue_receivables_count' => 0,
-                    'overdue_payables_count' => 0,
-                ],
-                'kpiPeriod' => 'all',
-                'kpiPeriodLabel' => (string) __('All time'),
-            ]);
-        }
-
-        $user->setActiveProcessorBusinessId($activeBusinessId);
-        $business = Business::query()->find($activeBusinessId);
         $period = (string) $request->query('kpi_period', 'all');
         if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
             $period = 'all';
         }
 
         $range = $this->kpiDateRange($period);
-        $now = now();
+        $filters = $this->chartFilters($period, $range);
 
-        $invoiceQuery = DB::table('finance_invoices')->where('business_id', $activeBusinessId);
-        $payableQuery = DB::table('finance_payables')->where('business_id', $activeBusinessId);
-        $allocationQuery = DB::table('finance_cost_allocations')->where('business_id', $activeBusinessId);
-
-        if ($period !== 'all') {
-            $this->applyDateWindow($invoiceQuery, 'issued_at', $range['start'], $range['end']);
-            $this->applyDateWindow($payableQuery, 'issued_at', $range['start'], $range['end']);
-            $allocationQuery->whereBetween('allocation_date', [$range['start']->toDateString(), $range['end']->toDateString()]);
+        if ($activeBusinessId === null || $role === null) {
+            return view('finance.dashboard', [
+                'user' => $user,
+                'role' => $role,
+                'activeBusiness' => null,
+                'kpiCards' => $this->emptyKpiCards($range['label']),
+                'charts' => [],
+                'kpiPeriod' => $period,
+                'kpiPeriodLabel' => $range['label'],
+                'quickLinks' => $this->quickLinks(),
+            ]);
         }
 
-        $revenue = (float) $invoiceQuery->sum('total_amount');
-        $apOutstanding = (float) $payableQuery->sum(DB::raw('GREATEST(total_amount - amount_paid, 0)'));
-        $allocatedCosts = (float) $allocationQuery->sum('amount');
-        $grossMarginProxyPct = $revenue > 0
-            ? round((($revenue - ($apOutstanding + $allocatedCosts)) / $revenue) * 100, 1)
-            : 0.0;
-
-        $overdueReceivablesCount = DB::table('finance_invoices')
-            ->where('business_id', $activeBusinessId)
-            ->whereNotNull('due_date')
-            ->where('due_date', '<', $now)
-            ->whereRaw('amount_paid < total_amount')
-            ->count();
-
-        $overduePayablesCount = DB::table('finance_payables')
-            ->where('business_id', $activeBusinessId)
-            ->whereNotNull('due_date')
-            ->where('due_date', '<', $now)
-            ->whereRaw('amount_paid < total_amount')
-            ->count();
+        $user->setActiveProcessorBusinessId($activeBusinessId);
+        $business = Business::query()->find($activeBusinessId);
+        $kpiCards = $this->buildKpiCards($activeBusinessId, $filters, $range['label']);
+        $ctx = ProcessorDashboardContext::forBusiness($activeBusinessId);
+        $chartPayload = $charts->forRole(BusinessUser::ROLE_ACCOUNTANT, $ctx, $activeBusinessId, $filters);
 
         return view('finance.dashboard', [
             'user' => $user,
             'role' => $role,
             'activeBusiness' => $business,
-            'kpis' => [
-                'revenue' => $revenue,
-                'ap_outstanding' => $apOutstanding,
-                'gross_margin_proxy_pct' => $grossMarginProxyPct,
-                'overdue_receivables_count' => $overdueReceivablesCount,
-                'overdue_payables_count' => $overduePayablesCount,
-            ],
+            'kpiCards' => $kpiCards,
+            'charts' => $chartPayload,
             'kpiPeriod' => $period,
             'kpiPeriodLabel' => $range['label'],
+            'quickLinks' => $this->quickLinks(),
         ]);
+    }
+
+    /**
+     * @return list<array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string}>
+     */
+    private function emptyKpiCards(string $periodLabel): array
+    {
+        return [
+            $this->kpiCard(__('Revenue'), '0 '.__('RWF'), $periodLabel, 'currency-dollar', false, route('finance.invoices.index')),
+            $this->kpiCard(__('AR outstanding'), '0 '.__('RWF'), __('0 overdue'), 'receipt', false, route('finance.invoices.index')),
+            $this->kpiCard(__('AP outstanding'), '0 '.__('RWF'), __('0 overdue'), 'clipboard-list', false, route('finance.payables.index')),
+            $this->kpiCard(__('Collection rate'), '0%', $periodLabel, 'chart-line', false, route('finance.invoices.index')),
+        ];
+    }
+
+    /**
+     * @param  array{is_filtered: bool, start: ?\Carbon\Carbon, end: ?\Carbon\Carbon}  $filters
+     * @return list<array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string}>
+     */
+    private function buildKpiCards(int $businessId, array $filters, string $periodLabel): array
+    {
+        $fmtMoney = fn (float $n): string => $this->formatCompactMoney($n);
+        $now = now();
+
+        $revenueQuery = DB::table('finance_invoices')->where('business_id', $businessId);
+        if ($filters['is_filtered']) {
+            $this->applyDateWindow($revenueQuery, 'issued_at', $filters['start'], $filters['end']);
+        }
+        $revenue = (float) $revenueQuery->sum('total_amount');
+
+        $collectedQuery = DB::table('finance_invoices')->where('business_id', $businessId);
+        if ($filters['is_filtered']) {
+            $this->applyDateWindow($collectedQuery, 'issued_at', $filters['start'], $filters['end']);
+        }
+        $collected = (float) $collectedQuery->sum('amount_paid');
+        $collectionRate = $revenue > 0 ? (int) round(($collected / $revenue) * 100) : 0;
+
+        $arOutstanding = (float) DB::table('finance_invoices')
+            ->where('business_id', $businessId)
+            ->sum(DB::raw('GREATEST(total_amount - amount_paid, 0)'));
+
+        $apOutstanding = (float) DB::table('finance_payables')
+            ->where('business_id', $businessId)
+            ->sum(DB::raw('GREATEST(total_amount - amount_paid, 0)'));
+
+        $arOverdue = (int) FinanceInvoice::query()
+            ->where('business_id', $businessId)
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', $now)
+            ->whereRaw('amount_paid < total_amount')
+            ->count();
+
+        $apOverdue = (int) FinancePayable::query()
+            ->where('business_id', $businessId)
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', $now)
+            ->whereRaw('amount_paid < total_amount')
+            ->count();
+
+        return [
+            $this->kpiCard(
+                __('Revenue'),
+                $fmtMoney($revenue),
+                $periodLabel,
+                'currency-dollar',
+                false,
+                route('finance.invoices.index'),
+            ),
+            $this->kpiCard(
+                __('AR outstanding'),
+                $fmtMoney($arOutstanding),
+                __(':count overdue', ['count' => $arOverdue]),
+                'receipt',
+                $arOverdue > 0,
+                route('finance.invoices.index'),
+            ),
+            $this->kpiCard(
+                __('AP outstanding'),
+                $fmtMoney($apOutstanding),
+                __(':count overdue', ['count' => $apOverdue]),
+                'clipboard-list',
+                $apOverdue > 0,
+                route('finance.payables.index'),
+            ),
+            $this->kpiCard(
+                __('Collection rate'),
+                $collectionRate.'%',
+                $periodLabel,
+                'chart-line',
+                $collectionRate < 90 && $revenue > 0,
+                route('finance.invoices.index'),
+            ),
+        ];
+    }
+
+    private function formatCompactMoney(float $amount): string
+    {
+        $abs = abs($amount);
+
+        if ($abs >= 1_000_000_000) {
+            $value = $amount / 1_000_000_000;
+            $formatted = number_format($value, $value >= 100 ? 0 : 1).'B';
+        } elseif ($abs >= 1_000_000) {
+            $value = $amount / 1_000_000;
+            $formatted = number_format($value, $value >= 100 ? 0 : 1).'M';
+        } elseif ($abs >= 1_000) {
+            $value = $amount / 1_000;
+            $formatted = number_format($value, $value >= 100 ? 0 : 1).'K';
+        } else {
+            $formatted = number_format($amount, 0, '.', ',');
+        }
+
+        return $formatted.' '.__('RWF');
+    }
+
+    /**
+     * @return array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string}
+     */
+    private function kpiCard(
+        string $label,
+        string $value,
+        ?string $hint,
+        string $icon,
+        bool $accent,
+        ?string $href,
+    ): array {
+        return compact('label', 'value', 'hint', 'icon', 'accent', 'href');
+    }
+
+    /**
+     * @return list<array{label: string, route: string}>
+     */
+    private function quickLinks(): array
+    {
+        return [
+            ['label' => __('AR invoices'), 'route' => 'finance.invoices.index'],
+            ['label' => __('AP payables'), 'route' => 'finance.payables.index'],
+            ['label' => __('Cost allocations'), 'route' => 'finance.cost-allocations.index'],
+            ['label' => __('Casual workers'), 'route' => 'finance.casual-workers.index'],
+        ];
+    }
+
+    /**
+     * @param  array{start: \Carbon\Carbon, end: \Carbon\Carbon, label: string}  $range
+     * @return array{is_filtered: bool, start: ?\Carbon\Carbon, end: ?\Carbon\Carbon}
+     */
+    private function chartFilters(string $period, array $range): array
+    {
+        if ($period === 'all') {
+            return [
+                'is_filtered' => false,
+                'start' => null,
+                'end' => null,
+            ];
+        }
+
+        return [
+            'is_filtered' => true,
+            'start' => $range['start'],
+            'end' => $range['end'],
+        ];
     }
 
     private function applyDateWindow(Builder $query, string $column, \Carbon\Carbon $start, \Carbon\Carbon $end): void

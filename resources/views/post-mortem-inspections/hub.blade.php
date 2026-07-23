@@ -229,12 +229,13 @@
                                                                     </span>
                                                                 </td>
                                                                 <td class="py-1 px-2">
-                                                                    {{ $pmItem->carcass_weight_kg ? number_format($pmItem->carcass_weight_kg, 2).' kg' : '—' }}
+                                                                    @php
+                                                                        $carcassKg = $pmItem->displayCarcassWeightKg();
+                                                                        $batchRelease = $releaseLookup->get($pm->batch_id, collect());
+                                                                        $animalStorage = $batchRelease->get($pmItem->animal_intake_item_id);
+                                                                    @endphp
+                                                                    {{ $carcassKg !== null ? number_format($carcassKg, 2).' kg' : '—' }}
                                                                 </td>
-                                                                @php
-                                                                    $batchRelease = $releaseLookup->get($pm->batch_id, collect());
-                                                                    $animalStorage = $batchRelease->get($pmItem->animal_intake_item_id);
-                                                                @endphp
                                                                 <x-batch.animal-release-cells :storage="$animalStorage" />
                                                                 <td class="py-1 px-2 text-gray-500">{{ $pmItem->outcome_notes ?? '—' }}</td>
                                                             </tr>

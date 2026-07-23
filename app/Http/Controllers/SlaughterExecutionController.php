@@ -509,6 +509,10 @@ class SlaughterExecutionController extends Controller
 
         // --- Section 3 ---
         $selectedPlanId = $request->query('slaughter_plan_id');
+        if (! $selectedPlanId && $eligiblePlanIds->count() === 1) {
+            $selectedPlanId = $eligiblePlanIds->first();
+        }
+
         $selectedPlan = $selectedPlanId
             ? SlaughterPlan::query()
                 ->whereIn('id', $eligiblePlanIds)
@@ -561,7 +565,9 @@ class SlaughterExecutionController extends Controller
         $itemSlaughters = $validated['item_slaughters'] ?? [];
         unset($validated['item_slaughters']);
 
-        DB::transaction(function () use ($validated, $itemSlaughters): void {
+        $execution = null;
+
+        DB::transaction(function () use ($validated, $itemSlaughters, &$execution): void {
             $execution = SlaughterExecution::create($validated);
 
             // --- Section 3 --- Per-animal slaughter items (optional)
@@ -581,8 +587,7 @@ class SlaughterExecutionController extends Controller
             }
         });
 
-        return redirect()->route('slaughter-executions.hub')
-            ->with('status', __('Slaughter execution recorded successfully.'));
+        return $this->redirectAfterSlaughterSave($execution->fresh());
     }
 
     public function show(Request $request, SlaughterExecution $slaughterExecution): View|RedirectResponse
@@ -696,8 +701,44 @@ class SlaughterExecutionController extends Controller
             }
         });
 
+        return $this->redirectAfterSlaughterSave($slaughterExecution->fresh());
+    }
+
+    private function redirectAfterSlaughterSave(SlaughterExecution $execution): RedirectResponse
+    {
+        $planId = (int) $execution->slaughter_plan_id;
+        $approvedCount = $this->approvedAnimalCountForPlan($planId);
+        $hasPerAnimalItems = $execution->executionItems()->exists();
+
+        if ($hasPerAnimalItems && $approvedCount > 0) {
+            $slaughteredCount = SlaughterExecutionItem::query()
+                ->whereHas('execution', fn ($query) => $query->where('slaughter_plan_id', $planId))
+                ->distinct()
+                ->count('animal_intake_item_id');
+
+            $remaining = max(0, $approvedCount - $slaughteredCount);
+
+            if ($remaining > 0) {
+                if ($execution->status !== SlaughterExecution::STATUS_IN_PROGRESS) {
+                    $execution->update(['status' => SlaughterExecution::STATUS_IN_PROGRESS]);
+                }
+
+                return redirect()
+                    ->route('slaughter-executions.edit', $execution)
+                    ->with('status', __(':slaughtered of :approved animals recorded. Continue with the :remaining remaining.', [
+                        'slaughtered' => $slaughteredCount,
+                        'approved' => $approvedCount,
+                        'remaining' => $remaining,
+                    ]));
+            }
+
+            if ($execution->status === SlaughterExecution::STATUS_IN_PROGRESS) {
+                $execution->update(['status' => SlaughterExecution::STATUS_COMPLETED]);
+            }
+        }
+
         return redirect()->route('slaughter-executions.hub')
-            ->with('status', __('Slaughter execution updated successfully.'));
+            ->with('status', __('Slaughter execution saved successfully.'));
     }
 
     public function destroy(Request $request, SlaughterExecution $slaughterExecution): RedirectResponse

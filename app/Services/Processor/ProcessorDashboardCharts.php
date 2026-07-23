@@ -1041,6 +1041,15 @@ class ProcessorDashboardCharts
             $this->brandColor('primary'),
         ];
 
+        $apStatus = $this->financeApStatusCounts($businessId, $filters);
+        $apLabels = [__('Paid'), __('Open'), __('Overdue')];
+        $apData = [$apStatus['paid'], $apStatus['pending'], $apStatus['overdue']];
+        $apColors = [
+            $this->brandColor('success'),
+            $this->brandColor('muted'),
+            $this->brandColor('primary'),
+        ];
+
         return [
             $this->barChart(
                 'finance-pipeline',
@@ -1070,6 +1079,18 @@ class ProcessorDashboardCharts
                     $arColors,
                 ),
                 ['emptyMessage' => __('No invoices for this period.')],
+            ),
+            array_merge(
+                $this->pieChart(
+                    'finance-ap-status',
+                    __('AP payable status'),
+                    220,
+                    __('Paid, open, and overdue payables for the selected period'),
+                    $apLabels,
+                    $apData,
+                    $apColors,
+                ),
+                ['emptyMessage' => __('No payables for this period.')],
             ),
             array_merge(
                 $this->accountantFinanceTrend($businessId, $filters),
@@ -1266,6 +1287,36 @@ class ProcessorDashboardCharts
             if ($outstanding <= 0) {
                 $counts['paid']++;
             } elseif ($invoice->due_date && $invoice->due_date->isPast()) {
+                $counts['overdue']++;
+            } else {
+                $counts['pending']++;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @param  array{
+     *     is_filtered: bool,
+     *     start: ?\Carbon\Carbon,
+     *     end: ?\Carbon\Carbon
+     * }  $filters
+     * @return array{paid: int, pending: int, overdue: int}
+     */
+    private function financeApStatusCounts(int $businessId, array $filters): array
+    {
+        $query = FinancePayable::query()->where('business_id', $businessId);
+        $this->applyFinanceDateFilter($query, 'issued_at', $filters);
+
+        $counts = ['paid' => 0, 'pending' => 0, 'overdue' => 0];
+
+        foreach ($query->get(['total_amount', 'amount_paid', 'due_date']) as $payable) {
+            $outstanding = max(0, (float) $payable->total_amount - (float) $payable->amount_paid);
+
+            if ($outstanding <= 0) {
+                $counts['paid']++;
+            } elseif ($payable->due_date && $payable->due_date->isPast()) {
                 $counts['overdue']++;
             } else {
                 $counts['pending']++;

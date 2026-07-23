@@ -235,7 +235,7 @@ class PostMortemInspectionController extends Controller
     {
         $reference = $batch->slaughterExecution;
         $executionIds = $reference
-            ? SlaughterExecution::query()->sameDayAndFacility($reference)->pluck('id')
+            ? SlaughterExecution::query()->sameDayAndFacilityForPostMortem($reference)->pluck('id')
             : collect([$batch->slaughter_execution_id]);
 
         $prepared = [];
@@ -318,33 +318,64 @@ class PostMortemInspectionController extends Controller
             return;
         }
 
+        $animalsById = $batch->inspectableAnimalsForPostMortem()->keyBy('animal_intake_item_id');
+
         if ($mergeExisting) {
-            $this->upsertInspectionItems($inspection, $itemOutcomes);
+            $this->upsertInspectionItems($inspection, $itemOutcomes, $animalsById);
         } else {
             $inspection->inspectionItems()->delete();
 
             foreach ($itemOutcomes as $outcome) {
-                $inspection->inspectionItems()->create([
-                    'batch_item_id' => $outcome['batch_item_id'],
-                    'animal_intake_item_id' => $outcome['animal_intake_item_id'],
-                    'outcome' => $outcome['outcome'],
-                    'outcome_notes' => $outcome['outcome_notes'] ?? null,
-                    'seized_part' => $outcome['seized_part'] ?? null,
-                    'reason' => $outcome['reason'] ?? null,
-                    'carcass_weight_kg' => $outcome['carcass_weight_kg'] ?? null,
-                    'condemned_weight_kg' => $outcome['condemned_weight_kg'] ?? null,
-                ]);
+                $normalized = $this->normalizeInspectionItemPayload($outcome, $animalsById);
+                $inspection->inspectionItems()->create($normalized);
             }
         }
 
-        $animalsById = $batch->inspectableAnimalsForPostMortem()->keyBy('animal_intake_item_id');
         $inspection->update(PostMortemMeatTotals::fromItemOutcomes($itemOutcomes, $animalsById));
+    }
+
+    /**
+     * @param  array<string, mixed>  $outcome
+     * @param  Collection<int, array<string, mixed>>  $animalsById
+     * @return array<string, mixed>
+     */
+    private function normalizeInspectionItemPayload(array $outcome, Collection $animalsById): array
+    {
+        $animalId = (int) ($outcome['animal_intake_item_id'] ?? 0);
+        $carcassRaw = $outcome['carcass_weight_kg'] ?? null;
+        $carcassKg = ($carcassRaw !== null && $carcassRaw !== '' && (float) $carcassRaw > 0)
+            ? round((float) $carcassRaw, 2)
+            : null;
+
+        if (
+            $carcassKg === null
+            && ($outcome['outcome'] ?? '') === PostMortemInspectionItem::OUTCOME_APPROVED
+        ) {
+            $beforeKg = (float) ($animalsById->get($animalId)['meat_quantity_kg'] ?? 0);
+            $carcassKg = $beforeKg > 0 ? round($beforeKg, 2) : null;
+        }
+
+        $condemnedRaw = $outcome['condemned_weight_kg'] ?? null;
+        $condemnedKg = ($condemnedRaw !== null && $condemnedRaw !== '' && (float) $condemnedRaw > 0)
+            ? round((float) $condemnedRaw, 2)
+            : null;
+
+        return [
+            'batch_item_id' => $outcome['batch_item_id'] ?? null,
+            'animal_intake_item_id' => $animalId,
+            'outcome' => $outcome['outcome'],
+            'outcome_notes' => $outcome['outcome_notes'] ?? null,
+            'seized_part' => $outcome['seized_part'] ?? null,
+            'reason' => $outcome['reason'] ?? null,
+            'carcass_weight_kg' => $carcassKg,
+            'condemned_weight_kg' => $condemnedKg,
+        ];
     }
 
     /**
      * @param  array<int, array<string, mixed>>  $itemOutcomes
      */
-    private function upsertInspectionItems(PostMortemInspection $inspection, array $itemOutcomes): void
+    private function upsertInspectionItems(PostMortemInspection $inspection, array $itemOutcomes, Collection $animalsById): void
     {
         $existing = $inspection->inspectionItems()
             ->get()
@@ -363,16 +394,7 @@ class PostMortemInspectionController extends Controller
                 continue;
             }
 
-            $payload = [
-                'batch_item_id' => $outcome['batch_item_id'] ?? null,
-                'animal_intake_item_id' => $animalId,
-                'outcome' => $outcome['outcome'],
-                'outcome_notes' => $outcome['outcome_notes'] ?? null,
-                'seized_part' => $outcome['seized_part'] ?? null,
-                'reason' => $outcome['reason'] ?? null,
-                'carcass_weight_kg' => $outcome['carcass_weight_kg'] ?? null,
-                'condemned_weight_kg' => $outcome['condemned_weight_kg'] ?? null,
-            ];
+            $payload = $this->normalizeInspectionItemPayload($outcome, $animalsById);
 
             $item = $existing->get($animalId);
             if ($item) {
@@ -522,11 +544,21 @@ class PostMortemInspectionController extends Controller
         $hasDeferred = false;
 
         foreach ($itemOutcomes as $outcome) {
-            if (($outcome['outcome'] ?? '') === PostMortemInspectionItem::OUTCOME_CONDEMNED) {
+            $decision = (string) ($outcome['outcome'] ?? '');
+            if ($decision === PostMortemInspectionItem::OUTCOME_CONDEMNED) {
                 $hasCondemned = true;
             }
-            if (($outcome['outcome'] ?? '') === PostMortemInspectionItem::OUTCOME_DEFERRED) {
+            if ($decision === PostMortemInspectionItem::OUTCOME_DEFERRED) {
                 $hasDeferred = true;
+            }
+            if (
+                $decision === PostMortemInspectionItem::OUTCOME_APPROVED
+                && (
+                    trim((string) ($outcome['seized_part'] ?? '')) !== ''
+                    || (float) ($outcome['condemned_weight_kg'] ?? 0) > 0
+                )
+            ) {
+                $hasCondemned = true;
             }
         }
 
@@ -838,19 +870,52 @@ class PostMortemInspectionController extends Controller
 
         $executions = SlaughterExecution::with('slaughterPlan.facility')
             ->whereIn('id', $executionIds)
-            ->where('status', SlaughterExecution::STATUS_COMPLETED)
+            ->whereIn('status', [
+                SlaughterExecution::STATUS_COMPLETED,
+                SlaughterExecution::STATUS_IN_PROGRESS,
+            ])
             ->whereHas('executionItems')
             ->latest('slaughter_time')
             ->get()
-            ->filter(fn (SlaughterExecution $execution) => ! $execution->isPostMortemComplete())
-            ->map(fn (SlaughterExecution $execution) => [
-                'id' => $execution->id,
-                'label' => $execution->slaughter_time->format('d M Y H:i')
+            ->filter(fn (SlaughterExecution $execution) => ! $execution->isPostMortemComplete());
+
+        $executionAnimalsByExecutionId = $this->buildExecutionAnimalsByExecutionId(
+            $executions->pluck('id'),
+        );
+
+        $executions = $executions
+            ->filter(function (SlaughterExecution $execution) use ($executionAnimalsByExecutionId) {
+                $pending = (int) ($executionAnimalsByExecutionId[$execution->id]['pending_count'] ?? 0);
+
+                return $pending > 0;
+            })
+            ->map(function (SlaughterExecution $execution) use ($executionAnimalsByExecutionId) {
+                $animalData = $executionAnimalsByExecutionId[$execution->id] ?? null;
+                $pending = (int) ($animalData['pending_count'] ?? 0);
+                $total = (int) ($animalData['animal_count'] ?? 0);
+                $statusLabel = $execution->status === SlaughterExecution::STATUS_IN_PROGRESS
+                    ? __('in progress')
+                    : __('completed');
+
+                $label = $execution->slaughter_time->format('d M Y H:i')
                     .' — '.$execution->slaughterPlan->facility->facility_name
-                    .' ('.$execution->slaughterPlan->species.')',
-                'facility_id' => $execution->slaughterPlan->facility_id,
-                'species' => $execution->slaughterPlan->species,
-            ])
+                    .' ('.$execution->slaughterPlan->species.')'
+                    .' · '.$statusLabel;
+
+                if ($total > 0) {
+                    $label .= ' · '.__(':pending/:total pending PM', [
+                        'pending' => $pending,
+                        'total' => $total,
+                    ]);
+                }
+
+                return [
+                    'id' => $execution->id,
+                    'label' => $label,
+                    'facility_id' => $execution->slaughterPlan->facility_id,
+                    'species' => $execution->slaughterPlan->species,
+                ];
+            })
             ->values();
 
         $inspectorsByFacility = Inspector::whereIn('facility_id', $facilityIds)
@@ -860,13 +925,12 @@ class PostMortemInspectionController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
-        $executionAnimalsByExecutionId = $this->buildExecutionAnimalsByExecutionId(
-            $executions->pluck('id'),
-        );
-
         $oldItemOutcomes = $this->mapOldItemOutcomes(old('item_outcomes'));
 
         $selectedExecutionId = $request->query('slaughter_execution_id') ?? old('slaughter_execution_id');
+        if (! $selectedExecutionId && $executions->count() === 1) {
+            $selectedExecutionId = $executions->first()['id'];
+        }
         $selectedExecutionId = $selectedExecutionId && $executionIds->contains((int) $selectedExecutionId)
             ? (int) $selectedExecutionId
             : null;

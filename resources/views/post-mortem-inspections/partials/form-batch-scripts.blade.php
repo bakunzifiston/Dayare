@@ -130,7 +130,12 @@
             if (outcome === 'approved') {
                 var carcassPart = Number.isFinite(afterKg) && afterKg > 0 ? afterKg : beforeKg;
                 carcassApprovedKg += Number.isFinite(carcassPart) ? carcassPart : 0;
-                if (Number.isFinite(afterKg) && afterKg > 0 && beforeKg > afterKg) {
+                if (Number.isFinite(condemnedPartKg) && condemnedPartKg > 0) {
+                    condemnedKg += condemnedPartKg;
+                    if (Number.isFinite(beforeKg) && beforeKg > carcassPart + condemnedPartKg) {
+                        otherApprovedKg += beforeKg - carcassPart - condemnedPartKg;
+                    }
+                } else if (Number.isFinite(afterKg) && afterKg > 0 && beforeKg > afterKg) {
                     otherApprovedKg += beforeKg - afterKg;
                 }
             } else if (outcome === 'condemned') {
@@ -183,17 +188,28 @@
             return;
         }
 
-        var isCondemned = select.value === 'condemned';
+        var outcome = select.value;
+        var isCondemned = outcome === 'condemned';
+        var showCondemnation = outcome === 'approved' || outcome === 'condemned';
+        var heading = card.querySelector('[data-pm-condemnation-heading]');
+        if (heading) {
+            heading.textContent = isCondemned
+                ? @json(__('Condemnation details'))
+                : @json(__('Partial condemnation (optional with approved)'));
+        }
 
         card.querySelectorAll('[data-pm-condemnation-row], .pm-condemnation-row').forEach(function (row) {
-            row.classList.toggle('hidden', !isCondemned);
+            row.classList.toggle('hidden', !showCondemnation);
             row.querySelectorAll('input, select, textarea').forEach(function (field) {
-                field.disabled = !isCondemned;
+                field.disabled = !showCondemnation;
             });
         });
 
         if (approvedWeightField) {
-            approvedWeightField.classList.toggle('hidden', isCondemned);
+            approvedWeightField.classList.toggle('hidden', isCondemned || outcome === 'deferred');
+            approvedWeightField.querySelectorAll('input').forEach(function (field) {
+                field.disabled = isCondemned || outcome === 'deferred';
+            });
         }
     }
 
@@ -267,16 +283,26 @@
         var reason = existing.reason || '';
         var condemnedWeight = existing.condemned_weight_kg || '';
         var isCondemned = currentOutcome === 'condemned';
+        var showCondemnation = currentOutcome === 'approved' || currentOutcome === 'condemned';
         var outcomeOptions = '<option value="">' + @json(__('Select decision')) + '</option>'
             + ['approved', 'condemned', 'deferred'].map(function (outcome) {
                 var selected = currentOutcome === outcome ? ' selected' : '';
                 return '<option value="' + outcome + '"' + selected + '>' + outcome.charAt(0).toUpperCase() + outcome.slice(1) + '</option>';
             }).join('');
-        var hiddenClass = isCondemned ? '' : ' hidden';
+        var hiddenClass = showCondemnation ? '' : ' hidden';
+        var approvedHiddenClass = (isCondemned || currentOutcome === 'deferred') ? ' hidden' : '';
+        var condemnationHeading = isCondemned
+            ? @json(__('Condemnation details'))
+            : @json(__('Partial condemnation (optional with approved)'));
+
+        var carcassWeight = existing.carcass_weight_kg || '';
 
         return '<tr class="bg-slate-50/80"><td class="px-3 py-2 font-medium text-slate-800">' + @json(__('Decision')) + '</td>'
             + '<td class="px-3 py-2" colspan="2"><select name="item_outcomes[' + index + '][outcome]" class="pm-animal-outcome block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary" required>'
             + outcomeOptions + '</select></td></tr>'
+            + '<tr class="pm-approved-weight-field bg-slate-50/80' + approvedHiddenClass + '"><td class="px-3 py-2 font-medium text-slate-800">' + @json(__('After PM (kg)')) + '</td>'
+            + '<td class="px-3 py-2" colspan="2"><input type="number" name="item_outcomes[' + index + '][carcass_weight_kg]" value="' + escapeHtml(carcassWeight) + '" min="0.1" max="9999" step="0.01" placeholder="kg" class="pm-carcass-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"></td></tr>'
+            + '<tr class="pm-condemnation-row bg-amber-50/70' + hiddenClass + '" data-pm-condemnation-row><td class="px-3 py-2 font-medium text-amber-900" colspan="3" data-pm-condemnation-heading>' + condemnationHeading + '</td></tr>'
             + '<tr class="pm-condemnation-row bg-amber-50/70' + hiddenClass + '" data-pm-condemnation-row><td class="px-3 py-2 font-medium text-amber-900">' + @json(__('Condemned organ')) + '</td>'
             + '<td class="px-3 py-2" colspan="2">' + buildOrganSelectField('item_outcomes[' + index + '][seized_part]', seizedPart, 'pm-condemned-organ') + '</td></tr>'
             + '<tr class="pm-condemnation-row bg-amber-50/70' + hiddenClass + '" data-pm-condemnation-row><td class="px-3 py-2 font-medium text-amber-900">' + @json(__('Condemned weight (kg)')) + '</td>'
@@ -291,7 +317,6 @@
         var tagLine = animal.tag_number && normalizeTag(animal.tag_number) !== normalizeTag(animal.ear_tag)
             ? ' · ' + @json(__('Tag')) + ': ' + escapeHtml(animal.tag_number)
             : '';
-        var currentOutcome = existing.outcome || '';
         var meatKgLabel = formatMeatKg(animal.meat_quantity_kg);
         var batchItemField = animal.batch_item_id
             ? '<input type="hidden" name="item_outcomes[' + index + '][batch_item_id]" value="' + animal.batch_item_id + '">'
@@ -301,13 +326,11 @@
             + '<div class="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">'
             + '<div class="min-w-0 flex-1"><p class="font-mono text-sm font-medium text-slate-900">' + escapeHtml(animal.ear_tag) + legacy + tagLine + '</p>'
             + '<p class="mt-0.5 text-xs text-slate-500">' + escapeHtml(animal.species) + ' · ' + escapeHtml(animal.sex)
-            + ' · ' + escapeHtml(animal.session_label)
-            + ' · <span class="font-medium text-slate-700">' + meatKgLabel + ' kg ' + @json(__('before PM')) + '</span></p></div>'
+            + ' · ' + escapeHtml(animal.session_label) + '</p></div>'
             + batchItemField
             + '<input type="hidden" name="item_outcomes[' + index + '][animal_intake_item_id]" value="' + animal.animal_intake_item_id + '">'
-            + '<div class="w-full sm:w-28 pm-approved-weight-field' + (currentOutcome === 'condemned' ? ' hidden' : '') + '">'
-            + '<label class="mb-1 block text-xs font-medium text-slate-600">' + @json(__('After PM (kg)')) + '</label>'
-            + '<input type="number" name="item_outcomes[' + index + '][carcass_weight_kg]" value="' + escapeHtml(existing.carcass_weight_kg || '') + '" min="0.1" max="9999" step="0.01" placeholder="kg" class="pm-carcass-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"></div>'
+            + '<div class="text-right"><p class="text-sm font-medium tabular-nums text-slate-900">' + meatKgLabel + ' kg</p>'
+            + '<p class="text-[10px] uppercase tracking-wide text-slate-400">' + @json(__('Before PM')) + '</p></div>'
             + '</div>'
             + '<div class="p-4"><h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">' + @json(__('Post-mortem checklist')) + '</h4>'
             + '<div class="overflow-hidden rounded-lg border border-slate-200"><table class="min-w-full divide-y divide-slate-200 text-sm">'

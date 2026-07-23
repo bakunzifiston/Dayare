@@ -5,7 +5,7 @@
     $condemnedTotal = (float) ($condemnedTotal ?? 0);
 @endphp
 
-<div id="per-animal-aggregate-summary" @class(['grid min-w-[14rem] grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3', 'hidden' => ! ($visible ?? true)])>
+<div id="per-animal-aggregate-summary" @class(['grid w-full grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3', 'hidden' => ! ($visible ?? true)])>
     <div class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-center sm:px-3">
         <p class="text-[10px] font-medium uppercase tracking-wide text-slate-500">{{ __('Total examined meat') }}</p>
         <p class="text-lg font-semibold tabular-nums text-slate-900">

@@ -108,7 +108,14 @@
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
                 <x-input-label for="pdf_details_departure_time" :value="__('Departure time / date (Isaha ahagurukiye)')" />
-                <x-text-input id="pdf_details_departure_time" name="pdf_details[departure_time]" type="text" class="mt-1 block w-full" :value="$pdfValue('departure_time')" />
+                <x-text-input
+                    id="pdf_details_departure_time"
+                    name="pdf_details[departure_time]"
+                    type="datetime-local"
+                    class="mt-1 block w-full"
+                    :value="\App\Support\CertificatePdfDetails::departureTimeInputValue($pdfValue('departure_time'))"
+                />
+                <p class="mt-1 text-xs text-slate-500">{{ __('Select both the departure date and time.') }}</p>
                 <x-input-error class="mt-2" :messages="$errors->get('pdf_details.departure_time')" />
             </div>
             <div>
@@ -118,9 +125,22 @@
             </div>
         </div>
         <div>
-            <x-input-label for="pdf_details_departure_destination" :value="__('Destination (optional, shown in PDF footer)')" />
+            <x-input-label for="pdf_details_departure_destination" :value="__('Destination')" />
             <x-text-input id="pdf_details_departure_destination" name="pdf_details[departure_destination]" type="text" class="mt-1 block w-full" :value="$pdfValue('departure_destination')" />
+            <p class="mt-1 text-xs text-slate-500">{{ __('e.g. client warehouse, shop, border post, airport cargo') }}</p>
             <x-input-error class="mt-2" :messages="$errors->get('pdf_details.departure_destination')" />
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+                <x-input-label for="pdf_details_destination_country" :value="__('Country')" />
+                <x-text-input id="pdf_details_destination_country" name="pdf_details[destination_country]" type="text" class="mt-1 block w-full" :value="$pdfValue('destination_country')" placeholder="e.g. RW, KE, UG" />
+                <x-input-error class="mt-2" :messages="$errors->get('pdf_details.destination_country')" />
+            </div>
+            <div>
+                <x-input-label for="pdf_details_destination_address" :value="__('Address (optional)')" />
+                <x-text-input id="pdf_details_destination_address" name="pdf_details[destination_address]" type="text" class="mt-1 block w-full" :value="$pdfValue('destination_address')" />
+                <x-input-error class="mt-2" :messages="$errors->get('pdf_details.destination_address')" />
+            </div>
         </div>
     </div>
 

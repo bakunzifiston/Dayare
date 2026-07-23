@@ -91,6 +91,15 @@ class ColdRoomController extends Controller
 
         $storageRecords = WarehouseStorage::query()
             ->where($scopeStorages)
+            ->when(trim((string) $request->input('q', '')) !== '', function ($query) use ($request): void {
+                $like = '%'.trim((string) $request->input('q')).'%';
+                $query->where(function ($builder) use ($like): void {
+                    $builder
+                        ->whereHas('intakeItem', fn ($q) => $q->where('ear_tag', 'like', $like))
+                        ->orWhereHas('postMortemInspectionItem.intakeItem', fn ($q) => $q->where('ear_tag', 'like', $like))
+                        ->orWhereHas('batch', fn ($q) => $q->where('batch_code', 'like', $like));
+                });
+            })
             ->with([
                 'warehouseFacility',
                 'batch',
@@ -99,7 +108,7 @@ class ColdRoomController extends Controller
                 'postMortemInspectionItem.intakeItem',
                 'coldRoom',
             ])
-            ->latest('entry_date')
+            ->latest('created_at')
             ->latest('id')
             ->paginate(15)
             ->withQueryString();

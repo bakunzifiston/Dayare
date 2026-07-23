@@ -100,7 +100,12 @@
                                         <td class="px-3 py-2 tabular-nums">
                                             {{ $item->batchItem ? number_format($item->batchItem->meat_quantity_kg, 2).' kg' : '—' }}
                                         </td>
-                                        <td class="px-3 py-2 tabular-nums">{{ $item->carcass_weight_kg ? number_format($item->carcass_weight_kg, 2).' kg' : '—' }}</td>
+                                        <td class="px-3 py-2 tabular-nums">
+                                            @php
+                                                $carcassKg = $item->displayCarcassWeightKg();
+                                            @endphp
+                                            {{ $carcassKg !== null ? number_format($carcassKg, 2).' kg' : '—' }}
+                                        </td>
                                         <td class="px-3 py-2">{{ $item->seized_part ?: '—' }}</td>
                                         <td class="px-3 py-2 tabular-nums">{{ $item->condemned_weight_kg ? number_format($item->condemned_weight_kg, 2).' kg' : '—' }}</td>
                                         <td class="px-3 py-2">{{ $item->reason ?: ($item->outcome_notes ?: '—') }}</td>

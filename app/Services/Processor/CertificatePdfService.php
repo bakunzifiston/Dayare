@@ -405,7 +405,7 @@ class CertificatePdfService
             'vehicle_plate_number' => $transportTrip?->vehicle_plate_number ?: '',
             'driver_name' => $transportTrip?->driver_name ?: '',
             'departure_destination' => $transportTrip?->destination_display ?: '',
-            'departure_time' => $transportTrip?->departure_date?->format('d/m/Y') ?: '',
+            'departure_time' => $transportTrip?->departure_date?->format('d/m/Y H:i') ?: '',
             'transporter_phone' => $transportTrip?->driver_phone ?: '',
         ];
     }

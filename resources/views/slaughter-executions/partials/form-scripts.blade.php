@@ -149,8 +149,15 @@
         if (countInput) countInput.value = String(totalCount);
 
         var statusSelect = document.getElementById('status');
-        if (statusSelect && isCreateForm && totalCount > 0) {
-            statusSelect.value = 'completed';
+        if (statusSelect && totalCount > 0) {
+            var approvedCount = currentApprovedAnimals.length;
+            if (approvedCount > 0 && totalCount < approvedCount) {
+                statusSelect.value = 'in_progress';
+            } else if (approvedCount > 0 && totalCount >= approvedCount) {
+                statusSelect.value = 'completed';
+            } else if (isCreateForm) {
+                statusSelect.value = 'completed';
+            }
         }
     }
 
@@ -261,14 +268,25 @@
         return isNaN(num) ? '—' : num.toFixed(2);
     }
 
+    function asAnimalList(value) {
+        if (Array.isArray(value)) {
+            return value;
+        }
+        if (value && typeof value === 'object') {
+            return Object.keys(value).map(function (key) { return value[key]; });
+        }
+
+        return [];
+    }
+
     function rebuildSlaughterTable(animals, slaughteredIds, slaughteredDetails) {
         var container = document.getElementById('per-animal-slaughter-container');
         if (!container) return;
 
-        currentApprovedAnimals = animals || [];
-        currentSlaughteredIds = (slaughteredIds || []).map(function (id) { return Number(id); });
+        currentApprovedAnimals = asAnimalList(animals);
+        currentSlaughteredIds = asAnimalList(slaughteredIds).map(function (id) { return Number(id); });
         currentSlaughteredDetails = {};
-        (slaughteredDetails || []).forEach(function (row) {
+        asAnimalList(slaughteredDetails).forEach(function (row) {
             currentSlaughteredDetails[Number(row.animal_intake_item_id)] = row;
         });
 
@@ -406,15 +424,16 @@
             return;
         }
 
-        if (perAnimalSection) {
-            perAnimalSection.classList.remove('hidden');
-        }
-
         rebuildSlaughterTable(
             planData.approved_items || [],
             planData.slaughtered_ids || [],
             planData.slaughtered_details || []
         );
+
+        if (perAnimalSection && currentApprovedAnimals.length > 0) {
+            perAnimalSection.classList.remove('hidden');
+        }
+
         checkGate();
     }
 

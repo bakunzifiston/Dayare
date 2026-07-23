@@ -51,6 +51,30 @@
 
 <script>
 (function() {
+    window.applyTransportDefaultsFromCertificate = function(defaults, lockedFields) {
+        var locked = lockedFields || [];
+        var fields = [
+            'vehicle_plate_number',
+            'driver_name',
+            'driver_phone',
+            'destination_name',
+            'destination_country',
+            'destination_address',
+            'departure_date',
+        ];
+
+        fields.forEach(function(key) {
+            var input = document.getElementById(key);
+            var value = defaults[key] || (key === 'destination_name' ? defaults.departure_destination : null);
+            if (!input || !value) {
+                return;
+            }
+            if (locked.indexOf(key) !== -1 || !input.value) {
+                input.value = value;
+            }
+        });
+    };
+
     var certSelect = document.getElementById('certificate_id');
     var batchInput = document.getElementById('trip_batch_id');
     var derivedBlock = document.getElementById('certificate-derived-fields');
@@ -85,22 +109,19 @@
             originSelect.value = opt.dataset.facilityId;
         }
 
-        if (typeof window.applyTransportDefaultsFromCertificate === 'function') {
-            window.applyTransportDefaultsFromCertificate(
-                parseJson(opt.dataset.transportDefaults),
-                parseJson(opt.dataset.lockedFields)
-            );
-        }
+        window.applyTransportDefaultsFromCertificate(
+            parseJson(opt.dataset.transportDefaults),
+            parseJson(opt.dataset.lockedFields)
+        );
     }
 
     certSelect.addEventListener('change', syncCertificate);
-    syncCertificate();
-
-    if (typeof window.applyTransportDefaultsFromCertificate === 'function') {
+    document.addEventListener('DOMContentLoaded', function() {
+        syncCertificate();
         window.applyTransportDefaultsFromCertificate(
             @json($certificateDefaults),
             @json($certificateLocked)
         );
-    }
+    });
 })();
 </script>

@@ -9,6 +9,7 @@ use App\Models\AnteMortemInspectionItem;
 use App\Models\Business;
 use App\Models\Facility;
 use App\Models\Inspector;
+use App\Models\MobileApiToken;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
@@ -185,6 +186,37 @@ class SlaughterExecutionTest extends TestCase
                 'notes' => null,
             ];
         })->all();
+    }
+
+    public function test_partial_store_redirects_to_edit_with_remaining_animals(): void
+    {
+        $firstItem = $this->assignedItems->first();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('slaughter-executions.store'), $this->validStorePayload([
+                'actual_animals_slaughtered' => 1,
+                'status' => SlaughterExecution::STATUS_COMPLETED,
+                'item_slaughters' => [[
+                    'animal_intake_item_id' => $firstItem->id,
+                    'meat_quantity_kg' => 100.00,
+                ]],
+            ]));
+
+        $execution = SlaughterExecution::query()->firstOrFail();
+
+        $response->assertRedirect(route('slaughter-executions.edit', $execution))
+            ->assertSessionHas('status');
+
+        $this->assertSame(SlaughterExecution::STATUS_IN_PROGRESS, $execution->fresh()->status);
+
+        $this->actingAs($this->user)
+            ->get(route('slaughter-executions.edit', $execution))
+            ->assertOk()
+            ->assertSeeText('1 / 5')
+            ->assertSee(__('Already slaughtered'), false)
+            ->assertSee($firstItem->ear_tag, false)
+            ->assertSee(__('Add slaughter now'), false)
+            ->assertSee($this->assignedItems->skip(1)->first()->ear_tag, false);
     }
 
     public function test_store_creates_execution(): void
@@ -491,7 +523,9 @@ class SlaughterExecutionTest extends TestCase
                 ]],
             ]));
 
-        $response->assertRedirect(route('slaughter-executions.hub'));
+        $execution = SlaughterExecution::query()->firstOrFail();
+
+        $response->assertRedirect(route('slaughter-executions.edit', $execution));
         $this->assertDatabaseCount('slaughter_execution_items', 1);
         $this->assertDatabaseHas('slaughter_executions', [
             'actual_animals_slaughtered' => 1,
@@ -516,7 +550,7 @@ class SlaughterExecutionTest extends TestCase
                     'meat_quantity_kg' => 100.00,
                 ]],
             ]))
-            ->assertRedirect(route('slaughter-executions.hub'));
+            ->assertRedirect(route('slaughter-executions.edit', SlaughterExecution::query()->firstOrFail()));
 
         $response = $this->actingAs($this->user)
             ->post(route('slaughter-executions.store'), $this->validStorePayload([
@@ -575,7 +609,9 @@ class SlaughterExecutionTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Select slaughter session', false)
-            ->assertSee((string) $this->plan->id, false);
+            ->assertSee((string) $this->plan->id, false)
+            ->assertSee($this->assignedItems->first()->ear_tag, false)
+            ->assertSee('Add slaughter now', false);
     }
 
     public function test_create_form_lists_partial_session_for_continue(): void
@@ -591,14 +627,20 @@ class SlaughterExecutionTest extends TestCase
                     'meat_quantity_kg' => 100.00,
                 ]],
             ]))
-            ->assertRedirect(route('slaughter-executions.hub'));
+            ->assertRedirect(route('slaughter-executions.edit', SlaughterExecution::query()->firstOrFail()));
 
-        $response = $this->actingAs($this->user)
-            ->get(route('slaughter-executions.create'));
+        $execution = SlaughterExecution::query()->firstOrFail();
 
-        $response->assertOk()
+        // Single eligible in-progress session: create auto-selects and continues on edit.
+        $this->actingAs($this->user)
+            ->get(route('slaughter-executions.create'))
+            ->assertRedirect(route('slaughter-executions.edit', $execution));
+
+        $this->actingAs($this->user)
+            ->get(route('slaughter-executions.edit', $execution))
+            ->assertOk()
             ->assertSee('1/5 slaughtered, 4 remaining', false)
-            ->assertDontSee('Continue existing execution', false);
+            ->assertSee('Add slaughter now', false);
     }
 
     public function test_create_with_existing_execution_redirects_to_edit(): void
@@ -614,7 +656,7 @@ class SlaughterExecutionTest extends TestCase
                     'meat_quantity_kg' => 100.00,
                 ]],
             ]))
-            ->assertRedirect(route('slaughter-executions.hub'));
+            ->assertRedirect(route('slaughter-executions.edit', SlaughterExecution::query()->firstOrFail()));
 
         $execution = SlaughterExecution::query()->firstOrFail();
 
@@ -680,7 +722,7 @@ class SlaughterExecutionTest extends TestCase
                     ],
                 ],
             ]))
-            ->assertRedirect(route('slaughter-executions.hub'));
+            ->assertRedirect(route('slaughter-executions.edit', SlaughterExecution::query()->firstOrFail()));
 
         $execution = SlaughterExecution::query()->firstOrFail();
 
@@ -693,5 +735,50 @@ class SlaughterExecutionTest extends TestCase
             ->assertSee(__('Already slaughtered') . ' (2)', false)
             ->assertSee('2</span> / 5', false)
             ->assertSee('3</span>', false);
+    }
+
+    public function test_mobile_slaughter_execution_show_includes_post_mortem_inspectable_animals(): void
+    {
+        $execution = SlaughterExecution::create([
+            'slaughter_plan_id' => $this->plan->id,
+            'actual_animals_slaughtered' => 1,
+            'slaughter_time' => now(),
+            'status' => SlaughterExecution::STATUS_COMPLETED,
+        ]);
+
+        SlaughterExecutionItem::create([
+            'slaughter_execution_id' => $execution->id,
+            'animal_intake_item_id' => $this->assignedItems->first()->id,
+            'meat_quantity_kg' => 100,
+        ]);
+
+        $plainToken = 'mobile-se-'.uniqid();
+        MobileApiToken::create([
+            'user_id' => $this->user->id,
+            'name' => 'test',
+            'token_hash' => hash('sha256', $plainToken),
+            'expires_at' => now()->addDay(),
+        ]);
+
+        $response = $this->withHeaders(['Authorization' => 'Bearer '.$plainToken])
+            ->getJson('/api/v1/slaughter-executions/'.$execution->id);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $execution->id)
+            ->assertJsonPath('data.post_mortem_inspection.has_per_animal', true)
+            ->assertJsonPath('data.post_mortem_inspection.animal_count', 1)
+            ->assertJsonPath('data.post_mortem_inspection.pending_count', 1)
+            ->assertJsonPath('data.post_mortem_inspection.is_complete', false)
+            ->assertJsonStructure([
+                'data' => [
+                    'post_mortem_inspection' => [
+                        'animals' => [
+                            ['animal_intake_item_id', 'ear_tag', 'species', 'meat_quantity_kg'],
+                        ],
+                        'inspected_animal_ids',
+                    ],
+                ],
+            ]);
     }
 }

@@ -195,6 +195,14 @@
         @apply grid grid-cols-2 gap-3 lg:grid-cols-4;
     }
 
+    .profile-kpi-grid--finance {
+        @apply lg:grid-cols-4;
+    }
+
+    .profile-kpi-grid--finance .profile-kpi__value {
+        @apply mt-1.5 text-base font-semibold sm:text-lg;
+    }
+
     .profile-cards-grid {
         @apply grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3;
     }

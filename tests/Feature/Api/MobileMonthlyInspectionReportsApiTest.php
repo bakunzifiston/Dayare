@@ -153,8 +153,7 @@ class MobileMonthlyInspectionReportsApiTest extends TestCase
     {
         $response = $this->withHeaders($this->mobileAuthHeaders())
             ->postJson('/api/v1/monthly-inspection-reports/'.$this->facility->id.'/closure', [
-                'year' => 2026,
-                'month' => 6,
+                'month' => '2026-06',
                 'challenges' => 'Test challenge',
             ]);
 

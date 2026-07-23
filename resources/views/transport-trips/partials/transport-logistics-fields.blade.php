@@ -54,31 +54,3 @@
         </div>
     </div>
 </div>
-
-<script>
-(function() {
-    window.applyTransportDefaultsFromCertificate = function(defaults, lockedFields) {
-        var locked = lockedFields || [];
-        var fields = {
-            vehicle_plate_number: document.getElementById('vehicle_plate_number'),
-            driver_name: document.getElementById('driver_name'),
-            driver_phone: document.getElementById('driver_phone'),
-        };
-
-        Object.keys(fields).forEach(function(key) {
-            var input = fields[key];
-            if (!input || locked.indexOf(key) !== -1) {
-                return;
-            }
-            if (!input.value && defaults[key]) {
-                input.value = defaults[key];
-            }
-        });
-
-        var destinationName = document.getElementById('destination_name');
-        if (destinationName && !destinationName.value && defaults.departure_destination) {
-            destinationName.value = defaults.departure_destination;
-        }
-    };
-})();
-</script>

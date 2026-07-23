@@ -409,6 +409,55 @@ class ColdRoomMonitoringTest extends TestCase
         $index->assertSee($pmItem->intakeItem->ear_tag);
     }
 
+    public function test_newest_same_day_storage_appears_first_on_index(): void
+    {
+        $olderTags = [];
+        for ($i = 0; $i < 11; $i++) {
+            [, , $pmItem] = $this->createBatchWithApprovedPostMortemMeat(carcassKg: 50.00 + $i);
+            $this->actingAs($this->user)->post(route('warehouse-storages.store'), [
+                'warehouse_facility_id' => $this->facility->id,
+                'cold_room_id' => $this->coldRoom->id,
+                'post_mortem_inspection_item_ids' => [$pmItem->id],
+                'entry_date' => today()->toDateString(),
+                'quantity_unit' => 'kg',
+            ])->assertRedirect();
+            $pmItem->load('intakeItem');
+            $olderTags[] = $pmItem->intakeItem->ear_tag;
+        }
+
+        [, , $newestPmItem] = $this->createBatchWithApprovedPostMortemMeat(carcassKg: 99.00);
+        $this->actingAs($this->user)->post(route('warehouse-storages.store'), [
+            'warehouse_facility_id' => $this->facility->id,
+            'cold_room_id' => $this->coldRoom->id,
+            'post_mortem_inspection_item_ids' => [$newestPmItem->id],
+            'entry_date' => today()->toDateString(),
+            'quantity_unit' => 'kg',
+        ])->assertRedirect();
+
+        $newestPmItem->load('intakeItem');
+        $newestTag = $newestPmItem->intakeItem->ear_tag;
+
+        $index = $this->actingAs($this->user)->get(route('warehouse-storages.index'));
+        $index->assertOk();
+        $index->assertSee($newestTag);
+
+        $html = $index->getContent();
+        $newestPos = strpos($html, $newestTag);
+        $this->assertNotFalse($newestPos);
+
+        // Oldest of the same-day batch should not appear before the newest on page 1.
+        $oldestTag = $olderTags[0];
+        $oldestPos = strpos($html, $oldestTag);
+        if ($oldestPos !== false) {
+            $this->assertLessThan($oldestPos, $newestPos);
+        }
+
+        $search = $this->actingAs($this->user)->get(route('warehouse-storages.index', ['q' => $newestTag]));
+        $search->assertOk();
+        $search->assertSee($newestTag);
+        $search->assertDontSee($oldestTag);
+    }
+
     public function test_storage_record_can_be_deleted(): void
     {
         [, , $pmItem] = $this->createBatchWithApprovedPostMortemMeat(carcassKg: 66.00);

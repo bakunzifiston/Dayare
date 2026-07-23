@@ -101,6 +101,29 @@ class PostMortemInspectionItem extends Model
     }
 
     /**
+     * Carcass weight for display/lists. Falls back to batch meat qty when approved
+     * without an explicit after-PM weight (legacy / empty submissions stored as 0).
+     */
+    public function displayCarcassWeightKg(): ?float
+    {
+        $stored = $this->carcass_weight_kg;
+        if ($stored !== null && (float) $stored > 0) {
+            return round((float) $stored, 2);
+        }
+
+        if ($this->outcome !== self::OUTCOME_APPROVED) {
+            return null;
+        }
+
+        $batchMeat = $this->batchItem?->meat_quantity_kg;
+        if ($batchMeat !== null && (float) $batchMeat > 0) {
+            return round((float) $batchMeat, 2);
+        }
+
+        return null;
+    }
+
+    /**
      * Exclude animals that already have an active cold room storage record.
      *
      * @param  Builder<PostMortemInspectionItem>  $query

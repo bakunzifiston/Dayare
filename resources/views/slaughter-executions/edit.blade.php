@@ -11,6 +11,10 @@
     <div class="py-12" data-form-mode="edit">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                @if (session('status'))
+                    <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
+                @endif
+
                 <form method="post" action="{{ route('slaughter-executions.update', $execution) }}" class="space-y-6" data-slaughter-form novalidate>
                     @csrf
                     @method('put')

@@ -124,33 +124,60 @@ trait ValidatesPostMortemItemOutcomes
         }
 
         foreach ($itemOutcomes as $index => $outcome) {
-            if (($outcome['outcome'] ?? '') !== PostMortemInspectionItem::OUTCOME_CONDEMNED) {
-                continue;
-            }
-
+            $decision = (string) ($outcome['outcome'] ?? '');
             $seizedPart = trim((string) ($outcome['seized_part'] ?? ''));
             $condemnedWeight = $outcome['condemned_weight_kg'] ?? null;
             $reason = trim((string) ($outcome['reason'] ?? ''));
+            $hasAnyCondemnationDetail = $seizedPart !== ''
+                || $reason !== ''
+                || ($condemnedWeight !== null && $condemnedWeight !== '' && (float) $condemnedWeight > 0);
 
-            if ($seizedPart === '') {
-                $validator->errors()->add(
-                    "item_outcomes.{$index}.seized_part",
-                    __('Condemned organ is required when the decision is condemned.'),
-                );
+            if ($decision === PostMortemInspectionItem::OUTCOME_CONDEMNED) {
+                if ($seizedPart === '') {
+                    $validator->errors()->add(
+                        "item_outcomes.{$index}.seized_part",
+                        __('Condemned organ is required when the decision is condemned.'),
+                    );
+                }
+
+                if ($condemnedWeight === null || $condemnedWeight === '' || (float) $condemnedWeight <= 0) {
+                    $validator->errors()->add(
+                        "item_outcomes.{$index}.condemned_weight_kg",
+                        __('Condemned weight (kg) is required when the decision is condemned.'),
+                    );
+                }
+
+                if ($reason === '') {
+                    $validator->errors()->add(
+                        "item_outcomes.{$index}.reason",
+                        __('Reason for condemnation is required when the decision is condemned.'),
+                    );
+                }
+
+                continue;
             }
 
-            if ($condemnedWeight === null || $condemnedWeight === '' || (float) $condemnedWeight <= 0) {
-                $validator->errors()->add(
-                    "item_outcomes.{$index}.condemned_weight_kg",
-                    __('Condemned weight (kg) is required when the decision is condemned.'),
-                );
-            }
+            if ($decision === PostMortemInspectionItem::OUTCOME_APPROVED && $hasAnyCondemnationDetail) {
+                if ($seizedPart === '') {
+                    $validator->errors()->add(
+                        "item_outcomes.{$index}.seized_part",
+                        __('Condemned organ is required when recording partial condemnation.'),
+                    );
+                }
 
-            if ($reason === '') {
-                $validator->errors()->add(
-                    "item_outcomes.{$index}.reason",
-                    __('Reason for condemnation is required when the decision is condemned.'),
-                );
+                if ($condemnedWeight === null || $condemnedWeight === '' || (float) $condemnedWeight <= 0) {
+                    $validator->errors()->add(
+                        "item_outcomes.{$index}.condemned_weight_kg",
+                        __('Condemned weight (kg) is required when recording partial condemnation.'),
+                    );
+                }
+
+                if ($reason === '') {
+                    $validator->errors()->add(
+                        "item_outcomes.{$index}.reason",
+                        __('Reason for condemnation is required when recording partial condemnation.'),
+                    );
+                }
             }
         }
     }

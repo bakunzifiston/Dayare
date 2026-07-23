@@ -130,7 +130,12 @@
                                             <td class="font-mono text-xs">{{ $intake->ear_tag }}</td>
                                             <td>{{ $intake->species }}</td>
                                             <td class="tabular-nums">{{ number_format($batchItem->meat_quantity_kg, 2) }} kg</td>
-                                            <td class="tabular-nums">{{ $pm?->carcass_weight_kg ? number_format($pm->carcass_weight_kg, 2).' kg' : '—' }}</td>
+                                            <td class="tabular-nums">
+                                                @php
+                                                    $carcassKg = $pm?->displayCarcassWeightKg();
+                                                @endphp
+                                                {{ $carcassKg !== null ? number_format($carcassKg, 2).' kg' : '—' }}
+                                            </td>
                                             <td class="tabular-nums">
                                                 @if ($animalStorage?->isReleased())
                                                     {{ number_format((float) $animalStorage->quantity_stored, 2) }} kg
