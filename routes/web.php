@@ -124,6 +124,8 @@ Route::middleware('throttle:30,1')->group(function () {
 Route::get('/movement/{token}', \App\Http\Controllers\PublicMovementVerificationController::class)->name('movement.verify');
 Route::get('/permit/{token}', fn (string $token) => redirect()->route('movement.verify', ['token' => $token]))->name('permit.verify');
 Route::view('/contact-us', 'contact')->name('contact-us');
+Route::redirect('/terms-and-conditions', '/privacy-policy', 301)->name('terms-and-conditions');
+Route::view('/privacy-policy', 'privacy-policy')->name('privacy-policy');
 Route::get('/manifest.webmanifest', PwaManifestController::class)->name('pwa.manifest');
 Route::get('/pwa/service-worker.js', PwaServiceWorkerController::class)->name('pwa.service-worker');
 Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');

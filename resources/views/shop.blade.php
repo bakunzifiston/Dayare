@@ -26,7 +26,6 @@
 
     <main>
         <section class="relative overflow-hidden bg-gradient-to-br from-bucha-charcoal via-bucha-sidebar to-bucha-primary">
-            <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 20% 20%, #ffffff 2px, transparent 2px); background-size: 24px 24px;"></div>
             <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
                 <p class="text-xs uppercase tracking-wider font-semibold text-white/80">{{ __('BuchaPro Shop') }}</p>
                 <h1 class="mt-3 text-3xl sm:text-5xl font-bold text-white">{{ __('Premium Meat Products') }}</h1>
