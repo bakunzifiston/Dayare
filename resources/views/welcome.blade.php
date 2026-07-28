@@ -140,6 +140,71 @@
             </div>
         </section>
 
+        <section id="what-is-buchapro" class="border-y border-slate-200/60 bg-bucha-canvas py-14 sm:py-16">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
+                    <div class="text-center lg:text-left">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-bucha-muted">{{ __('What is BuchaPro') }}</p>
+                        <h2 class="mt-3 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl xl:text-3xl">
+                            {{ __('Professional infrastructure for the meat value chain') }}
+                        </h2>
+                        <p class="mt-4 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base lg:mx-0">
+                            {{ __('BuchaPro is a digital and logistics platform that helps meat-sector organizations manage traceability, inspections, certificates, storage, transport, and stakeholder accountability through one consistent operational system.') }}
+                        </p>
+                        <div class="mt-6 grid gap-3 sm:grid-cols-2">
+                            <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm">
+                                <p class="text-[11px] uppercase tracking-wider text-slate-500">{{ __('Built for control') }}</p>
+                                <p class="mt-1 text-sm font-semibold text-slate-900">{{ __('Structured workflows from intake to dispatch') }}</p>
+                            </div>
+                            <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm">
+                                <p class="text-[11px] uppercase tracking-wider text-slate-500">{{ __('Built for trust') }}</p>
+                                <p class="mt-1 text-sm font-semibold text-slate-900">{{ __('Auditable records across batches, certificates, and transport') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute -inset-3 rounded-[24px] bg-gradient-to-br from-bucha-primary/15 via-emerald-500/10 to-slate-200/40 blur-2xl sm:-inset-4" aria-hidden="true"></div>
+                        <figure class="relative aspect-[4/3] overflow-hidden rounded-[20px] border border-slate-200/80 bg-white shadow-bucha sm:aspect-[16/10]">
+                            <img
+                                src="{{ asset('images/buchapro-cows-farm.png') }}"
+                                alt="{{ __('Cattle on a farm — traceable livestock and verified chain of custody') }}"
+                                class="absolute inset-0 h-full w-full object-cover object-center"
+                                width="1200"
+                                height="800"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                        </figure>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="border-y border-slate-200/80 bg-white py-14 sm:py-16">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <p class="text-center text-xs font-semibold uppercase tracking-wider text-bucha-muted">{{ __('How it works') }}</p>
+                <h2 class="mt-3 text-center text-2xl font-bold text-slate-900 sm:text-3xl">{{ __('From source to table, every step is documented') }}</h2>
+                <p class="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-slate-600 sm:text-base">
+                    {{ __('BuchaPro standardizes the flow of data across sourcing, inspection, storage, transport, and verification so every stakeholder operates with clearer visibility and stronger accountability.') }}
+                </p>
+                <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    @foreach ([
+                        ['title' => __('Source'), 'desc' => __('Animal intake, identity, and origin are captured in a structured record.')],
+                        ['title' => __('Process'), 'desc' => __('Facility workflows and batch operations are documented in consistent steps.')],
+                        ['title' => __('Transport'), 'desc' => __('Cold-chain movements are monitored and recorded through transit.')],
+                        ['title' => __('Verify'), 'desc' => __('Inspection and certificate context support trusted operational decisions.')],
+                        ['title' => __('Deliver'), 'desc' => __('Partners and buyers receive traceable, verifiable product information.')],
+                    ] as $step)
+                        <div class="rounded-bucha border border-slate-200/80 bg-slate-50 p-5 text-center shadow-sm">
+                            <span class="mx-auto mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-bucha-primary text-xs font-bold text-white">{{ $loop->iteration }}</span>
+                            <p class="text-sm font-semibold text-slate-900">{{ $step['title'] }}</p>
+                            <p class="mt-2 text-xs leading-relaxed text-slate-600">{{ $step['desc'] }}</p>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+
         <section id="mobile-platform" class="border-y border-slate-200/80 bg-white">
             <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-18 lg:px-8">
                 <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-12">
@@ -202,71 +267,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="what-is-buchapro" class="border-y border-slate-200/60 bg-bucha-canvas py-14 sm:py-16">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
-                    <div class="text-center lg:text-left">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-bucha-muted">{{ __('What is BuchaPro') }}</p>
-                        <h2 class="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl xl:text-4xl">
-                            {{ __('Professional infrastructure for the meat value chain') }}
-                        </h2>
-                        <p class="mt-4 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base lg:mx-0">
-                            {{ __('BuchaPro is a digital and logistics platform that helps meat-sector organizations manage traceability, inspections, certificates, storage, transport, and stakeholder accountability through one consistent operational system.') }}
-                        </p>
-                        <div class="mt-6 grid gap-3 sm:grid-cols-2">
-                            <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm">
-                                <p class="text-[11px] uppercase tracking-wider text-slate-500">{{ __('Built for control') }}</p>
-                                <p class="mt-1 text-sm font-semibold text-slate-900">{{ __('Structured workflows from intake to dispatch') }}</p>
-                            </div>
-                            <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm">
-                                <p class="text-[11px] uppercase tracking-wider text-slate-500">{{ __('Built for trust') }}</p>
-                                <p class="mt-1 text-sm font-semibold text-slate-900">{{ __('Auditable records across batches, certificates, and transport') }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="relative">
-                        <div class="absolute -inset-3 rounded-[24px] bg-gradient-to-br from-bucha-primary/15 via-emerald-500/10 to-slate-200/40 blur-2xl sm:-inset-4" aria-hidden="true"></div>
-                        <figure class="relative aspect-[4/3] overflow-hidden rounded-[20px] border border-slate-200/80 bg-white shadow-bucha sm:aspect-[16/10]">
-                            <img
-                                src="{{ asset('images/buchapro-cows-farm.png') }}"
-                                alt="{{ __('Cattle on a farm — traceable livestock and verified chain of custody') }}"
-                                class="absolute inset-0 h-full w-full object-cover object-center"
-                                width="1200"
-                                height="800"
-                                loading="lazy"
-                                decoding="async"
-                            />
-                        </figure>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="how-it-works" class="border-y border-slate-200/80 bg-white py-14 sm:py-16">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <p class="text-center text-xs font-semibold uppercase tracking-wider text-bucha-muted">{{ __('How it works') }}</p>
-                <h2 class="mt-3 text-center text-2xl font-bold text-slate-900 sm:text-3xl">{{ __('From source to table, every step is documented') }}</h2>
-                <p class="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-slate-600 sm:text-base">
-                    {{ __('BuchaPro standardizes the flow of data across sourcing, inspection, storage, transport, and verification so every stakeholder operates with clearer visibility and stronger accountability.') }}
-                </p>
-                <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                    @foreach ([
-                        ['title' => __('Source'), 'desc' => __('Animal intake, identity, and origin are captured in a structured record.')],
-                        ['title' => __('Process'), 'desc' => __('Facility workflows and batch operations are documented in consistent steps.')],
-                        ['title' => __('Transport'), 'desc' => __('Cold-chain movements are monitored and recorded through transit.')],
-                        ['title' => __('Verify'), 'desc' => __('Inspection and certificate context support trusted operational decisions.')],
-                        ['title' => __('Deliver'), 'desc' => __('Partners and buyers receive traceable, verifiable product information.')],
-                    ] as $step)
-                        <div class="rounded-bucha border border-slate-200/80 bg-slate-50 p-5 text-center shadow-sm">
-                            <span class="mx-auto mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-bucha-primary text-xs font-bold text-white">{{ $loop->iteration }}</span>
-                            <p class="text-sm font-semibold text-slate-900">{{ $step['title'] }}</p>
-                            <p class="mt-2 text-xs leading-relaxed text-slate-600">{{ $step['desc'] }}</p>
-                        </div>
-                    @endforeach
                 </div>
             </div>
         </section>
