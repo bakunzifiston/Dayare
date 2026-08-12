@@ -39,6 +39,11 @@ final class ProcessorWorkspaceSeedProfile
         return new self;
     }
 
+    public static function processorWorkspaceWithMonthlyReports(): self
+    {
+        return new self(seedMonthlyReports: true);
+    }
+
     public static function rwandaMeatProcessor(): self
     {
         return new self(

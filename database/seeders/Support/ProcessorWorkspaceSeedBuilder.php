@@ -76,6 +76,7 @@ class ProcessorWorkspaceSeedBuilder
      *     owner_name?: string,
      *     owner_email?: string,
      *     business_email?: string,
+     *     email_slug?: string,
      *     tax_id?: string
      * }>  $businessCatalog
      */
@@ -124,13 +125,15 @@ class ProcessorWorkspaceSeedBuilder
     ): Business {
         $reg = $catalog['registration_number']
             ?? $this->profile->regPrefix.str_pad((string) $number, 3, '0', STR_PAD_LEFT);
+        $emailSlug = $catalog['email_slug']
+            ?? ProcessorWorkspaceBusinessCatalog::emailSlugFromBusinessName($catalog['name']);
         $province = $provinces->firstWhere('name', $catalog['province']) ?? $provinces->get($number % $provinces->count());
         $loc = $this->randomDivisionChain($province);
         $ownerName = $catalog['owner_name'] ?? RwandaSeederHelper::fullName(500 + $number);
         $ownerParts = explode(' ', $ownerName);
 
         $owner = User::query()->updateOrCreate(
-            ['email' => $this->profile->ownerEmail($number, $catalog['owner_email'] ?? null)],
+            ['email' => $catalog['owner_email'] ?? ProcessorWorkspaceBusinessCatalog::ownerEmail($emailSlug)],
             [
                 'name' => $ownerName,
                 'password' => $this->password,
@@ -146,7 +149,7 @@ class ProcessorWorkspaceSeedBuilder
             'registration_number' => $reg,
             'tax_id' => $catalog['tax_id'] ?? '1'.str_pad((string) (200000000 + $number), 8, '0', STR_PAD_LEFT),
             'contact_phone' => RwandaSeederHelper::phone(3000 + $number * 17),
-            'email' => $catalog['business_email'] ?? Str::slug($catalog['name']).'@'.$this->profile->businessEmailDomain,
+            'email' => $catalog['business_email'] ?? ProcessorWorkspaceBusinessCatalog::businessEmail($emailSlug),
             'status' => Business::STATUS_ACTIVE,
             'owner_first_name' => $ownerParts[0] ?? 'Jean',
             'owner_last_name' => $ownerParts[1] ?? 'Mukamana',
@@ -164,7 +167,7 @@ class ProcessorWorkspaceSeedBuilder
         ]);
 
         $this->attachRole($owner, $business, BusinessUser::ROLE_ORG_ADMIN);
-        $this->seedTeamUsers($number, $business, $catalog['team_size']);
+        $this->seedTeamUsers($emailSlug, $business, $catalog['team_size']);
 
         $slaughter = $this->makeFacility($business, $catalog['name'].' — Abattoir', Facility::TYPE_SLAUGHTERHOUSE, $loc, 120);
         $storage = $this->makeFacility($business, $catalog['name'].' — Cold store', Facility::TYPE_STORAGE, $loc, 450);
@@ -211,7 +214,7 @@ class ProcessorWorkspaceSeedBuilder
         return $business;
     }
 
-    private function seedTeamUsers(int $businessNumber, Business $business, int $teamSize): void
+    private function seedTeamUsers(string $emailSlug, Business $business, int $teamSize): void
     {
         $pool = [
             BusinessUser::ROLE_OPERATIONS_MANAGER,
@@ -224,9 +227,9 @@ class ProcessorWorkspaceSeedBuilder
         for ($i = 0; $i < max(0, min(4, $teamSize - 1)); $i++) {
             $role = $pool[$i % count($pool)];
             $user = User::query()->updateOrCreate(
-                ['email' => $this->profile->teamEmail($businessNumber, $i)],
+                ['email' => ProcessorWorkspaceBusinessCatalog::teamEmail($emailSlug, $i)],
                 [
-                    'name' => RwandaSeederHelper::fullName(700 + $businessNumber * 10 + $i).' ('.$role.')',
+                    'name' => RwandaSeederHelper::fullName(700 + $business->id * 10 + $i).' ('.$role.')',
                     'password' => $this->password,
                     'email_verified_at' => now(),
                     'is_super_admin' => false,

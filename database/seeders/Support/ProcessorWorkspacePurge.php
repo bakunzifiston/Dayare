@@ -128,6 +128,11 @@ class ProcessorWorkspacePurge
                 ->where(function ($q): void {
                     $q->where('email', 'like', 'owner.pws.%@processor.rw')
                         ->orWhere('email', 'like', 'team.pws.%@processor.rw');
+
+                    foreach (ProcessorWorkspaceBusinessCatalog::emailSlugs() as $slug) {
+                        $q->orWhere('email', ProcessorWorkspaceBusinessCatalog::ownerEmail($slug))
+                            ->orWhere('email', 'like', 'team.%@'.$slug.'.rw');
+                    }
                 })
                 ->delete();
         });

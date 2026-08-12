@@ -27,6 +27,8 @@ class DatabaseSeeder extends Seeder
         $this->call(TestProcessorWorkspaceComprehensiveSeeder::class);
 
         $this->call(ColdRoomStandardSeeder::class);
+        /** 12 processor workspaces (PWS-RDB-001 … PWS-RDB-012) — owner@{slug}.rw / password */
+        $this->call(ProcessorWorkspaceSeeder::class);
         /** Nyagatare Prime Meats Ltd — full processor workspace Jan 2022 → today. */
         $this->call(RwandaMeatProcessorDemoSeeder::class);
         $this->call(ColdRoomSeeder::class);
