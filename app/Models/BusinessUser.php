@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class BusinessUser extends Pivot
 {
+    /** @var array<string, list<string>> */
+    private static array $resolvedPermissions = [];
+
     protected $table = 'business_user';
 
     public $incrementing = true;
@@ -34,16 +37,9 @@ class BusinessUser extends Pivot
         self::ROLE_ACCOUNTANT,
     ];
 
-    /** Member roles that must not see the Finance sidebar group (org admin and business owners still can). */
-    public const ROLES_WITHOUT_FINANCE_SIDEBAR = [
-        self::ROLE_OPERATIONS_MANAGER,
-        self::ROLE_COMPLIANCE_OFFICER,
-        self::ROLE_INSPECTOR,
-        self::ROLE_TRANSPORT_MANAGER,
-        self::ROLE_ACCOUNTANT,
-    ];
-
     public const PERMISSION_VIEW_ALL_MODULES = 'view_all_modules';
+
+    public const PERMISSION_VIEW_PROCESSOR_DASHBOARD = 'view_processor_dashboard';
 
     public const PERMISSION_MANAGE_BUSINESS_USERS = 'manage_business_users';
 
@@ -106,6 +102,7 @@ class BusinessUser extends Pivot
     public const PERMISSION_VIEW_FINANCE_REPORTS = 'view_finance_reports';
 
     public const ACTION_PERMISSIONS = [
+        self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
         self::PERMISSION_VIEW_ALL_MODULES,
         self::PERMISSION_MANAGE_BUSINESS_USERS,
         self::PERMISSION_ASSIGN_BUSINESS_ROLES,
@@ -141,6 +138,7 @@ class BusinessUser extends Pivot
 
     public const ROLE_PERMISSION_MAP = [
         self::ROLE_ORG_ADMIN => [
+            self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
             self::PERMISSION_VIEW_ALL_MODULES,
             self::PERMISSION_MANAGE_BUSINESS_USERS,
             self::PERMISSION_ASSIGN_BUSINESS_ROLES,
@@ -157,6 +155,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_FINANCE_REPORTS,
         ],
         self::ROLE_OPERATIONS_MANAGER => [
+            self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
             self::PERMISSION_CREATE_ANIMAL_INTAKE,
             self::PERMISSION_SCHEDULE_SLAUGHTER,
             self::PERMISSION_CREATE_BATCH,
@@ -165,6 +164,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_CERTIFICATES,
         ],
         self::ROLE_COMPLIANCE_OFFICER => [
+            self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
             self::PERMISSION_SUBMIT_CHECKLIST,
             self::PERMISSION_LOG_NON_COMPLIANCE,
             self::PERMISSION_UPLOAD_COMPLIANCE_EVIDENCE,
@@ -175,6 +175,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_CERTIFICATES,
         ],
         self::ROLE_INSPECTOR => [
+            self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
             self::PERMISSION_RECORD_ANTE_MORTEM,
             self::PERMISSION_RECORD_POST_MORTEM,
             self::PERMISSION_ISSUE_CERTIFICATE,
@@ -183,6 +184,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_CERTIFICATES,
         ],
         self::ROLE_TRANSPORT_MANAGER => [
+            self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
             self::PERMISSION_CREATE_TRANSPORT_TRIP,
             self::PERMISSION_ASSIGN_VEHICLE_DRIVER,
             self::PERMISSION_DISPATCH_DELIVERY,
@@ -196,6 +198,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_CERTIFICATES,
         ],
         self::ROLE_ACCOUNTANT => [
+            self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
             self::PERMISSION_VIEW_FINANCE_DASHBOARD,
             self::PERMISSION_MANAGE_AR_INVOICES,
             self::PERMISSION_MANAGE_AP_PAYABLES,
@@ -203,27 +206,94 @@ class BusinessUser extends Pivot
         ],
     ];
 
-    public static function permissionsForRole(?string $role): array
+    public static function defaultPermissionsForRole(?string $role): array
     {
         return self::ROLE_PERMISSION_MAP[$role ?? ''] ?? [];
     }
 
-    public static function showsFinanceSidebarForMembership(?string $role, bool $ownsActiveBusiness): bool
+    public static function permissionsForRole(?string $role, ?int $businessId = null): array
     {
+        $permissions = self::defaultPermissionsForRole($role);
+
+        if ($businessId === null || ! in_array($role, self::ROLES, true)) {
+            return $permissions;
+        }
+
+        $cacheKey = $businessId.':'.$role;
+        if (array_key_exists($cacheKey, self::$resolvedPermissions)) {
+            return self::$resolvedPermissions[$cacheKey];
+        }
+
+        $overrides = BusinessRolePermissionOverride::query()
+            ->where('business_id', $businessId)
+            ->where('role', $role)
+            ->pluck('is_allowed', 'permission');
+
+        foreach ($overrides as $permission => $isAllowed) {
+            if (! in_array($permission, self::ACTION_PERMISSIONS, true)) {
+                continue;
+            }
+
+            if ($isAllowed) {
+                $permissions[] = $permission;
+            } else {
+                $permissions = array_values(array_diff($permissions, [$permission]));
+            }
+        }
+
+        return self::$resolvedPermissions[$cacheKey] = array_values(array_unique($permissions));
+    }
+
+    public static function forgetResolvedPermissions(?int $businessId = null, ?string $role = null): void
+    {
+        if ($businessId === null) {
+            self::$resolvedPermissions = [];
+
+            return;
+        }
+
+        if ($role !== null) {
+            unset(self::$resolvedPermissions[$businessId.':'.$role]);
+
+            return;
+        }
+
+        $prefix = $businessId.':';
+        foreach (array_keys(self::$resolvedPermissions) as $cacheKey) {
+            if (str_starts_with($cacheKey, $prefix)) {
+                unset(self::$resolvedPermissions[$cacheKey]);
+            }
+        }
+    }
+
+    public static function showsFinanceSidebarForMembership(
+        ?string $role,
+        bool $ownsActiveBusiness,
+        ?int $businessId = null
+    ): bool {
         if ($ownsActiveBusiness) {
             return true;
         }
 
-        if ($role === self::ROLE_ORG_ADMIN) {
-            return true;
-        }
+        $financePermissions = [
+            self::PERMISSION_VIEW_FINANCE_DASHBOARD,
+            self::PERMISSION_MANAGE_AR_INVOICES,
+            self::PERMISSION_MANAGE_AP_PAYABLES,
+            self::PERMISSION_VIEW_FINANCE_REPORTS,
+        ];
 
-        return ! in_array($role, self::ROLES_WITHOUT_FINANCE_SIDEBAR, true);
+        return array_intersect(
+            self::permissionsForRole($role, $businessId),
+            $financePermissions
+        ) !== [];
     }
 
-    public static function roleHasPermission(?string $role, string $permission): bool
-    {
-        return in_array($permission, self::permissionsForRole($role), true);
+    public static function roleHasPermission(
+        ?string $role,
+        string $permission,
+        ?int $businessId = null
+    ): bool {
+        return in_array($permission, self::permissionsForRole($role, $businessId), true);
     }
 
     public function business(): BelongsTo

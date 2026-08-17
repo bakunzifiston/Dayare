@@ -36,7 +36,14 @@
             </div>
 
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
-                <h2 class="text-sm font-semibold text-slate-700 border-b border-slate-200 pb-2">{{ __('Access') }}</h2>
+                <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+                    <h2 class="text-sm font-semibold text-slate-700">{{ __('Access') }}</h2>
+                    @if (Auth::user()?->isSuperAdmin() || Auth::user()?->ownsBusiness((int) Auth::user()?->activeProcessorBusinessId()))
+                        <a href="{{ route('tenant-users.user-permissions.index', $user) }}" class="text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
+                            {{ __('Customize this user') }}
+                        </a>
+                    @endif
+                </div>
                 <div>
                     <x-input-label :value="__('Role')" />
                     <select name="role" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary">

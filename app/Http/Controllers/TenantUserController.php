@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\BusinessUser;
+use App\Models\BusinessUserPermissionOverride;
 use App\Models\User;
+use App\Support\ProcessorRolePermissionCatalog;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,69 +28,33 @@ class TenantUserController extends Controller
         ];
     }
 
-    public static function roleGuidance(): array
+    public static function roleGuidance(?int $businessId = null): array
     {
-        return [
-            BusinessUser::ROLE_ORG_ADMIN => [
-                'description' => __('Full workspace governance and cross-module visibility.'),
-                'permissions' => [
-                    __('View all modules'),
-                    __('Manage business users'),
-                    __('Assign business roles'),
-                    __('Monitor compliance metrics'),
-                    __('Track delivery status'),
-                ],
-            ],
-            BusinessUser::ROLE_OPERATIONS_MANAGER => [
-                'description' => __('Runs day-to-day processing operations and planning.'),
-                'permissions' => [
-                    __('Create animal intake records'),
-                    __('Schedule slaughter plans'),
-                    __('Create processing batches'),
-                    __('Assign batches to inspectors'),
-                    __('View inspections and certificates'),
-                ],
-            ],
-            BusinessUser::ROLE_COMPLIANCE_OFFICER => [
-                'description' => __('Oversees compliance controls, evidence, and monitoring.'),
-                'permissions' => [
-                    __('Submit compliance checklists'),
-                    __('Log non-compliance issues'),
-                    __('Upload compliance evidence'),
-                    __('Monitor compliance metrics'),
-                    __('Monitor temperature logs'),
-                ],
-            ],
-            BusinessUser::ROLE_INSPECTOR => [
-                'description' => __('Handles ante/post-mortem inspections and certification steps.'),
-                'permissions' => [
-                    __('Record ante-mortem inspections'),
-                    __('Record post-mortem inspections'),
-                    __('Issue certificates'),
-                    __('View assigned batches'),
-                    __('View inspections and certificates'),
-                ],
-            ],
-            BusinessUser::ROLE_TRANSPORT_MANAGER => [
-                'description' => __('Manages trip dispatch, delivery confirmation, and transport tracking.'),
-                'permissions' => [
-                    __('Create transport trips'),
-                    __('Assign vehicle and driver'),
-                    __('Dispatch deliveries'),
-                    __('Confirm deliveries'),
-                    __('Track delivery status'),
-                ],
-            ],
-            BusinessUser::ROLE_ACCOUNTANT => [
-                'description' => __('Manages receivables, payables, and finance reporting for the business.'),
-                'permissions' => [
-                    __('View finance dashboard'),
-                    __('Manage AR invoices'),
-                    __('Manage AP payables'),
-                    __('View finance reports (cost allocations)'),
-                ],
-            ],
-        ];
+        $guidance = [];
+
+        foreach (BusinessUser::ROLES as $role) {
+            $guidance[$role] = [
+                'description' => self::roleDescription($role),
+                'permissions' => ProcessorRolePermissionCatalog::labelsForPermissions(
+                    BusinessUser::permissionsForRole($role, $businessId)
+                ),
+            ];
+        }
+
+        return $guidance;
+    }
+
+    private static function roleDescription(string $role): string
+    {
+        return match ($role) {
+            BusinessUser::ROLE_ORG_ADMIN => __('Full workspace governance and cross-module visibility.'),
+            BusinessUser::ROLE_OPERATIONS_MANAGER => __('Runs day-to-day processing operations and planning.'),
+            BusinessUser::ROLE_COMPLIANCE_OFFICER => __('Oversees compliance controls, evidence, and monitoring.'),
+            BusinessUser::ROLE_INSPECTOR => __('Handles ante/post-mortem inspections and certification steps.'),
+            BusinessUser::ROLE_TRANSPORT_MANAGER => __('Manages trip dispatch, delivery confirmation, and transport tracking.'),
+            BusinessUser::ROLE_ACCOUNTANT => __('Manages receivables, payables, and finance reporting for the business.'),
+            default => '',
+        };
     }
 
     public function index(Request $request): View|RedirectResponse
@@ -290,6 +256,22 @@ class TenantUserController extends Controller
             }
         }
 
+        $resetPermissionBusinessIds = $existingAssignments
+            ->filter(fn (BusinessUser $assignment): bool => ! $selectedBusinessIds->contains((int) $assignment->business_id)
+                || $assignment->role !== $validated['role'])
+            ->pluck('business_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        if ($resetPermissionBusinessIds !== []) {
+            BusinessUserPermissionOverride::query()
+                ->where('user_id', $userId)
+                ->whereIn('business_id', $resetPermissionBusinessIds)
+                ->delete();
+            foreach ($resetPermissionBusinessIds as $businessId) {
+                User::forgetResolvedProcessorPermissions($userId, $businessId);
+            }
+        }
+
         BusinessUser::query()
             ->where('user_id', $user->id)
             ->whereIn('business_id', $manageableBusinessIds)
@@ -329,6 +311,18 @@ class TenantUserController extends Controller
                 && $this->isLastAdmin((int) $assignment->business_id, $userId)) {
                 return redirect()->route('tenant-users.index')->with('error', __('Cannot remove the last org admin from one of your businesses.'));
             }
+        }
+
+        $removedBusinessIds = $existingAssignments
+            ->pluck('business_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        BusinessUserPermissionOverride::query()
+            ->where('user_id', $userId)
+            ->whereIn('business_id', $removedBusinessIds)
+            ->delete();
+        foreach ($removedBusinessIds as $businessId) {
+            User::forgetResolvedProcessorPermissions($userId, $businessId);
         }
 
         BusinessUser::query()

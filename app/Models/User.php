@@ -17,6 +17,9 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, HasRoles, Notifiable;
 
+    /** @var array<string, list<string>> */
+    private static array $resolvedProcessorPermissions = [];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -354,9 +357,74 @@ class User extends Authenticatable
             return true;
         }
 
-        $role = $this->processorRoleForBusiness($targetBusinessId);
+        return in_array(
+            $permission,
+            $this->processorPermissionsForBusiness($targetBusinessId),
+            true
+        );
+    }
 
-        return BusinessUser::roleHasPermission($role, $permission);
+    /**
+     * Effective permissions after business role and individual overrides.
+     *
+     * @return list<string>
+     */
+    public function processorPermissionsForBusiness(?int $businessId = null): array
+    {
+        $targetBusinessId = $businessId ?? $this->activeProcessorBusinessId();
+        if ($targetBusinessId === null) {
+            return [];
+        }
+
+        $role = $this->processorRoleForBusiness($targetBusinessId);
+        if ($role === null) {
+            return [];
+        }
+
+        $cacheKey = $this->id.':'.$targetBusinessId.':'.$role;
+        if (array_key_exists($cacheKey, self::$resolvedProcessorPermissions)) {
+            return self::$resolvedProcessorPermissions[$cacheKey];
+        }
+
+        $permissions = BusinessUser::permissionsForRole($role, $targetBusinessId);
+        $overrides = BusinessUserPermissionOverride::query()
+            ->where('business_id', $targetBusinessId)
+            ->where('user_id', $this->id)
+            ->pluck('is_allowed', 'permission');
+
+        foreach ($overrides as $permission => $isAllowed) {
+            if (! in_array($permission, BusinessUser::ACTION_PERMISSIONS, true)) {
+                continue;
+            }
+
+            if ($isAllowed) {
+                $permissions[] = $permission;
+            } else {
+                $permissions = array_values(array_diff($permissions, [$permission]));
+            }
+        }
+
+        return self::$resolvedProcessorPermissions[$cacheKey] = array_values(array_unique($permissions));
+    }
+
+    public static function forgetResolvedProcessorPermissions(
+        ?int $userId = null,
+        ?int $businessId = null
+    ): void {
+        if ($userId === null && $businessId === null) {
+            self::$resolvedProcessorPermissions = [];
+
+            return;
+        }
+
+        foreach (array_keys(self::$resolvedProcessorPermissions) as $cacheKey) {
+            [$cachedUserId, $cachedBusinessId] = array_map('intval', explode(':', $cacheKey, 3));
+
+            if (($userId === null || $cachedUserId === $userId)
+                && ($businessId === null || $cachedBusinessId === $businessId)) {
+                unset(self::$resolvedProcessorPermissions[$cacheKey]);
+            }
+        }
     }
 
     public function ownsBusiness(int $businessId): bool
@@ -365,6 +433,26 @@ class User extends Authenticatable
             ->whereKey($businessId)
             ->where('user_id', $this->id)
             ->exists();
+    }
+
+    public function showsProcessorFinanceSidebar(?int $businessId = null): bool
+    {
+        $targetBusinessId = $businessId ?? $this->activeProcessorBusinessId();
+        if ($targetBusinessId !== null && $this->ownsBusiness($targetBusinessId)) {
+            return true;
+        }
+
+        $financePermissions = [
+            BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD,
+            BusinessUser::PERMISSION_MANAGE_AR_INVOICES,
+            BusinessUser::PERMISSION_MANAGE_AP_PAYABLES,
+            BusinessUser::PERMISSION_VIEW_FINANCE_REPORTS,
+        ];
+
+        return array_intersect(
+            $this->processorPermissionsForBusiness($targetBusinessId),
+            $financePermissions
+        ) !== [];
     }
 
     /**
@@ -558,8 +646,45 @@ class User extends Authenticatable
             Business::TYPE_FARMER => 'farmer.dashboard',
             Business::TYPE_LOGISTICS => 'logistics.dashboard.index',
             Business::TYPE_BUTCHER => 'butcher.dashboard',
+            Business::TYPE_PROCESSOR => $this->defaultProcessorHomeRouteName(),
             default => 'dashboard',
         };
+    }
+
+    private function defaultProcessorHomeRouteName(): string
+    {
+        $businessId = $this->activeProcessorBusinessId();
+        if ($businessId === null && $this->accessibleProcessorBusinessIds()->isEmpty()) {
+            return 'businesses.hub';
+        }
+
+        $permissionRoutes = [
+            BusinessUser::PERMISSION_VIEW_PROCESSOR_DASHBOARD => 'dashboard',
+            BusinessUser::PERMISSION_VIEW_ALL_MODULES => 'businesses.hub',
+            BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE => 'animal-intakes.hub',
+            BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER => 'slaughter-plans.hub',
+            BusinessUser::PERMISSION_ASSIGN_BATCH_TO_INSPECTOR => 'inspectors.hub',
+            BusinessUser::PERMISSION_VIEW_INSPECTIONS => 'monthly-inspection-reports.index',
+            BusinessUser::PERMISSION_VIEW_CERTIFICATES => 'certificates.hub',
+            BusinessUser::PERMISSION_MONITOR_TEMPERATURE_LOGS => 'cold-rooms.hub',
+            BusinessUser::PERMISSION_TRACK_DELIVERY_STATUS => 'transport-trips.hub',
+            BusinessUser::PERMISSION_CREATE_TRANSPORT_TRIP => 'transport-trips.hub',
+            BusinessUser::PERMISSION_CONFIRM_DELIVERY => 'delivery-confirmations.hub',
+            BusinessUser::PERMISSION_MONITOR_COMPLIANCE_METRICS => 'compliance.index',
+            BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD => 'finance.dashboard',
+            BusinessUser::PERMISSION_MANAGE_AR_INVOICES => 'finance.invoices.index',
+            BusinessUser::PERMISSION_MANAGE_AP_PAYABLES => 'finance.payables.index',
+            BusinessUser::PERMISSION_VIEW_FINANCE_REPORTS => 'finance.cost-allocations.index',
+            BusinessUser::PERMISSION_MANAGE_BUSINESS_USERS => 'tenant-users.index',
+        ];
+
+        foreach ($permissionRoutes as $permission => $routeName) {
+            if ($this->canProcessorPermission($permission, $businessId)) {
+                return $routeName;
+            }
+        }
+
+        return 'processor.no-access';
     }
 
     /** Relative URL path for post-login / intended redirects. */

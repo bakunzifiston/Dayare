@@ -209,3 +209,4 @@ Implementing these will give good coverage for tenant isolation, compliance rule
 - **tests/Feature/AnimalIntakeSlaughterPlanComplianceTest.php** — Slaughter plan store fails when health certificate expired or when scheduled count exceeds remaining animals.
 
 Run: `php artisan test tests/Feature/TenantAuthorizationTest.php tests/Feature/TraceabilityTest.php tests/Unit/AnimalIntakeTest.php tests/Feature/AnimalIntakeSlaughterPlanComplianceTest.php`
+

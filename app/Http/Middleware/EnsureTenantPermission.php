@@ -11,7 +11,7 @@ class EnsureTenantPermission
 {
     /** Route prefix => {view, create, update, delete} permission. */
     private const MODULE_PERMISSION_MAP = [
-        'dashboard' => ['view' => null],
+        'dashboard' => ['view' => BusinessUser::PERMISSION_VIEW_PROCESSOR_DASHBOARD],
         'businesses' => ['view' => BusinessUser::PERMISSION_VIEW_ALL_MODULES],
         'inspectors' => [
             'view' => BusinessUser::PERMISSION_ASSIGN_BATCH_TO_INSPECTOR,

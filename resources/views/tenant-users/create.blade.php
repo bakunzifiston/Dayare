@@ -47,7 +47,7 @@
                 </div>
                 <div>
                     <x-input-label :value="__('Role access summary')" />
-                    <p class="mt-1 text-xs text-slate-500">{{ __('Review each role before assigning access.') }}</p>
+                    <p class="mt-1 text-xs text-slate-500">{{ __('Review each role before assigning access. Effective permissions may differ per business when role access has been customized.') }}</p>
                     <div class="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-3">
                         @foreach ($roleGuidance as $roleValue => $guidance)
                             <div

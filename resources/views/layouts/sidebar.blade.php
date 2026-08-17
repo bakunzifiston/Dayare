@@ -3,7 +3,7 @@
     $user = Auth::user();
 
     $tenantNav = [
-        ['label' => __('Dashboard'), 'route' => 'dashboard', 'icon' => 'dashboard', 'permission' => null],
+        ['label' => __('Dashboard'), 'route' => 'dashboard', 'icon' => 'dashboard', 'permission' => 'view_processor_dashboard'],
         [
             'group' => __('Inspectors'),
             'icon' => 'user',
@@ -21,7 +21,7 @@
                 ['label' => __('Slaughter planning'), 'route' => 'slaughter-plans.hub', 'icon' => 'calendar', 'permission' => 'schedule_slaughter', 'routeIs' => ['slaughter-plans.hub', 'slaughter-plans.index', 'slaughter-plans.create', 'slaughter-plans.edit', 'slaughter-plans.show']],
                 ['label' => __('Ante-mortem'), 'route' => 'ante-mortem-inspections.index', 'icon' => 'clipboard-list', 'permission' => 'view_inspections'],
                 ['label' => __('Slaughter execution'), 'route' => 'slaughter-executions.hub', 'icon' => 'play', 'permission' => 'schedule_slaughter', 'routeIs' => ['slaughter-executions.hub', 'slaughter-executions.index', 'slaughter-executions.create', 'slaughter-executions.edit', 'slaughter-executions.show']],
-                ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.hub', 'icon' => 'clipboard', 'permission' => 'record_post_mortem', 'routeIs' => ['post-mortem-inspections.hub', 'post-mortem-inspections.index', 'post-mortem-inspections.create', 'post-mortem-inspections.edit', 'post-mortem-inspections.show']],
+                ['label' => __('Post-mortem'), 'route' => 'post-mortem-inspections.hub', 'icon' => 'clipboard', 'permission' => 'view_inspections', 'permissions' => ['view_inspections', 'record_post_mortem'], 'routeIs' => ['post-mortem-inspections.hub', 'post-mortem-inspections.index', 'post-mortem-inspections.create', 'post-mortem-inspections.edit', 'post-mortem-inspections.show']],
                 ['label' => __('Cold Room'), 'route' => 'cold-rooms.hub', 'icon' => 'box', 'permission' => 'monitor_temperature_logs', 'routeIs' => ['cold-rooms.hub', 'cold-rooms.manage.*', 'warehouse-storages.*']],
                 ['label' => __('Certificates'), 'route' => 'certificates.hub', 'icon' => 'certificate', 'permission' => 'view_certificates', 'routeIs' => ['certificates.hub', 'certificates.index', 'certificates.create', 'certificates.edit', 'certificates.show', 'certificates.qr']],
                 ['label' => __('Transport'), 'route' => 'transport-trips.hub', 'icon' => 'truck', 'permission' => 'create_transport_trip', 'permissions' => ['create_transport_trip', 'track_delivery_status'], 'routeIs' => ['transport-trips.hub', 'transport-trips.index', 'transport-trips.create', 'transport-trips.edit', 'transport-trips.show', 'transport-trips.export', 'transport-trips.export.traceability']],
@@ -53,16 +53,19 @@
             ],
         ],
     ];
-    $tenantNav[] = ['label' => __('Users'), 'route' => 'tenant-users.index', 'icon' => 'users', 'permission' => 'manage_business_users'];
+    $tenantNav[] = ['label' => __('Users'), 'route' => 'tenant-users.index', 'icon' => 'users', 'permission' => 'manage_business_users', 'routeIs' => ['tenant-users.index', 'tenant-users.create', 'tenant-users.edit', 'tenant-users.user-permissions.*', 'tenant-users.role-permissions.*']];
     $tenantNav[] = ['label' => __('Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => 'view_all_modules', 'routeIs' => ['settings.edit', 'cold-room-standards.*']];
 
     if (! $isSuperAdmin && $user) {
         $activeProcessorBusinessId = $user->activeProcessorBusinessId();
-        $processorRole = $user->processorRoleForBusiness($activeProcessorBusinessId);
         $ownsActiveProcessorBusiness = $activeProcessorBusinessId !== null && $user->ownsBusiness($activeProcessorBusinessId);
-        $showFinanceSidebar = \App\Models\BusinessUser::showsFinanceSidebarForMembership($processorRole, $ownsActiveProcessorBusiness);
+        $showFinanceSidebar = $user->showsProcessorFinanceSidebar($activeProcessorBusinessId);
 
         $canAccessNavItem = function (array $item) use ($user, $activeProcessorBusinessId, $ownsActiveProcessorBusiness): bool {
+            if (($item['ownerOnly'] ?? false) && ! $ownsActiveProcessorBusiness) {
+                return false;
+            }
+
             if ($ownsActiveProcessorBusiness) {
                 return true;
             }

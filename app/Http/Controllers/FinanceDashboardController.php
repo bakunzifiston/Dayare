@@ -25,12 +25,6 @@ class FinanceDashboardController extends Controller
         $activeBusinessId = $user->activeProcessorBusinessId();
         $role = $user->processorRoleForBusiness($activeBusinessId);
 
-        if ($role === BusinessUser::ROLE_ACCOUNTANT
-            && $activeBusinessId !== null
-            && ! $user->ownsBusiness($activeBusinessId)) {
-            return redirect()->route('dashboard');
-        }
-
         $period = (string) $request->query('kpi_period', 'all');
         if (! in_array($period, ['all', 'day', 'month', 'year'], true)) {
             $period = 'all';

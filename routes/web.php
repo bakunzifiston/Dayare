@@ -4,28 +4,26 @@ use App\Http\Controllers\AdministrativeDivisionController;
 use App\Http\Controllers\AnimalIntakeController;
 use App\Http\Controllers\AnteMortemInspectionController;
 use App\Http\Controllers\BatchController;
+use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\Butcher\ButcherBusinessController;
+use App\Http\Controllers\Butcher\ButcherCatalogController;
+use App\Http\Controllers\Butcher\ButcherComplianceController;
+use App\Http\Controllers\Butcher\ButcherCuttingController;
+use App\Http\Controllers\Butcher\ButcherFinanceController;
 use App\Http\Controllers\Butcher\ButcherOnboardingController;
 use App\Http\Controllers\Butcher\ButcherProcurementController;
-use App\Http\Controllers\Butcher\ButcherComplianceController;
-use App\Http\Controllers\Butcher\ButcherFinanceController;
-use App\Http\Controllers\Butcher\ButcherCatalogController;
-use App\Http\Controllers\Butcher\ButcherCuttingController;
 use App\Http\Controllers\Butcher\ButcherSalesController;
 use App\Http\Controllers\Butcher\ButcherStorageController;
 use App\Http\Controllers\ButcherDashboardController;
-use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ColdRoomController;
 use App\Http\Controllers\ColdRoomStandardController;
-use App\Http\Controllers\MonthlyInspectionReportController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\CrmDashboardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryConfirmationController;
-use App\Http\Controllers\MeatExportDocumentController;
 use App\Http\Controllers\DemandController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FacilityController;
@@ -76,8 +74,12 @@ use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\LogisticsDashboardController;
 use App\Http\Controllers\LogisticsModuleController;
+use App\Http\Controllers\MeatExportDocumentController;
+use App\Http\Controllers\MonthlyInspectionReportController;
 use App\Http\Controllers\PostMortemInspectionController;
 use App\Http\Controllers\ProcessorBusinessContextController;
+use App\Http\Controllers\ProcessorRolePermissionController;
+use App\Http\Controllers\ProcessorUserPermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\PwaServiceWorkerController;
@@ -87,13 +89,13 @@ use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SlaughterExecutionController;
 use App\Http\Controllers\SlaughterPlanController;
 use App\Http\Controllers\SpeciesController;
-use App\Http\Controllers\SuperAdminConfigurationController;
+use App\Http\Controllers\SuperAdmin\RicaController;
+use App\Http\Controllers\SuperAdmin\RicaSettingsController;
 use App\Http\Controllers\SuperAdminComplianceController;
+use App\Http\Controllers\SuperAdminConfigurationController;
 use App\Http\Controllers\SuperAdminDashboardController;
 use App\Http\Controllers\SuperAdminTenantController;
 use App\Http\Controllers\SuperAdminUserController;
-use App\Http\Controllers\SuperAdmin\RicaController;
-use App\Http\Controllers\SuperAdmin\RicaSettingsController;
 use App\Http\Controllers\SuperAdminVibeProgrammeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TenantUserController;
@@ -338,7 +340,7 @@ Route::get('/debug-facilities-route', function () {
 })->middleware('auth');
 
 Route::get('/dashboard', DashboardController::class)
-    ->middleware(['auth', 'verified', 'tenant', 'workspace:processor'])
+    ->middleware(['auth', 'verified', 'tenant', 'workspace:processor', 'tenant.permission'])
     ->name('dashboard');
 
 Route::middleware(['auth', 'verified', 'tenant', 'workspace:farmer', 'tenant.permission'])->prefix('farmer')->name('farmer.')->group(function () {
@@ -694,9 +696,22 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
         Route::post('cost-allocations/template', [FinanceCostAllocationController::class, 'storeTemplate'])->name('cost-allocations.store-template');
     });
 
+    Route::get('tenant-users/role-permissions', [ProcessorRolePermissionController::class, 'index'])
+        ->name('tenant-users.role-permissions.index');
+    Route::put('tenant-users/role-permissions', [ProcessorRolePermissionController::class, 'update'])
+        ->name('tenant-users.role-permissions.update');
+    Route::delete('tenant-users/role-permissions', [ProcessorRolePermissionController::class, 'destroy'])
+        ->name('tenant-users.role-permissions.destroy');
+    Route::get('tenant-users/{user}/permissions', [ProcessorUserPermissionController::class, 'index'])
+        ->name('tenant-users.user-permissions.index');
+    Route::put('tenant-users/{user}/permissions', [ProcessorUserPermissionController::class, 'update'])
+        ->name('tenant-users.user-permissions.update');
+    Route::delete('tenant-users/{user}/permissions', [ProcessorUserPermissionController::class, 'destroy'])
+        ->name('tenant-users.user-permissions.destroy');
     Route::resource('tenant-users', TenantUserController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->names('tenant-users');
 
     Route::prefix('processor')->name('processor.')->group(function () {
+        Route::view('no-access', 'processor.no-access')->name('no-access');
         Route::redirect('supply-requests', '/dashboard')->name('supply-requests.index');
         Route::redirect('supply-requests/create', '/dashboard')->name('supply-requests.create');
         Route::post('business-context', [ProcessorBusinessContextController::class, 'update'])->name('business-context.update');
