@@ -117,7 +117,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/auth/me',
     operationId: 'mobileAuthMe',
     summary: 'Current user for this token',
-    description: 'Requires `Authorization: Bearer <token>`. Optional query `business_id` to resolve `userRole` / `business_type` for that workspace. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).',
+    description: 'Requires `Authorization: Bearer <token>`. Optional query `business_id` to resolve `userRole`, `business_type`, and effective `permissions` for that workspace. Processor access is customizable per role and per user in the web administration panel; `permissions` is the list mobile clients should use for feature gating. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).',
     tags: ['Mobile API', 'Users'],
     security: [['bearerAuth' => []]],
     parameters: [

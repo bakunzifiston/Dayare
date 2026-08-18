@@ -2,7 +2,7 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Butchapro API",
-        "description": "**This documentation includes both web and API routes.**\n\n- **Mobile / API clients:** Only paths under `/api/v1/*` are intended for programmatic access. Use `Authorization: Bearer <token>` with a token from `POST /api/v1/auth/login`. Responses are JSON with envelope `{ \"success\": true|false, \"message\": string, \"data\": object }` (or `errors` on failure). Paginated lists use `{ data: { data: [], meta: {...}, filters: {...} } }`.\n\n- **Web routes:** Operations tagged **Web Routes** use Laravel **session** authentication (browser cookies), often return **HTML** or **redirects**, and are **not** substitutes for the mobile API.\n\n**Filtering:** In Swagger UI, filter by tag **Mobile API** to see only Bearer JSON endpoints.\n\n**Token lifecycle contract (mobile):**\n- Tokens are opaque (stored hashed in `mobile_api_tokens`) and currently expire **30 days** after issuance (`expires_at`).\n- There is **no refresh endpoint** in this API version.\n- When a token expires or is invalid, protected routes return `401` and the client must re-authenticate via `POST /api/v1/auth/login`.\n- `POST /api/v1/auth/logout` invalidates **only the current bearer token** used on that request.\n- Logging in again issues a new token; previous tokens remain valid until their own expiry or explicit logout with that token.\n\n**Ownership + 404 semantics (important):** For protected `/api/v1/*` routes, this API intentionally returns **404** when a resource is missing **or** outside the token's accessible workspace scope. This prevents cross-tenant resource enumeration. Mobile clients should treat these cases as a single \"not available in current workspace\" condition.\n\n**REST style:** Core processor modules expose list/create plus `GET/PUT/DELETE` resource routes under `/api/v1`.",
+        "description": "**This documentation includes both web and API routes.**\n\n- **Mobile / API clients:** Only paths under `/api/v1/*` are intended for programmatic access. Use `Authorization: Bearer <token>` with a token from `POST /api/v1/auth/login`. Responses are JSON with envelope `{ \"success\": true|false, \"message\": string, \"data\": object }` (or `errors` on failure). Paginated lists use `{ data: { data: [], meta: {...}, filters: {...} } }`.\n\n- **Web routes:** Operations tagged **Web Routes** use Laravel **session** authentication (browser cookies), often return **HTML** or **redirects**, and are **not** substitutes for the mobile API.\n\n**Filtering:** In Swagger UI, filter by tag **Mobile API** to see only Bearer JSON endpoints.\n\n**Processor access control:**\n- `userRole` is the assigned membership role (`org_admin`, `operations_manager`, `compliance_officer`, `inspector`, `transport_manager`, `accountant`).\n- Effective module access is customizable in the web Users panel (role access and individual access).\n- `GET /api/v1/auth/me` and login `data.user.permissions` return the **effective** processor permission strings for the selected business. Mobile clients should gate screens on `permissions`, not only on `userRole`.\n- Business owners and super administrators always have the full processor catalog. Non-processor workspaces return `permissions: []`.\n\n**Token lifecycle contract (mobile):**\n- Tokens are opaque (stored hashed in `mobile_api_tokens`) and currently expire **30 days** after issuance (`expires_at`).\n- There is **no refresh endpoint** in this API version.\n- When a token expires or is invalid, protected routes return `401` and the client must re-authenticate via `POST /api/v1/auth/login`.\n- `POST /api/v1/auth/logout` invalidates **only the current bearer token** used on that request.\n- Logging in again issues a new token; previous tokens remain valid until their own expiry or explicit logout with that token.\n\n**Ownership + 404 semantics (important):** For protected `/api/v1/*` routes, this API intentionally returns **404** when a resource is missing **or** outside the token's accessible workspace scope. This prevents cross-tenant resource enumeration. Mobile clients should treat these cases as a single \"not available in current workspace\" condition.\n\n**REST style:** Core processor modules expose list/create plus `GET/PUT/DELETE` resource routes under `/api/v1`.",
         "version": "1.0.0"
     },
     "servers": [
@@ -267,7 +267,7 @@
                     "Users"
                 ],
                 "summary": "Current user for this token",
-                "description": "Requires `Authorization: Bearer <token>`. Optional query `business_id` to resolve `userRole` / `business_type` for that workspace. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).",
+                "description": "Requires `Authorization: Bearer <token>`. Optional query `business_id` to resolve `userRole`, `business_type`, and effective `permissions` for that workspace. Processor access is customizable per role and per user in the web administration panel; `permissions` is the list mobile clients should use for feature gating. In Swagger UI: click **Authorize**, enter the plain token from `POST /api/v1/auth/login` (the UI sends the Bearer prefix automatically).",
                 "operationId": "mobileAuthMe",
                 "parameters": [
                     {
@@ -5880,8 +5880,9 @@
                         "type": "boolean"
                     },
                     "userRole": {
+                        "description": "Assigned membership role for the selected business. Not the final access list.",
                         "type": "string",
-                        "example": "org_admin"
+                        "example": "inspector"
                     },
                     "business_type": {
                         "type": "string",
@@ -5892,6 +5893,14 @@
                         "type": "integer",
                         "example": 12,
                         "nullable": true
+                    },
+                    "permissions": {
+                        "description": "Effective processor permissions for the selected business after role defaults, per-business role customization, and per-user overrides. Empty for non-processor workspaces. Super administrators and business owners receive the full processor catalog.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "example": "record_ante_mortem"
+                        }
                     },
                     "accessible_businesses": {
                         "type": "array",
@@ -7373,9 +7382,9 @@
                         "example": false
                     },
                     "userRole": {
-                        "description": "Membership: org_admin, operations_manager, compliance_officer, inspector, transport_manager, super_admin, or user",
+                        "description": "Membership role for the selected business: org_admin, operations_manager, compliance_officer, inspector, transport_manager, accountant, super_admin, or user. This is the assigned role name, not the final access list.",
                         "type": "string",
-                        "example": "org_admin"
+                        "example": "inspector"
                     },
                     "business_type": {
                         "description": "Tenant type for active workspace",
@@ -7387,6 +7396,14 @@
                         "type": "integer",
                         "example": 12,
                         "nullable": true
+                    },
+                    "permissions": {
+                        "description": "Effective processor permissions for the selected business after role defaults, per-business role customization, and per-user overrides. Empty for non-processor workspaces. Super administrators and business owners receive the full processor catalog. Mobile clients should gate features on this list, not only on userRole.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "example": "issue_certificate"
+                        }
                     },
                     "accessible_businesses": {
                         "type": "array",
@@ -7402,7 +7419,7 @@
                                     "type": "string"
                                 },
                                 "membership": {
-                                    "description": "org_admin | operations_manager | compliance_officer | inspector | transport_manager",
+                                    "description": "Assigned role: org_admin | operations_manager | compliance_officer | inspector | transport_manager | accountant",
                                     "type": "string"
                                 }
                             },

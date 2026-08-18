@@ -91,6 +91,68 @@ class MobileAuthControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.userRole', BusinessUser::ROLE_OPERATIONS_MANAGER)
-            ->assertJsonPath('data.business_type', Business::TYPE_LOGISTICS);
+            ->assertJsonPath('data.business_type', Business::TYPE_LOGISTICS)
+            ->assertJsonPath('data.permissions', []);
+    }
+
+    public function test_auth_me_returns_effective_processor_permissions_after_user_override(): void
+    {
+        $owner = User::factory()->create();
+        $inspector = User::factory()->create([
+            'password' => Hash::make('secret-123'),
+        ]);
+        $business = Business::factory()->create([
+            'user_id' => $owner->id,
+            'type' => Business::TYPE_PROCESSOR,
+        ]);
+        BusinessUser::query()->create([
+            'business_id' => $business->id,
+            'user_id' => $inspector->id,
+            'role' => BusinessUser::ROLE_INSPECTOR,
+        ]);
+
+        $this->assertContains(
+            BusinessUser::PERMISSION_ISSUE_CERTIFICATE,
+            $inspector->mobileProcessorPermissions($business->id)
+        );
+
+        $this->actingAs($owner)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->put(route('tenant-users.user-permissions.update', $inspector), [
+                'business_id' => $business->id,
+                'permissions' => [
+                    BusinessUser::PERMISSION_VIEW_INSPECTIONS,
+                    BusinessUser::PERMISSION_VIEW_ASSIGNED_BATCHES,
+                ],
+            ])
+            ->assertRedirect();
+
+        $loginResponse = $this->postJson('/api/v1/auth/login', [
+            'email' => $inspector->email,
+            'password' => 'secret-123',
+            'device_name' => 'android-test',
+            'business_id' => $business->id,
+        ])->assertOk();
+
+        $loginResponse
+            ->assertJsonPath('data.user.userRole', BusinessUser::ROLE_INSPECTOR);
+        $this->assertNotContains(
+            BusinessUser::PERMISSION_ISSUE_CERTIFICATE,
+            $loginResponse->json('data.user.permissions')
+        );
+        $this->assertContains(
+            BusinessUser::PERMISSION_VIEW_INSPECTIONS,
+            $loginResponse->json('data.user.permissions')
+        );
+
+        $token = (string) $loginResponse->json('data.token');
+        $mePermissions = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/auth/me?business_id='.$business->id)
+            ->assertOk()
+            ->assertJsonPath('data.userRole', BusinessUser::ROLE_INSPECTOR)
+            ->json('data.permissions');
+
+        $this->assertNotContains(BusinessUser::PERMISSION_ISSUE_CERTIFICATE, $mePermissions);
+        $this->assertContains(BusinessUser::PERMISSION_VIEW_INSPECTIONS, $mePermissions);
     }
 }

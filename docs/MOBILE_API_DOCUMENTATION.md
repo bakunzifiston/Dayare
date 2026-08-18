@@ -51,7 +51,7 @@ The mobile API uses Bearer token authentication.
 
 Request:
 
-Optional: `"business_id": 12` to resolve `userRole` / `business_type` for that workspace (must be in your accessible businesses).
+Optional: `"business_id": 12` to resolve `userRole`, `business_type`, and effective `permissions` for that workspace (must be in your accessible businesses).
 
 ```json
 {
@@ -77,11 +77,19 @@ Response `200` (payload under `data`):
       "name": "Field User",
       "email": "user@company.com",
       "is_super_admin": false,
-      "userRole": "owner",
+      "userRole": "inspector",
       "business_type": "processor",
       "business_id": 3,
+      "permissions": [
+        "view_processor_dashboard",
+        "record_ante_mortem",
+        "record_post_mortem",
+        "view_assigned_batches",
+        "view_inspections",
+        "view_certificates"
+      ],
       "accessible_businesses": [
-        { "id": 3, "name": "Acme Ltd", "type": "processor", "membership": "owner" }
+        { "id": 3, "name": "Acme Ltd", "type": "processor", "membership": "inspector" }
       ],
       "accessible_business_ids": [3]
     }
@@ -89,7 +97,8 @@ Response `200` (payload under `data`):
 }
 ```
 
-- **`userRole`**: membership — `owner`, `manager`, `staff`, `super_admin`, or `user` (no business yet).
+- **`userRole`**: assigned membership for the selected business — `org_admin`, `operations_manager`, `compliance_officer`, `inspector`, `transport_manager`, `accountant`, `super_admin`, or `user` (no business yet). This is the role name, not the final access list.
+- **`permissions`**: effective processor permission strings for the selected business after role defaults, per-business role customization, and per-user overrides. Empty for farmer/logistics workspaces. Super administrators and business owners receive the full processor catalog. Mobile clients should gate features on this list.
 - **`business_type`**: tenant type for the **active** workspace (`farmer` | `processor` | `logistics`).
 - Do **not** use web routes `POST /register` or `POST /businesses` from mobile JSON clients (they require CSRF). Use the API routes below instead.
 
@@ -127,9 +136,17 @@ Response `200` (user fields under `data`):
     "name": "Field User",
     "email": "user@company.com",
     "is_super_admin": false,
-    "userRole": "business_manager",
+    "userRole": "inspector",
     "business_type": "processor",
-    "accessible_business_ids": [3, 5]
+    "business_id": 3,
+    "permissions": [
+      "view_processor_dashboard",
+      "record_ante_mortem",
+      "view_assigned_batches",
+      "view_inspections",
+      "view_certificates"
+    ],
+    "accessible_business_ids": [3]
   }
 }
 ```

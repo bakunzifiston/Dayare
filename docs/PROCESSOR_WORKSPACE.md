@@ -14,7 +14,7 @@ Reference for the **Processor** tenant workspace in DayareMeat (BuchaPro). Gener
 | **Tenant type** | `Business::TYPE_PROCESSOR` (`'processor'`) on the processor company record |
 | **Facility types** | `Slaughterhouse`, `Butchery`, `storage`, `Other` — operational sites under a processor business |
 | **Data scope** | Active processor business → facilities → slaughter chain → certificates → transport → delivery; CRM/finance scoped by `business_id` |
-| **Permission model** | Role-based via `business_user` pivot (`BusinessUser::ROLE_PERMISSION_MAP`); business **owners** bypass RBAC |
+| **Permission model** | Role-based via `business_user` pivot (`BusinessUser::ROLE_PERMISSION_MAP`), plus per-business role overrides and per-user overrides. Business **owners** and super administrators bypass RBAC. Mobile clients receive effective `permissions` from `POST /api/v1/auth/login` and `GET /api/v1/auth/me`. |
 | **Hierarchy** | **Business (processor)** → **Facility** → **Animal intake** → **Slaughter plan** → **Slaughter execution** → **Batch** → **Certificate** → **Warehouse storage** → **Transport trip** → **Delivery confirmation** |
 
 ### Related documentation

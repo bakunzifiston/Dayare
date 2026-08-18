@@ -27,6 +27,12 @@ use OpenApi\Attributes as OA;
 
 **Filtering:** In Swagger UI, filter by tag **Mobile API** to see only Bearer JSON endpoints.
 
+**Processor access control:**
+- `userRole` is the assigned membership role (`org_admin`, `operations_manager`, `compliance_officer`, `inspector`, `transport_manager`, `accountant`).
+- Effective module access is customizable in the web Users panel (role access and individual access).
+- `GET /api/v1/auth/me` and login `data.user.permissions` return the **effective** processor permission strings for the selected business. Mobile clients should gate screens on `permissions`, not only on `userRole`.
+- Business owners and super administrators always have the full processor catalog. Non-processor workspaces return `permissions: []`.
+
 **Token lifecycle contract (mobile):**
 - Tokens are opaque (stored hashed in `mobile_api_tokens`) and currently expire **30 days** after issuance (`expires_at`).
 - There is **no refresh endpoint** in this API version.

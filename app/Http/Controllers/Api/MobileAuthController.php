@@ -181,6 +181,7 @@ class MobileAuthController extends Controller
             'userRole' => $ctx['userRole'],
             'business_type' => $ctx['business_type'],
             'business_id' => $ctx['business_id'],
+            'permissions' => $user->mobileProcessorPermissions($ctx['business_id']),
             'accessible_businesses' => $ctx['accessible_businesses'],
             'accessible_business_ids' => $user->accessibleBusinessIds()->all(),
         ];

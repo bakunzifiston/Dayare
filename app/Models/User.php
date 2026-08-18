@@ -435,6 +435,37 @@ class User extends Authenticatable
             ->exists();
     }
 
+    /**
+     * Effective processor permissions for mobile/API clients.
+     *
+     * Business owners and super administrators receive the full processor catalog.
+     * Members receive role defaults plus business/user overrides for the selected processor business.
+     *
+     * @return list<string>
+     */
+    public function mobileProcessorPermissions(?int $businessId = null): array
+    {
+        if ($this->isSuperAdmin()) {
+            return BusinessUser::ACTION_PERMISSIONS;
+        }
+
+        $targetBusinessId = $businessId ?? $this->activeProcessorBusinessId();
+        if ($targetBusinessId === null) {
+            return [];
+        }
+
+        $businessType = Business::query()->whereKey($targetBusinessId)->value('type');
+        if ($businessType !== Business::TYPE_PROCESSOR) {
+            return [];
+        }
+
+        if ($this->ownsBusiness($targetBusinessId)) {
+            return BusinessUser::ACTION_PERMISSIONS;
+        }
+
+        return $this->processorPermissionsForBusiness($targetBusinessId);
+    }
+
     public function showsProcessorFinanceSidebar(?int $businessId = null): bool
     {
         $targetBusinessId = $businessId ?? $this->activeProcessorBusinessId();
