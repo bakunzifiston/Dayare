@@ -32,7 +32,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         return view('butcher.compliance.index', [
@@ -45,7 +45,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $today = now()->toDateString();
@@ -77,7 +77,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $log = $this->compliance->logHygiene($business, $request->validated(), $request->user());
@@ -91,7 +91,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $hygieneLog->business_id === (int) $business->id, 404);
 
@@ -108,7 +108,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $records = $business->butcherSanitationRecords()
@@ -128,7 +128,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $this->compliance->logSanitation($business, $request->validated(), $request->user());
@@ -142,7 +142,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $records = $business->butcherStaffHealthRecords()
@@ -162,7 +162,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $this->compliance->upsertStaffHealth($business, $request->validated());
@@ -176,7 +176,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $from = Carbon::parse($request->query('from', now()->subDays(30)->toDateString()))->startOfDay();
@@ -194,7 +194,7 @@ class ButcherComplianceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $from = Carbon::parse($request->query('from', now()->subDays(30)->toDateString()))->startOfDay();

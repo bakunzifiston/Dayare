@@ -9,7 +9,7 @@
                 {{ __('Butcher workspace') }}
             </h2>
             <p class="mt-1 text-sm text-gray-500">
-                {{ __('Daily overview of sales, stock, finance, and compliance.') }}
+                {{ __('Daily overview of sales, finance, and compliance.') }}
             </p>
         </div>
     </x-slot>
@@ -64,39 +64,6 @@
                     </div>
                 </section>
 
-                {{-- Stock & inventory --}}
-                <section>
-                    <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{{ __('Stock & inventory') }}</h3>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <x-butcher.kpi-card
-                            :label="__('Batches in storage')"
-                            :value="$stock['batches_in_storage']['value']"
-                            :subtext="$stock['batches_in_storage']['subtext']"
-                            icon="ti ti-packages"
-                        />
-                        <x-butcher.kpi-card
-                            :label="__('Total stock kg')"
-                            :value="$stock['total_stock_kg']['value']"
-                            :subtext="$stock['total_stock_kg']['subtext']"
-                            icon="ti ti-weight"
-                        />
-                        <x-butcher.kpi-card
-                            :label="__('Expiring soon')"
-                            :value="$stock['expiring_soon']['value']"
-                            :subtext="$stock['expiring_soon']['subtext']"
-                            :color="$stock['expiring_soon']['color']"
-                            icon="ti ti-clock-exclamation"
-                        />
-                        <x-butcher.kpi-card
-                            :label="__('Temp status')"
-                            :value="$stock['temp_status']['value']"
-                            :subtext="$stock['temp_status']['subtext']"
-                            :color="$stock['temp_status']['color']"
-                            icon="ti ti-temperature"
-                        />
-                    </div>
-                </section>
-
                 {{-- Finance --}}
                 <section>
                     <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{{ __('Finance') }}</h3>
@@ -126,39 +93,6 @@
                             :subtext="$finance['credit_outstanding']['subtext']"
                             :color="$finance['credit_outstanding']['color']"
                             icon="ti ti-credit-card"
-                        />
-                    </div>
-                </section>
-
-                {{-- Operations --}}
-                <section>
-                    <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{{ __('Operations') }}</h3>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <x-butcher.kpi-card
-                            :label="__('Open cutting sessions')"
-                            :value="$operations['open_cutting_sessions']['value']"
-                            :subtext="$operations['open_cutting_sessions']['subtext']"
-                            :color="$operations['open_cutting_sessions']['color']"
-                            icon="ti ti-cut"
-                        />
-                        <x-butcher.kpi-card
-                            :label="__('Avg yield')"
-                            :value="$operations['avg_yield']['value']"
-                            :subtext="$operations['avg_yield']['subtext']"
-                            icon="ti ti-chart-pie"
-                        />
-                        <x-butcher.kpi-card
-                            :label="__('Pending deliveries')"
-                            :value="$operations['pending_deliveries']['value']"
-                            :subtext="$operations['pending_deliveries']['subtext']"
-                            :color="$operations['pending_deliveries']['color']"
-                            icon="ti ti-truck-delivery"
-                        />
-                        <x-butcher.kpi-card
-                            :label="__('Open orders')"
-                            :value="$operations['open_orders']['value']"
-                            :subtext="$operations['open_orders']['subtext']"
-                            icon="ti ti-shopping-cart"
                         />
                     </div>
                 </section>
@@ -198,61 +132,44 @@
                     </div>
                 </section>
 
-                {{-- Alerts + stock by meat type --}}
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <section class="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm">
-                        <h3 class="text-sm font-semibold text-slate-900">{{ __('Active alerts') }}</h3>
-                        <ul class="mt-4 space-y-2">
-                            @forelse ($alerts as $alert)
-                                @php
-                                    $border = match ($alert['level']) {
-                                        'danger' => 'border-l-red-500',
-                                        'warning' => 'border-l-amber-500',
-                                        default => 'border-l-blue-500',
-                                    };
-                                    $dot = match ($alert['level']) {
-                                        'danger' => 'bg-red-500',
-                                        'warning' => 'bg-amber-500',
-                                        default => 'bg-blue-500',
-                                    };
-                                @endphp
-                                <li class="flex items-start gap-3 rounded-lg border border-slate-100 border-l-4 {{ $border }} bg-slate-50/80 px-3 py-2.5 text-sm text-slate-700">
-                                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {{ $dot }}" aria-hidden="true"></span>
-                                    <span>{{ $alert['message'] }}</span>
-                                </li>
-                            @empty
-                                <li class="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-500">
-                                    {{ __('No active alerts.') }}
-                                </li>
-                            @endforelse
-                        </ul>
-                    </section>
-
-                    <section class="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm">
-                        <h3 class="text-sm font-semibold text-slate-900">{{ __('Stock by meat type') }}</h3>
-                        <div class="mt-4 space-y-4">
-                            @foreach ($stock_by_meat_type as $row)
-                                <div>
-                                    <div class="mb-1 flex items-center justify-between text-sm">
-                                        <span class="font-medium text-slate-700">{{ $row['label'] }}</span>
-                                        <span class="tabular-nums text-slate-600">{{ number_format($row['kg'], 1) }} kg</span>
-                                    </div>
-                                    <div class="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                                        <div
-                                            class="h-full rounded-full bg-bucha-primary transition-all"
-                                            style="width: {{ max($row['pct'], $row['kg'] > 0 ? 2 : 0) }}%"
-                                        ></div>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </section>
-                </div>
+                {{-- Alerts --}}
+                <section class="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm">
+                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Active alerts') }}</h3>
+                    <ul class="mt-4 space-y-2">
+                        @forelse ($alerts as $alert)
+                            @php
+                                $border = match ($alert['level']) {
+                                    'danger' => 'border-l-red-500',
+                                    'warning' => 'border-l-amber-500',
+                                    default => 'border-l-blue-500',
+                                };
+                                $dot = match ($alert['level']) {
+                                    'danger' => 'bg-red-500',
+                                    'warning' => 'bg-amber-500',
+                                    default => 'bg-blue-500',
+                                };
+                            @endphp
+                            <li class="flex items-start gap-3 rounded-lg border border-slate-100 border-l-4 {{ $border }} bg-slate-50/80 px-3 py-2.5 text-sm text-slate-700">
+                                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {{ $dot }}" aria-hidden="true"></span>
+                                <span>{{ $alert['message'] }}</span>
+                            </li>
+                        @empty
+                            <li class="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-500">
+                                {{ __('No active alerts.') }}
+                            </li>
+                        @endforelse
+                    </ul>
+                </section>
 
                 {{-- Recent sales --}}
                 <section class="rounded-xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-                    <div class="border-b border-slate-100 px-5 py-4">
+                    <div class="border-b border-slate-100 px-5 py-4 flex flex-wrap items-center justify-between gap-2">
                         <h3 class="text-sm font-semibold text-slate-900">{{ __('Recent sales') }}</h3>
+                        @if (($sales['open_orders']['value'] ?? '0') !== '0')
+                            <span class="text-xs text-slate-500">
+                                {{ __(':count open order(s)', ['count' => $sales['open_orders']['value']]) }}
+                            </span>
+                        @endif
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-100 text-sm">

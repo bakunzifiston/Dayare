@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\BusinessUser;
+use App\Models\ButcherOutlet;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\QueryException;
@@ -86,6 +87,16 @@ class RegisteredUserController extends Controller
                         ['business_id' => $business->id, 'user_id' => $user->id],
                         ['role' => BusinessUser::ROLE_ORG_ADMIN]
                     );
+
+                    if ($request->business_type === Business::TYPE_BUTCHER) {
+                        $business->butcherOutlets()->create([
+                            'name' => __('Main outlet'),
+                            'district' => 'Kigali',
+                            'phone' => '+250700000000',
+                            'is_primary' => true,
+                            'status' => ButcherOutlet::STATUS_ACTIVE,
+                        ]);
+                    }
                 }
 
                 return $user;
@@ -124,7 +135,7 @@ class RegisteredUserController extends Controller
         }
 
         if ($user->tenantWorkspaceType() === Business::TYPE_BUTCHER) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         return redirect($user->tenantDashboardPath());

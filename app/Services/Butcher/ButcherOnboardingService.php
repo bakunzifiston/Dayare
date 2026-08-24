@@ -116,7 +116,7 @@ class ButcherOnboardingService
      *   percent: int,
      *   completed_steps: int,
      *   total_steps: int,
-     *   steps: list<array{key: string, label: string, complete: bool, route: string}>
+     *   steps: list<array{key: string, label: string, complete: bool}>
      * }
      */
     public function getOnboardingProgress(Business $business): array
@@ -126,25 +126,21 @@ class ButcherOnboardingService
                 'key' => 'profile',
                 'label' => __('Business profile'),
                 'complete' => $this->isProfileComplete($business),
-                'route' => 'butcher.onboarding.profile',
             ],
             [
                 'key' => 'outlets',
                 'label' => __('Outlets'),
                 'complete' => $business->butcherOutlets()->exists(),
-                'route' => 'butcher.onboarding.outlets',
             ],
             [
                 'key' => 'permits',
                 'label' => __('Permits'),
                 'complete' => $business->butcherPermits()->exists(),
-                'route' => 'butcher.onboarding.permits',
             ],
             [
                 'key' => 'suppliers',
                 'label' => __('Suppliers'),
                 'complete' => $business->butcherSuppliers()->exists(),
-                'route' => 'butcher.onboarding.suppliers',
             ],
         ];
 

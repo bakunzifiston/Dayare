@@ -82,6 +82,18 @@ class ProcessorRolePermissionCatalog
                     BusinessUser::PERMISSION_MANAGE_EXPORT_DOCUMENTS => __('Manage export documents'),
                 ],
             ],
+            'sales_marketing' => [
+                'label' => __('Sales & Marketing'),
+                'description' => __('CRM, employees, suppliers, contracts, clients, and demand.'),
+                'permissions' => [
+                    BusinessUser::PERMISSION_VIEW_CRM => __('View CRM dashboard'),
+                    BusinessUser::PERMISSION_MANAGE_EMPLOYEES => __('Manage employees'),
+                    BusinessUser::PERMISSION_MANAGE_SUPPLIERS => __('Manage suppliers'),
+                    BusinessUser::PERMISSION_MANAGE_CONTRACTS => __('Manage contracts'),
+                    BusinessUser::PERMISSION_MANAGE_CLIENTS => __('Manage clients'),
+                    BusinessUser::PERMISSION_MANAGE_DEMAND => __('Manage customer demand'),
+                ],
+            ],
             'finance' => [
                 'label' => __('Finance'),
                 'description' => __('Finance dashboard, receivables, payables, and cost reports.'),

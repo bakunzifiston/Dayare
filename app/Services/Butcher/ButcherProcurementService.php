@@ -101,6 +101,39 @@ class ButcherProcurementService
     /**
      * @return array{
      *   period: string,
+     *   deliveries_total: int,
+     *   received_weight_kg: float,
+     *   total_spend: float,
+     *   rejected_deliveries: int,
+     *   inventory_batches_created: int
+     * }
+     */
+    public function getReceivingSummary(Business $business, string $period = '30d'): array
+    {
+        $since = $this->periodStart($period);
+        $deliveriesQuery = $business->butcherDeliveries()->where('received_at', '>=', $since);
+
+        return [
+            'period' => $period,
+            'deliveries_total' => (int) (clone $deliveriesQuery)->count(),
+            'received_weight_kg' => (float) (clone $deliveriesQuery)
+                ->whereIn('condition', [ButcherDelivery::CONDITION_GOOD, ButcherDelivery::CONDITION_FAIR])
+                ->sum('received_weight_kg'),
+            'total_spend' => (float) (clone $deliveriesQuery)
+                ->whereIn('condition', [ButcherDelivery::CONDITION_GOOD, ButcherDelivery::CONDITION_FAIR])
+                ->sum('total_cost'),
+            'rejected_deliveries' => (int) (clone $deliveriesQuery)
+                ->where('condition', ButcherDelivery::CONDITION_REJECTED)
+                ->count(),
+            'inventory_batches_created' => (int) $business->butcherInventoryBatches()
+                ->where('created_at', '>=', $since)
+                ->count(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *   period: string,
      *   orders_total: int,
      *   orders_open: int,
      *   deliveries_total: int,

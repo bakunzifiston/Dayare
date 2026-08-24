@@ -5,6 +5,7 @@ namespace App\Services\Butcher;
 use App\Models\Business;
 use App\Models\ButcherDelivery;
 use App\Models\ButcherDisposalLog;
+use App\Models\ButcherInventoryAdjustment;
 use App\Models\ButcherInventoryBatch;
 use App\Models\ButcherTemperatureLog;
 use App\Models\User;
@@ -97,9 +98,95 @@ class ButcherStorageService
         });
     }
 
+    public function logAdjustment(ButcherInventoryBatch $batch, array $data, User $user): ButcherInventoryAdjustment
+    {
+        return DB::transaction(function () use ($batch, $data, $user) {
+            $batch = ButcherInventoryBatch::query()->lockForUpdate()->findOrFail($batch->id);
+            $previous = (float) $batch->remaining_weight_kg;
+            $change = (float) $data['weight_change_kg'];
+            $newWeight = round($previous + $change, 3);
+
+            if ($newWeight < 0) {
+                throw ValidationException::withMessages([
+                    'weight_change_kg' => [__('Adjustment would make remaining weight negative.')],
+                ]);
+            }
+
+            $adjustment = ButcherInventoryAdjustment::query()->create([
+                'business_id' => $batch->business_id,
+                'batch_id' => $batch->id,
+                'weight_change_kg' => $change,
+                'previous_weight_kg' => $previous,
+                'new_weight_kg' => $newWeight,
+                'reason' => (string) $data['reason'],
+                'adjusted_at' => isset($data['adjusted_at']) ? Carbon::parse($data['adjusted_at']) : now(),
+                'adjusted_by' => $user->id,
+                'stock_count_line_id' => $data['stock_count_line_id'] ?? null,
+                'notes' => $data['notes'] ?? null,
+            ]);
+
+            $status = $newWeight <= 0
+                ? ButcherInventoryBatch::STATUS_FULLY_USED
+                : (in_array($batch->status, [
+                    ButcherInventoryBatch::STATUS_FULLY_USED,
+                    ButcherInventoryBatch::STATUS_DISPOSED,
+                ], true)
+                    ? ButcherInventoryBatch::STATUS_PARTIALLY_USED
+                    : $batch->status);
+
+            if ($batch->status === ButcherInventoryBatch::STATUS_EXPIRED && $newWeight > 0) {
+                $status = ButcherInventoryBatch::STATUS_EXPIRED;
+            }
+
+            $batch->update([
+                'remaining_weight_kg' => $newWeight,
+                'status' => $status,
+            ]);
+
+            return $adjustment->fresh(['batch', 'adjustedByUser']);
+        });
+    }
+
     /**
-     * @return Collection<int, ButcherInventoryBatch>
+     * @return array{
+     *   waste_kg: float,
+     *   waste_events: int,
+     *   adjustment_kg: float,
+     *   adjustment_events: int,
+     *   recent_waste: \Illuminate\Support\Collection,
+     *   recent_adjustments: \Illuminate\Support\Collection
+     * }
      */
+    public function getWasteSummary(Business $business, string $period = '30d'): array
+    {
+        $since = match ($period) {
+            '7d' => now()->subDays(7),
+            '90d' => now()->subDays(90),
+            'month' => now()->startOfMonth(),
+            default => now()->subDays(30),
+        };
+
+        $wasteQuery = $business->butcherDisposalLogs()->where('disposed_at', '>=', $since);
+        $adjustQuery = $business->butcherInventoryAdjustments()->where('adjusted_at', '>=', $since);
+
+        return [
+            'waste_kg' => (float) (clone $wasteQuery)->sum('weight_disposed_kg'),
+            'waste_events' => (int) (clone $wasteQuery)->count(),
+            'adjustment_kg' => (float) (clone $adjustQuery)->sum('weight_change_kg'),
+            'adjustment_events' => (int) (clone $adjustQuery)->count(),
+            'recent_waste' => $business->butcherDisposalLogs()
+                ->with(['batch', 'disposedByUser'])
+                ->latest('disposed_at')
+                ->limit(8)
+                ->get(),
+            'recent_adjustments' => $business->butcherInventoryAdjustments()
+                ->with(['batch', 'adjustedByUser'])
+                ->latest('adjusted_at')
+                ->limit(8)
+                ->get(),
+        ];
+    }
+
     public function checkExpiringBatches(Business $business): Collection
     {
         $expired = $business->butcherInventoryBatches()

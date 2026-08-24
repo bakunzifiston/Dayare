@@ -83,6 +83,11 @@ class ButcherInventoryBatch extends Model
         return $this->hasMany(ButcherDisposalLog::class, 'batch_id');
     }
 
+    public function adjustments(): HasMany
+    {
+        return $this->hasMany(ButcherInventoryAdjustment::class, 'batch_id');
+    }
+
     public function cuttingSessions(): HasMany
     {
         return $this->hasMany(ButcherCuttingSession::class, 'batch_id');

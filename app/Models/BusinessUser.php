@@ -101,6 +101,18 @@ class BusinessUser extends Pivot
 
     public const PERMISSION_VIEW_FINANCE_REPORTS = 'view_finance_reports';
 
+    public const PERMISSION_VIEW_CRM = 'view_crm';
+
+    public const PERMISSION_MANAGE_EMPLOYEES = 'manage_employees';
+
+    public const PERMISSION_MANAGE_SUPPLIERS = 'manage_suppliers';
+
+    public const PERMISSION_MANAGE_CONTRACTS = 'manage_contracts';
+
+    public const PERMISSION_MANAGE_CLIENTS = 'manage_clients';
+
+    public const PERMISSION_MANAGE_DEMAND = 'manage_demand';
+
     public const ACTION_PERMISSIONS = [
         self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
         self::PERMISSION_VIEW_ALL_MODULES,
@@ -134,6 +146,12 @@ class BusinessUser extends Pivot
         self::PERMISSION_MANAGE_AR_INVOICES,
         self::PERMISSION_MANAGE_AP_PAYABLES,
         self::PERMISSION_VIEW_FINANCE_REPORTS,
+        self::PERMISSION_VIEW_CRM,
+        self::PERMISSION_MANAGE_EMPLOYEES,
+        self::PERMISSION_MANAGE_SUPPLIERS,
+        self::PERMISSION_MANAGE_CONTRACTS,
+        self::PERMISSION_MANAGE_CLIENTS,
+        self::PERMISSION_MANAGE_DEMAND,
     ];
 
     public const ROLE_PERMISSION_MAP = [
@@ -153,6 +171,12 @@ class BusinessUser extends Pivot
             self::PERMISSION_MANAGE_AR_INVOICES,
             self::PERMISSION_MANAGE_AP_PAYABLES,
             self::PERMISSION_VIEW_FINANCE_REPORTS,
+            self::PERMISSION_VIEW_CRM,
+            self::PERMISSION_MANAGE_EMPLOYEES,
+            self::PERMISSION_MANAGE_SUPPLIERS,
+            self::PERMISSION_MANAGE_CONTRACTS,
+            self::PERMISSION_MANAGE_CLIENTS,
+            self::PERMISSION_MANAGE_DEMAND,
         ],
         self::ROLE_OPERATIONS_MANAGER => [
             self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,

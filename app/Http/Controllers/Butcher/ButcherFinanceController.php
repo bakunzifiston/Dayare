@@ -28,7 +28,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         [$from, $to] = $this->parsePeriod($request);
@@ -45,7 +45,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         [$from, $to] = $this->parsePeriod($request);
@@ -80,7 +80,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         return view('butcher.finance.expenses.create', [
@@ -96,7 +96,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $data = $request->validated();
@@ -113,7 +113,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $expense->business_id === (int) $business->id, 404);
 
@@ -130,7 +130,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $expense->business_id === (int) $business->id, 404);
 
@@ -153,7 +153,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $expense->business_id === (int) $business->id, 404);
 
@@ -172,7 +172,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         [$from, $to] = $this->parsePeriod($request);
@@ -191,7 +191,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         [$from, $to] = $this->parsePeriod($request);
@@ -208,7 +208,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         [$from, $to] = $this->parsePeriod($request);
@@ -225,7 +225,7 @@ class ButcherFinanceController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         [$from, $to] = $this->parsePeriod($request);

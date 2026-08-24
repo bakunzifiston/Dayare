@@ -169,7 +169,7 @@ class ButcherCuttingService
             $output->id
         );
 
-        $pdf = DomPdf::loadView('butcher.cutting.labels.shelf', [
+        $pdf = DomPdf::loadView('butcher.processing.labels.shelf', [
             'output' => $output,
             'session' => $output->session,
             'batch' => $output->session->batch,

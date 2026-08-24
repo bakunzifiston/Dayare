@@ -25,7 +25,7 @@ class ButcherDashboardTest extends TestCase
             ->get(route('butcher.dashboard'))
             ->assertOk()
             ->assertSee(__('Today at a glance'))
-            ->assertSee(__('Stock & inventory'))
+            ->assertSee(__('Finance'))
             ->assertSee(__('Recent sales'))
             ->assertSee('Demo Butchery');
     }

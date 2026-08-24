@@ -671,6 +671,16 @@ class Business extends Model
         return $this->hasMany(ButcherDisposalLog::class);
     }
 
+    public function butcherInventoryAdjustments(): HasMany
+    {
+        return $this->hasMany(ButcherInventoryAdjustment::class);
+    }
+
+    public function butcherStockCounts(): HasMany
+    {
+        return $this->hasMany(ButcherStockCount::class);
+    }
+
     public function butcherCutTypes(): HasMany
     {
         return $this->hasMany(ButcherCutType::class);

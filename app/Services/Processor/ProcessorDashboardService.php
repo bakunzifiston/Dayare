@@ -148,7 +148,7 @@ class ProcessorDashboardService
                 $this->action(__('Track deliveries'), 'truck', 'transport-trips.hub', BusinessUser::PERMISSION_TRACK_DELIVERY_STATUS),
                 $this->action(__('Finance'), 'currency-dollar', 'finance.dashboard', BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD),
                 $this->action(__('Businesses'), 'building', 'businesses.hub', BusinessUser::PERMISSION_VIEW_ALL_MODULES),
-                $this->action(__('CRM'), 'layout-dashboard', 'crm.dashboard', BusinessUser::PERMISSION_VIEW_ALL_MODULES),
+                $this->action(__('CRM'), 'layout-dashboard', 'crm.dashboard', BusinessUser::PERMISSION_VIEW_CRM),
             ],
         ];
     }

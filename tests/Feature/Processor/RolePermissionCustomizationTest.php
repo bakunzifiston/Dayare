@@ -42,6 +42,8 @@ class RolePermissionCustomizationTest extends TestCase
             ->assertOk()
             ->assertSee('Role access')
             ->assertSee('Operations')
+            ->assertSee('Sales & Marketing')
+            ->assertSee('View CRM dashboard')
             ->assertSee('Manage animal intake');
 
         $this->assertTrue($member->canProcessorPermission(
@@ -102,6 +104,54 @@ class RolePermissionCustomizationTest extends TestCase
             'permission' => BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD,
             'is_allowed' => true,
         ]);
+    }
+
+    public function test_sales_and_marketing_permissions_can_be_granted_to_a_role(): void
+    {
+        [$owner, $business, $member] = $this->processorTeam();
+
+        $this->actingAs($member)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('crm.dashboard'))
+            ->assertForbidden();
+
+        $this->actingAs($owner)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->put(route('tenant-users.role-permissions.update'), [
+                'business_id' => $business->id,
+                'role' => BusinessUser::ROLE_OPERATIONS_MANAGER,
+                'permissions' => [
+                    BusinessUser::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
+                    BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE,
+                    BusinessUser::PERMISSION_SCHEDULE_SLAUGHTER,
+                    BusinessUser::PERMISSION_CREATE_BATCH,
+                    BusinessUser::PERMISSION_ASSIGN_BATCH_TO_INSPECTOR,
+                    BusinessUser::PERMISSION_VIEW_INSPECTIONS,
+                    BusinessUser::PERMISSION_VIEW_CERTIFICATES,
+                    BusinessUser::PERMISSION_VIEW_CRM,
+                    BusinessUser::PERMISSION_MANAGE_EMPLOYEES,
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertTrue($member->canProcessorPermission(
+            BusinessUser::PERMISSION_VIEW_CRM,
+            $business->id
+        ));
+        $this->assertTrue($member->canProcessorPermission(
+            BusinessUser::PERMISSION_MANAGE_EMPLOYEES,
+            $business->id
+        ));
+
+        $this->actingAs($member)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('crm.dashboard'))
+            ->assertOk();
+
+        $this->actingAs($member)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('employees.index'))
+            ->assertOk();
     }
 
     public function test_owner_can_restore_role_defaults(): void

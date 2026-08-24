@@ -3,36 +3,20 @@
 namespace App\Services\Butcher;
 
 use App\Models\Business;
-use App\Models\ButcherCuttingSession;
-use App\Models\ButcherCustomer;
 use App\Models\ButcherHygieneLog;
-use App\Models\ButcherInventoryBatch;
 use App\Models\ButcherOrder;
-use App\Models\ButcherPurchaseOrder;
 use App\Models\ButcherSale;
 use App\Models\ButcherSaleItem;
-use App\Models\ButcherTemperatureLog;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ButcherDashboardService
 {
     private const TIMEZONE = 'Africa/Kigali';
 
-    /** @var list<string> */
-    private const STOCK_MEAT_TYPES = [
-        ButcherInventoryBatch::MEAT_BEEF,
-        ButcherInventoryBatch::MEAT_GOAT,
-        ButcherInventoryBatch::MEAT_PORK,
-        ButcherInventoryBatch::MEAT_POULTRY,
-    ];
-
     public function __construct(
-        private readonly ButcherOnboardingService $onboarding,
         private readonly ButcherFinanceService $finance,
-        private readonly ButcherStorageService $storage,
         private readonly ButcherComplianceService $compliance,
     ) {}
 
@@ -67,22 +51,8 @@ class ButcherDashboardService
         $todayMetrics = $this->salesMetrics($todaySales);
         $yesterdayMetrics = $this->salesMetrics($yesterdaySales);
 
-        $storageSummary = $this->storage->getStorageSummary($business);
         $monthPl = $this->finance->getProfitAndLoss($business, $monthStart, $today->copy()->endOfDay());
         $complianceAlerts = $this->compliance->getComplianceAlerts($business);
-
-        $openSessions = (int) $business->butcherCuttingSessions()
-            ->where('status', ButcherCuttingSession::STATUS_OPEN)
-            ->count();
-
-        $avgYield = $this->averageYieldPct($business);
-
-        $pendingDeliveries = (int) $business->butcherPurchaseOrders()
-            ->whereIn('status', [
-                ButcherPurchaseOrder::STATUS_SENT,
-                ButcherPurchaseOrder::STATUS_CONFIRMED,
-            ])
-            ->count();
 
         $openOrders = (int) $business->butcherOrders()
             ->whereIn('status', [
@@ -125,22 +95,6 @@ class ButcherDashboardService
                     fn (float $v) => 'RWF '.number_format($v, 0),
                 ),
             ],
-            'stock' => [
-                'batches_in_storage' => [
-                    'value' => (string) $storageSummary['batches_in_storage'],
-                    'subtext' => __('Active inventory batches'),
-                ],
-                'total_stock_kg' => [
-                    'value' => number_format((float) $storageSummary['kg_in_storage'], 1).' kg',
-                    'subtext' => __('Remaining in cold storage'),
-                ],
-                'expiring_soon' => [
-                    'value' => (string) $storageSummary['expiring_soon'],
-                    'color' => $storageSummary['expiring_soon'] > 0 ? 'warning' : 'success',
-                    'subtext' => __('Best before within 24h'),
-                ],
-                'temp_status' => $this->tempStatusKpi($storageSummary['temp_breaches_today']),
-            ],
             'finance' => [
                 'revenue_mtd' => [
                     'value' => 'RWF '.number_format((float) $monthPl['revenue'], 0),
@@ -161,21 +115,7 @@ class ButcherDashboardService
                     'subtext' => __('Customer balances'),
                 ],
             ],
-            'operations' => [
-                'open_cutting_sessions' => [
-                    'value' => (string) $openSessions,
-                    'color' => $openSessions > 0 ? 'warning' : 'success',
-                    'subtext' => __('Sessions in progress'),
-                ],
-                'avg_yield' => [
-                    'value' => $avgYield !== null ? number_format($avgYield, 1).'%' : '—',
-                    'subtext' => __('Closed sessions (30d)'),
-                ],
-                'pending_deliveries' => [
-                    'value' => (string) $pendingDeliveries,
-                    'color' => $pendingDeliveries > 0 ? 'warning' : null,
-                    'subtext' => __('POs awaiting delivery'),
-                ],
+            'sales' => [
                 'open_orders' => [
                     'value' => (string) $openOrders,
                     'subtext' => __('Customer orders open'),
@@ -195,8 +135,7 @@ class ButcherDashboardService
                     'subtext' => __('Hygiene pass rate (30d)'),
                 ],
             ],
-            'alerts' => $this->buildAlerts($business, $storageSummary, $complianceAlerts, $creditOutstanding),
-            'stock_by_meat_type' => $this->stockByMeatType($business),
+            'alerts' => $this->buildAlerts($business, $complianceAlerts, $creditOutstanding),
             'recent_sales' => $this->recentSales($business),
         ];
     }
@@ -283,48 +222,6 @@ class ButcherDashboardService
     }
 
     /**
-     * @return array{value: string, color: ?string, subtext: string}
-     */
-    private function tempStatusKpi(int $breachesToday): array
-    {
-        if ($breachesToday === 0) {
-            return [
-                'value' => __('OK'),
-                'color' => 'success',
-                'subtext' => __('No breaches today'),
-            ];
-        }
-
-        return [
-            'value' => (string) $breachesToday,
-            'color' => 'danger',
-            'subtext' => __('Temperature breach(es) today'),
-        ];
-    }
-
-    private function averageYieldPct(Business $business): ?float
-    {
-        $sessions = $business->butcherCuttingSessions()
-            ->where('status', ButcherCuttingSession::STATUS_CLOSED)
-            ->whereDate('session_date', '>=', $this->today()->copy()->subDays(30)->toDateString())
-            ->where('source_weight_kg', '>', 0)
-            ->get(['source_weight_kg', 'total_cuts_weight_kg']);
-
-        if ($sessions->isEmpty()) {
-            return null;
-        }
-
-        $totalSource = (float) $sessions->sum('source_weight_kg');
-        $totalCuts = (float) $sessions->sum('total_cuts_weight_kg');
-
-        if ($totalSource <= 0) {
-            return null;
-        }
-
-        return round(($totalCuts / $totalSource) * 100, 1);
-    }
-
-    /**
      * @param  array<string, mixed>  $alerts
      * @return array{value: string, color: ?string, subtext: string}
      */
@@ -398,13 +295,11 @@ class ButcherDashboardService
     }
 
     /**
-     * @param  array<string, mixed>  $storageSummary
      * @param  array<string, mixed>  $complianceAlerts
      * @return list<array{level: string, message: string}>
      */
     private function buildAlerts(
         Business $business,
-        array $storageSummary,
         array $complianceAlerts,
         float $creditOutstanding,
     ): array {
@@ -444,38 +339,6 @@ class ButcherDashboardService
             ];
         }
 
-        if ($storageSummary['temp_breaches_today'] > 0) {
-            $alerts[] = [
-                'level' => 'danger',
-                'message' => __(':count temperature breach(es) logged today', ['count' => $storageSummary['temp_breaches_today']]),
-            ];
-        }
-
-        if ($storageSummary['expiring_soon'] > 0) {
-            $alerts[] = [
-                'level' => 'warning',
-                'message' => __(':count batch(es) expiring within 24 hours', ['count' => $storageSummary['expiring_soon']]),
-            ];
-        }
-
-        if ($storageSummary['expired_batches'] > 0) {
-            $alerts[] = [
-                'level' => 'danger',
-                'message' => __(':count expired batch(es) in inventory', ['count' => $storageSummary['expired_batches']]),
-            ];
-        }
-
-        $openSessions = (int) $business->butcherCuttingSessions()
-            ->where('status', ButcherCuttingSession::STATUS_OPEN)
-            ->count();
-
-        if ($openSessions > 0) {
-            $alerts[] = [
-                'level' => 'info',
-                'message' => __(':count open cutting session(s)', ['count' => $openSessions]),
-            ];
-        }
-
         if ($creditOutstanding > 100000) {
             $alerts[] = [
                 'level' => 'info',
@@ -484,33 +347,6 @@ class ButcherDashboardService
         }
 
         return array_slice($alerts, 0, 8);
-    }
-
-    /**
-     * @return list<array{meat_type: string, label: string, kg: float, pct: float}>
-     */
-    private function stockByMeatType(Business $business): array
-    {
-        $totals = $business->butcherInventoryBatches()
-            ->whereIn('status', ButcherInventoryBatch::ACTIVE_STATUSES)
-            ->select('meat_type', DB::raw('SUM(remaining_weight_kg) as total_kg'))
-            ->groupBy('meat_type')
-            ->pluck('total_kg', 'meat_type');
-
-        $grandTotal = (float) $totals->sum();
-
-        $rows = [];
-        foreach (self::STOCK_MEAT_TYPES as $type) {
-            $kg = (float) ($totals[$type] ?? 0);
-            $rows[] = [
-                'meat_type' => $type,
-                'label' => ucfirst($type),
-                'kg' => $kg,
-                'pct' => $grandTotal > 0 ? round(($kg / $grandTotal) * 100, 1) : 0.0,
-            ];
-        }
-
-        return $rows;
     }
 
     /**

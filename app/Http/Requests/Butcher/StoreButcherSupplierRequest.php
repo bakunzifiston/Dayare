@@ -31,4 +31,11 @@ class StoreButcherSupplierRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'is_active' => $this->boolean('is_active'),
+        ]);
+    }
 }

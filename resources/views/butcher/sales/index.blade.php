@@ -10,7 +10,7 @@
                 <p class="mt-1 text-sm text-gray-500">{{ __('Completed sales, receipts, and daily totals.') }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="{{ route('butcher.sales.customers.index') }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Customers') }}</a>
+                <a href="{{ route('butcher.customers.index') }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Customers') }}</a>
                 <a href="{{ route('butcher.sales.orders.index') }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Orders') }}</a>
                 <a href="{{ route('butcher.sales.pos') }}" class="inline-flex items-center rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">{{ __('Open POS') }}</a>
             </div>

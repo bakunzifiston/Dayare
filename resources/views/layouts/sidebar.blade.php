@@ -30,15 +30,15 @@
             ],
         ],
         [
-            'group' => __('CRM & HR'),
+            'group' => __('Sales & Marketing'),
             'icon' => 'user',
             'children' => [
-                ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard', 'permission' => 'view_all_modules'],
-                ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user', 'permission' => 'view_all_modules'],
-                ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building', 'permission' => 'view_all_modules'],
-                ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard', 'permission' => 'view_all_modules'],
-                ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user', 'permission' => 'view_all_modules'],
-                ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list', 'permission' => 'view_all_modules'],
+                ['label' => __('CRM'), 'route' => 'crm.dashboard', 'icon' => 'dashboard', 'permission' => 'view_crm'],
+                ['label' => __('Employees'), 'route' => 'employees.index', 'icon' => 'user', 'permission' => 'manage_employees'],
+                ['label' => __('Suppliers'), 'route' => 'suppliers.index', 'icon' => 'building', 'permission' => 'manage_suppliers'],
+                ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard', 'permission' => 'manage_contracts'],
+                ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user', 'permission' => 'manage_clients'],
+                ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list', 'permission' => 'manage_demand'],
             ],
         ],
         [
@@ -148,14 +148,17 @@
         } else {
             $tenantNav = [
                 ['label' => __('Dashboard'), 'route' => 'butcher.dashboard', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['butcher.dashboard']],
-                ['label' => __('Onboarding'), 'route' => 'butcher.onboarding.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['butcher.onboarding.*']],
-                ['label' => __('Procurement'), 'route' => 'butcher.procurement.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.procurement.*']],
-                ['label' => __('Cold storage'), 'route' => 'butcher.storage.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.storage.*']],
-                ['label' => __('Cutting'), 'route' => 'butcher.cutting.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.cutting.*']],
-                ['label' => __('Catalog'), 'route' => 'butcher.catalog.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.catalog.*']],
+                ['label' => __('Suppliers'), 'route' => 'butcher.suppliers.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['butcher.suppliers.*']],
+                ['label' => __('Customers'), 'route' => 'butcher.customers.index', 'icon' => 'user', 'permission' => null, 'routeIs' => ['butcher.customers.*']],
+                ['label' => __('Receiving'), 'route' => 'butcher.receiving.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.receiving.*']],
+                ['label' => __('Processing'), 'route' => 'butcher.processing.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.processing.*']],
+                ['label' => __('Inventory'), 'route' => 'butcher.inventory.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.inventory.*']],
+                ['label' => __('Waste & Adjustments'), 'route' => 'butcher.waste.index', 'icon' => 'alert', 'permission' => null, 'routeIs' => ['butcher.waste.*']],
+                ['label' => __('Stock Counts'), 'route' => 'butcher.stock-counts.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['butcher.stock-counts.*']],
                 ['label' => __('Sales & POS'), 'route' => 'butcher.sales.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.sales.*']],
                 ['label' => __('Compliance'), 'route' => 'butcher.compliance.index', 'icon' => 'shield', 'permission' => null, 'routeIs' => ['butcher.compliance.*']],
                 ['label' => __('Finance'), 'route' => 'butcher.finance.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.finance.*']],
+                ['label' => __('Reports'), 'route' => 'butcher.reports.index', 'icon' => 'chart', 'permission' => null, 'routeIs' => ['butcher.reports.*']],
                 ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => null, 'routeIs' => ['settings.edit']],
             ];
         }

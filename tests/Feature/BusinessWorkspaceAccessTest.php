@@ -101,10 +101,10 @@ class BusinessWorkspaceAccessTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('butcher.onboarding.index', absolute: false));
+        $response->assertRedirect(route('butcher.dashboard', absolute: false));
     }
 
-    public function test_butcher_can_access_onboarding(): void
+    public function test_butcher_can_access_dashboard(): void
     {
         $this->post('/register', [
             'name' => 'Butcher User',
@@ -114,7 +114,7 @@ class BusinessWorkspaceAccessTest extends TestCase
             'business_type' => 'butcher',
         ]);
 
-        $this->get('/butcher/onboarding')->assertOk();
+        $this->get('/butcher/dashboard')->assertOk();
     }
 
     public function test_butcher_cannot_access_processor_dashboard(): void

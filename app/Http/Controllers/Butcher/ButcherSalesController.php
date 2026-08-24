@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Butcher;
 
 use App\Http\Controllers\Butcher\Concerns\InteractsWithAccessibleButcherBusiness;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Butcher\StoreButcherCustomerRequest;
 use App\Http\Requests\Butcher\StoreButcherOrderRequest;
 use App\Http\Requests\Butcher\StoreButcherSaleRequest;
 use App\Http\Requests\Butcher\UpdateButcherOrderStatusRequest;
@@ -35,7 +34,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $date = $request->query('date', now()->toDateString());
@@ -62,7 +61,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $outletId = (int) ($request->query('outlet_id') ?: $business->butcherOutlets()->value('id'));
@@ -115,7 +114,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $sale = $this->sales->createSale($business, $request->validated(), $request->user());
@@ -129,7 +128,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $sale->business_id === (int) $business->id, 404);
 
@@ -145,7 +144,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $sale->business_id === (int) $business->id, 404);
 
@@ -160,7 +159,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $sale->business_id === (int) $business->id, 404);
 
@@ -173,7 +172,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $sale->business_id === (int) $business->id, 404);
 
@@ -182,43 +181,11 @@ class ButcherSalesController extends Controller
         return Storage::disk('public')->download($path, $sale->sale_number.'-invoice.pdf');
     }
 
-    public function customersIndex(Request $request): View|RedirectResponse
-    {
-        $business = $this->primaryBusiness($request);
-        if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
-        }
-
-        $customers = $business->butcherCustomers()
-            ->orderBy('name')
-            ->paginate(20);
-
-        return view('butcher.sales.customers.index', [
-            'business' => $business,
-            'customers' => $customers,
-            'tiers' => \App\Models\ButcherCustomer::TIERS,
-        ]);
-    }
-
-    public function customersStore(StoreButcherCustomerRequest $request): RedirectResponse
-    {
-        $business = $this->primaryBusiness($request);
-        if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
-        }
-
-        $this->sales->createCustomer($business, $request->validated());
-
-        return redirect()
-            ->route('butcher.sales.customers.index')
-            ->with('status', __('Customer added.'));
-    }
-
     public function ordersIndex(Request $request): View|RedirectResponse
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $orders = $business->butcherOrders()
@@ -240,7 +207,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
 
         $this->sales->createOrder($business, $request->validated());
@@ -254,7 +221,7 @@ class ButcherSalesController extends Controller
     {
         $business = $this->primaryBusiness($request);
         if ($business === null) {
-            return redirect()->route('butcher.onboarding.index');
+            return redirect()->route('butcher.dashboard');
         }
         abort_unless((int) $order->business_id === (int) $business->id, 404);
 

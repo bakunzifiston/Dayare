@@ -23,7 +23,7 @@
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <x-kpi-card stat :title="__('Missing logs today')" :value="$alerts['missing_hygiene_count']" :href="route('butcher.compliance.hygiene.index')" />
                 <x-kpi-card stat :title="__('Health cards')" :value="$alerts['expiring_health_count']" :href="route('butcher.compliance.health.index')" />
-                <x-kpi-card stat :title="__('Expiring permits')" :value="$alerts['expiring_permit_count']" :href="route('butcher.onboarding.permits')" />
+                <x-kpi-card stat :title="__('Expiring permits')" :value="$alerts['expiring_permit_count']" :href="route('butcher.compliance.index')" />
                 <x-kpi-card stat :title="__('Overdue sanitation')" :value="$alerts['overdue_sanitation_count']" :href="route('butcher.compliance.sanitation.index')" />
             </div>
 
