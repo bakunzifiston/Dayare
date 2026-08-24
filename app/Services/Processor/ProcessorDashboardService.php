@@ -9,6 +9,10 @@ use App\Models\AnteMortemInspection;
 use App\Models\Batch;
 use App\Models\BusinessUser;
 use App\Models\Certificate;
+use App\Models\Client;
+use App\Models\Contract;
+use App\Models\Demand;
+use App\Models\Employee;
 use App\Models\ColdRoom;
 use App\Models\ColdRoomStandard;
 use App\Models\ColdRoomViolation;
@@ -21,6 +25,7 @@ use App\Models\MeatExportDocument;
 use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
+use App\Models\Supplier;
 use App\Models\TransportTrip;
 use App\Models\User;
 use Carbon\Carbon;
@@ -42,6 +47,7 @@ class ProcessorDashboardService
             BusinessUser::ROLE_INSPECTOR => $this->buildInspector($ctx, $user, $filters),
             BusinessUser::ROLE_TRANSPORT_MANAGER => $this->buildTransportManager($ctx, $filters),
             BusinessUser::ROLE_ACCOUNTANT => $this->buildAccountant($businessId, $ctx, $filters),
+            BusinessUser::ROLE_SALES_MARKETING_OFFICER => $this->buildSalesMarketingOfficer($businessId, $filters),
             default => $this->buildOrgAdmin($ctx, $user, $filters),
         };
 
@@ -51,6 +57,7 @@ class ProcessorDashboardService
             BusinessUser::ROLE_INSPECTOR,
             BusinessUser::ROLE_OPERATIONS_MANAGER,
             BusinessUser::ROLE_ACCOUNTANT,
+            BusinessUser::ROLE_SALES_MARKETING_OFFICER,
             BusinessUser::ROLE_TRANSPORT_MANAGER,
             BusinessUser::ROLE_COMPLIANCE_OFFICER,
         ], true);
@@ -451,6 +458,73 @@ class ProcessorDashboardService
                 $this->action(__('Cost allocations'), 'box', 'finance.cost-allocations.index', BusinessUser::PERMISSION_VIEW_FINANCE_REPORTS),
                 $this->action(__('Invoice from delivery'), 'truck', 'delivery-confirmations.hub', BusinessUser::PERMISSION_MANAGE_AR_INVOICES),
                 $this->action(__('Casual workers'), 'users', 'finance.casual-workers.index', BusinessUser::PERMISSION_MANAGE_AP_PAYABLES),
+            ],
+        ];
+    }
+
+    private function buildSalesMarketingOfficer(int $businessId, array $filters): array
+    {
+        $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
+        $openDemandStatuses = [
+            Demand::STATUS_DRAFT,
+            Demand::STATUS_CONFIRMED,
+            Demand::STATUS_IN_PROGRESS,
+        ];
+
+        $clientsQuery = Client::query()->where('business_id', $businessId);
+        $this->applyDashboardDateFilter($clientsQuery, 'created_at', $filters);
+        $clients = (int) $clientsQuery->count();
+
+        $openDemandsQuery = Demand::query()
+            ->where('business_id', $businessId)
+            ->whereIn('status', $openDemandStatuses);
+        $this->applyDashboardDateFilter($openDemandsQuery, 'created_at', $filters);
+        $openDemands = (int) $openDemandsQuery->count();
+
+        $suppliersQuery = Supplier::query()->where('business_id', $businessId);
+        $this->applyDashboardDateFilter($suppliersQuery, 'created_at', $filters);
+        $suppliers = (int) $suppliersQuery->count();
+
+        $contractsQuery = Contract::query()
+            ->where('business_id', $businessId)
+            ->where('status', Contract::STATUS_ACTIVE);
+        $this->applyDashboardDateFilter($contractsQuery, 'created_at', $filters);
+        $activeContracts = (int) $contractsQuery->count();
+
+        $employeesQuery = Employee::query()->where('business_id', $businessId);
+        $this->applyDashboardDateFilter($employeesQuery, 'created_at', $filters);
+        $employees = (int) $employeesQuery->count();
+
+        return [
+            'roleKey' => BusinessUser::ROLE_SALES_MARKETING_OFFICER,
+            'headerBadge' => ['label' => __('Sales & Marketing'), 'variant' => 'info'],
+            'kpiCards' => [
+                $this->kpi(__('Clients'), $clients, $periodHint, 'info', 'user'),
+                $this->kpi(__('Open demands'), $openDemands, $periodHint, $openDemands > 0 ? 'warning' : 'positive', 'clipboard-list'),
+                $this->kpi(__('Suppliers'), $suppliers, $periodHint, 'info', 'building'),
+                $this->kpi(__('Active contracts'), $activeContracts, $periodHint, 'positive', 'clipboard'),
+                $this->kpi(__('Employees'), $employees, $periodHint, 'info', 'users'),
+            ],
+            'workTable' => [
+                'title' => __('Open demands'),
+                'subtitle' => __('Customer demand still in progress.'),
+                'headers' => [
+                    'primary' => __('Demand'),
+                    'secondary' => __('Client'),
+                    'updated' => __('Requested'),
+                ],
+                'emptyMessage' => __('No open demands in this period.'),
+                'rows' => $this->salesDemandTableRows($businessId, $openDemandStatuses, $filters),
+                'footerRoute' => 'demands.index',
+                'footerLabel' => __('View all demands'),
+            ],
+            'quickActions' => [
+                $this->action(__('CRM'), 'layout-dashboard', 'crm.dashboard', BusinessUser::PERMISSION_VIEW_CRM),
+                $this->action(__('Clients'), 'user', 'clients.index', BusinessUser::PERMISSION_MANAGE_CLIENTS),
+                $this->action(__('Demand'), 'clipboard-list', 'demands.index', BusinessUser::PERMISSION_MANAGE_DEMAND),
+                $this->action(__('Suppliers'), 'building', 'suppliers.index', BusinessUser::PERMISSION_MANAGE_SUPPLIERS),
+                $this->action(__('Contracts'), 'clipboard', 'contracts.index', BusinessUser::PERMISSION_MANAGE_CONTRACTS),
+                $this->action(__('Employees'), 'users', 'employees.index', BusinessUser::PERMISSION_MANAGE_EMPLOYEES),
             ],
         ];
     }
@@ -972,6 +1046,48 @@ class ProcessorDashboardService
                     'updated_at' => $invoice->issued_at?->format('d M Y') ?? $invoice->created_at?->format('d M Y') ?? '—',
                     'route' => 'finance.invoices.edit',
                     'route_params' => ['invoice' => $invoice->id],
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  list<string>  $openDemandStatuses
+     * @param  array{is_filtered: bool, start: ?Carbon, end: ?Carbon}  $filters
+     * @return list<array{
+     *     id: string,
+     *     species: string,
+     *     status: string,
+     *     status_tone: string,
+     *     updated_at: string,
+     *     route: string,
+     *     route_params: array<string, int>
+     * }>
+     */
+    private function salesDemandTableRows(int $businessId, array $openDemandStatuses, array $filters): array
+    {
+        $query = Demand::query()
+            ->where('business_id', $businessId)
+            ->whereIn('status', $openDemandStatuses)
+            ->with('client');
+        $this->applyDashboardDateFilter($query, 'created_at', $filters);
+
+        return $query
+            ->latest('requested_delivery_date')
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->map(function (Demand $demand): array {
+                $isUrgent = $demand->requested_delivery_date?->isPast() ?? false;
+
+                return [
+                    'id' => (string) ($demand->demand_number ?: $demand->title ?: __('Demand #:id', ['id' => $demand->id])),
+                    'species' => $demand->client?->name ?? $demand->client_name ?? '—',
+                    'status' => __(Demand::STATUSES[$demand->status] ?? $demand->status),
+                    'status_tone' => $isUrgent ? 'amber' : 'blue',
+                    'updated_at' => $demand->requested_delivery_date?->format('d M Y') ?? $demand->created_at?->format('d M Y') ?? '—',
+                    'route' => 'demands.show',
+                    'route_params' => ['demand' => $demand->id],
                 ];
             })
             ->all();

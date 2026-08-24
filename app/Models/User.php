@@ -590,6 +590,7 @@ class User extends Authenticatable
             BusinessUser::ROLE_INSPECTOR => 'business_inspector',
             BusinessUser::ROLE_TRANSPORT_MANAGER => 'business_transport_manager',
             BusinessUser::ROLE_ACCOUNTANT => 'business_accountant',
+            BusinessUser::ROLE_SALES_MARKETING_OFFICER => 'business_sales_marketing_officer',
             default => 'user',
         };
     }
@@ -702,6 +703,12 @@ class User extends Authenticatable
             BusinessUser::PERMISSION_CREATE_TRANSPORT_TRIP => 'transport-trips.hub',
             BusinessUser::PERMISSION_CONFIRM_DELIVERY => 'delivery-confirmations.hub',
             BusinessUser::PERMISSION_MONITOR_COMPLIANCE_METRICS => 'compliance.index',
+            BusinessUser::PERMISSION_VIEW_CRM => 'crm.dashboard',
+            BusinessUser::PERMISSION_MANAGE_CLIENTS => 'clients.index',
+            BusinessUser::PERMISSION_MANAGE_DEMAND => 'demands.index',
+            BusinessUser::PERMISSION_MANAGE_SUPPLIERS => 'suppliers.index',
+            BusinessUser::PERMISSION_MANAGE_CONTRACTS => 'contracts.index',
+            BusinessUser::PERMISSION_MANAGE_EMPLOYEES => 'employees.index',
             BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD => 'finance.dashboard',
             BusinessUser::PERMISSION_MANAGE_AR_INVOICES => 'finance.invoices.index',
             BusinessUser::PERMISSION_MANAGE_AP_PAYABLES => 'finance.payables.index',

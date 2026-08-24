@@ -222,6 +222,7 @@ class ProcessorWorkspaceSeedBuilder
             BusinessUser::ROLE_INSPECTOR,
             BusinessUser::ROLE_TRANSPORT_MANAGER,
             BusinessUser::ROLE_ACCOUNTANT,
+            BusinessUser::ROLE_SALES_MARKETING_OFFICER,
         ];
 
         for ($i = 0; $i < max(0, min(4, $teamSize - 1)); $i++) {

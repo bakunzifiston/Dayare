@@ -154,6 +154,58 @@ class RolePermissionCustomizationTest extends TestCase
             ->assertOk();
     }
 
+    public function test_sales_and_marketing_officer_has_sales_section_by_default(): void
+    {
+        [$owner, $business, $member] = $this->processorTeam(
+            BusinessUser::ROLE_SALES_MARKETING_OFFICER
+        );
+
+        foreach ([
+            BusinessUser::PERMISSION_VIEW_CRM,
+            BusinessUser::PERMISSION_MANAGE_EMPLOYEES,
+            BusinessUser::PERMISSION_MANAGE_SUPPLIERS,
+            BusinessUser::PERMISSION_MANAGE_CONTRACTS,
+            BusinessUser::PERMISSION_MANAGE_CLIENTS,
+            BusinessUser::PERMISSION_MANAGE_DEMAND,
+        ] as $permission) {
+            $this->assertTrue($member->canProcessorPermission($permission, $business->id));
+        }
+
+        $this->assertFalse($member->canProcessorPermission(
+            BusinessUser::PERMISSION_CREATE_ANIMAL_INTAKE,
+            $business->id
+        ));
+        $this->assertFalse($member->canProcessorPermission(
+            BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD,
+            $business->id
+        ));
+
+        $this->actingAs($owner)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('tenant-users.role-permissions.index', [
+                'business_id' => $business->id,
+                'role' => BusinessUser::ROLE_SALES_MARKETING_OFFICER,
+            ]))
+            ->assertOk()
+            ->assertSee('Sales and Marketing Officer')
+            ->assertSee('Sales & Marketing');
+
+        $this->actingAs($member)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('crm.dashboard'))
+            ->assertOk();
+
+        $this->actingAs($member)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('clients.index'))
+            ->assertOk();
+
+        $this->actingAs($member)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('dashboard'))
+            ->assertOk();
+    }
+
     public function test_owner_can_restore_role_defaults(): void
     {
         [$owner, $business, $member] = $this->processorTeam();

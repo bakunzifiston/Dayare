@@ -7,6 +7,10 @@ use App\Models\AnimalIntakeItem;
 use App\Models\AnteMortemInspection;
 use App\Models\Batch;
 use App\Models\Certificate;
+use App\Models\Client;
+use App\Models\Contract;
+use App\Models\Demand;
+use App\Models\Employee;
 use App\Models\ColdRoom;
 use App\Models\ColdRoomViolation;
 use App\Models\DeliveryConfirmation;
@@ -18,6 +22,7 @@ use App\Models\Inspector;
 use App\Models\PostMortemInspection;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterPlan;
+use App\Models\Supplier;
 use App\Models\TransportTrip;
 use App\Models\User;
 use Carbon\Carbon;
@@ -37,6 +42,7 @@ class ProcessorDashboardCharts
             'inspector' => $this->inspector($ctx, $filters, $user),
             'transport_manager' => $this->transportManager($ctx, $filters),
             'accountant' => $this->accountant($businessId, $filters),
+            'sales_marketing_officer' => $this->salesMarketingOfficer($businessId, $filters),
             default => $this->orgAdmin($ctx, $filters, $user),
         };
     }
@@ -1098,6 +1104,106 @@ class ProcessorDashboardCharts
                     'fullWidth' => true,
                     'emptyMessage' => __('No finance activity for this period.'),
                 ],
+            ),
+        ];
+    }
+
+    /**
+     * @param  array{is_filtered: bool, start: ?\Carbon\Carbon, end: ?\Carbon\Carbon}|null  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    private function salesMarketingOfficer(int $businessId, ?array $filters = null): array
+    {
+        $filters = $filters ?? ['is_filtered' => false, 'start' => null, 'end' => null];
+        $openDemandStatuses = [
+            Demand::STATUS_DRAFT,
+            Demand::STATUS_CONFIRMED,
+            Demand::STATUS_IN_PROGRESS,
+        ];
+
+        $clients = $this->filteredQueryCount(
+            Client::query()->where('business_id', $businessId),
+            'created_at',
+            $filters,
+        );
+        $openDemands = $this->filteredQueryCount(
+            Demand::query()->where('business_id', $businessId)->whereIn('status', $openDemandStatuses),
+            'created_at',
+            $filters,
+        );
+        $suppliers = $this->filteredQueryCount(
+            Supplier::query()->where('business_id', $businessId),
+            'created_at',
+            $filters,
+        );
+        $contracts = $this->filteredQueryCount(
+            Contract::query()->where('business_id', $businessId)->where('status', Contract::STATUS_ACTIVE),
+            'created_at',
+            $filters,
+        );
+        $employees = $this->filteredQueryCount(
+            Employee::query()->where('business_id', $businessId),
+            'created_at',
+            $filters,
+        );
+
+        $pipelineLabels = [__('Clients'), __('Open demands'), __('Suppliers'), __('Contracts'), __('Employees')];
+        $pipelineData = [$clients, $openDemands, $suppliers, $contracts, $employees];
+        $pipelineColors = [
+            $this->brandColor('primary'),
+            $this->brandColor('warning'),
+            $this->brandColor('success'),
+            $this->brandColor('muted'),
+            $this->speciesColor('cattle'),
+        ];
+
+        $statusCounts = [];
+        foreach (Demand::STATUSES as $status => $label) {
+            $statusCounts[$label] = $this->filteredQueryCount(
+                Demand::query()->where('business_id', $businessId)->where('status', $status),
+                'created_at',
+                $filters,
+            );
+        }
+        $statusLabels = array_map(fn (string $label) => __($label), array_keys($statusCounts));
+        $statusData = array_values($statusCounts);
+        $statusColors = [
+            $this->brandColor('muted'),
+            $this->brandColor('primary'),
+            $this->brandColor('warning'),
+            $this->brandColor('success'),
+            $this->speciesColor('sheep'),
+        ];
+
+        return [
+            $this->barChart(
+                'sales-pipeline',
+                __('Sales & Marketing pipeline'),
+                220,
+                __('Clients, open demands, suppliers, contracts, and employees for the selected period'),
+                $pipelineLabels,
+                [[
+                    'label' => __('Count'),
+                    'data' => $pipelineData,
+                    'backgroundColor' => $pipelineColors,
+                ]],
+                null,
+                collect($pipelineLabels)->map(fn (string $label, int $index) => [
+                    'color' => $pipelineColors[$index] ?? $this->brandColor('primary'),
+                    'label' => $label,
+                ])->all(),
+            ),
+            array_merge(
+                $this->pieChart(
+                    'sales-demand-status',
+                    __('Demand status'),
+                    220,
+                    __('Demand records by status for the selected period'),
+                    $statusLabels,
+                    $statusData,
+                    $statusColors,
+                ),
+                ['emptyMessage' => __('No demands for this period.')],
             ),
         ];
     }

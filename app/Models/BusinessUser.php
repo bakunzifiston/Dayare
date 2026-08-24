@@ -28,6 +28,8 @@ class BusinessUser extends Pivot
 
     public const ROLE_ACCOUNTANT = 'accountant';
 
+    public const ROLE_SALES_MARKETING_OFFICER = 'sales_marketing_officer';
+
     public const ROLES = [
         self::ROLE_ORG_ADMIN,
         self::ROLE_OPERATIONS_MANAGER,
@@ -35,6 +37,7 @@ class BusinessUser extends Pivot
         self::ROLE_INSPECTOR,
         self::ROLE_TRANSPORT_MANAGER,
         self::ROLE_ACCOUNTANT,
+        self::ROLE_SALES_MARKETING_OFFICER,
     ];
 
     public const PERMISSION_VIEW_ALL_MODULES = 'view_all_modules';
@@ -227,6 +230,15 @@ class BusinessUser extends Pivot
             self::PERMISSION_MANAGE_AR_INVOICES,
             self::PERMISSION_MANAGE_AP_PAYABLES,
             self::PERMISSION_VIEW_FINANCE_REPORTS,
+        ],
+        self::ROLE_SALES_MARKETING_OFFICER => [
+            self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
+            self::PERMISSION_VIEW_CRM,
+            self::PERMISSION_MANAGE_EMPLOYEES,
+            self::PERMISSION_MANAGE_SUPPLIERS,
+            self::PERMISSION_MANAGE_CONTRACTS,
+            self::PERMISSION_MANAGE_CLIENTS,
+            self::PERMISSION_MANAGE_DEMAND,
         ],
     ];
 

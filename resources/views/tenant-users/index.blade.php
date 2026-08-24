@@ -31,6 +31,7 @@
             'inspector' => __('Inspector'),
             'transport_manager' => __('Transport Manager'),
             'accountant' => __('Accountant'),
+            'sales_marketing_officer' => __('Sales and Marketing Officer'),
         ];
     @endphp
 
