@@ -716,7 +716,7 @@ class CertificateController extends Controller
         $executionLabel = $certificate->batch?->slaughterExecution?->slaughter_time?->format('d M Y H:i')
             .' — '.($certificate->batch?->slaughterExecution?->slaughterPlan?->facility?->facility_name ?? '—');
 
-        $certifiedAnimalIds = CertificateAnimalSelection::certificateAnimalIds($certificate);
+        $certifiedAnimalIds = CertificateAnimalSelection::explicitCertificateAnimalIds($certificate);
         $certifiedAnimalLabel = $certificate->batch?->items
             ->filter(fn ($item) => $certifiedAnimalIds->contains((int) $item->animal_intake_item_id))
             ->map(fn ($item) => $item->intakeItem?->ear_tag)

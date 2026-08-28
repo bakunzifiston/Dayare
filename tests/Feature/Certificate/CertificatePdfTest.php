@@ -391,6 +391,38 @@ class CertificatePdfTest extends TestCase
         $this->assertTrue($batch->canIssueCertificate());
     }
 
+    public function test_edit_does_not_list_all_batch_animals_for_legacy_certificate(): void
+    {
+        $batch = $this->createCertifiableBatch();
+        $tagA = 'RW-LEGACY-A-'.strtoupper(substr(uniqid(), -6));
+        $tagB = 'RW-LEGACY-B-'.strtoupper(substr(uniqid(), -6));
+        $this->createReleasedStorageForBatch($batch, $tagA);
+        $this->createReleasedStorageForBatch($batch, $tagB);
+
+        $certificate = Certificate::create([
+            'batch_id' => $batch->id,
+            'inspector_id' => $this->inspector->id,
+            'facility_id' => $this->slaughterFacility->id,
+            'slaughterhouse_display_name' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
+            'certificate_number' => 'CERT-LEGACY-EDIT-'.uniqid(),
+            'issued_at' => now(),
+            'status' => Certificate::STATUS_ACTIVE,
+            'animal_intake_item_ids' => null,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('certificates.edit', $certificate))
+            ->assertOk()
+            ->assertViewHas('certifiedAnimalLabel', '—');
+
+        $this->actingAs($this->user)
+            ->get(route('certificates.hub'))
+            ->assertOk()
+            ->assertSee($certificate->certificate_number, false)
+            ->assertDontSee($tagA, false)
+            ->assertDontSee($tagB, false);
+    }
+
     public function test_warehouse_storage_release_without_released_date_enables_certificate(): void
     {
         $batch = Batch::create([
