@@ -184,7 +184,7 @@
 
 .rica-note,
 .rica-cert-note {
-    @apply text-xs mt-1 mb-2 font-medium;
+    @apply text-xs mt-1 mb-2 leading-relaxed;
     color: var(--rica-green-dark);
 }
 

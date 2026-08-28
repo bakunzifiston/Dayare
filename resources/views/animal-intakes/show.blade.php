@@ -45,7 +45,8 @@
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm name') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_name ?? '—' }}</dd></div>
                     <div><dt class="text-sm font-medium text-slate-500">{{ __('Farm registration number') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->farm_registration_number ?? '—' }}</dd></div>
                     @if ($intake->source_type === \App\Models\AnimalIntake::SOURCE_TYPE_CLIENT)
-                        <div><dt class="text-sm font-medium text-slate-500">{{ __('Movement permit (document)') }}</dt><dd class="mt-1 text-sm text-slate-900">@if ($intake->movementPermitDocumentUrl())<a href="{{ $intake->movementPermitDocumentUrl() }}" target="_blank" rel="noopener noreferrer" class="text-bucha-primary hover:underline">{{ __('View uploaded permit') }}</a>@else — @endif</dd></div>
+                        <div><dt class="text-sm font-medium text-slate-500">{{ __('Movement permit (document)') }}</dt><dd class="mt-1 text-sm text-slate-900">@if ($intake->movementPermitDocumentUrl())<a href="{{ $intake->movementPermitDocumentUrl() }}" target="_blank" rel="noopener noreferrer" class="text-bucha-primary hover:underline">{{ __('View uploaded permit') }}</a>@else {{ __('Not uploaded') }} @endif</dd></div>
+                        <div><dt class="text-sm font-medium text-slate-500">{{ __('Receipt (document)') }}</dt><dd class="mt-1 text-sm text-slate-900">@if ($intake->receiptDocumentUrl())<a href="{{ $intake->receiptDocumentUrl() }}" target="_blank" rel="noopener noreferrer" class="text-bucha-primary hover:underline">{{ __('View uploaded receipt') }}</a>@else {{ __('Not uploaded') }} @endif</dd></div>
                     @else
                         <div><dt class="text-sm font-medium text-slate-500">{{ __('Movement permit No') }}</dt><dd class="mt-1 text-sm text-slate-900">{{ $intake->movement_permit_no ?? '—' }}</dd></div>
                     @endif

@@ -154,5 +154,22 @@
             </tr>
         @endif
     </table>
-    <p class="cert-note">{{ __('This certificate was issued after veterinary meat inspection at the slaughterhouse.') }}</p>
+    <p class="cert-note">
+        Njyewe
+        <span style="display:inline-block;min-width:180px;border-bottom:1px dotted #111;padding:0 6px;font-weight:600;">{{ $v['certificate']->inspector?->full_name ?: $inspectorName }}</span>
+        Veterineri ushinzwe ubugenzuzi bw'inyama ku ibagiro ryavuzwe haruguru, nshingiye ku bugenzuzi n'isuzuma nakoze ngendeye ku mategeko n'amabwiriza abigenga mu Rwanda, ndemeza ko inyama zivugwa muri iki cyemezo zateguriwe mu ibagiro nshinzwe hubahirizwa ibisabwa byose, kandi ko nta ndwara, ubwandu, cyangwa ikindi cyazibuza gucuruzwa no gukoreshwa mu mafunguro agenewe abantu.
+    </p>
+    <table class="field-table" style="margin-top:8px;border:none;">
+        <tr>
+            <td style="border:none;width:55%;vertical-align:top;">
+                Tariki
+                {{ $v['issuedDay'] ?? '' }} / {{ $v['issuedMonth'] ?? '' }} / {{ $v['issuedYear'] ?? '' }}
+                <div style="margin-top:18px;">Umukono na kashe bya veterineri.</div>
+                <div style="margin-top:28px;border-bottom:1px solid #111;height:28px;"></div>
+            </td>
+            <td style="border:none;width:45%;vertical-align:bottom;text-align:right;font-weight:bold;">
+                Tera muri aya magambo cashe y'ibagiro
+            </td>
+        </tr>
+    </table>
 </div>

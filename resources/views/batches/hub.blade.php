@@ -170,8 +170,8 @@
                                     <x-entity.text-action :href="route('batches.edit', $batch)">{{ __('Edit') }}</x-entity.text-action>
                                     @if (! $batch->postMortemInspection)
                                         <x-entity.text-action :href="route('post-mortem-inspections.create', ['batch_id' => $batch->id])">{{ __('Post-mortem') }}</x-entity.text-action>
-                                    @elseif ($batch->canIssueCertificate() && ! $batch->certificate)
-                                        <x-entity.text-action :href="route('certificates.create', ['batch_id' => $batch->id])">{{ __('Issue certificate') }}</x-entity.text-action>
+                                    @elseif ($batch->canIssueCertificate())
+                                        <x-entity.text-action :href="route('certificates.create', ['slaughter_execution_id' => $batch->slaughter_execution_id])">{{ __('Issue certificate') }}</x-entity.text-action>
                                     @endif
                                     <x-entity.text-action-delete
                                         :action="route('batches.destroy', $batch)"

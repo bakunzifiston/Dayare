@@ -43,22 +43,24 @@
                             <p class="mt-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
                                 {{ __('No slaughter executions are ready for certification yet. Complete post-mortem inspection, store the meat in cold room, then release it from cold room before issuing a certificate.') }}
                             </p>
+                            @if (! empty($certificateBlockReasons) && $certificateBlockReasons->isNotEmpty())
+                                <ul class="mt-2 list-disc list-inside text-sm text-amber-900 space-y-1">
+                                    @foreach ($certificateBlockReasons as $reason)
+                                        <li>{{ $reason }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
                         @endif
                     </div>
 
                     <div id="animal-selection-panel" class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                                <h3 class="text-sm font-semibold text-slate-900">{{ __('Animals for this certificate') }}</h3>
-                                <p class="mt-1 text-xs text-slate-600">{{ __('Select one animal or multiple. Each animal needs released cold room storage and post-mortem approval.') }}</p>
-                            </div>
-                            <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
-                                <input type="checkbox" id="select-all-animals" class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary">
-                                {{ __('Select all ready animals') }}
-                            </label>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-900">{{ __('Animal for this certificate') }}</h3>
+                            <p class="mt-1 text-xs text-slate-600">{{ __('Select exactly one animal. Each certificate is issued per animal, after post-mortem approval and cold-room release.') }}</p>
                         </div>
                         <div id="animal-selection-list" class="space-y-2"></div>
                         <x-input-error class="mt-2" :messages="$errors->get('animal_intake_item_ids')" />
+                        <x-input-error class="mt-2" :messages="$errors->get('animal_intake_item_id')" />
                     </div>
 
                     <div>
@@ -167,14 +169,13 @@
                 var labelSlaughterFacility = @json(__('Slaughter facility'));
                 var animalPanel = document.getElementById('animal-selection-panel');
                 var animalList = document.getElementById('animal-selection-list');
-                var selectAllAnimals = document.getElementById('select-all-animals');
 
-                function selectedAnimalCheckboxes() {
-                    return animalList ? Array.from(animalList.querySelectorAll('input[name="animal_intake_item_ids[]"]')) : [];
+                function selectedAnimalRadios() {
+                    return animalList ? Array.from(animalList.querySelectorAll('input[name="animal_intake_item_id"]')) : [];
                 }
 
                 function selectedAnimalIdsFromDom() {
-                    return selectedAnimalCheckboxes()
+                    return selectedAnimalRadios()
                         .filter(function (input) { return input.checked; })
                         .map(function (input) { return parseInt(input.value, 10); });
                 }
@@ -194,36 +195,25 @@
 
                     animalPanel.classList.remove('hidden');
 
-                    animals.forEach(function (animal) {
+                    animals.forEach(function (animal, index) {
                         var checked = selectedAnimalIds.length
                             ? selectedAnimalIds.indexOf(animal.animal_intake_item_id) !== -1
-                            : true;
+                            : animals.length === 1 && index === 0;
                         var row = document.createElement('label');
-                        row.className = 'flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm';
+                        row.className = 'flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm cursor-pointer';
                         row.innerHTML =
-                            '<input type="checkbox" name="animal_intake_item_ids[]" value="' + animal.animal_intake_item_id + '" class="rounded border-slate-300 text-bucha-primary focus:ring-bucha-primary"' + (checked ? ' checked' : '') + '>'
+                            '<input type="radio" name="animal_intake_item_id" value="' + animal.animal_intake_item_id + '" class="border-slate-300 text-bucha-primary focus:ring-bucha-primary"' + (checked ? ' checked' : '') + ' required>'
                             + '<span class="font-mono text-xs font-semibold text-slate-900">' + animal.ear_tag + '</span>'
                             + '<span class="text-slate-600">' + animal.species + (animal.sex ? ' · ' + animal.sex : '') + '</span>'
                             + '<span class="ml-auto tabular-nums text-slate-700">' + Number(animal.released_kg).toFixed(2) + ' kg</span>';
                         animalList.appendChild(row);
                     });
 
-                    selectedAnimalCheckboxes().forEach(function (input) {
+                    selectedAnimalRadios().forEach(function (input) {
                         input.addEventListener('change', function () {
-                            syncSelectAllState();
                             applySelectionPrefill(executionSelect ? executionSelect.value : '');
                         });
                     });
-
-                    syncSelectAllState();
-                }
-
-                function syncSelectAllState() {
-                    if (!selectAllAnimals) {
-                        return;
-                    }
-                    var boxes = selectedAnimalCheckboxes();
-                    selectAllAnimals.checked = boxes.length > 0 && boxes.every(function (input) { return input.checked; });
                 }
 
                 function applySelectionPrefill(executionId) {
@@ -332,15 +322,6 @@
 
                 if (executionSelect) {
                     executionSelect.addEventListener('change', syncFromExecution);
-                }
-
-                if (selectAllAnimals) {
-                    selectAllAnimals.addEventListener('change', function () {
-                        selectedAnimalCheckboxes().forEach(function (input) {
-                            input.checked = selectAllAnimals.checked;
-                        });
-                        applySelectionPrefill(executionSelect ? executionSelect.value : '');
-                    });
                 }
 
                 syncFromExecution();

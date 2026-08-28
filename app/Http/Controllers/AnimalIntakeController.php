@@ -741,7 +741,8 @@ class AnimalIntakeController extends Controller
                 ],
                 'vehicle_plate' => ['nullable', 'string', 'max:50'],
                 'driver_name' => ['nullable', 'string', 'max:100'],
-                'movement_permit_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
+                'movement_permit_document' => AnimalIntake::OPTIONAL_DOCUMENT_FILE_RULES,
+                'receipt_document' => AnimalIntake::OPTIONAL_DOCUMENT_FILE_RULES,
                 'contract_id' => [
                     'nullable',
                     'prohibited_unless:source_type,'.AnimalIntake::SOURCE_TYPE_SUPPLIER,
@@ -810,6 +811,8 @@ class AnimalIntakeController extends Controller
                 'animals',
                 'vehicle_plate',
                 'is_draft',
+                'movement_permit_document',
+                'receipt_document',
             ]),
             [
                 'transport_vehicle_plate' => $vehiclePlate,
@@ -824,17 +827,55 @@ class AnimalIntakeController extends Controller
             $data['health_certificate_issue_date'] = null;
             $data['health_certificate_expiry_date'] = null;
             $data['movement_permit_document_path'] = null;
+            $data['receipt_document_path'] = null;
         }
 
         $data = $this->hydrateIntakeSourceData($request, $data);
 
-        $uploadedFile = $request->file('movement_permit_document');
-        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT && $uploadedFile) {
-            if ($existing?->movement_permit_document_path) {
-                AnimalIntakeMovementPermitStorage::delete($existing->movement_permit_document_path);
-            }
-            $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
+        if (($data['source_type'] ?? null) === AnimalIntake::SOURCE_TYPE_CLIENT) {
+            $data = $this->storeClientIntakeDocument(
+                $request,
+                $data,
+                'movement_permit_document',
+                'movement_permit_document_path',
+                $existing?->movement_permit_document_path,
+                AnimalIntakeMovementPermitStorage::PERMIT_DIRECTORY,
+            );
+            $data = $this->storeClientIntakeDocument(
+                $request,
+                $data,
+                'receipt_document',
+                'receipt_document_path',
+                $existing?->receipt_document_path,
+                AnimalIntakeMovementPermitStorage::RECEIPT_DIRECTORY,
+            );
         }
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function storeClientIntakeDocument(
+        Request $request,
+        array $data,
+        string $inputName,
+        string $pathColumn,
+        ?string $existingPath,
+        string $directory,
+    ): array {
+        $uploadedFile = $request->file($inputName);
+        if (! $uploadedFile) {
+            return $data;
+        }
+
+        if ($existingPath) {
+            AnimalIntakeMovementPermitStorage::delete($existingPath);
+        }
+
+        $data[$pathColumn] = AnimalIntakeMovementPermitStorage::store($uploadedFile, $directory);
 
         return $data;
     }

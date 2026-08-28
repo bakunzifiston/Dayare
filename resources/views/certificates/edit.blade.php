@@ -35,6 +35,12 @@
                         <x-input-error class="mt-2" :messages="$errors->get('batch_id')" />
                     </div>
 
+                    <div class="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3">
+                        <x-input-label :value="__('Certified animal')" />
+                        <p class="mt-1 text-sm font-mono text-slate-900">{{ $certifiedAnimalLabel ?? '—' }}</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ __('Certificates are issued per animal and cannot be moved to another animal.') }}</p>
+                    </div>
+
                     <div>
                         <x-input-label for="inspector_id" :value="__('Inspector')" />
                         <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>

@@ -171,6 +171,7 @@ class CertificateController extends Controller
             ->where($scopeCertificates)
             ->with([
                 'batch.slaughterExecution.slaughterPlan.facility',
+                'batch.items.intakeItem',
                 'inspector',
                 'facility',
                 'batch.postMortemInspection',
@@ -529,11 +530,26 @@ class CertificateController extends Controller
             ])
             ->filter(fn ($animals, $executionId) => $executionId > 0);
 
-        $selectedAnimalIds = collect(old('animal_intake_item_ids', []))
+        $selectedAnimalIds = collect(old('animal_intake_item_ids', old('animal_intake_item_id') ? [old('animal_intake_item_id')] : []))
             ->map(fn ($id) => (int) $id)
             ->filter(fn (int $id) => $id > 0)
             ->values()
             ->all();
+
+        $certificateBlockReasons = collect();
+        if ($executions->isEmpty()) {
+            $certificateBlockReasons = Batch::query()
+                ->whereIn('id', $batchIds)
+                ->eligibleForCertificate()
+                ->with(['items', 'certificates', 'warehouseStorages', 'postMortemInspection.inspectionItems'])
+                ->latest()
+                ->limit(20)
+                ->get()
+                ->map(fn (Batch $batch) => $batch->certificateIssueBlockReason())
+                ->filter()
+                ->unique()
+                ->values();
+        }
 
         return view('certificates.create', [
             'executions' => $executions,
@@ -548,6 +564,7 @@ class CertificateController extends Controller
             'defaultSlaughterhouseName' => CertificatePdfService::NYAGATARE_FACILITY_NAME,
             'pdfDefaults' => $pdfDefaults,
             'savedPdfDetails' => [],
+            'certificateBlockReasons' => $certificateBlockReasons,
         ]);
     }
 
@@ -688,9 +705,10 @@ class CertificateController extends Controller
             ->get()
             ->map(fn (Facility $f) => ['id' => $f->id, 'label' => $f->facility_name]);
 
-        $certificate->load(['batch.slaughterExecution.slaughterPlan.facility', 'facility', 'transportTrips']);
-        $pdfDefaults = app(CertificatePdfService::class)->suggestedPdfDetails(
+        $certificate->load(['batch.items.intakeItem', 'batch.slaughterExecution.slaughterPlan.facility', 'facility', 'transportTrips']);
+        $pdfDefaults = app(CertificatePdfService::class)->suggestedPdfDetailsForAnimals(
             $certificate->batch,
+            CertificateAnimalSelection::certificateAnimalIds($certificate),
             $certificate->facility,
             $certificate->transportTrips->sortByDesc('departure_date')->first(),
         );
@@ -698,9 +716,18 @@ class CertificateController extends Controller
         $executionLabel = $certificate->batch?->slaughterExecution?->slaughter_time?->format('d M Y H:i')
             .' — '.($certificate->batch?->slaughterExecution?->slaughterPlan?->facility?->facility_name ?? '—');
 
+        $certifiedAnimalIds = CertificateAnimalSelection::certificateAnimalIds($certificate);
+        $certifiedAnimalLabel = $certificate->batch?->items
+            ->filter(fn ($item) => $certifiedAnimalIds->contains((int) $item->animal_intake_item_id))
+            ->map(fn ($item) => $item->intakeItem?->ear_tag)
+            ->filter()
+            ->unique()
+            ->implode(', ') ?: '—';
+
         return view('certificates.edit', [
             'certificate' => $certificate,
             'executionLabel' => $executionLabel,
+            'certifiedAnimalLabel' => $certifiedAnimalLabel,
             'inspectorsByFacility' => $inspectorsByFacility,
             'facilities' => $facilities,
             'pdfDefaults' => $pdfDefaults,

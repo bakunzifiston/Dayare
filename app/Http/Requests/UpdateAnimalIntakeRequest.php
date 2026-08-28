@@ -95,7 +95,8 @@ class UpdateAnimalIntakeRequest extends FormRequest
             'observation' => ['nullable', 'string'],
             'meat_inspector_name' => ['nullable', 'string', 'max:255'],
             'movement_permit_no' => ['nullable', 'string', 'max:100'],
-            'movement_permit_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
+            'movement_permit_document' => AnimalIntake::OPTIONAL_DOCUMENT_FILE_RULES,
+            'receipt_document' => AnimalIntake::OPTIONAL_DOCUMENT_FILE_RULES,
             'transport_vehicle_plate' => [
                 'nullable',
                 'string',

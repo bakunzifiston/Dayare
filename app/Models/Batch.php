@@ -185,41 +185,20 @@ class Batch extends Model
      */
     public function certificateIssueBlockReason(): ?string
     {
+        if (! $this->hasPerAnimalData()) {
+            return __('Certificates are issued per animal. This batch has no individual animal records.');
+        }
+
         if (! $this->hasReleasedColdRoomStorage()) {
             return __('Release the meat from cold room storage before issuing a certificate.');
         }
 
-        if ($this->hasPerAnimalData()) {
-            if (CertificateAnimalSelection::certifiableAnimals($this)->isEmpty()) {
-                if ($this->certificates()->exists()) {
-                    return __('All released animals in this batch already have certificates.');
-                }
-
-                return __('No released, post-mortem approved animals are available for certification.');
+        if (CertificateAnimalSelection::certifiableAnimals($this)->isEmpty()) {
+            if ($this->certificates()->exists()) {
+                return __('All released animals in this batch already have certificates.');
             }
 
-            return null;
-        }
-
-        if ($this->certificates()->exists()) {
-            return __('This batch already has a certificate.');
-        }
-
-        if ($this->hasReleasedStorageWithPostMortemItem()) {
-            return null;
-        }
-
-        if (! $this->postMortemInspection) {
-            return __('Record a post-mortem inspection for this batch first.');
-        }
-
-        if ($this->postMortemInspection->approved_quantity <= 0
-            && $this->postMortemInspection->approved_from_items <= 0) {
-            return __('Post-mortem approved quantity must be greater than zero.');
-        }
-
-        if ($this->hasPerAnimalData() && ! $this->isPostMortemComplete()) {
-            return __('All animals in this batch must have a post-mortem outcome recorded.');
+            return __('No released, post-mortem approved animals are available for certification.');
         }
 
         return null;

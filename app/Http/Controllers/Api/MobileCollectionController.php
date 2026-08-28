@@ -35,6 +35,7 @@ use App\Models\AnteMortemInspectionItem;
 use App\Models\Batch;
 use App\Models\Certificate;
 use App\Models\CertificateQr;
+use App\Support\CertificateAnimalSelection;
 use App\Models\Client;
 use App\Models\Contract;
 use App\Models\DeliveryConfirmation;
@@ -359,8 +360,9 @@ class MobileCollectionController extends Controller
     public function animalIntakesStore(StoreAnimalIntakeRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $uploadedFile = $data['movement_permit_document'] ?? null;
-        unset($data['movement_permit_document']);
+        $permitFile = $data['movement_permit_document'] ?? null;
+        $receiptFile = $data['receipt_document'] ?? null;
+        unset($data['movement_permit_document'], $data['receipt_document']);
 
         $denied = $this->denyIfFacilityOutOfScope($request, (int) $data['facility_id']);
         if ($denied !== null) {
@@ -369,8 +371,17 @@ class MobileCollectionController extends Controller
 
         $data = $this->hydrateIntakeClientFields($request, $data);
 
-        if ($uploadedFile) {
-            $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
+        if ($permitFile) {
+            $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store(
+                $permitFile,
+                AnimalIntakeMovementPermitStorage::PERMIT_DIRECTORY,
+            );
+        }
+        if ($receiptFile) {
+            $data['receipt_document_path'] = AnimalIntakeMovementPermitStorage::store(
+                $receiptFile,
+                AnimalIntakeMovementPermitStorage::RECEIPT_DIRECTORY,
+            );
         }
 
         $item = AnimalIntake::create($data);
@@ -396,8 +407,9 @@ class MobileCollectionController extends Controller
         }
 
         $data = $request->validated();
-        $uploadedFile = $data['movement_permit_document'] ?? null;
-        unset($data['movement_permit_document']);
+        $permitFile = $data['movement_permit_document'] ?? null;
+        $receiptFile = $data['receipt_document'] ?? null;
+        unset($data['movement_permit_document'], $data['receipt_document']);
 
         $denied = $this->denyIfFacilityOutOfScope($request, (int) $data['facility_id']);
         if ($denied !== null) {
@@ -406,9 +418,19 @@ class MobileCollectionController extends Controller
 
         $data = $this->hydrateIntakeClientFields($request, $data);
 
-        if ($uploadedFile) {
+        if ($permitFile) {
             AnimalIntakeMovementPermitStorage::delete($animalIntake->movement_permit_document_path);
-            $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store($uploadedFile);
+            $data['movement_permit_document_path'] = AnimalIntakeMovementPermitStorage::store(
+                $permitFile,
+                AnimalIntakeMovementPermitStorage::PERMIT_DIRECTORY,
+            );
+        }
+        if ($receiptFile) {
+            AnimalIntakeMovementPermitStorage::delete($animalIntake->receipt_document_path);
+            $data['receipt_document_path'] = AnimalIntakeMovementPermitStorage::store(
+                $receiptFile,
+                AnimalIntakeMovementPermitStorage::RECEIPT_DIRECTORY,
+            );
         }
 
         $animalIntake->update($data);
@@ -1397,6 +1419,12 @@ class MobileCollectionController extends Controller
         }
 
         $certificate = Certificate::create($data);
+
+        $animalIds = collect($data['animal_intake_item_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values();
+        CertificateAnimalSelection::attachStoragesToCertificate($certificate, $animalIds);
 
         return ApiJson::success(
             $certificate->load(['batch:id,batch_code,species', 'inspector:id,first_name,last_name', 'facility:id,facility_name']),

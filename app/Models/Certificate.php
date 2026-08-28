@@ -8,9 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * Certificate – legal proof of inspection.
+ * Certificate – legal proof of inspection for one animal.
  * Certificate belongs to: Batch, Inspector, Facility.
- * Batch (1) → One Certificate. Certificate allowed only if post-mortem approved_quantity > 0.
+ * Issued per animal (not per batch). Allowed only after post-mortem approval
+ * and cold-room release for that animal.
  */
 class Certificate extends Model
 {

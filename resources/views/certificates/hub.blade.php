@@ -131,6 +131,18 @@
                                     <x-entity.status-pill :tone="$statusTone" :label="$cert->status_label" />
                                 </x-slot:badge>
 
+                                <x-entity.profile-row :label="__('Animal')">
+                                    @php
+                                        $certAnimalIds = \App\Support\CertificateAnimalSelection::explicitCertificateAnimalIds($cert);
+                                        $certTags = $cert->batch?->items
+                                            ->filter(fn ($item) => $certAnimalIds->contains((int) $item->animal_intake_item_id))
+                                            ->map(fn ($item) => $item->intakeItem?->ear_tag)
+                                            ->filter()
+                                            ->unique()
+                                            ->values() ?? collect();
+                                    @endphp
+                                    {{ $certTags->isNotEmpty() ? $certTags->implode(', ') : '—' }}
+                                </x-entity.profile-row>
                                 <x-entity.profile-row :label="__('Batch')">
                                     @if ($cert->batch)
                                         <a href="{{ route('batches.show', $cert->batch) }}" class="text-xs font-semibold text-bucha-primary hover:text-bucha-burgundy">
@@ -163,6 +175,10 @@
                                     <x-entity.profile-highlight
                                         :value="$cert->batch?->batch_code ?? '—'"
                                         :label="__('Batch')"
+                                    />
+                                    <x-entity.profile-highlight
+                                        :value="$certTags->isNotEmpty() ? $certTags->implode(', ') : '—'"
+                                        :label="__('Animal')"
                                     />
                                 </x-slot:highlights>
 

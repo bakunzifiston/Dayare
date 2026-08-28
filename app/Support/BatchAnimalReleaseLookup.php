@@ -79,6 +79,22 @@ class BatchAnimalReleaseLookup
                 ->map(fn (Collection $group) => $group->first())
                 ->filter(fn (WarehouseStorage $storage, int $animalId) => $animalId > 0);
 
+            $batchLevelStorage = $forBatch->first(
+                fn (WarehouseStorage $storage) => self::resolveAnimalId($storage) === null
+                    && (int) $storage->batch_id === $batchId
+            );
+
+            if ($batchLevelStorage !== null) {
+                foreach ($animalIds as $animalId) {
+                    $animalId = (int) $animalId;
+                    if ($animalId <= 0 || $byAnimal->has($animalId)) {
+                        continue;
+                    }
+
+                    $byAnimal->put($animalId, $batchLevelStorage);
+                }
+            }
+
             return [$batchId => $byAnimal];
         });
     }

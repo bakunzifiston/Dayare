@@ -28,6 +28,7 @@ class AnimalIntake extends Model
 
         static::deleting(function (AnimalIntake $intake): void {
             AnimalIntakeMovementPermitStorage::delete($intake->movement_permit_document_path);
+            AnimalIntakeMovementPermitStorage::delete($intake->receipt_document_path);
         });
     }
 
@@ -48,6 +49,7 @@ class AnimalIntake extends Model
         'farm_registration_number',
         'movement_permit_no',
         'movement_permit_document_path',
+        'receipt_document_path',
         'country_id',
         'province_id',
         'district_id',
@@ -97,6 +99,9 @@ class AnimalIntake extends Model
         self::STATUS_APPROVED,
         self::STATUS_REJECTED,
     ];
+
+    /** @var array<int, string> */
+    public const OPTIONAL_DOCUMENT_FILE_RULES = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'];
 
     public const SPECIES_CATTLE = 'Cattle';
 
@@ -437,11 +442,21 @@ class AnimalIntake extends Model
 
     public function movementPermitDocumentUrl(): ?string
     {
-        if ($this->movement_permit_document_path === null || $this->movement_permit_document_path === '') {
+        return $this->publicDocumentUrl($this->movement_permit_document_path);
+    }
+
+    public function receiptDocumentUrl(): ?string
+    {
+        return $this->publicDocumentUrl($this->receipt_document_path);
+    }
+
+    private function publicDocumentUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '') {
             return null;
         }
 
-        return Storage::disk('public')->url($this->movement_permit_document_path);
+        return Storage::disk('public')->url($path);
     }
 
     protected function hasItemRows(): bool

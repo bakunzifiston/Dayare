@@ -10,6 +10,8 @@ use App\Models\Facility;
 use App\Models\Species;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AnimalIntakeStoreTest extends TestCase
@@ -189,5 +191,109 @@ class AnimalIntakeStoreTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('client_id');
+    }
+
+    public function test_store_allows_intake_without_supporting_documents(): void
+    {
+        [$user, $facility, $client] = $this->makeIntakeContext('REG-AIS-DOCS-'.uniqid());
+
+        $earTag = 'EAR-NODOC-'.uniqid();
+
+        $this->actingAs($user)->post(route('animal-intakes.store'), $this->intakePayload($facility->id, $client->id, $earTag))
+            ->assertRedirect(route('animal-intakes.hub'));
+
+        $intake = AnimalIntake::query()->where('facility_id', $facility->id)->first();
+        $this->assertNotNull($intake);
+        $this->assertNull($intake->movement_permit_document_path);
+        $this->assertNull($intake->receipt_document_path);
+    }
+
+    public function test_store_saves_optional_movement_permit_or_receipt(): void
+    {
+        Storage::fake('public');
+        [$user, $facility, $client] = $this->makeIntakeContext('REG-AIS-FILE-'.uniqid());
+
+        $earTag = 'EAR-FILE-'.uniqid();
+        $permit = UploadedFile::fake()->create('permit.pdf', 120, 'application/pdf');
+        $receipt = UploadedFile::fake()->image('receipt.jpg');
+
+        $this->actingAs($user)->post(route('animal-intakes.store'), array_merge(
+            $this->intakePayload($facility->id, $client->id, $earTag),
+            [
+                'movement_permit_document' => $permit,
+                'receipt_document' => $receipt,
+            ],
+        ))->assertRedirect(route('animal-intakes.hub'));
+
+        $intake = AnimalIntake::query()->where('facility_id', $facility->id)->first();
+        $this->assertNotNull($intake?->movement_permit_document_path);
+        $this->assertNotNull($intake?->receipt_document_path);
+        Storage::disk('public')->assertExists($intake->movement_permit_document_path);
+        Storage::disk('public')->assertExists($intake->receipt_document_path);
+    }
+
+    /**
+     * @return array{0: User, 1: Facility, 2: Client}
+     */
+    private function makeIntakeContext(string $registrationNumber): array
+    {
+        $user = User::factory()->create();
+        $business = Business::create([
+            'user_id' => $user->id,
+            'business_name' => 'Intake Docs Co',
+            'registration_number' => $registrationNumber,
+            'contact_phone' => '+250788000506',
+            'email' => 'ais-docs-'.uniqid().'@test.com',
+            'status' => 'active',
+        ]);
+        BusinessUser::query()->create([
+            'business_id' => $business->id,
+            'user_id' => $user->id,
+            'role' => BusinessUser::ROLE_ORG_ADMIN,
+        ]);
+        $facility = Facility::create([
+            'business_id' => $business->id,
+            'facility_name' => 'Docs Slaughterhouse',
+            'facility_type' => Facility::TYPE_SLAUGHTERHOUSE,
+            'status' => 'active',
+        ]);
+        $client = Client::create([
+            'business_id' => $business->id,
+            'name' => 'Docs Client Ltd',
+            'email' => 'docs-client-'.uniqid().'@test.com',
+            'phone' => '+250788000507',
+            'country' => 'Rwanda',
+            'is_active' => true,
+        ]);
+        $goats = Species::query()->firstOrCreate(
+            ['code' => 'goat'],
+            ['name' => 'Goats', 'sort_order' => 2, 'is_active' => true],
+        );
+        $business->configuredSpecies()->syncWithoutDetaching([$goats->id]);
+
+        return [$user, $facility, $client];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function intakePayload(int $facilityId, int $clientId, string $earTag): array
+    {
+        return [
+            'facility_id' => $facilityId,
+            'source_type' => AnimalIntake::SOURCE_TYPE_CLIENT,
+            'client_id' => $clientId,
+            'intake_date' => now('Africa/Kigali')->format('Y-m-d\TH:i'),
+            'is_draft' => '0',
+            'animals' => [
+                [
+                    'ear_tag' => $earTag,
+                    'species' => 'Goats',
+                    'sex' => AnimalIntake::SEX_MALE,
+                    'health_status' => 'healthy',
+                    'body_condition_score' => 'good',
+                ],
+            ],
+        ];
     }
 }

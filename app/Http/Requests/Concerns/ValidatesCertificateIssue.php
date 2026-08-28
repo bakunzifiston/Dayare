@@ -34,7 +34,7 @@ trait ValidatesCertificateIssue
             'issued_at' => ['required', 'date', 'before_or_equal:today'],
             'expiry_date' => ['nullable', 'date', 'after_or_equal:issued_at'],
             'status' => ['required', 'string', Rule::in(Certificate::STATUSES)],
-            'animal_intake_item_ids' => ['nullable', 'array', 'min:1'],
+            'animal_intake_item_ids' => ['required', 'array', 'min:1'],
             'animal_intake_item_ids.*' => ['integer', 'exists:animal_intake_items,id'],
             ...CertificatePdfDetails::validationRules(),
         ];
@@ -84,13 +84,18 @@ trait ValidatesCertificateIssue
         $inspector = Inspector::find($this->input('inspector_id'));
 
         $this->validateFacilityAndInspector($validator, $batch, $facility, $inspector);
-        $this->validateAnimalSelection($validator, $batch);
+        $this->validateAnimalSelection($validator, $batch, $isCreate);
         $this->validatePdfDetailsForIssue($validator, $batch, $facility);
     }
 
-    protected function validateAnimalSelection(Validator $validator, Batch $batch): void
+    protected function validateAnimalSelection(Validator $validator, Batch $batch, bool $isCreate): void
     {
         if (! $batch->hasPerAnimalData()) {
+            $validator->errors()->add(
+                'animal_intake_item_ids',
+                __('Certificates must be issued for an individual animal. This batch has no animal records.')
+            );
+
             return;
         }
 
@@ -100,10 +105,20 @@ trait ValidatesCertificateIssue
             ->values()
             ->all();
 
+        $requireExactlyOne = $isCreate;
+        if (! $isCreate) {
+            $certificate = $this->route('certificate');
+            $existingCount = $certificate instanceof Certificate
+                ? CertificateAnimalSelection::explicitCertificateAnimalIds($certificate)->count()
+                : 0;
+            $requireExactlyOne = $existingCount <= 1;
+        }
+
         $error = CertificateAnimalSelection::validateSelection(
             $batch,
             $selectedIds,
             $this->route('certificate')?->id ? (int) $this->route('certificate')->id : null,
+            $requireExactlyOne,
         );
         if ($error !== null) {
             $validator->errors()->add('animal_intake_item_ids', $error);

@@ -120,51 +120,58 @@
         }
 
         .cert-text {
-            padding: 6px 8px;
+            padding: 8px 8px 6px;
             text-align: justify;
             font-size: 8.5px;
-            line-height: 1.4;
+            line-height: 1.45;
+        }
+        .name-line {
+            display: inline-block;
+            border-bottom: 1px dotted #000;
+            min-width: 220px;
+            padding: 0 4px 1px;
+            font-weight: 600;
+            text-align: center;
         }
 
         .date-row td {
-            padding: 6px 8px;
+            padding: 8px 8px 4px;
             font-size: 9px;
+            border: none;
         }
         .date-box {
             display: inline-block;
-            border-bottom: 1px solid #000;
-            min-width: 28px;
+            border-bottom: 1px dotted #000;
+            min-width: 36px;
             text-align: center;
             font-weight: 600;
             padding: 0 4px 1px;
         }
 
         .signature-cell {
-            padding: 6px 8px;
+            padding: 6px 8px 10px;
             vertical-align: top;
+            border: none;
         }
         .signature-label {
             font-size: 8.5px;
-            font-weight: bold;
             margin-bottom: 4px;
         }
         .signature-line {
             border-bottom: 1px solid #000;
-            min-height: 32px;
-            margin-top: 6px;
+            min-height: 36px;
+            margin-top: 8px;
         }
         .inspector-name {
             margin-top: 4px;
             font-size: 9px;
             font-weight: 600;
         }
-        .stamp-box {
-            border: 1px dashed #444;
-            min-height: 64px;
-            text-align: center;
-            font-size: 7.5px;
-            color: #333;
-            padding: 8px 6px;
+        .stamp-instruction {
+            font-size: 9px;
+            font-weight: bold;
+            text-align: right;
+            padding-top: 28px;
             line-height: 1.35;
         }
 
@@ -354,40 +361,35 @@
                 </tr>
             </table>
 
-            {{-- Section 6: Certification --}}
+            {{-- Section 6: Official veterinary declaration --}}
             <div class="section-title">6. KWEMEZA</div>
             <div class="cert-text">
-                Jyewe wampaye umukono, ndemeza ko nagenzuye inyama mu ibagiro, kandi ko inyama zihuye n'amahame y'u Rwanda.
-                Zagenzuwe ku ndwara zose, zemerewe kurya, kandi ziri mu byiciro byemewe n'inzego zishinzwe.
+                Njyewe
+                <span class="name-line">{{ $certificate->inspector?->full_name ?: '' }}</span>
+                Veterineri ushinzwe ubugenzuzi bw'inyama ku ibagiro ryavuzwe haruguru, nshingiye ku bugenzuzi n'isuzuma nakoze ngendeye ku mategeko n'amabwiriza abigenga mu Rwanda, ndemeza ko inyama zivugwa muri iki cyemezo zateguriwe mu ibagiro nshinzwe hubahirizwa ibisabwa byose, kandi ko nta ndwara, ubwandu, cyangwa ikindi cyazibuza gucuruzwa no gukoreshwa mu mafunguro agenewe abantu.
             </div>
 
             <table class="date-row" style="width: 100%;">
                 <tr>
-                    <td style="border: none; width: 18%; font-weight: bold;">Tariki:</td>
-                    <td style="border: none;">
-                        <span class="date-box">{{ $issuedDay }}</span>
+                    <td>
+                        Tariki
+                        <span class="date-box">{{ $issuedDay !== '—' ? $issuedDay : '' }}</span>
                         /
-                        <span class="date-box">{{ $issuedMonth }}</span>
-                        /
-                        <span class="date-box">{{ $issuedYear }}</span>
+                        <span class="date-box">{{ $issuedMonth !== '—' ? $issuedMonth : '' }}</span>
+                        / 20
+                        <span class="date-box">{{ $issuedYear !== '—' ? substr((string) $issuedYear, -2) : '' }}</span>
                     </td>
                 </tr>
             </table>
 
             <table style="width: 100%;">
                 <tr>
-                    <td class="signature-cell" style="width: 55%; border: none;">
-                        <div class="signature-label">Umukono na kashe bya veterineri:</div>
+                    <td class="signature-cell" style="width: 55%;">
+                        <div class="signature-label">Umukono na kashe bya veterineri.</div>
                         <div class="signature-line"></div>
-                        @if ($certificate->inspector?->full_name)
-                            <div class="inspector-name">{{ $certificate->inspector->full_name }}</div>
-                        @endif
                     </td>
-                    <td class="signature-cell" style="width: 45%; border: none;">
-                        <div class="stamp-box">
-                            Tera muri aya magambo cashe y'ibagiro:<br>
-                            <strong>{{ $slaughterhouseDisplayName }}</strong>
-                        </div>
+                    <td class="signature-cell" style="width: 45%;">
+                        <div class="stamp-instruction">Tera muri aya magambo cashe y'ibagiro</div>
                     </td>
                 </tr>
             </table>

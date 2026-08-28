@@ -151,26 +151,6 @@
             margin: 4px 0 0;
         }
 
-        .appendix-title {
-            font-size: 9px;
-            font-weight: bold;
-            color: #047857;
-            border-bottom: 1px solid #b8dcc6;
-            padding-bottom: 3px;
-            margin: 12px 0 6px;
-            text-transform: uppercase;
-        }
-        .animal-row {
-            border: 1px solid #c8e6d4;
-            padding: 5px 6px;
-            margin-bottom: 4px;
-            background: #fafdfb;
-        }
-        .animal-tag {
-            font-weight: bold;
-            color: #047857;
-        }
-
         .footer {
             margin-top: 12px;
             padding-top: 6px;
@@ -236,20 +216,6 @@
     'inspectorName' => $inspectorName,
     'slaughterDate' => $slaughterDate,
 ])
-
-@if (! empty($animalsDetail))
-    <div class="appendix-title">{{ __('Inspection traceability') }} ({{ count($animalsDetail) }})</div>
-    @foreach ($animalsDetail as $animal)
-        <div class="animal-row">
-            <span class="animal-tag">{{ $animal['ear_tag'] }}</span>
-            · {{ $animal['species'] }} · {{ $animal['sex'] }}
-            · {{ __('PM') }}: {{ $animal['pm_outcome'] ?: __('Not recorded') }}
-            @if ($animal['carcass_weight_kg'])
-                · {{ number_format((float) $animal['carcass_weight_kg'], 2) }} kg
-            @endif
-        </div>
-    @endforeach
-@endif
 
 <div class="footer">
     {{ config('app.name', 'BuchaPro') }} · {{ __('Meat traceability') }}

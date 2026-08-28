@@ -185,6 +185,13 @@
                 const manual = [this.reviewField('manual_client_firstname'), this.reviewField('manual_client_lastname')].filter((v) => v && v !== '—').join(' ');
                 return el?.value ? (el.selectedOptions[0]?.text?.trim() || @js(__('Client'))) : (manual || @js(__('Client')));
             },
+            reviewFile(id) {
+                const el = document.getElementById(id);
+                if (el?.files?.length) {
+                    return el.files[0].name;
+                }
+                return @js(__('None (optional)'));
+            },
         };
     }
 
@@ -435,22 +442,41 @@
 
             @if (! $isLegacySupplierIntake)
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 space-y-4">
-                    <h3 class="text-base font-semibold text-slate-800">{{ __('Movement permit') }}</h3>
                     <div>
-                        <x-input-label for="movement_permit_document" :value="__('Movement permit document (upload)')" />
-                        <input id="movement_permit_document" name="movement_permit_document" type="file" accept=".pdf,image/jpeg,image/png,image/webp"
-                            class="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-bucha-primary file:text-white hover:file:bg-bucha-burgundy" />
-                        <p class="mt-1 text-xs text-slate-500">{{ __('PDF or image, max 10 MB. Optional — you can add or replace it later.') }}</p>
-                        @if ($intake?->movement_permit_document_path)
-                            <p class="mt-2 text-xs text-slate-600">
-                                {{ __('Current file on record.') }}
-                                @if ($intake->movementPermitDocumentUrl())
-                                    <a href="{{ $intake->movementPermitDocumentUrl() }}" target="_blank" rel="noopener noreferrer" class="text-bucha-primary hover:underline">{{ __('View') }}</a>
-                                @endif
-                            </p>
-                        @endif
-                        <x-input-error class="mt-2" :messages="$errors->get('movement_permit_document')" />
+                        <h3 class="text-base font-semibold text-slate-800">{{ __('Supporting documents') }}</h3>
+                        <p class="mt-1 text-sm text-slate-500">{{ __('Upload a movement permit, a receipt, both, or skip. File uploads are optional.') }}</p>
                     </div>
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        <div>
+                            <x-input-label for="movement_permit_document" :value="__('Movement permit (optional)')" />
+                            <input id="movement_permit_document" name="movement_permit_document" type="file" accept=".pdf,image/jpeg,image/png,image/webp"
+                                class="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-bucha-primary file:text-white hover:file:bg-bucha-burgundy" />
+                            @if ($intake?->movement_permit_document_path)
+                                <p class="mt-2 text-xs text-slate-600">
+                                    {{ __('Current file on record.') }}
+                                    @if ($intake->movementPermitDocumentUrl())
+                                        <a href="{{ $intake->movementPermitDocumentUrl() }}" target="_blank" rel="noopener noreferrer" class="text-bucha-primary hover:underline">{{ __('View') }}</a>
+                                    @endif
+                                </p>
+                            @endif
+                            <x-input-error class="mt-2" :messages="$errors->get('movement_permit_document')" />
+                        </div>
+                        <div>
+                            <x-input-label for="receipt_document" :value="__('Receipt (optional)')" />
+                            <input id="receipt_document" name="receipt_document" type="file" accept=".pdf,image/jpeg,image/png,image/webp"
+                                class="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-bucha-primary file:text-white hover:file:bg-bucha-burgundy" />
+                            @if ($intake?->receipt_document_path)
+                                <p class="mt-2 text-xs text-slate-600">
+                                    {{ __('Current file on record.') }}
+                                    @if ($intake->receiptDocumentUrl())
+                                        <a href="{{ $intake->receiptDocumentUrl() }}" target="_blank" rel="noopener noreferrer" class="text-bucha-primary hover:underline">{{ __('View') }}</a>
+                                    @endif
+                                </p>
+                            @endif
+                            <x-input-error class="mt-2" :messages="$errors->get('receipt_document')" />
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500">{{ __('PDF or image, max 10 MB each. You can add or replace files later.') }}</p>
                 </div>
             @endif
         </div>
@@ -579,6 +605,8 @@
                     <div><dt class="text-slate-500">{{ __('Intake date & time') }}</dt><dd class="font-medium text-slate-800" x-text="reviewField('intake_date')"></dd></div>
                     <div><dt class="text-slate-500">{{ __('Source') }}</dt><dd class="font-medium text-slate-800" x-text="reviewSource()"></dd></div>
                     <div><dt class="text-slate-500">{{ __('Animals') }}</dt><dd class="font-medium text-slate-800" x-text="animals.length"></dd></div>
+                    <div><dt class="text-slate-500">{{ __('Movement permit') }}</dt><dd class="font-medium text-slate-800" x-text="reviewFile('movement_permit_document')"></dd></div>
+                    <div><dt class="text-slate-500">{{ __('Receipt') }}</dt><dd class="font-medium text-slate-800" x-text="reviewFile('receipt_document')"></dd></div>
                 </dl>
             </div>
 

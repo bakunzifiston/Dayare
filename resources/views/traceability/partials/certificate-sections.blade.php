@@ -179,6 +179,25 @@
         @endif
     </table>
     <p class="rica-cert-note mt-3">
-        {{ __('This certificate was issued after veterinary meat inspection at the slaughterhouse.') }}
+        Njyewe
+        <span class="inline-block min-w-[12rem] border-b border-dotted border-slate-700 px-2 font-semibold">{{ $v['certificate']->inspector?->full_name ?: $inspectorName }}</span>
+        Veterineri ushinzwe ubugenzuzi bw'inyama ku ibagiro ryavuzwe haruguru, nshingiye ku bugenzuzi n'isuzuma nakoze ngendeye ku mategeko n'amabwiriza abigenga mu Rwanda, ndemeza ko inyama zivugwa muri iki cyemezo zateguriwe mu ibagiro nshinzwe hubahirizwa ibisabwa byose, kandi ko nta ndwara, ubwandu, cyangwa ikindi cyazibuza gucuruzwa no gukoreshwa mu mafunguro agenewe abantu.
     </p>
+    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm">
+        <div>
+            <p>
+                Tariki
+                <span class="inline-block min-w-[2rem] border-b border-dotted border-slate-700 text-center font-semibold">{{ $v['issuedDay'] ?? '' }}</span>
+                /
+                <span class="inline-block min-w-[2.5rem] border-b border-dotted border-slate-700 text-center font-semibold">{{ $v['issuedMonth'] ?? '' }}</span>
+                / 20
+                <span class="inline-block min-w-[2rem] border-b border-dotted border-slate-700 text-center font-semibold">{{ isset($v['issuedYear']) ? substr((string) $v['issuedYear'], -2) : '' }}</span>
+            </p>
+            <p class="mt-6">Umukono na kashe bya veterineri.</p>
+            <div class="mt-8 border-b border-slate-800"></div>
+        </div>
+        <div class="sm:text-right font-semibold">
+            Tera muri aya magambo cashe y'ibagiro
+        </div>
+    </div>
 </section>

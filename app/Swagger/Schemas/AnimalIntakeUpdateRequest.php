@@ -36,6 +36,8 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'animal_health_certificate_number', type: 'string', nullable: true, maxLength: 100),
         new OA\Property(property: 'health_certificate_issue_date', type: 'string', format: 'date', nullable: true),
         new OA\Property(property: 'health_certificate_expiry_date', type: 'string', format: 'date', nullable: true),
+        new OA\Property(property: 'movement_permit_document', type: 'string', format: 'binary', nullable: true, description: 'Optional movement permit PDF or image.'),
+        new OA\Property(property: 'receipt_document', type: 'string', format: 'binary', nullable: true, description: 'Optional receipt PDF or image.'),
         new OA\Property(property: 'status', type: 'string', enum: ['received', 'approved', 'rejected']),
     ],
     type: 'object',

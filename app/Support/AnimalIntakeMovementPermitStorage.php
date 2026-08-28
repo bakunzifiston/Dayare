@@ -7,9 +7,13 @@ use Illuminate\Support\Facades\Storage;
 
 class AnimalIntakeMovementPermitStorage
 {
-    public static function store(UploadedFile $file): string
+    public const PERMIT_DIRECTORY = 'animal-intake-movement-permits';
+
+    public const RECEIPT_DIRECTORY = 'animal-intake-receipts';
+
+    public static function store(UploadedFile $file, string $directory = self::PERMIT_DIRECTORY): string
     {
-        return $file->store('animal-intake-movement-permits', 'public');
+        return $file->store($directory, 'public');
     }
 
     public static function delete(?string $path): void

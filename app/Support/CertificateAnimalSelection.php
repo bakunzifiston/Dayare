@@ -94,7 +94,7 @@ class CertificateAnimalSelection
                     fn (Certificate $certificate) => (int) $certificate->id === (int) $ignoreCertificateId
                 )
             )
-            ->flatMap(fn (Certificate $certificate) => self::certificateAnimalIds($certificate))
+            ->flatMap(fn (Certificate $certificate) => self::explicitCertificateAnimalIds($certificate))
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
@@ -103,8 +103,12 @@ class CertificateAnimalSelection
     /**
      * @param  list<int|string>  $selectedIds
      */
-    public static function validateSelection(Batch $batch, array $selectedIds, ?int $ignoreCertificateId = null): ?string
-    {
+    public static function validateSelection(
+        Batch $batch,
+        array $selectedIds,
+        ?int $ignoreCertificateId = null,
+        bool $requireExactlyOne = true,
+    ): ?string {
         $selectedIds = collect($selectedIds)
             ->map(fn ($id) => (int) $id)
             ->filter(fn (int $id) => $id > 0)
@@ -112,7 +116,11 @@ class CertificateAnimalSelection
             ->values();
 
         if ($selectedIds->isEmpty()) {
-            return __('Select at least one animal for this certificate.');
+            return __('Select one animal for this certificate.');
+        }
+
+        if ($requireExactlyOne && $selectedIds->count() !== 1) {
+            return __('A certificate must be issued for exactly one animal.');
         }
 
         $available = self::certifiableAnimals($batch, $ignoreCertificateId)
