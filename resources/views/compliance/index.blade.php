@@ -152,7 +152,7 @@
                                         · {{ $t->originFacility?->facility_name ?? '' }} → {{ $t->destination_display }}
                                         · {{ $t->departure_date->format('d M Y') }}
                                     </span>
-                                    <a href="{{ route('delivery-confirmations.create', ['transport_trip_id' => $t->id]) }}" class="ml-2 text-xs text-bucha-primary hover:underline">{{ __('Confirm delivery') }}</a>
+                                    <a href="{{ route('delivery-confirmations.create', ['transport_trip_id' => $t->id]) }}" class="ml-2 inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Confirm delivery') }}</a>
                                 </li>
                             @endforeach
                         </ul>

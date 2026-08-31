@@ -108,10 +108,10 @@
                                             <span class="text-slate-400">—</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-2.5 text-right">
-                                        <span class="pm-actions inline-flex gap-2">
-                                            <a href="{{ route('post-mortem-inspections.show', $pm) }}" class="text-xs font-medium text-bucha-primary hover:underline">{{ __('View') }}</a>
-                                            <a href="{{ route('post-mortem-inspections.edit', $pm) }}" class="text-xs font-medium text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
+                                    <td class="whitespace-nowrap px-4 py-2.5 text-right">
+                                        <span class="pm-actions inline-flex gap-1.5">
+                                            <a href="{{ route('post-mortem-inspections.show', $pm) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('View') }}</a>
+                                            <a href="{{ route('post-mortem-inspections.edit', $pm) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Edit') }}</a>
                                         </span>
                                     </td>
                                 </tr>

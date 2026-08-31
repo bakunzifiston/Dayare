@@ -39,9 +39,9 @@
                             · {{ ucfirst($stat) }}
                         </p>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <a href="{{ route('inspectors.show', $inspector) }}" class="text-sm text-bucha-primary hover:text-indigo-900">{{ __('View') }}</a>
-                        <a href="{{ route('inspectors.edit', $inspector) }}" class="text-sm text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
+                    <div class="flex shrink-0 items-center gap-1.5">
+                        <a href="{{ route('inspectors.show', $inspector) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('View') }}</a>
+                        <a href="{{ route('inspectors.edit', $inspector) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Edit') }}</a>
                     </div>
                 </li>
             @endforeach

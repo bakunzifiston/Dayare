@@ -96,10 +96,10 @@
                                             <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{{ __('Manual') }}</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-2.5 text-right am-actions">
-                                        <div class="flex items-center justify-end gap-2">
-                                            <a href="{{ route('ante-mortem-inspections.show', $inspection) }}" class="text-xs font-medium text-bucha-primary hover:underline">{{ __('View') }}</a>
-                                            <a href="{{ route('ante-mortem-inspections.edit', $inspection) }}" class="text-xs font-medium text-slate-600 hover:text-slate-900">{{ __('Edit') }}</a>
+                                    <td class="whitespace-nowrap px-4 py-2.5 text-right am-actions">
+                                        <div class="flex items-center justify-end gap-1.5">
+                                            <a href="{{ route('ante-mortem-inspections.show', $inspection) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('View') }}</a>
+                                            <a href="{{ route('ante-mortem-inspections.edit', $inspection) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Edit') }}</a>
                                         </div>
                                     </td>
                                 </tr>
