@@ -47,8 +47,11 @@
             'icon' => 'dashboard',
             'children' => [
                 ['label' => __('Dashboard'), 'route' => 'finance.dashboard', 'icon' => 'dashboard', 'permission' => 'view_finance_dashboard', 'routeIs' => ['finance.dashboard']],
+                ['label' => __('Daily sales'), 'route' => 'finance.sales.index', 'icon' => 'clipboard', 'permission' => 'manage_ar_invoices', 'routeIs' => ['finance.sales.*']],
                 ['label' => __('AR invoices'), 'route' => 'finance.invoices.index', 'icon' => 'clipboard', 'permission' => 'manage_ar_invoices', 'routeIs' => ['finance.invoices.*']],
+                ['label' => __('EBM invoices'), 'route' => 'finance.ebm.index', 'icon' => 'clipboard', 'permission' => 'manage_ar_invoices', 'routeIs' => ['finance.ebm.*']],
                 ['label' => __('AP payables'), 'route' => 'finance.payables.index', 'icon' => 'clipboard-list', 'permission' => 'manage_ap_payables', 'routeIs' => ['finance.payables.*', 'finance.casual-workers.*']],
+                ['label' => __('Expenses'), 'route' => 'finance.expenses.index', 'icon' => 'clipboard-list', 'permission' => 'manage_ap_payables', 'routeIs' => ['finance.expenses.*']],
                 ['label' => __('Cost allocations'), 'route' => 'finance.cost-allocations.index', 'icon' => 'box', 'permission' => 'view_finance_reports', 'routeIs' => ['finance.cost-allocations.*']],
             ],
         ],

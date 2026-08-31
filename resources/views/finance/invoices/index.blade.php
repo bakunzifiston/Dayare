@@ -10,9 +10,15 @@
                     <form method="GET" class="flex flex-wrap items-center gap-2">
                         <input type="text" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="{{ __('Search invoice number or note') }}" class="h-9 rounded-lg border border-slate-200 px-3 text-sm">
                         <select name="status" class="h-9 rounded-lg border border-slate-200 px-2 text-sm">
-                            <option value="">{{ __('All statuses') }}</option>
+                            <option value="">{{ __('All document statuses') }}</option>
                             @foreach (['draft', 'issued', 'overdue', 'paid', 'cancelled'] as $s)
                                 <option value="{{ $s }}" @selected(($filters['status'] ?? '') === $s)>{{ ucfirst($s) }}</option>
+                            @endforeach
+                        </select>
+                        <select name="payment_state" class="h-9 rounded-lg border border-slate-200 px-2 text-sm">
+                            <option value="">{{ __('All payment states') }}</option>
+                            @foreach (['paid' => __('Paid'), 'unpaid' => __('Unpaid'), 'pending' => __('Pending')] as $value => $label)
+                                <option value="{{ $value }}" @selected(($filters['payment_state'] ?? '') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                         <button type="submit" class="h-9 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white">{{ __('Filter') }}</button>
@@ -27,8 +33,11 @@
                         <thead class="bg-slate-50 text-slate-600">
                             <tr>
                                 <th class="text-left px-4 py-2">{{ __('Invoice') }}</th>
+                                <th class="text-left px-4 py-2">{{ __('Date') }}</th>
                                 <th class="text-left px-4 py-2">{{ __('Client') }}</th>
-                                <th class="text-left px-4 py-2">{{ __('Status') }}</th>
+                                <th class="text-left px-4 py-2">{{ __('Site') }}</th>
+                                <th class="text-left px-4 py-2">{{ __('Source') }}</th>
+                                <th class="text-left px-4 py-2">{{ __('Payment') }}</th>
                                 <th class="text-right px-4 py-2">{{ __('Total') }}</th>
                                 <th class="text-right px-4 py-2">{{ __('Paid') }}</th>
                                 <th class="text-left px-4 py-2">{{ __('Due') }}</th>
@@ -39,6 +48,7 @@
                             @forelse($invoices as $invoice)
                                 <tr class="border-t border-slate-100">
                                     <td class="px-4 py-2 font-medium text-slate-800">{{ $invoice->invoice_number }}</td>
+                                    <td class="px-4 py-2">{{ optional($invoice->issued_at)->format('Y-m-d') ?? optional($invoice->created_at)->format('Y-m-d') }}</td>
                                     <td class="px-4 py-2">
                                         @if ($invoice->animalIntake)
                                             <span class="block font-medium text-slate-800">{{ $invoice->animalIntake->clientSourceDisplayName() }}</span>
@@ -47,13 +57,20 @@
                                             {{ $invoice->client?->name ?? '—' }}
                                         @endif
                                     </td>
-                                    <td class="px-4 py-2">{{ ucfirst($invoice->status) }}</td>
+                                    <td class="px-4 py-2">{{ $invoice->facility?->facility_name ?? '—' }}</td>
+                                    <td class="px-4 py-2">{{ ucfirst((string) ($invoice->source_type ?: 'manual')) }}</td>
+                                    <td class="px-4 py-2">
+                                        <span class="block">{{ $invoice->paymentStateLabel() }}</span>
+                                        @if ($invoice->needsEbmFollowUp())
+                                            <span class="text-xs font-semibold text-amber-700">{{ __('EBM follow-up') }}</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2 text-right">{{ number_format((float) $invoice->total_amount, 2) }}</td>
                                     <td class="px-4 py-2 text-right">{{ number_format((float) $invoice->amount_paid, 2) }}</td>
                                     <td class="px-4 py-2">{{ optional($invoice->due_date)->format('Y-m-d') ?? '—' }}</td>
                                     <td class="px-4 py-2">
                                         <div class="flex items-center justify-end gap-2">
-                                            <a href="{{ route('finance.invoices.edit', $invoice) }}" class="text-bucha-primary">{{ __('Edit') }}</a>
+                                            @include('finance.invoices._row-actions', ['invoice' => $invoice, 'from' => 'invoices'])
                                             @if ((float) $invoice->amount_paid < (float) $invoice->total_amount)
                                                 <form method="POST" action="{{ route('finance.invoices.mark-paid', $invoice) }}">
                                                     @csrf
@@ -64,7 +81,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">{{ __('No invoices found.') }}</td></tr>
+                                <tr><td colspan="10" class="px-4 py-8 text-center text-slate-500">{{ __('No invoices found.') }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>

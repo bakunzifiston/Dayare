@@ -22,6 +22,8 @@
                 </div>
             </section>
 
+            @include('finance.partials.payment-panel', ['document' => $payable, 'documentType' => 'payable'])
+
             <section class="rounded-bucha border border-slate-200 bg-white px-5 py-5">
                 <form method="POST" action="{{ route('finance.payables.update', $payable) }}">
                     @csrf

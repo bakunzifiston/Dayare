@@ -6,12 +6,14 @@
     $batchQuantityMap = $batchQuantityMap ?? [];
     $units = $units ?? collect();
     $clientAnimalIntakes = $clientAnimalIntakes ?? collect();
+    $clients = $clients ?? collect();
+    $facilities = $facilities ?? collect();
 @endphp
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <div>
         <x-input-label for="invoice_number" :value="__('Invoice number')" />
-        <x-text-input id="invoice_number" name="invoice_number" type="text" class="mt-1 block w-full" :value="old('invoice_number', $invoice?->invoice_number ?? ('AR-'.now()->format('Ymd').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT)))" required />
+        <x-text-input id="invoice_number" name="invoice_number" type="text" class="mt-1 block w-full" :value="old('invoice_number', $invoice?->invoice_number)" placeholder="{{ __('Generated on save if empty') }}" />
     </div>
     <div>
         <x-input-label for="status" :value="__('Status')" />
@@ -27,20 +29,49 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
     <div>
-        <x-input-label for="animal_intake_id" :value="__('Client intake')" />
-        <p class="text-xs text-slate-500 mt-0.5">{{ __('Animal intakes with source “client” for this business. Each line shows client name, species, and number of animals.') }}</p>
-        <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full rounded-lg border-slate-300" required>
-            <option value="">{{ __('Select intake') }}</option>
+        <x-input-label for="client_id" :value="__('Client / customer')" />
+        <select id="client_id" name="client_id" class="mt-1 block w-full rounded-lg border-slate-300">
+            <option value="">{{ __('Select client') }}</option>
+            @foreach ($clients as $client)
+                <option value="{{ $client->id }}" @selected((string) old('client_id', $invoice?->client_id ?? '') === (string) $client->id)>{{ $client->name }}</option>
+            @endforeach
+        </select>
+        <x-input-error class="mt-1" :messages="$errors->get('client_id')" />
+    </div>
+    <div>
+        <x-input-label for="animal_intake_id" :value="__('Client intake (optional)')" />
+        <p class="text-xs text-slate-500 mt-0.5">{{ __('Link an operational client intake when this invoice comes from slaughter, not a daily walk-in sale.') }}</p>
+        <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full rounded-lg border-slate-300">
+            <option value="">{{ __('No intake — daily invoice') }}</option>
             @foreach ($clientAnimalIntakes as $intake)
-                <option value="{{ $intake->id }}" @selected((string) old('animal_intake_id', $invoice?->animal_intake_id ?? '') === (string) $intake->id)>
+                <option
+                    value="{{ $intake->id }}"
+                    data-client-id="{{ $intake->client_id }}"
+                    data-facility-id="{{ $intake->facility_id }}"
+                    @selected((string) old('animal_intake_id', $invoice?->animal_intake_id ?? '') === (string) $intake->id)
+                >
                     {{ $intake->labelForFinanceInvoice() }}
                 </option>
             @endforeach
         </select>
         <x-input-error class="mt-1" :messages="$errors->get('animal_intake_id')" />
     </div>
+    <div>
+        <x-input-label for="facility_id" :value="__('Site / location')" />
+        <select id="facility_id" name="facility_id" class="mt-1 block w-full rounded-lg border-slate-300">
+            <option value="">{{ __('Select site') }}</option>
+            @foreach ($facilities as $facility)
+                <option value="{{ $facility->id }}" @selected((string) old('facility_id', $invoice?->facility_id ?? '') === (string) $facility->id)>
+                    {{ $facility->facility_name }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
     <div class="space-y-2">
         <x-input-label for="link_contract" :value="__('Have a contract?')" />
         <select id="link_contract" name="link_contract" class="mt-1 block w-full rounded-lg border-slate-300">
@@ -61,7 +92,7 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
     <div>
         <x-input-label for="issued_at" :value="__('Issued at')" />
         <x-text-input id="issued_at" name="issued_at" type="datetime-local" class="mt-1 block w-full" :value="old('issued_at', ($invoice?->issued_at ?? now())->format('Y-m-d\\TH:i'))" />
@@ -70,15 +101,9 @@
         <x-input-label for="due_date" :value="__('Due date')" />
         <x-text-input id="due_date" name="due_date" type="datetime-local" class="mt-1 block w-full" :value="old('due_date', optional($invoice?->due_date)->format('Y-m-d\\TH:i'))" />
     </div>
-    <div>
-        <x-input-label for="paid_at" :value="__('Paid at')" />
-        <x-text-input id="paid_at" name="paid_at" type="datetime-local" class="mt-1 block w-full" :value="old('paid_at', optional($invoice?->paid_at)->format('Y-m-d\\TH:i'))" />
-    </div>
-    <div>
-        <x-input-label for="amount_paid" :value="__('Amount paid')" />
-        <x-text-input id="amount_paid" name="amount_paid" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('amount_paid', $invoice?->amount_paid ?? 0)" />
-    </div>
 </div>
+<input type="hidden" name="paid_at" value="{{ old('paid_at', optional($invoice?->paid_at)->format('Y-m-d\\TH:i')) }}">
+<input type="hidden" name="amount_paid" value="{{ old('amount_paid', $invoice?->amount_paid ?? 0) }}">
 
 <div class="mt-6 rounded-lg border border-slate-200 p-4">
     <h3 class="font-semibold text-slate-900">{{ __('Primary line item') }}</h3>
@@ -293,5 +318,18 @@
 
         batchEl.addEventListener('change', syncFromBatch);
         syncFromBatch();
+    })();
+
+    (function () {
+        var intake = document.getElementById('animal_intake_id');
+        var client = document.getElementById('client_id');
+        var facility = document.getElementById('facility_id');
+        if (!intake) return;
+        intake.addEventListener('change', function () {
+            var opt = intake.options[intake.selectedIndex];
+            if (!opt || !opt.value) return;
+            if (client && opt.dataset.clientId) client.value = opt.dataset.clientId;
+            if (facility && opt.dataset.facilityId) facility.value = opt.dataset.facilityId;
+        });
     })();
 </script>

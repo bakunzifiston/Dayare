@@ -37,6 +37,7 @@ class ProcessorFinanceSync
                 'employee_id' => null,
                 'casual_worker_id' => null,
                 'contract_id' => $intake->contract_id,
+                'facility_id' => $intake->facility_id,
                 'payable_number' => sprintf('AP-INTAKE-%06d', $intake->id),
                 'status' => FinancePayable::query()
                     ->where('business_id', $businessId)

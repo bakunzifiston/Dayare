@@ -70,8 +70,12 @@ use App\Http\Controllers\Farmer\VeterinaryVisitController;
 use App\Http\Controllers\FarmerDashboardController;
 use App\Http\Controllers\Finance\FinanceCasualWorkerController;
 use App\Http\Controllers\Finance\FinanceCostAllocationController;
+use App\Http\Controllers\Finance\FinanceEbmController;
+use App\Http\Controllers\Finance\FinanceExpenseController;
 use App\Http\Controllers\Finance\FinanceInvoiceController;
 use App\Http\Controllers\Finance\FinancePayableController;
+use App\Http\Controllers\Finance\FinancePaymentController;
+use App\Http\Controllers\Finance\FinanceSalesController;
 use App\Http\Controllers\FinanceDashboardController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\LocaleController;
@@ -686,12 +690,17 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
 
     Route::prefix('finance')->name('finance.')->group(function () {
         Route::get('/', FinanceDashboardController::class)->name('dashboard');
-        Route::resource('invoices', FinanceInvoiceController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::get('sales', [FinanceSalesController::class, 'index'])->name('sales.index');
+        Route::resource('invoices', FinanceInvoiceController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
         Route::post('invoices/{invoice}/mark-paid', [FinanceInvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
         Route::post('invoices/from-delivery/{delivery}', [FinanceInvoiceController::class, 'createFromDelivery'])->name('invoices.from-delivery');
+        Route::post('payments', [FinancePaymentController::class, 'store'])->name('payments.store');
         Route::resource('payables', FinancePayableController::class)->only(['index', 'create', 'store', 'edit', 'update']);
         Route::post('payables/{payable}/mark-paid', [FinancePayableController::class, 'markPaid'])->name('payables.mark-paid');
         Route::resource('casual-workers', FinanceCasualWorkerController::class)->except(['show']);
+        Route::resource('expenses', FinanceExpenseController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::get('expenses/{expense}/attachment', [FinanceExpenseController::class, 'download'])->name('expenses.attachment');
+        Route::resource('ebm', FinanceEbmController::class)->only(['index', 'create', 'store', 'edit', 'update'])->parameters(['ebm' => 'ebm']);
         Route::resource('cost-allocations', FinanceCostAllocationController::class)->only(['index', 'create', 'store', 'edit', 'update']);
         Route::post('cost-allocations/template', [FinanceCostAllocationController::class, 'storeTemplate'])->name('cost-allocations.store-template');
     });

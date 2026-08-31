@@ -6,11 +6,13 @@ use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\FinanceInvoice;
 use App\Models\FinancePayable;
+use App\Services\Finance\FinanceEbmReconciler;
 use App\Services\Processor\ProcessorDashboardCharts;
 use App\Services\Processor\ProcessorDashboardContext;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class FinanceDashboardController extends Controller
@@ -73,7 +75,9 @@ class FinanceDashboardController extends Controller
             $this->kpiCard(__('Revenue'), '0 '.__('RWF'), $periodLabel, 'currency-dollar', false, route('finance.invoices.index')),
             $this->kpiCard(__('AR outstanding'), '0 '.__('RWF'), __('0 overdue'), 'receipt', false, route('finance.invoices.index')),
             $this->kpiCard(__('AP outstanding'), '0 '.__('RWF'), __('0 overdue'), 'clipboard-list', false, route('finance.payables.index')),
+            $this->kpiCard(__('Operating expenses'), '0 '.__('RWF'), $periodLabel, 'clipboard-list', false, route('finance.expenses.index')),
             $this->kpiCard(__('Collection rate'), '0%', $periodLabel, 'chart-line', false, route('finance.invoices.index')),
+            $this->kpiCard(__('EBM follow-up'), '0', __('Missing or mismatched'), 'receipt', false, route('finance.ebm.index')),
         ];
     }
 
@@ -121,6 +125,20 @@ class FinanceDashboardController extends Controller
             ->whereRaw('amount_paid < total_amount')
             ->count();
 
+        $expenseTotal = 0.0;
+        if (Schema::hasTable('finance_expenses')) {
+            $expenseQuery = DB::table('finance_expenses')->where('business_id', $businessId);
+            if ($filters['is_filtered']) {
+                $this->applyDateWindow($expenseQuery, 'expense_date', $filters['start'], $filters['end']);
+            }
+            $expenseTotal = (float) $expenseQuery->sum('amount');
+        }
+
+        $ebmFollowUp = 0;
+        if (Schema::hasTable('finance_ebm_records')) {
+            $ebmFollowUp = (int) app(FinanceEbmReconciler::class)->summary($businessId)['follow_up'];
+        }
+
         return [
             $this->kpiCard(
                 __('Revenue'),
@@ -147,12 +165,28 @@ class FinanceDashboardController extends Controller
                 route('finance.payables.index'),
             ),
             $this->kpiCard(
+                __('Operating expenses'),
+                $fmtMoney($expenseTotal),
+                $periodLabel,
+                'clipboard-list',
+                false,
+                route('finance.expenses.index'),
+            ),
+            $this->kpiCard(
                 __('Collection rate'),
                 $collectionRate.'%',
                 $periodLabel,
                 'chart-line',
                 $collectionRate < 90 && $revenue > 0,
                 route('finance.invoices.index'),
+            ),
+            $this->kpiCard(
+                __('EBM follow-up'),
+                (string) $ebmFollowUp,
+                __('Missing or mismatched'),
+                'receipt',
+                $ebmFollowUp > 0,
+                route('finance.ebm.index'),
             ),
         ];
     }
@@ -197,8 +231,11 @@ class FinanceDashboardController extends Controller
     private function quickLinks(): array
     {
         return [
+            ['label' => __('Daily sales'), 'route' => 'finance.sales.index'],
             ['label' => __('AR invoices'), 'route' => 'finance.invoices.index'],
+            ['label' => __('EBM invoices'), 'route' => 'finance.ebm.index'],
             ['label' => __('AP payables'), 'route' => 'finance.payables.index'],
+            ['label' => __('Expenses'), 'route' => 'finance.expenses.index'],
             ['label' => __('Cost allocations'), 'route' => 'finance.cost-allocations.index'],
             ['label' => __('Casual workers'), 'route' => 'finance.casual-workers.index'],
         ];

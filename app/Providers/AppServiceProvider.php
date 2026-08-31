@@ -146,20 +146,9 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $request = Request::capture();
-        $host = $request->getHost();
-        $isLocal = in_array($host, ['localhost', '127.0.0.1'], true)
-            || str_ends_with($host, '.local') || str_ends_with($host, '.test');
-
-        if (! $isLocal) {
-            $scheme = $request->getScheme();
-            $port = $request->getPort();
-            $url = $scheme.'://'.$host.(in_array($port, [80, 443, null], true) ? '' : ':'.$port);
-            URL::forceRootUrl(rtrim($url, '/'));
-            if ($scheme === 'https') {
-                URL::forceScheme('https');
-            }
-        } elseif ($appUrl) {
-            URL::forceRootUrl(rtrim($appUrl, '/'));
+        URL::forceRootUrl($request->root());
+        if ($request->secure()) {
+            URL::forceScheme('https');
         }
     }
 }

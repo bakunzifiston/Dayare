@@ -15,12 +15,13 @@
     $showEmployee = ($p === null && $at === FinancePayableController::TAB_EMPLOYEES) || ($p && $p->ap_bucket === FinancePayable::BUCKET_EMPLOYEE);
     $showCasual = ($p === null && $at === FinancePayableController::TAB_CASUAL) || ($p && $p->ap_bucket === FinancePayable::BUCKET_CASUAL_WORKER);
     $suppressBatchAndCertificate = $showEmployee || $showCasual;
+    $facilities = $facilities ?? collect();
 @endphp
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <div>
         <x-input-label for="payable_number" :value="__('Payable number')" />
-        <x-text-input id="payable_number" name="payable_number" type="text" class="mt-1 block w-full" :value="old('payable_number', $p?->payable_number ?? ('AP-'.now()->format('Ymd').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT)))" required />
+        <x-text-input id="payable_number" name="payable_number" type="text" class="mt-1 block w-full" :value="old('payable_number', $p?->payable_number)" placeholder="{{ __('Generated on save if empty') }}" />
     </div>
     <div>
         <x-input-label for="status" :value="__('Status')" />
@@ -33,6 +34,18 @@
     <div>
         <x-input-label for="currency" :value="__('Currency')" />
         <x-text-input id="currency" name="currency" type="text" class="mt-1 block w-full" :value="old('currency', $p?->currency ?? 'RWF')" required />
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+    <div>
+        <x-input-label for="facility_id" :value="__('Site / location')" />
+        <select id="facility_id" name="facility_id" class="mt-1 block w-full rounded-lg border-slate-300">
+            <option value="">{{ __('Select site') }}</option>
+            @foreach ($facilities as $facility)
+                <option value="{{ $facility->id }}" @selected((string) old('facility_id', $p?->facility_id ?? '') === (string) $facility->id)>{{ $facility->facility_name }}</option>
+            @endforeach
+        </select>
     </div>
 </div>
 
@@ -152,7 +165,7 @@
     </div>
 @endif
 
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
     <div>
         <x-input-label for="issued_at" :value="__('Issued at')" />
         <x-text-input id="issued_at" name="issued_at" type="datetime-local" class="mt-1 block w-full" :value="old('issued_at', optional($p?->issued_at ?? now())->format('Y-m-d\\TH:i'))" />
@@ -161,15 +174,9 @@
         <x-input-label for="due_date" :value="__('Due date')" />
         <x-text-input id="due_date" name="due_date" type="datetime-local" class="mt-1 block w-full" :value="old('due_date', optional($p?->due_date)->format('Y-m-d\\TH:i'))" />
     </div>
-    <div>
-        <x-input-label for="paid_at" :value="__('Paid at')" />
-        <x-text-input id="paid_at" name="paid_at" type="datetime-local" class="mt-1 block w-full" :value="old('paid_at', optional($p?->paid_at)->format('Y-m-d\\TH:i'))" />
-    </div>
-    <div>
-        <x-input-label for="amount_paid" :value="__('Amount paid')" />
-        <x-text-input id="amount_paid" name="amount_paid" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('amount_paid', $p?->amount_paid ?? 0)" />
-    </div>
 </div>
+<input type="hidden" name="paid_at" value="{{ old('paid_at', optional($p?->paid_at)->format('Y-m-d\\TH:i')) }}">
+<input type="hidden" name="amount_paid" value="{{ old('amount_paid', $p?->amount_paid ?? 0) }}">
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
     <div>

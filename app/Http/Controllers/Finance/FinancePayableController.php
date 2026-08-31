@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Finance\Concerns\ResolvesProcessorFinanceContext;
 use App\Models\AnimalIntake;
 use App\Models\Batch;
 use App\Models\CasualWorker;
@@ -13,8 +14,11 @@ use App\Models\Demand;
 use App\Models\Employee;
 use App\Models\FinancePayable;
 use App\Models\FinancePayableLine;
+use App\Models\FinancePayment;
 use App\Models\Supplier;
 use App\Models\Unit;
+use App\Services\Finance\FinanceDocumentNumberGenerator;
+use App\Services\Finance\FinancePaymentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -24,6 +28,8 @@ use Illuminate\View\View;
 
 class FinancePayableController extends Controller
 {
+    use ResolvesProcessorFinanceContext;
+
     public const TAB_SUPPLIERS = 'suppliers';
 
     public const TAB_EMPLOYEES = 'employees';
@@ -45,13 +51,25 @@ class FinancePayableController extends Controller
         }
 
         $query = FinancePayable::query()
-            ->with(['supplier', 'client', 'employee', 'casualWorker', 'contract'])
+            ->with(['supplier', 'client', 'employee', 'casualWorker', 'contract', 'facility'])
             ->where('business_id', $businessId);
 
         $query->forPayablesTab($tab);
 
         if ($request->filled('status')) {
             $query->where('status', (string) $request->query('status'));
+        }
+        if ($request->filled('payment_state')) {
+            $state = (string) $request->query('payment_state');
+            if ($state === FinancePayment::STATE_PAID) {
+                $query->whereColumn('amount_paid', '>=', 'total_amount')->where('total_amount', '>', 0);
+            } elseif ($state === FinancePayment::STATE_PENDING) {
+                $query->where('amount_paid', '>', 0)->whereColumn('amount_paid', '<', 'total_amount');
+            } elseif ($state === FinancePayment::STATE_UNPAID) {
+                $query->where(function ($w): void {
+                    $w->where('amount_paid', '<=', 0)->orWhereNull('amount_paid');
+                });
+            }
         }
         if ($request->filled('q')) {
             $q = '%'.trim((string) $request->query('q')).'%';
@@ -68,6 +86,7 @@ class FinancePayableController extends Controller
             'activeTab' => $tab,
             'filters' => [
                 'status' => (string) $request->query('status', ''),
+                'payment_state' => (string) $request->query('payment_state', ''),
                 'q' => (string) $request->query('q', ''),
             ],
         ]);
@@ -95,6 +114,7 @@ class FinancePayableController extends Controller
             'batchQuantityMap' => $this->batchQuantityMapForBatches($batches),
             'certificates' => $this->businessCertificates($businessId),
             'units' => $this->payableUnits($request, $businessId),
+            'facilities' => $this->businessFacilities($businessId),
             'payable' => null,
             'line' => null,
         ]);
@@ -115,6 +135,7 @@ class FinancePayableController extends Controller
                 'casual_worker_id' => $data['casual_worker_id'],
                 'contract_id' => $data['contract_id'],
                 'animal_intake_id' => $data['animal_intake_id'],
+                'facility_id' => $data['facility_id'],
                 'payable_number' => $data['payable_number'],
                 'status' => $data['status'],
                 'currency' => $data['currency'],
@@ -122,10 +143,10 @@ class FinancePayableController extends Controller
                 'tax_amount' => $data['tax_amount'],
                 'total_amount' => max(0, $data['line_total'] + $data['tax_amount']),
                 'amount_paid' => $data['amount_paid'],
-                'issued_at' => $data['issued_at'],
-                'due_date' => $data['due_date'],
-                'paid_at' => $data['paid_at'],
-                'notes' => $data['notes'],
+                'issued_at' => $data['issued_at'] ?? null,
+                'due_date' => $data['due_date'] ?? null,
+                'paid_at' => $data['paid_at'] ?? null,
+                'notes' => $data['notes'] ?? null,
             ]);
 
             FinancePayableLine::query()->create([
@@ -151,7 +172,7 @@ class FinancePayableController extends Controller
     {
         $businessId = $this->activeBusinessId($request);
         abort_unless((int) $payable->business_id === $businessId, 404);
-        $payable->load(['lines.certificate', 'lines.batch', 'client']);
+        $payable->load(['lines.certificate', 'lines.batch', 'client', 'financePayments.recordedBy', 'facility']);
 
         $batches = $this->businessBatches($businessId);
 
@@ -169,6 +190,7 @@ class FinancePayableController extends Controller
             'batchQuantityMap' => $this->batchQuantityMapForBatches($batches),
             'certificates' => $this->businessCertificates($businessId),
             'units' => $this->payableUnits($request, $businessId),
+            'facilities' => $this->businessFacilities($businessId),
         ]);
     }
 
@@ -179,6 +201,7 @@ class FinancePayableController extends Controller
         $data = $this->validated($request, $businessId, $payable->id);
 
         DB::transaction(function () use ($payable, $data): void {
+            $hasLedger = $payable->financePayments()->exists();
             $payable->update([
                 'ap_bucket' => $data['ap_bucket'],
                 'supplier_id' => $data['supplier_id'],
@@ -187,17 +210,18 @@ class FinancePayableController extends Controller
                 'casual_worker_id' => $data['casual_worker_id'],
                 'contract_id' => $data['contract_id'],
                 'animal_intake_id' => $data['animal_intake_id'],
+                'facility_id' => $data['facility_id'],
                 'payable_number' => $data['payable_number'],
                 'status' => $data['status'],
                 'currency' => $data['currency'],
                 'subtotal' => $data['line_total'],
                 'tax_amount' => $data['tax_amount'],
                 'total_amount' => max(0, $data['line_total'] + $data['tax_amount']),
-                'amount_paid' => $data['amount_paid'],
-                'issued_at' => $data['issued_at'],
-                'due_date' => $data['due_date'],
-                'paid_at' => $data['paid_at'],
-                'notes' => $data['notes'],
+                'amount_paid' => $hasLedger ? $payable->amount_paid : $data['amount_paid'],
+                'issued_at' => $data['issued_at'] ?? null,
+                'due_date' => $data['due_date'] ?? null,
+                'paid_at' => $hasLedger ? $payable->paid_at : ($data['paid_at'] ?? null),
+                'notes' => $data['notes'] ?? null,
             ]);
 
             $line = $payable->lines()->first();
@@ -230,29 +254,28 @@ class FinancePayableController extends Controller
         )->with('status', __('AP payable updated.'));
     }
 
-    public function markPaid(Request $request, FinancePayable $payable): RedirectResponse
+    public function markPaid(Request $request, FinancePayable $payable, FinancePaymentService $payments): RedirectResponse
     {
         $businessId = $this->activeBusinessId($request);
         abort_unless((int) $payable->business_id === $businessId, 404);
 
-        $payable->update([
-            'amount_paid' => $payable->total_amount,
+        $data = $request->validate([
+            'method' => ['nullable', Rule::in(FinancePayment::METHODS)],
+            'reference' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $payments->settleRemaining($payable, [
+            'method' => $data['method'] ?? FinancePayment::METHOD_CASH,
+            'reference' => $data['reference'] ?? null,
             'paid_at' => now(),
-            'status' => 'paid',
+            'notes' => __('Marked paid'),
+            'facility_id' => $payable->facility_id,
+            'recorded_by' => $request->user()->id,
         ]);
 
         return redirect()->route('finance.payables.index', [
             'tab' => $payable->payablesTabKey(),
         ])->with('status', __('Payable marked as paid.'));
-    }
-
-    private function activeBusinessId(Request $request): int
-    {
-        $businessId = $request->user()->activeProcessorBusinessId();
-        abort_if($businessId === null, 403, __('Select a processor business first.'));
-        $request->user()->setActiveProcessorBusinessId($businessId);
-
-        return $businessId;
     }
 
     private function validated(Request $request, int $businessId, ?int $payableId): array
@@ -265,14 +288,18 @@ class FinancePayableController extends Controller
             $request->merge(['ap_bucket' => $existing->ap_bucket]);
         }
 
-        $unique = 'unique:finance_payables,payable_number';
+        $unique = Rule::unique('finance_payables', 'payable_number')->where(fn ($q) => $q->where('business_id', $businessId));
         if ($payableId !== null) {
-            $unique .= ','.$payableId;
+            $unique = $unique->ignore($payableId);
         }
+
+        $request->merge([
+            'payable_number' => trim((string) $request->input('payable_number', '')) ?: null,
+        ]);
 
         $data = $request->validate([
             'ap_bucket' => ['required', Rule::in(FinancePayable::AP_BUCKETS)],
-            'payable_number' => ['required', 'string', 'max:40', $unique],
+            'payable_number' => ['nullable', 'string', 'max:40', $unique],
             'status' => ['required', 'string', 'max:32'],
             'currency' => ['required', 'string', 'max:8'],
             'link_contract' => ['required', Rule::in(['yes', 'no'])],
@@ -280,6 +307,7 @@ class FinancePayableController extends Controller
             'client_id' => ['nullable', 'integer'],
             'employee_id' => ['nullable', 'integer'],
             'casual_worker_id' => ['nullable', 'integer'],
+            'facility_id' => ['nullable', 'integer'],
             'contract_id' => [
                 'nullable',
                 'integer',
@@ -304,6 +332,11 @@ class FinancePayableController extends Controller
             $data['contract_id'] = null;
         }
         unset($data['link_contract']);
+
+        $data['facility_id'] = $this->assertFacility($businessId, ! empty($data['facility_id']) ? (int) $data['facility_id'] : null);
+        if (trim((string) ($data['payable_number'] ?? '')) === '') {
+            $data['payable_number'] = FinanceDocumentNumberGenerator::next('AP', $businessId, 'finance_payables', 'payable_number');
+        }
 
         if (in_array($data['ap_bucket'], [FinancePayable::BUCKET_SUPPLIER, FinancePayable::BUCKET_CLIENT], true)) {
             $data['employee_id'] = null;
@@ -362,7 +395,7 @@ class FinancePayableController extends Controller
             $batch = Batch::query()
                 ->whereKey((int) $data['batch_id'])
                 ->whereHas('slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $businessId))
-                ->with('certificate:id,batch_id,certificate_number')
+                ->with('certificate')
                 ->first();
             abort_unless($batch !== null, 422, __('Invalid batch selection.'));
             $data['certificate_id'] = $batch->certificate?->id;
@@ -415,7 +448,7 @@ class FinancePayableController extends Controller
     {
         return Batch::query()
             ->whereHas('slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $businessId))
-            ->with(['certificate:id,batch_id,certificate_number'])
+            ->with('certificate')
             ->orderByDesc('id')
             ->limit(100)
             ->get(['id', 'batch_code', 'quantity', 'quantity_unit']);

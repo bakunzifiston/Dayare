@@ -18,6 +18,8 @@
                 </div>
             </section>
 
+            @include('finance.partials.payment-panel', ['document' => $invoice, 'documentType' => 'invoice'])
+
             <section class="rounded-bucha border border-slate-200 bg-white px-5 py-5">
                 <form method="POST" action="{{ route('finance.invoices.update', $invoice) }}">
                     @csrf

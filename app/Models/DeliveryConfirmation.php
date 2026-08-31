@@ -79,6 +79,11 @@ class DeliveryConfirmation extends Model
         return $this->hasMany(MeatExportDocument::class);
     }
 
+    public function financeInvoice(): HasOne
+    {
+        return $this->hasOne(FinanceInvoice::class, 'delivery_confirmation_id');
+    }
+
     public function isInternationalExport(): bool
     {
         $domestic = config('processor.domestic_country', 'RW');

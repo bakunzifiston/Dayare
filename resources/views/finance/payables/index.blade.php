@@ -16,9 +16,15 @@
                         <input type="hidden" name="tab" value="{{ $activeTab }}">
                         <input type="text" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="{{ __('Search payable number or note') }}" class="h-9 rounded-lg border border-slate-200 px-3 text-sm">
                         <select name="status" class="h-9 rounded-lg border border-slate-200 px-2 text-sm">
-                            <option value="">{{ __('All statuses') }}</option>
+                            <option value="">{{ __('All document statuses') }}</option>
                             @foreach (['open', 'overdue', 'paid', 'cancelled'] as $s)
                                 <option value="{{ $s }}" @selected(($filters['status'] ?? '') === $s)>{{ ucfirst($s) }}</option>
+                            @endforeach
+                        </select>
+                        <select name="payment_state" class="h-9 rounded-lg border border-slate-200 px-2 text-sm">
+                            <option value="">{{ __('All payment states') }}</option>
+                            @foreach (['paid' => __('Paid'), 'unpaid' => __('Unpaid'), 'pending' => __('Pending')] as $value => $label)
+                                <option value="{{ $value }}" @selected(($filters['payment_state'] ?? '') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                         <button type="submit" class="h-9 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white">{{ __('Filter') }}</button>
@@ -35,7 +41,9 @@
                                 <th class="text-left px-4 py-2">{{ __('Payable') }}</th>
                                 <th class="text-left px-4 py-2">{{ __('Type') }}</th>
                                 <th class="text-left px-4 py-2">{{ __('Counterparty') }}</th>
+                                <th class="text-left px-4 py-2">{{ __('Site') }}</th>
                                 <th class="text-left px-4 py-2">{{ __('Status') }}</th>
+                                <th class="text-left px-4 py-2">{{ __('Payment') }}</th>
                                 <th class="text-right px-4 py-2">{{ __('Total') }}</th>
                                 <th class="text-right px-4 py-2">{{ __('Paid') }}</th>
                                 <th class="text-left px-4 py-2">{{ __('Due') }}</th>
@@ -58,7 +66,9 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-2">{{ $payable->counterpartyLabel() }}</td>
+                                    <td class="px-4 py-2">{{ $payable->facility?->facility_name ?? '—' }}</td>
                                     <td class="px-4 py-2">{{ ucfirst($payable->status) }}</td>
+                                    <td class="px-4 py-2">{{ $payable->paymentStateLabel() }}</td>
                                     <td class="px-4 py-2 text-right">{{ number_format((float) $payable->total_amount, 2) }}</td>
                                     <td class="px-4 py-2 text-right">{{ number_format((float) $payable->amount_paid, 2) }}</td>
                                     <td class="px-4 py-2">{{ optional($payable->due_date)->format('Y-m-d') ?? '—' }}</td>
@@ -75,7 +85,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="8" class="px-4 py-8 text-center text-slate-500">{{ __('No payables found.') }}</td></tr>
+                                <tr><td colspan="10" class="px-4 py-8 text-center text-slate-500">{{ __('No payables found.') }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>

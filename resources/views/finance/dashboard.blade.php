@@ -86,7 +86,7 @@
         @if (count($quickLinks) > 0)
             <section class="proc-dash__card mt-4" aria-label="{{ __('Quick links') }}">
                 <h3 class="proc-dash__card-title">{{ __('Finance modules') }}</h3>
-                <p class="proc-dash__card-sub">{{ __('Jump to invoices, payables, and cost tools.') }}</p>
+                <p class="proc-dash__card-sub">{{ __('Sales, invoices, EBM, payables, expenses, and cost allocations.') }}</p>
                 <div class="mt-3 flex flex-wrap gap-2">
                     @foreach ($quickLinks as $link)
                         <a href="{{ route($link['route']) }}" class="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-bucha-primary/30 hover:text-bucha-primary">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Finance;
 use App\Http\Controllers\Controller;
 use App\Models\Batch;
 use App\Models\FinanceCostAllocation;
+use App\Models\FinanceExpense;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -55,6 +56,7 @@ class FinanceCostAllocationController extends Controller
         return view('finance.cost-allocations.create', [
             'allocation' => null,
             'batches' => $this->businessBatches($businessId),
+            'expenses' => FinanceExpense::query()->where('business_id', $businessId)->orderByDesc('expense_date')->limit(100)->get(),
         ]);
     }
 
@@ -86,6 +88,7 @@ class FinanceCostAllocationController extends Controller
         return view('finance.cost-allocations.edit', [
             'allocation' => $costAllocation,
             'batches' => $this->businessBatches($businessId),
+            'expenses' => FinanceExpense::query()->where('business_id', $businessId)->orderByDesc('expense_date')->limit(100)->get(),
         ]);
     }
 
@@ -170,6 +173,7 @@ class FinanceCostAllocationController extends Controller
             'batch_id' => ['required', 'integer'],
             'source_type' => ['nullable', 'string', 'max:255'],
             'source_id' => ['nullable', 'integer', 'min:1'],
+            'expense_id' => ['nullable', 'integer'],
             'category' => ['required', 'string', 'max:50'],
             'amount' => ['required', 'numeric', 'gte:0'],
             'allocation_date' => ['required', 'date'],
@@ -181,6 +185,20 @@ class FinanceCostAllocationController extends Controller
             ->whereHas('slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $businessId))
             ->exists();
         abort_unless($batchExists, 422, __('Invalid batch selection.'));
+
+        if (! empty($data['expense_id'])) {
+            $expense = FinanceExpense::query()
+                ->where('business_id', $businessId)
+                ->whereKey($data['expense_id'])
+                ->first();
+            abort_unless($expense !== null, 422, __('Invalid expense source.'));
+            $data['source_type'] = FinanceExpense::class;
+            $data['source_id'] = (int) $expense->id;
+            if ((float) $data['amount'] <= 0) {
+                $data['amount'] = (float) $expense->amount;
+            }
+        }
+        unset($data['expense_id']);
 
         $data['amount'] = round((float) $data['amount'], 2);
 

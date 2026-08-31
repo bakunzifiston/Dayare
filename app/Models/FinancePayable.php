@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFinancePayments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Schema;
 class FinancePayable extends Model
 {
     use HasFactory;
+    use HasFinancePayments;
 
     public const BUCKET_SUPPLIER = 'supplier';
 
@@ -39,6 +41,7 @@ class FinancePayable extends Model
         'casual_worker_id',
         'contract_id',
         'animal_intake_id',
+        'facility_id',
         'payable_number',
         'status',
         'currency',
@@ -159,6 +162,16 @@ class FinancePayable extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(FinancePayableLine::class, 'payable_id');
+    }
+
+    public function facility(): BelongsTo
+    {
+        return $this->belongsTo(Facility::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(FinanceExpense::class, 'payable_id');
     }
 
     /** Tab query key for AP index (`suppliers` | `employees` | `casual`). */

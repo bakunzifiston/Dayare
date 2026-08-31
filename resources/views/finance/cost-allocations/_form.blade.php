@@ -29,6 +29,21 @@
         <x-input-label for="amount" :value="__('Amount (RWF)')" />
         <x-text-input id="amount" name="amount" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('amount', $allocation->amount ?? 0)" required />
     </div>
+    <div class="md:col-span-2">
+        <x-input-label for="expense_id" :value="__('Source expense (optional)')" />
+        <p class="text-xs text-slate-500 mt-0.5">{{ __('Assign an already-recorded operating expense to this batch. This does not create a new bill.') }}</p>
+        <select id="expense_id" name="expense_id" class="mt-1 block w-full rounded-lg border-slate-300">
+            <option value="">{{ __('None') }}</option>
+            @foreach (($expenses ?? collect()) as $expense)
+                <option value="{{ $expense->id }}" @selected((string) old('expense_id', ($allocation?->source_type === \App\Models\FinanceExpense::class ? $allocation->source_id : '') ?? '') === (string) $expense->id)>
+                    {{ $expense->expense_number }} · {{ $expense->description }} · {{ number_format((float) $expense->amount, 0) }} RWF
+                </option>
+            @endforeach
+        </select>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
     <div>
         <x-input-label for="source_type" :value="__('Source type (optional)')" />
         <x-text-input id="source_type" name="source_type" type="text" class="mt-1 block w-full" :value="old('source_type', $allocation->source_type ?? '')" />

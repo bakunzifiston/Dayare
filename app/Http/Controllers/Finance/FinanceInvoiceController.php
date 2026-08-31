@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Finance\Concerns\ResolvesProcessorFinanceContext;
 use App\Models\AnimalIntake;
 use App\Models\Batch;
 use App\Models\Certificate;
@@ -11,7 +12,10 @@ use App\Models\DeliveryConfirmation;
 use App\Models\Demand;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceInvoiceLine;
+use App\Models\FinancePayment;
 use App\Models\Unit;
+use App\Services\Finance\FinanceDocumentNumberGenerator;
+use App\Services\Finance\FinancePaymentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -21,15 +25,28 @@ use Illuminate\View\View;
 
 class FinanceInvoiceController extends Controller
 {
+    use ResolvesProcessorFinanceContext;
     public function index(Request $request): View
     {
         $businessId = $this->activeBusinessId($request);
         $query = FinanceInvoice::query()
-            ->with(['client', 'contract', 'animalIntake.client'])
+            ->with(['client', 'contract', 'animalIntake.client', 'facility', 'ebmRecord'])
             ->where('business_id', $businessId);
 
         if ($request->filled('status')) {
             $query->where('status', (string) $request->query('status'));
+        }
+        if ($request->filled('payment_state')) {
+            $state = (string) $request->query('payment_state');
+            if ($state === FinancePayment::STATE_PAID) {
+                $query->whereColumn('amount_paid', '>=', 'total_amount')->where('total_amount', '>', 0);
+            } elseif ($state === FinancePayment::STATE_PENDING) {
+                $query->where('amount_paid', '>', 0)->whereColumn('amount_paid', '<', 'total_amount');
+            } elseif ($state === FinancePayment::STATE_UNPAID) {
+                $query->where(function ($w): void {
+                    $w->where('amount_paid', '<=', 0)->orWhereNull('amount_paid');
+                });
+            }
         }
         if ($request->filled('q')) {
             $q = '%'.trim((string) $request->query('q')).'%';
@@ -45,6 +62,7 @@ class FinanceInvoiceController extends Controller
             'invoices' => $invoices,
             'filters' => [
                 'status' => (string) $request->query('status', ''),
+                'payment_state' => (string) $request->query('payment_state', ''),
                 'q' => (string) $request->query('q', ''),
             ],
         ]);
@@ -57,6 +75,8 @@ class FinanceInvoiceController extends Controller
 
         return view('finance.invoices.create', [
             'clientAnimalIntakes' => $this->businessClientAnimalIntakes($businessId),
+            'clients' => $this->businessClients($businessId),
+            'facilities' => $this->businessFacilities($businessId),
             'contracts' => Contract::query()->where('business_id', $businessId)->orderByDesc('id')->get(),
             'batches' => $batches,
             'batchCertificateMap' => $this->batchCertificateMapForBatches($batches),
@@ -80,7 +100,9 @@ class FinanceInvoiceController extends Controller
                 'animal_intake_id' => $data['animal_intake_id'],
                 'contract_id' => $data['contract_id'],
                 'delivery_confirmation_id' => null,
+                'facility_id' => $data['facility_id'],
                 'invoice_number' => $data['invoice_number'],
+                'source_type' => $data['source_type'],
                 'status' => $data['status'],
                 'currency' => $data['currency'],
                 'subtotal' => $data['line_total'],
@@ -88,19 +110,19 @@ class FinanceInvoiceController extends Controller
                 'discount_amount' => $data['discount_amount'],
                 'total_amount' => max(0, $data['line_total'] + $data['tax_amount'] - $data['discount_amount']),
                 'amount_paid' => $data['amount_paid'],
-                'issued_at' => $data['issued_at'],
-                'due_date' => $data['due_date'],
-                'paid_at' => $data['paid_at'],
-                'notes' => $data['notes'],
+                'issued_at' => $data['issued_at'] ?? null,
+                'due_date' => $data['due_date'] ?? null,
+                'paid_at' => $data['paid_at'] ?? null,
+                'notes' => $data['notes'] ?? null,
             ]);
 
             FinanceInvoiceLine::query()->create([
                 'invoice_id' => $invoice->id,
-                'batch_id' => $data['batch_id'],
-                'certificate_id' => $data['certificate_id'],
+                'batch_id' => $data['batch_id'] ?? null,
+                'certificate_id' => $data['certificate_id'] ?? null,
                 'description' => $data['line_description'],
                 'quantity' => $data['quantity'],
-                'quantity_unit' => $data['quantity_unit'],
+                'quantity_unit' => $data['quantity_unit'] ?? null,
                 'unit_price' => $data['unit_price'],
                 'line_total' => $data['line_total'],
             ]);
@@ -111,17 +133,40 @@ class FinanceInvoiceController extends Controller
         return redirect()->route('finance.invoices.edit', $invoice)->with('status', __('AR invoice created.'));
     }
 
+    public function show(Request $request, FinanceInvoice $invoice): View
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $invoice->business_id === $businessId, 404);
+        $invoice->load([
+            'client',
+            'contract',
+            'facility',
+            'animalIntake.client',
+            'lines',
+            'financePayments.recordedBy',
+            'ebmRecord',
+        ]);
+
+        return view('finance.invoices.show', [
+            'invoice' => $invoice,
+            'line' => $invoice->lines->first(),
+            'from' => $request->query('from') === 'sales' ? 'sales' : 'invoices',
+        ]);
+    }
+
     public function edit(Request $request, FinanceInvoice $invoice): View
     {
         $businessId = $this->activeBusinessId($request);
         abort_unless((int) $invoice->business_id === $businessId, 404);
-        $invoice->load('lines');
+        $invoice->load(['lines', 'financePayments.recordedBy', 'ebmRecord', 'facility']);
         $batches = $this->businessBatches($businessId);
 
         return view('finance.invoices.edit', [
             'invoice' => $invoice,
             'line' => $invoice->lines->first(),
             'clientAnimalIntakes' => $this->businessClientAnimalIntakesForForm($businessId, $invoice->animal_intake_id),
+            'clients' => $this->businessClients($businessId),
+            'facilities' => $this->businessFacilities($businessId),
             'contracts' => Contract::query()->where('business_id', $businessId)->orderByDesc('id')->get(),
             'batches' => $batches,
             'batchCertificateMap' => $this->batchCertificateMapForBatches($batches),
@@ -138,43 +183,46 @@ class FinanceInvoiceController extends Controller
         $data = $this->validated($request, $businessId, $invoice->id);
 
         DB::transaction(function () use ($invoice, $data): void {
+            $hasLedger = $invoice->financePayments()->exists();
             $invoice->update([
                 'client_id' => $data['client_id'],
                 'animal_intake_id' => $data['animal_intake_id'],
                 'contract_id' => $data['contract_id'],
+                'facility_id' => $data['facility_id'],
                 'invoice_number' => $data['invoice_number'],
+                'source_type' => $data['source_type'],
                 'status' => $data['status'],
                 'currency' => $data['currency'],
                 'subtotal' => $data['line_total'],
                 'tax_amount' => $data['tax_amount'],
                 'discount_amount' => $data['discount_amount'],
                 'total_amount' => max(0, $data['line_total'] + $data['tax_amount'] - $data['discount_amount']),
-                'amount_paid' => $data['amount_paid'],
-                'issued_at' => $data['issued_at'],
-                'due_date' => $data['due_date'],
-                'paid_at' => $data['paid_at'],
-                'notes' => $data['notes'],
+                'amount_paid' => $hasLedger ? $invoice->amount_paid : $data['amount_paid'],
+                'issued_at' => $data['issued_at'] ?? null,
+                'due_date' => $data['due_date'] ?? null,
+                'paid_at' => $hasLedger ? $invoice->paid_at : ($data['paid_at'] ?? null),
+                'notes' => $data['notes'] ?? null,
             ]);
 
             $line = $invoice->lines()->first();
             if ($line) {
                 $line->update([
-                    'batch_id' => $data['batch_id'],
-                    'certificate_id' => $data['certificate_id'],
+                    'batch_id' => $data['batch_id'] ?? null,
+                    'certificate_id' => $data['certificate_id'] ?? null,
                     'description' => $data['line_description'],
                     'quantity' => $data['quantity'],
-                    'quantity_unit' => $data['quantity_unit'],
+                    'quantity_unit' => $data['quantity_unit'] ?? null,
                     'unit_price' => $data['unit_price'],
                     'line_total' => $data['line_total'],
                 ]);
             } else {
                 FinanceInvoiceLine::query()->create([
                     'invoice_id' => $invoice->id,
-                    'batch_id' => $data['batch_id'],
-                    'certificate_id' => $data['certificate_id'],
+                    'batch_id' => $data['batch_id'] ?? null,
+                    'certificate_id' => $data['certificate_id'] ?? null,
                     'description' => $data['line_description'],
                     'quantity' => $data['quantity'],
-                    'quantity_unit' => $data['quantity_unit'],
+                    'quantity_unit' => $data['quantity_unit'] ?? null,
                     'unit_price' => $data['unit_price'],
                     'line_total' => $data['line_total'],
                 ]);
@@ -184,15 +232,41 @@ class FinanceInvoiceController extends Controller
         return redirect()->route('finance.invoices.edit', $invoice)->with('status', __('AR invoice updated.'));
     }
 
-    public function markPaid(Request $request, FinanceInvoice $invoice): RedirectResponse
+    public function destroy(Request $request, FinanceInvoice $invoice): RedirectResponse
     {
         $businessId = $this->activeBusinessId($request);
         abort_unless((int) $invoice->business_id === $businessId, 404);
 
-        $invoice->update([
-            'amount_paid' => $invoice->total_amount,
+        DB::transaction(function () use ($invoice): void {
+            $invoice->financePayments()->delete();
+            $invoice->ebmRecord()->delete();
+            $invoice->delete();
+        });
+
+        $index = $request->input('from') === 'sales'
+            ? 'finance.sales.index'
+            : 'finance.invoices.index';
+
+        return redirect()->route($index)->with('status', __('Invoice deleted.'));
+    }
+
+    public function markPaid(Request $request, FinanceInvoice $invoice, FinancePaymentService $payments): RedirectResponse
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $invoice->business_id === $businessId, 404);
+
+        $data = $request->validate([
+            'method' => ['nullable', Rule::in(FinancePayment::METHODS)],
+            'reference' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $payments->settleRemaining($invoice, [
+            'method' => $data['method'] ?? FinancePayment::METHOD_CASH,
+            'reference' => $data['reference'] ?? null,
             'paid_at' => now(),
-            'status' => 'paid',
+            'notes' => __('Marked paid'),
+            'facility_id' => $invoice->resolvedFacilityId(),
+            'recorded_by' => $request->user()->id,
         ]);
 
         return redirect()->route('finance.invoices.index')->with('status', __('Invoice marked as paid.'));
@@ -201,12 +275,21 @@ class FinanceInvoiceController extends Controller
     public function createFromDelivery(Request $request, DeliveryConfirmation $delivery): RedirectResponse
     {
         $businessId = $this->activeBusinessId($request);
-        $delivery->load(['transportTrip.batch.slaughterExecution.slaughterPlan', 'transportTrip.certificate']);
+        $delivery->load(['transportTrip.originFacility', 'transportTrip.batch.slaughterExecution.slaughterPlan', 'transportTrip.certificate']);
         $trip = $delivery->transportTrip;
         abort_unless($trip && (int) optional($trip->originFacility)->business_id === $businessId, 404);
 
+        $existing = FinanceInvoice::query()
+            ->where('business_id', $businessId)
+            ->where('delivery_confirmation_id', $delivery->id)
+            ->first();
+        if ($existing) {
+            return redirect()->route('finance.invoices.edit', $existing)->with('status', __('Invoice already exists for this delivery.'));
+        }
+
         $batch = $trip->batch;
         $animalIntakeId = $batch?->slaughterExecution?->slaughterPlan?->animal_intake_id;
+        $facilityId = $trip->origin_facility_id;
 
         $lineTotal = round((float) ($delivery->received_quantity ?? 0) * 3200, 2);
         $invoice = FinanceInvoice::query()->create([
@@ -215,7 +298,9 @@ class FinanceInvoiceController extends Controller
             'animal_intake_id' => $animalIntakeId,
             'contract_id' => $delivery->contract_id,
             'delivery_confirmation_id' => $delivery->id,
-            'invoice_number' => 'AR-'.now()->format('Ymd').'-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
+            'facility_id' => $facilityId,
+            'invoice_number' => FinanceDocumentNumberGenerator::next('AR', $businessId, 'finance_invoices', 'invoice_number'),
+            'source_type' => FinanceInvoice::SOURCE_DELIVERY,
             'status' => 'issued',
             'currency' => 'RWF',
             'subtotal' => $lineTotal,
@@ -242,28 +327,25 @@ class FinanceInvoiceController extends Controller
         return redirect()->route('finance.invoices.edit', $invoice)->with('status', __('Invoice generated from delivery.'));
     }
 
-    private function activeBusinessId(Request $request): int
-    {
-        $businessId = $request->user()->activeProcessorBusinessId();
-        abort_if($businessId === null, 403, __('Select a processor business first.'));
-        $request->user()->setActiveProcessorBusinessId($businessId);
-
-        return $businessId;
-    }
-
     private function validated(Request $request, int $businessId, ?int $invoiceId): array
     {
-        $unique = 'unique:finance_invoices,invoice_number';
+        $unique = Rule::unique('finance_invoices', 'invoice_number')->where(fn ($q) => $q->where('business_id', $businessId));
         if ($invoiceId !== null) {
-            $unique .= ','.$invoiceId;
+            $unique = $unique->ignore($invoiceId);
         }
 
+        $request->merge([
+            'invoice_number' => trim((string) $request->input('invoice_number', '')) ?: null,
+        ]);
+
         $data = $request->validate([
-            'invoice_number' => ['required', 'string', 'max:40', $unique],
+            'invoice_number' => ['nullable', 'string', 'max:40', $unique],
             'status' => ['required', 'string', 'max:32'],
             'currency' => ['required', 'string', 'max:8'],
             'link_contract' => ['required', Rule::in(['yes', 'no'])],
-            'animal_intake_id' => ['required', 'integer'],
+            'animal_intake_id' => ['nullable', 'integer'],
+            'client_id' => ['nullable', 'integer'],
+            'facility_id' => ['nullable', 'integer'],
             'contract_id' => [
                 'nullable',
                 'integer',
@@ -289,14 +371,39 @@ class FinanceInvoiceController extends Controller
         }
         unset($data['link_contract']);
 
-        $intake = AnimalIntake::query()
-            ->whereKey((int) $data['animal_intake_id'])
-            ->where('source_type', AnimalIntake::SOURCE_TYPE_CLIENT)
-            ->whereHas('facility', fn ($q) => $q->where('business_id', $businessId))
-            ->first();
-        abort_unless($intake !== null, 422, __('Invalid animal intake selection.'));
-        $data['client_id'] = $intake->client_id;
-        $data['animal_intake_id'] = (int) $intake->id;
+        $intake = null;
+        if (! empty($data['animal_intake_id'])) {
+            $intake = AnimalIntake::query()
+                ->whereKey((int) $data['animal_intake_id'])
+                ->where('source_type', AnimalIntake::SOURCE_TYPE_CLIENT)
+                ->whereHas('facility', fn ($q) => $q->where('business_id', $businessId))
+                ->first();
+            abort_unless($intake !== null, 422, __('Invalid animal intake selection.'));
+            $data['client_id'] = $intake->client_id;
+            $data['animal_intake_id'] = (int) $intake->id;
+            if (empty($data['facility_id'])) {
+                $data['facility_id'] = $intake->facility_id;
+            }
+        } else {
+            $data['animal_intake_id'] = null;
+            abort_unless(! empty($data['client_id']), 422, __('Select a client or a client intake.'));
+            $clientExists = DB::table('clients')->where('id', $data['client_id'])->where('business_id', $businessId)->exists();
+            abort_unless($clientExists, 422, __('Invalid client selection.'));
+            $data['client_id'] = (int) $data['client_id'];
+        }
+
+        $data['facility_id'] = $this->assertFacility($businessId, ! empty($data['facility_id']) ? (int) $data['facility_id'] : null);
+        $data['source_type'] = $intake ? FinanceInvoice::SOURCE_INTAKE : FinanceInvoice::SOURCE_MANUAL;
+        if ($invoiceId !== null) {
+            $existingSource = FinanceInvoice::query()->whereKey($invoiceId)->value('source_type');
+            if ($existingSource === FinanceInvoice::SOURCE_DELIVERY) {
+                $data['source_type'] = FinanceInvoice::SOURCE_DELIVERY;
+            }
+        }
+
+        if (trim((string) ($data['invoice_number'] ?? '')) === '') {
+            $data['invoice_number'] = FinanceDocumentNumberGenerator::next('AR', $businessId, 'finance_invoices', 'invoice_number');
+        }
 
         foreach (['contract_id' => 'contracts'] as $field => $table) {
             if (! empty($data[$field])) {
@@ -309,7 +416,7 @@ class FinanceInvoiceController extends Controller
             $batch = Batch::query()
                 ->whereKey((int) $data['batch_id'])
                 ->whereHas('slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $businessId))
-                ->with('certificate:id,batch_id,certificate_number')
+                ->with('certificate')
                 ->first();
             abort_unless($batch !== null, 422, __('Invalid batch selection.'));
             $data['certificate_id'] = $batch->certificate?->id;
@@ -395,7 +502,7 @@ class FinanceInvoiceController extends Controller
     {
         return Batch::query()
             ->whereHas('slaughterExecution.slaughterPlan.facility', fn ($q) => $q->where('business_id', $businessId))
-            ->with(['certificate:id,batch_id,certificate_number'])
+            ->with('certificate')
             ->orderByDesc('id')
             ->limit(100)
             ->get(['id', 'batch_code', 'quantity', 'quantity_unit']);

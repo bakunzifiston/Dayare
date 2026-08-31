@@ -8,6 +8,8 @@
     'inline' => false,
     /** Unified vertical stat tile (e.g. dashboard Key metrics) */
     'stat' => false,
+    /** Value size for stat tiles: md (default) or sm */
+    'size' => 'md',
 ])
 
 @php
@@ -44,6 +46,9 @@
     $hasIconSlot = isset($icon) && $icon->isNotEmpty();
     $hasGlyph = $glyph !== null && $glyph !== '';
     $showIcon = $hasIconSlot || $hasGlyph;
+    $statValueClass = $size === 'sm'
+        ? 'mt-1.5 line-clamp-2 text-sm font-semibold tabular-nums leading-tight tracking-tight text-slate-900 sm:text-base'
+        : 'mt-1.5 line-clamp-2 text-lg font-semibold tabular-nums leading-tight tracking-tight text-slate-900 sm:text-xl';
 @endphp
 
 @if ($stat)
@@ -69,7 +74,7 @@
             @endif
             <div class="min-w-0 flex-1">
                 <p class="text-xs font-medium leading-snug text-slate-500">{{ $title }}</p>
-                <p class="mt-1.5 line-clamp-2 text-lg font-semibold tabular-nums leading-tight tracking-tight text-slate-900 sm:text-xl" title="{{ $displayValue }}">{{ $displayValue }}</p>
+                <p class="{{ $statValueClass }}" title="{{ $displayValue }}">{{ $displayValue }}</p>
                 @if ($subtitle !== null && $subtitle !== '')
                     <p class="mt-1 text-[11px] leading-snug text-slate-500">{{ $subtitle }}</p>
                 @endif
