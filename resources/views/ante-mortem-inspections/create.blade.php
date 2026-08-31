@@ -1,19 +1,24 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Record ante-mortem inspection') }}
-        </h2>
+        <span class="text-sm font-medium text-bucha-muted">{{ __('Ante-mortem') }}</span>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                <form method="post" action="{{ route('ante-mortem-inspections.store') }}" class="space-y-6" id="ante-mortem-form" novalidate>
+    <div class="space-y-5">
+        <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div>
+                    <p class="text-sm font-semibold text-slate-900">{{ __('Record inspection') }}</p>
+                    <p class="text-xs text-slate-500">{{ __('Inspect animals assigned to a slaughter session.') }}</p>
+                </div>
+                <a href="{{ route('ante-mortem-inspections.index') }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Back') }}</a>
+            </div>
+            <div class="px-4 py-4">
+                <form method="post" action="{{ route('ante-mortem-inspections.store') }}" class="space-y-5" id="ante-mortem-form" novalidate>
                     @csrf
 
                     <div>
                         <x-input-label for="slaughter_plan_id" :value="__('Slaughter session')" />
-                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required @disabled($plans->isEmpty())>
+                        <select id="slaughter_plan_id" name="slaughter_plan_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" required @disabled($plans->isEmpty())>
                             <option value="">{{ __('Select slaughter session') }}</option>
                             @foreach ($plans as $p)
                                 <option value="{{ $p['id'] }}"
@@ -32,7 +37,7 @@
 
                     <div>
                         <x-input-label for="inspector_id" :value="__('Inspector')" />
-                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                        <select id="inspector_id" name="inspector_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" required>
                             <option value="">{{ __('Select session first') }}</option>
                             @foreach ($inspectorsByFacility as $fid => $inspectors)
                                 @foreach ($inspectors as $insp)
@@ -45,7 +50,7 @@
 
                     <div>
                         <x-input-label for="inspection_date" :value="__('Inspection date')" />
-                        <x-text-input id="inspection_date" name="inspection_date" type="date" class="mt-1 block w-full" :value="old('inspection_date', date('Y-m-d'))" required />
+                        <x-text-input id="inspection_date" name="inspection_date" type="date" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('inspection_date', date('Y-m-d'))" required />
                         <x-input-error class="mt-2" :messages="$errors->get('inspection_date')" />
                     </div>
 
@@ -54,7 +59,7 @@
                         @php
                             $speciesOptions = auth()->user()?->configuredSpeciesNames() ?? collect();
                         @endphp
-                        <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                        <select id="species" name="species" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" required>
                             @foreach ($speciesOptions as $s)
                                 <option value="{{ $s }}" @selected(old('species', $selectedPlan?->species ?? '') === $s)>{{ __($s) }}</option>
                             @endforeach
@@ -89,11 +94,11 @@
                             </div>
                             <div id="per-animal-toolbar" class="@if (! isset($assignedItems) || $assignedItems->count() <= 1) hidden @else flex @endif shrink-0 flex-wrap gap-2">
                                 <button type="button" id="expand-all-animals"
-                                    class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
                                     {{ __('Expand all') }}
                                 </button>
                                 <button type="button" id="collapse-all-animals"
-                                    class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
                                     {{ __('Collapse all') }}
                                 </button>
                             </div>
@@ -141,17 +146,17 @@
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <div>
                                 <x-input-label for="number_examined" :value="__('Number examined')" />
-                                <x-text-input id="number_examined" name="number_examined" type="number" min="0" class="mt-1 block w-full" :value="old('number_examined', $selectedPlan?->assigned_count ?? 0)" required />
+                                <x-text-input id="number_examined" name="number_examined" type="number" min="0" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('number_examined', $selectedPlan?->assigned_count ?? 0)" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('number_examined')" />
                             </div>
                             <div>
                                 <x-input-label for="number_approved" :value="__('Number approved')" />
-                                <x-text-input id="number_approved" name="number_approved" type="number" min="0" class="mt-1 block w-full" :value="old('number_approved', 0)" required />
+                                <x-text-input id="number_approved" name="number_approved" type="number" min="0" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('number_approved', 0)" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('number_approved')" />
                             </div>
                             <div>
                                 <x-input-label for="number_rejected" :value="__('Number rejected')" />
-                                <x-text-input id="number_rejected" name="number_rejected" type="number" min="0" class="mt-1 block w-full" :value="old('number_rejected', 0)" required />
+                                <x-text-input id="number_rejected" name="number_rejected" type="number" min="0" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('number_rejected', 0)" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('number_rejected')" />
                             </div>
                         </div>
@@ -160,31 +165,29 @@
 
                     <div>
                         <x-input-label for="notes" :value="__('Notes')" />
-                        <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">{{ old('notes') }}</textarea>
+                        <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full rounded-lg border-slate-200 text-sm">{{ old('notes') }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('notes')" />
                     </div>
 
                     <div id="notes-for-under-observation-field" style="display:none;">
-                        <label for="notes_for_under_observation" class="block text-sm font-medium text-gray-700 mb-1">
+                        <label for="notes_for_under_observation" class="block text-sm font-medium text-slate-700 mb-1">
                             {{ __('Notes for under-observation animals') }}
                         </label>
                         <textarea id="notes_for_under_observation" name="notes_for_under_observation" rows="3" maxlength="2000"
-                                  class="w-full rounded border-gray-300 text-sm"
+                                  class="mt-1 block w-full rounded-lg border-slate-200 text-sm"
                         >{{ old('notes_for_under_observation', '') }}</textarea>
                         @error('notes_for_under_observation')
                             <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    <div class="flex gap-4">
-                        <x-primary-button>{{ __('Save inspection') }}</x-primary-button>
-                        <a href="{{ route('ante-mortem-inspections.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
-                            {{ __('Cancel') }}
-                        </a>
+                    <div class="flex items-center gap-2 border-t border-slate-100 pt-4">
+                        <button type="submit" class="inline-flex h-9 items-center rounded-lg bg-bucha-primary px-3 text-xs font-semibold text-white hover:bg-bucha-burgundy">{{ __('Save inspection') }}</button>
+                        <a href="{{ route('ante-mortem-inspections.index') }}" class="inline-flex h-9 items-center px-2 text-xs font-medium text-slate-500 hover:text-slate-900">{{ __('Cancel') }}</a>
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
     </div>
 
     <script>

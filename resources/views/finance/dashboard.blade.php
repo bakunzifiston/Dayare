@@ -51,7 +51,7 @@
             </div>
         </section>
 
-        <section class="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="{{ __('Key performance indicators') }}">
+        <section class="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="{{ __('Key performance indicators') }}">
             @foreach ($kpiCards as $card)
                 <x-kpi-card
                     stat

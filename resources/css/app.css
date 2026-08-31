@@ -17,9 +17,14 @@
         --bucha-success: #38a169;
         --bucha-warning: #d69e2e;
     }
+    html {
+        color-scheme: light;
+    }
+
     body {
         @apply antialiased text-slate-900;
         background-color: var(--bucha-canvas);
+        color-scheme: light;
     }
 
     [x-cloak] {

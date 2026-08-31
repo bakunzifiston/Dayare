@@ -34,28 +34,6 @@
     margin: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-    .proc-dash {
-        --color-text-primary: #fafafa;
-        --color-text-secondary: #a1a1aa;
-        --color-text-tertiary: #71717a;
-        --color-background-primary: #18181b;
-        --color-background-secondary: #27272a;
-        --color-border-tertiary: #3f3f46;
-        --color-border-secondary: #52525b;
-        --color-success-bg: #1a2e14;
-        --color-success-text: #b8e0a0;
-        --color-warning-bg: #2e2410;
-        --color-warning-text: #f0c96a;
-        --color-danger-bg: #2e1414;
-        --color-danger-text: #f0a0a0;
-        --color-info-bg: #142638;
-        --color-info-text: #8ec0f0;
-        --color-finance-bg: #1a2e14;
-        --color-finance-text: #b8e0a0;
-    }
-}
-
 .proc-dash .sr-only {
     position: absolute;
     width: 1px;

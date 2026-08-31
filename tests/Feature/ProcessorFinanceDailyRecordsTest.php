@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AnimalIntake;
 use App\Models\Business;
+use App\Models\BusinessUser;
 use App\Models\Client;
 use App\Models\Facility;
 use App\Models\FinanceEbmRecord;
@@ -521,5 +522,41 @@ class ProcessorFinanceDailyRecordsTest extends TestCase
             ->assertDontSee(__('Finance modules'))
             ->assertSee('AR-DASH-1')
             ->assertSee(__('Record sale'));
+    }
+
+    public function test_accountant_home_dashboard_uses_compact_kpi_amounts(): void
+    {
+        [$owner, $business, $facility, $client] = $this->processorContext();
+        $accountant = User::factory()->create();
+        BusinessUser::query()->create([
+            'business_id' => $business->id,
+            'user_id' => $accountant->id,
+            'role' => BusinessUser::ROLE_ACCOUNTANT,
+        ]);
+        $accountant->setActiveProcessorBusinessId($business->id);
+
+        FinanceInvoice::query()->create([
+            'business_id' => $business->id,
+            'client_id' => $client->id,
+            'facility_id' => $facility->id,
+            'invoice_number' => 'AR-ACC-KPI',
+            'source_type' => FinanceInvoice::SOURCE_MANUAL,
+            'status' => 'issued',
+            'currency' => 'RWF',
+            'subtotal' => 12500,
+            'total_amount' => 12500,
+            'amount_paid' => 0,
+            'issued_at' => now(),
+        ]);
+
+        $this->actingAs($accountant)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee(__('Revenue'))
+            ->assertSee(__('AR outstanding'))
+            ->assertSee('12,500')
+            ->assertDontSee('profile-kpi__value', false)
+            ->assertSee('text-sm font-bold tabular-nums', false);
     }
 }

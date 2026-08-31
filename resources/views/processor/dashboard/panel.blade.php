@@ -85,9 +85,31 @@
     </form>
 @endif
 
-<section class="profile-kpi-grid proc-dash__kpi-grid" aria-label="{{ __('Key performance indicators') }}">
+<section class="grid grid-cols-2 gap-3 sm:grid-cols-3 {{ count($ops['kpiCards'] ?? []) === 4 ? 'lg:grid-cols-4' : (count($ops['kpiCards'] ?? []) >= 6 ? 'lg:grid-cols-3' : 'lg:grid-cols-5') }}" aria-label="{{ __('Key performance indicators') }}">
     @php
-        $kpiIconDefaults = ['box', 'certificate', 'truck', 'alert-triangle', 'currency-dollar'];
+        $kpiGlyphMap = [
+            'currency-dollar' => 'currency',
+            'currency' => 'currency',
+            'receipt' => 'clipboard',
+            'clipboard' => 'clipboard',
+            'clipboard-list' => 'clipboard',
+            'chart-line' => 'trending',
+            'alert-triangle' => 'alert',
+            'player-play' => 'play',
+            'arrow-down' => 'intake',
+            'temperature' => 'chart',
+            'certificate' => 'certificate',
+            'truck' => 'truck',
+            'check' => 'check',
+            'clock' => 'clock',
+            'users' => 'users',
+            'user' => 'user',
+            'building' => 'building',
+            'calendar' => 'calendar',
+            'map-pin' => 'building',
+            'box' => 'box',
+        ];
+        $kpiIconDefaults = ['box', 'certificate', 'truck', 'alert', 'currency'];
     @endphp
     @foreach ($ops['kpiCards'] as $index => $card)
         @php
@@ -96,19 +118,24 @@
                 ? number_format((int) $rawValue)
                 : (string) $rawValue;
             $kpiIcon = $card['icon'] ?? $kpiIconDefaults[$index % count($kpiIconDefaults)];
-            $accent = in_array($card['deltaTone'] ?? '', ['warning', 'negative'], true)
-                || in_array($card['iconTone'] ?? '', ['red', 'orange'], true);
+            $kpiGlyph = $kpiGlyphMap[$kpiIcon] ?? 'clipboard';
+            $kpiColor = match ($card['deltaTone'] ?? '') {
+                'positive' => 'bucha-success',
+                'warning' => 'amber',
+                'negative' => 'bucha',
+                default => 'slate',
+            };
         @endphp
-        <x-entity.kpi-stat
-            :label="$card['label']"
+        <x-kpi-card
+            stat
+            compact
+            :title="$card['label']"
             :value="$displayValue"
-            :hint="$card['change'] ?? null"
-            :accent="$accent"
-        >
-            <x-slot:icon>
-                @include('processor.partials.dashboard-kpi-icon', ['icon' => $kpiIcon])
-            </x-slot:icon>
-        </x-entity.kpi-stat>
+            :subtitle="$card['change'] ?? null"
+            :color="$kpiColor"
+            :glyph="$kpiGlyph"
+            :href="$card['href'] ?? null"
+        />
     @endforeach
 </section>
 

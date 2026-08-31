@@ -403,14 +403,14 @@ class ProcessorDashboardService
     private function buildAccountant(int $businessId, ProcessorDashboardContext $ctx, array $filters): array
     {
         $periodHint = $filters['is_filtered'] ? $filters['range_label'] : __('All time');
-        $now = now();
-        $fmt = static fn (float $n): string => number_format($n, 0, '.', ',').' '.__('RWF');
+        $today = now()->copy()->startOfDay();
+        $fmtAmount = static fn (float $n): string => number_format($n, 0, '.', ',');
 
         $arOutstanding = $this->sumOutstandingBalance('finance_invoices', $businessId);
         $arOverdue = (int) FinanceInvoice::query()
             ->where('business_id', $businessId)
             ->whereNotNull('due_date')
-            ->where('due_date', '<', $now->startOfDay())
+            ->where('due_date', '<', $today)
             ->whereRaw('amount_paid < total_amount')
             ->count();
 
@@ -418,13 +418,11 @@ class ProcessorDashboardService
         $apOverdue = (int) FinancePayable::query()
             ->where('business_id', $businessId)
             ->whereNotNull('due_date')
-            ->where('due_date', '<', $now->startOfDay())
+            ->where('due_date', '<', $today)
             ->whereRaw('amount_paid < total_amount')
             ->count();
 
         $revenue = $this->invoiceRevenueInPeriod($businessId, $filters);
-        $revenueDisplay = $revenue >= 1_000_000 ? $this->formatMillions($revenue) : $fmt($revenue);
-
         $invoicesIssued = $this->invoicesIssuedInPeriod($businessId, $filters);
         $collectionRate = $this->invoiceCollectionRateForPeriod($businessId, $filters);
 
@@ -432,11 +430,11 @@ class ProcessorDashboardService
             'roleKey' => BusinessUser::ROLE_ACCOUNTANT,
             'headerBadge' => ['label' => __('Finance'), 'variant' => 'finance'],
             'kpiCards' => [
-                $this->kpi(__('Revenue'), $revenueDisplay, $periodHint, 'positive', 'currency-dollar'),
-                $this->kpi(__('AR outstanding'), $fmt($arOutstanding), __(':count overdue', ['count' => $arOverdue]), $arOverdue > 0 ? 'warning' : 'positive', 'receipt'),
-                $this->kpi(__('AP outstanding'), $fmt($apOutstanding), __(':count overdue', ['count' => $apOverdue]), $apOverdue > 0 ? 'warning' : 'info', 'receipt'),
+                $this->kpi(__('Revenue'), $fmtAmount($revenue), __('RWF'), 'positive', 'currency'),
+                $this->kpi(__('AR outstanding'), $fmtAmount($arOutstanding), $arOverdue > 0 ? __(':count overdue', ['count' => $arOverdue]) : __('RWF'), $arOverdue > 0 ? 'warning' : 'positive', 'clock'),
+                $this->kpi(__('AP outstanding'), $fmtAmount($apOutstanding), $apOverdue > 0 ? __(':count overdue', ['count' => $apOverdue]) : __('RWF'), $apOverdue > 0 ? 'warning' : 'info', 'clock'),
                 $this->kpi(__('Invoices issued'), $invoicesIssued, $periodHint, 'info', 'clipboard'),
-                $this->kpi(__('Collection rate'), $collectionRate.'%', __('target 90%'), $collectionRate >= 90 ? 'positive' : 'warning', 'chart-line'),
+                $this->kpi(__('Collection rate'), $collectionRate.'%', __('Target 90%'), $collectionRate >= 90 ? 'positive' : 'warning', 'trending'),
             ],
             'workTable' => [
                 'title' => __('AR invoices'),

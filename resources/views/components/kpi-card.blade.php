@@ -61,10 +61,10 @@
     @else
         <div {{ $attributes->merge(['class' => $baseClass.' h-full']) }}>
     @endif
-        <div class="flex h-full items-start gap-3 min-w-0">
+        <div class="flex h-full min-w-0 items-start gap-3">
             @if ($showIcon)
                 <span class="inline-flex {{ $compact ? 'h-8 w-8' : 'h-9 w-9' }} shrink-0 items-center justify-center rounded-lg {{ $statIconClass }}" aria-hidden="true">
-                    <span class="[&>svg]:h-4 [&>svg]:w-4">
+                    <span class="[&>svg]:!h-4 [&>svg]:!w-4">
                         @if ($hasIconSlot)
                             {{ $icon }}
                         @else
@@ -74,10 +74,10 @@
                 </span>
             @endif
             <div class="min-w-0 flex-1">
-                <p class="text-xs font-medium leading-snug text-slate-500">{{ $title }}</p>
-                <p class="{{ $compact ? 'mt-1 text-sm font-semibold tabular-nums leading-tight tracking-tight text-slate-900' : 'mt-1.5 line-clamp-2 text-lg font-semibold tabular-nums leading-tight tracking-tight text-slate-900 sm:text-xl' }}" title="{{ $displayValue }}">{{ $displayValue }}</p>
+                <p class="truncate text-xs font-medium leading-snug text-slate-500">{{ $title }}</p>
+                <p class="{{ $compact ? 'mt-0.5 truncate text-sm font-bold tabular-nums leading-tight tracking-tight text-slate-900' : 'mt-1.5 line-clamp-2 text-lg font-semibold tabular-nums leading-tight tracking-tight text-slate-900 sm:text-xl' }}" title="{{ $displayValue }}">{{ $displayValue }}</p>
                 @if ($subtitle !== null && $subtitle !== '')
-                    <p class="mt-0.5 text-[11px] leading-snug text-slate-400">{{ $subtitle }}</p>
+                    <p class="mt-0.5 truncate text-[11px] leading-snug text-slate-400">{{ $subtitle }}</p>
                 @endif
                 @if ($href && ! $compact)
                     <p class="mt-2 text-[11px] font-medium text-bucha-primary opacity-0 transition-opacity group-hover:opacity-100 max-sm:hidden">{{ __('View details') }}</p>

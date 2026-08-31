@@ -1,17 +1,20 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Record post-mortem inspection') }}
-        </h2>
+        <span class="text-sm font-medium text-bucha-muted">{{ __('Post-mortem') }}</span>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                <p class="text-sm text-gray-500 mb-4">{{ __('Select a slaughter execution to load the animals slaughtered in that session.') }}</p>
-
+    <div class="space-y-5">
+        <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div>
+                    <p class="text-sm font-semibold text-slate-900">{{ __('Record inspection') }}</p>
+                    <p class="text-xs text-slate-500">{{ __('Select a slaughter execution to load the animals slaughtered in that session.') }}</p>
+                </div>
+                <a href="{{ route('post-mortem-inspections.hub') }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Back') }}</a>
+            </div>
+            <div class="px-4 py-4">
                 @if ($errors->any())
-                    <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                         <p class="font-medium">{{ __('Please fix the following before saving:') }}</p>
                         <ul class="mt-2 list-disc space-y-1 pl-5">
                             @foreach ($errors->all() as $error)
@@ -21,12 +24,12 @@
                     </div>
                 @endif
 
-                <form method="post" action="{{ route('post-mortem-inspections.store') }}" class="space-y-6" id="post-mortem-form" novalidate>
+                <form method="post" action="{{ route('post-mortem-inspections.store') }}" class="space-y-5" id="post-mortem-form" novalidate>
                     @csrf
 
                     <div>
                         <x-input-label for="slaughter_execution_id" :value="__('Slaughter execution')" />
-                        <select id="slaughter_execution_id" name="slaughter_execution_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                        <select id="slaughter_execution_id" name="slaughter_execution_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" required>
                             <option value="">{{ __('Select slaughter execution') }}</option>
                             @foreach ($executions as $execution)
                                 <option value="{{ $execution['id'] }}" data-facility-id="{{ $execution['facility_id'] }}" data-species="{{ $execution['species'] }}" @selected(old('slaughter_execution_id', $selectedExecutionId ?? null) == $execution['id'])>{{ $execution['label'] }}</option>
@@ -37,7 +40,7 @@
 
                     <div>
                         <x-input-label for="species" :value="__('Species')" />
-                        <select id="species" name="species" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                        <select id="species" name="species" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" required>
                             @php($speciesOptions = auth()->user()?->configuredSpeciesNames() ?? collect())
                             <option value="">{{ __('Select species') }}</option>
                             @foreach ($speciesOptions as $s)
@@ -50,7 +53,7 @@
 
                     <div>
                         <x-input-label for="inspector_id" :value="__('Inspector')" />
-                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+                        <select id="inspector_id" name="inspector_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" required>
                             <option value="">{{ __('Select slaughter execution first') }}</option>
                             @foreach ($inspectorsByFacility as $fid => $inspectors)
                                 @foreach ($inspectors as $insp)
@@ -63,7 +66,7 @@
 
                     <div>
                         <x-input-label for="inspection_date" :value="__('Inspection date')" />
-                        <x-text-input id="inspection_date" name="inspection_date" type="date" class="mt-1 block w-full" :value="old('inspection_date', date('Y-m-d'))" required />
+                        <x-text-input id="inspection_date" name="inspection_date" type="date" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('inspection_date', date('Y-m-d'))" required />
                         <x-input-error class="mt-2" :messages="$errors->get('inspection_date')" />
                     </div>
 
@@ -76,8 +79,8 @@
                         <div id="animal-tag-lookup" class="hidden border-b border-slate-200 bg-slate-50 px-4 py-4">
                             <x-input-label for="animal_tag_search" :value="__('Ear tag or tag number')" />
                             <div class="mt-2 flex flex-wrap gap-2">
-                                <x-text-input id="animal_tag_search" type="text" class="block min-w-[12rem] flex-1" placeholder="{{ __('Scan or type tag…') }}" autocomplete="off" />
-                                <button type="button" id="add-animal-by-tag" class="inline-flex items-center rounded-md border border-transparent bg-bucha-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-bucha-burgundy focus:outline-none focus:ring-2 focus:ring-bucha-primary focus:ring-offset-2">
+                                <x-text-input id="animal_tag_search" type="text" class="h-9 min-w-[12rem] flex-1 rounded-lg border-slate-200 text-sm" placeholder="{{ __('Scan or type tag…') }}" autocomplete="off" />
+                                <button type="button" id="add-animal-by-tag" class="inline-flex h-9 items-center rounded-lg bg-bucha-primary px-3 text-xs font-semibold text-white hover:bg-bucha-burgundy">
                                     {{ __('Add animal') }}
                                 </button>
                             </div>
@@ -184,19 +187,17 @@
 
                     <div>
                         <x-input-label for="notes" :value="__('Notes')" />
-                        <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">{{ old('notes') }}</textarea>
+                        <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full rounded-lg border-slate-200 text-sm">{{ old('notes') }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('notes')" />
                     </div>
 
-                    <div class="flex gap-4">
-                        <x-primary-button>{{ __('Save inspection') }}</x-primary-button>
-                        <a href="{{ route('post-mortem-inspections.hub') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
-                            {{ __('Cancel') }}
-                        </a>
+                    <div class="flex items-center gap-2 border-t border-slate-100 pt-4">
+                        <button type="submit" class="inline-flex h-9 items-center rounded-lg bg-bucha-primary px-3 text-xs font-semibold text-white hover:bg-bucha-burgundy">{{ __('Save inspection') }}</button>
+                        <a href="{{ route('post-mortem-inspections.hub') }}" class="inline-flex h-9 items-center px-2 text-xs font-medium text-slate-500 hover:text-slate-900">{{ __('Cancel') }}</a>
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
     </div>
 
     @include('post-mortem-inspections.partials.form-batch-scripts', [

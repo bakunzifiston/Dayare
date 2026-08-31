@@ -40,7 +40,7 @@ class FinanceDashboardController extends Controller
                 'user' => $user,
                 'role' => $role,
                 'activeBusiness' => null,
-                'kpiCards' => $this->emptyKpiCards($range['label']),
+                'kpiCards' => $this->emptyKpiCards(),
                 'charts' => [],
                 'kpiPeriod' => $period,
                 'kpiPeriodLabel' => $range['label'],
@@ -51,7 +51,7 @@ class FinanceDashboardController extends Controller
 
         $user->setActiveProcessorBusinessId($activeBusinessId);
         $business = Business::query()->find($activeBusinessId);
-        $overview = $this->buildOverview($activeBusinessId, $filters, $range['label']);
+        $overview = $this->buildOverview($activeBusinessId, $filters);
         $ctx = ProcessorDashboardContext::forBusiness($activeBusinessId);
         $chartPayload = $charts->forRole(BusinessUser::ROLE_ACCOUNTANT, $ctx, $activeBusinessId, $filters);
 
@@ -71,15 +71,15 @@ class FinanceDashboardController extends Controller
     /**
      * @return list<array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string, color: string, glyph: string}>
      */
-    private function emptyKpiCards(string $periodLabel): array
+    private function emptyKpiCards(): array
     {
         return [
-            $this->kpiCard(__('Revenue'), '0 '.__('RWF'), $periodLabel, 'currency-dollar', false, route('finance.invoices.index'), 'bucha-success', 'currency'),
-            $this->kpiCard(__('AR outstanding'), '0 '.__('RWF'), __('0 overdue'), 'receipt', false, route('finance.invoices.index'), 'amber', 'clock'),
-            $this->kpiCard(__('AP outstanding'), '0 '.__('RWF'), __('0 overdue'), 'clipboard-list', false, route('finance.payables.index'), 'amber', 'clock'),
-            $this->kpiCard(__('Operating expenses'), '0 '.__('RWF'), $periodLabel, 'clipboard-list', false, route('finance.expenses.index'), 'slate', 'clipboard'),
-            $this->kpiCard(__('Collection rate'), '0%', $periodLabel, 'chart-line', false, route('finance.invoices.index'), 'slate', 'check'),
-            $this->kpiCard(__('EBM follow-up'), '0', __('Missing or mismatched'), 'receipt', false, route('finance.ebm.index'), 'slate', 'alert'),
+            $this->kpiCard(__('Revenue'), '0', __('RWF'), 'currency-dollar', false, route('finance.invoices.index'), 'bucha-success', 'currency'),
+            $this->kpiCard(__('AR outstanding'), '0', __('RWF'), 'receipt', false, route('finance.invoices.index'), 'slate', 'clock'),
+            $this->kpiCard(__('AP outstanding'), '0', __('RWF'), 'clipboard-list', false, route('finance.payables.index'), 'slate', 'clock'),
+            $this->kpiCard(__('Operating expenses'), '0', __('RWF'), 'clipboard-list', false, route('finance.expenses.index'), 'slate', 'clipboard'),
+            $this->kpiCard(__('Collection rate'), '0%', null, 'chart-line', false, route('finance.invoices.index'), 'slate', 'check'),
+            $this->kpiCard(__('EBM follow-up'), '0', null, 'receipt', false, route('finance.ebm.index'), 'slate', 'alert'),
         ];
     }
 
@@ -87,9 +87,9 @@ class FinanceDashboardController extends Controller
      * @param  array{is_filtered: bool, start: ?\Carbon\Carbon, end: ?\Carbon\Carbon}  $filters
      * @return array{kpiCards: list<array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string, color: string, glyph: string}>}
      */
-    private function buildOverview(int $businessId, array $filters, string $periodLabel): array
+    private function buildOverview(int $businessId, array $filters): array
     {
-        $fmtMoney = fn (float $n): string => $this->formatCompactMoney($n);
+        $fmtMoney = fn (float $n): string => $this->formatAmount($n);
         $now = now();
 
         $revenueQuery = DB::table('finance_invoices')->where('business_id', $businessId);
@@ -146,7 +146,7 @@ class FinanceDashboardController extends Controller
                 $this->kpiCard(
                     __('Revenue'),
                     $fmtMoney($revenue),
-                    $periodLabel,
+                    __('RWF'),
                     'currency-dollar',
                     false,
                     route('finance.invoices.index'),
@@ -156,7 +156,7 @@ class FinanceDashboardController extends Controller
                 $this->kpiCard(
                     __('AR outstanding'),
                     $fmtMoney($arOutstanding),
-                    __(':count overdue', ['count' => $arOverdue]),
+                    $arOverdue > 0 ? __(':count overdue', ['count' => $arOverdue]) : __('RWF'),
                     'receipt',
                     $arOverdue > 0,
                     route('finance.invoices.index'),
@@ -166,7 +166,7 @@ class FinanceDashboardController extends Controller
                 $this->kpiCard(
                     __('AP outstanding'),
                     $fmtMoney($apOutstanding),
-                    __(':count overdue', ['count' => $apOverdue]),
+                    $apOverdue > 0 ? __(':count overdue', ['count' => $apOverdue]) : __('RWF'),
                     'clipboard-list',
                     $apOverdue > 0,
                     route('finance.payables.index'),
@@ -176,7 +176,7 @@ class FinanceDashboardController extends Controller
                 $this->kpiCard(
                     __('Operating expenses'),
                     $fmtMoney($expenseTotal),
-                    $periodLabel,
+                    __('RWF'),
                     'clipboard-list',
                     false,
                     route('finance.expenses.index'),
@@ -186,7 +186,7 @@ class FinanceDashboardController extends Controller
                 $this->kpiCard(
                     __('Collection rate'),
                     $collectionRate.'%',
-                    $periodLabel,
+                    $revenue > 0 ? __('Of billed') : null,
                     'chart-line',
                     $collectionRate < 90 && $revenue > 0,
                     route('finance.invoices.index'),
@@ -196,7 +196,7 @@ class FinanceDashboardController extends Controller
                 $this->kpiCard(
                     __('EBM follow-up'),
                     (string) $ebmFollowUp,
-                    __('Missing or mismatched'),
+                    $ebmFollowUp > 0 ? __('Need review') : __('All matched'),
                     'receipt',
                     $ebmFollowUp > 0,
                     route('finance.ebm.index'),
@@ -207,24 +207,14 @@ class FinanceDashboardController extends Controller
         ];
     }
 
+    private function formatAmount(float $amount): string
+    {
+        return number_format($amount, 0, '.', ',');
+    }
+
     private function formatCompactMoney(float $amount): string
     {
-        $abs = abs($amount);
-
-        if ($abs >= 1_000_000_000) {
-            $value = $amount / 1_000_000_000;
-            $formatted = number_format($value, $value >= 100 ? 0 : 1).'B';
-        } elseif ($abs >= 1_000_000) {
-            $value = $amount / 1_000_000;
-            $formatted = number_format($value, $value >= 100 ? 0 : 1).'M';
-        } elseif ($abs >= 1_000) {
-            $value = $amount / 1_000;
-            $formatted = number_format($value, $value >= 100 ? 0 : 1).'K';
-        } else {
-            $formatted = number_format($amount, 0, '.', ',');
-        }
-
-        return $formatted.' '.__('RWF');
+        return $this->formatAmount($amount).' '.__('RWF');
     }
 
     /**
