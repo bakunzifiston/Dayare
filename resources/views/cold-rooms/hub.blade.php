@@ -3,18 +3,13 @@
 @endphp
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Cold Room') }}
-            </h2>
-            <div class="flex flex-wrap gap-2 shrink-0">
-                <a href="{{ route('cold-rooms.manage.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">
-                    {{ __('Add cold room') }}
-                </a>
-                <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                    {{ __('Record storage') }}
-                </a>
-            </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('cold-rooms.manage.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50">
+                {{ __('Add cold room') }}
+            </a>
+            <a href="{{ route('warehouse-storages.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                {{ __('Record storage') }}
+            </a>
         </div>
     </x-slot>
 

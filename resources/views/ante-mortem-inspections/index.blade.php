@@ -3,14 +3,9 @@
 @endphp
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Ante-mortem inspections') }}
-            </h2>
-            <a href="{{ route('ante-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
-                {{ __('Record inspection') }}
-            </a>
-        </div>
+        <a href="{{ route('ante-mortem-inspections.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy shrink-0">
+            {{ __('Record inspection') }}
+        </a>
     </x-slot>
 
     <div class="py-10">

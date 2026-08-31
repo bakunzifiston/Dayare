@@ -1,15 +1,4 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div>
-            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Compliance monitoring') }}
-            </h2>
-            <p class="mt-1 text-sm text-slate-500">
-                {{ __('Track expired licenses, missing inspections, certificates, and other issues.') }}
-            </p>
-        </div>
-    </x-slot>
-
     <div class="py-8">
         <div class="max-w-5xl mx-auto sm:px-6 lg:px-8 space-y-8">
             @php $hasIssues = (int) ($kpis['total_issues'] ?? 0) > 0; @endphp

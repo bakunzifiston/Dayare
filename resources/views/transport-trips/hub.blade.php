@@ -3,20 +3,15 @@
 @endphp
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 leading-tight">
-                {{ __('Transport') }}
-            </h2>
-            <div class="flex flex-wrap items-center gap-2 shrink-0">
-                @include('processor.partials.export-dropdown', [
-                    'exportRoute' => 'transport-trips.export',
-                    'traceabilityRoute' => 'transport-trips.export.traceability',
-                    'query' => $exportQuery ?? [],
-                ])
-                <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                    {{ __('Record trip') }}
-                </a>
-            </div>
+        <div class="flex flex-wrap items-center gap-2">
+            @include('processor.partials.export-dropdown', [
+                'exportRoute' => 'transport-trips.export',
+                'traceabilityRoute' => 'transport-trips.export.traceability',
+                'query' => $exportQuery ?? [],
+            ])
+            <a href="{{ route('transport-trips.create') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
+                {{ __('Record trip') }}
+            </a>
         </div>
     </x-slot>
 
