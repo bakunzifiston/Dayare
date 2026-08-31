@@ -52,23 +52,11 @@
                     <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
                 @endif
 
-                <div class="profile-kpi-grid profile-kpi-grid--3">
-                    <x-entity.kpi-stat :label="__('Total storages')" :value="number_format($kpis['total'])" accent>
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('In storage')" :value="number_format($kpis['in_storage'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Released')" :value="number_format($kpis['released'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                </div>
+                <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Storage summary') }}">
+                    <x-kpi-card stat compact color="slate" :title="__('Total storages')" :value="number_format($kpis['total'])" glyph="box" />
+                    <x-kpi-card stat compact color="amber" :title="__('In storage')" :value="number_format($kpis['in_storage'])" glyph="clock" />
+                    <x-kpi-card stat compact color="bucha-success" :title="__('Released')" :value="number_format($kpis['released'])" glyph="check" />
+                </section>
 
                 @if ($storages->isEmpty())
                     <div class="profile-empty">

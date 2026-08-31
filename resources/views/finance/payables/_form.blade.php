@@ -21,11 +21,11 @@
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <div>
         <x-input-label for="payable_number" :value="__('Payable number')" />
-        <x-text-input id="payable_number" name="payable_number" type="text" class="mt-1 block w-full" :value="old('payable_number', $p?->payable_number)" placeholder="{{ __('Generated on save if empty') }}" />
+        <x-text-input id="payable_number" name="payable_number" type="text" class="mt-1 h-9 block w-full text-sm" :value="old('payable_number', $p?->payable_number)" placeholder="{{ __('Generated on save if empty') }}" />
     </div>
     <div>
         <x-input-label for="status" :value="__('Status')" />
-        <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300">
+        <select id="status" name="status" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
             @foreach (['open', 'overdue', 'paid', 'cancelled'] as $status)
                 <option value="{{ $status }}" @selected(old('status', $p?->status ?? 'open') === $status)>{{ ucfirst($status) }}</option>
             @endforeach
@@ -33,14 +33,14 @@
     </div>
     <div>
         <x-input-label for="currency" :value="__('Currency')" />
-        <x-text-input id="currency" name="currency" type="text" class="mt-1 block w-full" :value="old('currency', $p?->currency ?? 'RWF')" required />
+        <x-text-input id="currency" name="currency" type="text" class="mt-1 h-9 block w-full text-sm" :value="old('currency', $p?->currency ?? 'RWF')" required />
     </div>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
     <div>
         <x-input-label for="facility_id" :value="__('Site / location')" />
-        <select id="facility_id" name="facility_id" class="mt-1 block w-full rounded-lg border-slate-300">
+        <select id="facility_id" name="facility_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
             <option value="">{{ __('Select site') }}</option>
             @foreach ($facilities as $facility)
                 <option value="{{ $facility->id }}" @selected((string) old('facility_id', $p?->facility_id ?? '') === (string) $facility->id)>{{ $facility->facility_name }}</option>
@@ -65,7 +65,7 @@
         <div class="grid grid-cols-1 gap-4">
             <div>
                 <x-input-label for="supplier_id" :value="__('Supplier')" />
-                <select id="supplier_id" name="supplier_id" class="mt-1 block w-full rounded-lg border-slate-300" required>
+                <select id="supplier_id" name="supplier_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" required>
                     <option value="">{{ __('Select') }}</option>
                     @foreach ($suppliers as $supplier)
                         <option value="{{ $supplier->id }}" @selected((string) old('supplier_id', $p?->supplier_id ?? '') === (string) $supplier->id)>
@@ -76,7 +76,7 @@
             </div>
             <div>
                 <x-input-label for="animal_intake_id" :value="__('Animal intake (optional)')" />
-                <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full rounded-lg border-slate-300">
+                <select id="animal_intake_id" name="animal_intake_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
                     <option value="">{{ __('Select') }}</option>
                     @foreach ($animalIntakes as $intake)
                         <option
@@ -103,7 +103,7 @@
         <div class="grid grid-cols-1 gap-4">
             <div>
                 <x-input-label for="animal_intake_id_legacy" :value="__('Animal intake (optional)')" />
-                <select id="animal_intake_id_legacy" name="animal_intake_id" class="mt-1 block w-full rounded-lg border-slate-300">
+                <select id="animal_intake_id_legacy" name="animal_intake_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
                     <option value="">{{ __('Select') }}</option>
                     @foreach ($animalIntakes as $intake)
                         <option
@@ -127,7 +127,7 @@
         <p class="text-sm font-semibold text-slate-800">{{ __('Employee') }}</p>
         <div>
             <x-input-label for="employee_id" :value="__('Employee')" />
-            <select id="employee_id" name="employee_id" class="mt-1 block w-full rounded-lg border-slate-300" @if($showEmployee) required @endif>
+            <select id="employee_id" name="employee_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" @if($showEmployee) required @endif>
                 <option value="">{{ __('Select') }}</option>
                 @foreach ($employees as $employee)
                     <option value="{{ $employee->id }}" @selected((string) old('employee_id', $p?->employee_id ?? '') === (string) $employee->id)>
@@ -146,7 +146,7 @@
         <p class="text-xs text-slate-600">{{ __('Choose someone from the casual worker registry, or add a person there first.') }}</p>
         <div>
             <x-input-label for="casual_worker_id" :value="__('Casual worker')" />
-            <select id="casual_worker_id" name="casual_worker_id" class="mt-1 block w-full rounded-lg border-slate-300" @if($showCasual) required @endif>
+            <select id="casual_worker_id" name="casual_worker_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" @if($showCasual) required @endif>
                 <option value="">{{ __('Select') }}</option>
                 @foreach ($casualWorkers as $worker)
                     <option value="{{ $worker->id }}" @selected((string) old('casual_worker_id', $p?->casual_worker_id ?? '') === (string) $worker->id)>
@@ -168,11 +168,11 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
     <div>
         <x-input-label for="issued_at" :value="__('Issued at')" />
-        <x-text-input id="issued_at" name="issued_at" type="datetime-local" class="mt-1 block w-full" :value="old('issued_at', optional($p?->issued_at ?? now())->format('Y-m-d\\TH:i'))" />
+        <x-text-input id="issued_at" name="issued_at" type="datetime-local" class="mt-1 h-9 block w-full text-sm" :value="old('issued_at', optional($p?->issued_at ?? now())->format('Y-m-d\\TH:i'))" />
     </div>
     <div>
         <x-input-label for="due_date" :value="__('Due date')" />
-        <x-text-input id="due_date" name="due_date" type="datetime-local" class="mt-1 block w-full" :value="old('due_date', optional($p?->due_date)->format('Y-m-d\\TH:i'))" />
+        <x-text-input id="due_date" name="due_date" type="datetime-local" class="mt-1 h-9 block w-full text-sm" :value="old('due_date', optional($p?->due_date)->format('Y-m-d\\TH:i'))" />
     </div>
 </div>
 <input type="hidden" name="paid_at" value="{{ old('paid_at', optional($p?->paid_at)->format('Y-m-d\\TH:i')) }}">
@@ -181,7 +181,7 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
     <div>
         <x-input-label for="link_contract" :value="__('Have a contract?')" />
-        <select id="link_contract" name="link_contract" class="mt-1 block w-full rounded-lg border-slate-300">
+        <select id="link_contract" name="link_contract" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
             <option value="no" @selected($linkContractValue === 'no')>{{ __('No') }}</option>
             <option value="yes" @selected($linkContractValue === 'yes')>{{ __('Yes') }}</option>
         </select>
@@ -190,7 +190,7 @@
     <div>
         <div id="payable-contract-select-wrap" class="@if($linkContractValue === 'yes') @else hidden @endif">
             <x-input-label for="contract_id" :value="__('Contract')" />
-            <select id="contract_id" name="contract_id" class="mt-1 block w-full rounded-lg border-slate-300" @if($linkContractValue !== 'yes') disabled @endif>
+            <select id="contract_id" name="contract_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" @if($linkContractValue !== 'yes') disabled @endif>
                 <option value="">{{ __('Select contract') }}</option>
                 @foreach ($contracts as $contract)
                     <option value="{{ $contract->id }}" @selected((string) old('contract_id', $p?->contract_id ?? '') === (string) $contract->id)>{{ $contract->contract_number ?? ('#'.$contract->id) }}</option>
@@ -201,7 +201,7 @@
     </div>
 </div>
 
-<div class="mt-6 rounded-lg border border-slate-200 p-4">
+<div class="rounded-lg border border-slate-200 px-3 py-3">
     @if ($suppressBatchAndCertificate)
         @php
             $humanLineDesc = old('line_description', filled($lineData?->description) ? (string) $lineData->description : __('Payment'));
@@ -217,24 +217,24 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
             <div>
                 <x-input-label for="unit_price" :value="__('Amount')" />
-                <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('unit_price', $amountDefault)" required />
+                <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 h-9 block w-full text-sm" :value="old('unit_price', $amountDefault)" required />
                 <x-input-error class="mt-1" :messages="$errors->get('unit_price')" />
             </div>
             <div>
                 <x-input-label for="tax_amount" :value="__('Tax amount')" />
-                <x-text-input id="tax_amount" name="tax_amount" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('tax_amount', $p?->tax_amount ?? 0)" />
+                <x-text-input id="tax_amount" name="tax_amount" type="number" step="0.01" min="0" class="mt-1 h-9 block w-full text-sm" :value="old('tax_amount', $p?->tax_amount ?? 0)" />
             </div>
         </div>
     @else
-        <h3 class="font-semibold text-slate-900">{{ __('Primary line item') }}</h3>
+        <p class="text-sm font-semibold text-slate-900">{{ __('Line item') }}</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
             <div class="md:col-span-2">
                 <x-input-label for="line_description" :value="__('Description')" />
-                <x-text-input id="line_description" name="line_description" type="text" class="mt-1 block w-full" :value="old('line_description', $lineData?->description ?? '')" required />
+                <x-text-input id="line_description" name="line_description" type="text" class="mt-1 h-9 block w-full text-sm" :value="old('line_description', $lineData?->description ?? '')" required />
             </div>
             <div>
                 <x-input-label for="batch_id" :value="__('Batch')" />
-                <select id="batch_id" name="batch_id" class="mt-1 block w-full rounded-lg border-slate-300">
+                <select id="batch_id" name="batch_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
                     <option value="">{{ __('Select') }}</option>
                     @foreach ($batches as $batch)
                         <option value="{{ $batch->id }}" @selected((string) old('batch_id', $lineData?->batch_id ?? '') === (string) $batch->id)>
@@ -245,10 +245,9 @@
                 <p id="payable-batch-certificate-message" class="mt-1 text-sm hidden text-amber-800" role="status"></p>
             </div>
             <div>
-                <x-input-label for="certificate_select" :value="__('Certificate')" />
-                <p class="text-xs text-slate-500 mt-0.5">{{ __('With a batch selected, the certificate comes from that batch. Clear the batch to pick a certificate manually.') }}</p>
-                <input type="hidden" id="certificate_id_hidden" value="" disabled />
-                <select id="certificate_select" name="certificate_id" class="mt-1 block w-full rounded-lg border-slate-300">
+            <x-input-label for="certificate_select" :value="__('Certificate')" />
+            <input type="hidden" id="certificate_id_hidden" value="" disabled />
+                <select id="certificate_select" name="certificate_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
                     <option value="">{{ __('Select') }}</option>
                     @foreach ($certificates as $certificate)
                         <option value="{{ $certificate->id }}" @selected((string) old('certificate_id', $lineData?->certificate_id ?? '') === (string) $certificate->id)>{{ $certificate->certificate_number ?? ('#'.$certificate->id) }}</option>
@@ -259,13 +258,13 @@
             <div>
                 <x-input-label for="quantity" :value="__('Quantity')" />
                 <input type="hidden" id="quantity_hidden" value="" disabled />
-                <x-text-input id="quantity" name="quantity" type="number" step="0.0001" min="0.0001" class="mt-1 block w-full" :value="old('quantity', $lineData?->quantity ?? 1)" required />
+                <x-text-input id="quantity" name="quantity" type="number" step="0.0001" min="0.0001" class="mt-1 h-9 block w-full text-sm" :value="old('quantity', $lineData?->quantity ?? 1)" required />
                 <p id="payable-batch-quantity-hint" class="mt-1 text-sm text-slate-600 hidden" role="status"></p>
             </div>
             <div>
                 <x-input-label for="quantity_unit" :value="__('Unit')" />
                 <input type="hidden" id="quantity_unit_hidden" value="" disabled />
-                <select id="quantity_unit" name="quantity_unit" class="mt-1 block w-full rounded-lg border-slate-300">
+                <select id="quantity_unit" name="quantity_unit" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
                     <option value="">{{ __('Select') }}</option>
                     @foreach ($units as $unit)
                         <option value="{{ $unit['code'] }}" @selected((string) old('quantity_unit', $lineData?->quantity_unit ?? '') === (string) $unit['code'])>{{ $unit['name'] }}</option>
@@ -275,19 +274,19 @@
             </div>
             <div>
                 <x-input-label for="unit_price" :value="__('Unit price')" />
-                <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('unit_price', $lineData?->unit_price ?? 0)" required />
+                <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 h-9 block w-full text-sm" :value="old('unit_price', $lineData?->unit_price ?? 0)" required />
             </div>
             <div>
                 <x-input-label for="tax_amount" :value="__('Tax amount')" />
-                <x-text-input id="tax_amount" name="tax_amount" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('tax_amount', $p?->tax_amount ?? 0)" />
+                <x-text-input id="tax_amount" name="tax_amount" type="number" step="0.01" min="0" class="mt-1 h-9 block w-full text-sm" :value="old('tax_amount', $p?->tax_amount ?? 0)" />
             </div>
         </div>
     @endif
 </div>
 
-<div class="mt-4">
+<div>
     <x-input-label for="notes" :value="__('Notes')" />
-    <textarea id="notes" name="notes" class="mt-1 block w-full rounded-lg border-slate-300" rows="3">{{ old('notes', $p?->notes ?? '') }}</textarea>
+    <textarea id="notes" name="notes" class="mt-1 block w-full rounded-lg border-slate-200 text-sm" rows="2">{{ old('notes', $p?->notes ?? '') }}</textarea>
 </div>
 
 <script>

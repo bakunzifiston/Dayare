@@ -55,50 +55,12 @@
                     <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
                 </form>
 
-                <div class="profile-kpi-grid">
-                    <x-entity.kpi-stat :label="$hubStats['confirmations_label']" :value="number_format($hubStats['total_confirmations'])" accent>
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat
-                        :label="__('Pending')"
-                        :value="number_format($hubStats['pending'])"
-                        :accent="$hubStats['pending'] > 0"
-                    >
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Confirmed')" :value="number_format($hubStats['confirmed'])" :accent="$hubStats['confirmed'] > 0">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat
-                        :label="__('Disputed')"
-                        :value="number_format($hubStats['disputed'])"
-                        :accent="$hubStats['disputed'] > 0"
-                    >
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat
-                        :label="__('Awaiting confirmation')"
-                        :value="number_format($hubStats['awaiting_confirmation'])"
-                        :accent="$hubStats['awaiting_confirmation'] > 0"
-                    >
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('International')" :value="number_format($hubStats['international'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                </div>
+                <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Delivery summary') }}">
+                    <x-kpi-card stat compact color="slate" :title="$hubStats['confirmations_label']" :value="number_format($hubStats['total_confirmations'])" glyph="clipboard" />
+                    <x-kpi-card stat compact color="amber" :title="__('Pending')" :value="number_format($hubStats['pending'])" glyph="clock" />
+                    <x-kpi-card stat compact color="bucha-success" :title="__('Confirmed')" :value="number_format($hubStats['confirmed'])" glyph="check" />
+                    <x-kpi-card stat compact color="bucha" :title="__('Disputed')" :value="number_format($hubStats['disputed'])" glyph="alert" />
+                </section>
 
                 @if ($pendingTrips->isNotEmpty())
                     <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

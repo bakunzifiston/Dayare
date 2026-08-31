@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FinanceExpenseController extends Controller
@@ -43,14 +44,30 @@ class FinanceExpenseController extends Controller
             $query->where(function ($w) use ($q): void {
                 $w->where('expense_number', 'like', $q)
                     ->orWhere('description', 'like', $q)
-                    ->orWhere('reference_number', 'like', $q);
+                    ->orWhere('reference_number', 'like', $q)
+                    ->orWhereHas('supplier', function ($s) use ($q): void {
+                        $s->where('first_name', 'like', $q)->orWhere('last_name', 'like', $q);
+                    });
             });
         }
+
+        $count = (clone $query)->count();
+        $total = (float) (clone $query)->sum('amount');
+        $outstanding = (float) (clone $query)->toBase()->sum(DB::raw(
+            'CASE WHEN amount_paid < amount THEN amount - amount_paid ELSE 0 END'
+        ));
+        $unpaid = (clone $query)->whereColumn('amount_paid', '<', 'amount')->count();
 
         $expenses = $query->orderByDesc('expense_date')->orderByDesc('id')->paginate(15)->withQueryString();
 
         return view('finance.expenses.index', [
             'expenses' => $expenses,
+            'summary' => [
+                'count' => $count,
+                'total' => $total,
+                'outstanding' => $outstanding,
+                'unpaid' => $unpaid,
+            ],
             'filters' => [
                 'category' => (string) $request->query('category', ''),
                 'status' => (string) $request->query('status', ''),
@@ -151,6 +168,33 @@ class FinanceExpenseController extends Controller
         app(\App\Services\Finance\FinancePaymentService::class)->refreshDocument($expense);
 
         return redirect()->route('finance.expenses.edit', $expense)->with('status', __('Expense updated.'));
+    }
+
+    public function show(Request $request, FinanceExpense $expense): View
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $expense->business_id === $businessId, 404);
+        $expense->load(['financePayments.recordedBy', 'facility', 'supplier']);
+
+        return view('finance.expenses.show', [
+            'expense' => $expense,
+        ]);
+    }
+
+    public function destroy(Request $request, FinanceExpense $expense): RedirectResponse
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $expense->business_id === $businessId, 404);
+
+        DB::transaction(function () use ($expense): void {
+            if ($expense->attachmentExists()) {
+                Storage::disk('local')->delete($expense->attachment_path);
+            }
+            $expense->financePayments()->delete();
+            $expense->delete();
+        });
+
+        return redirect()->route('finance.expenses.index')->with('status', __('Expense deleted.'));
     }
 
     public function download(Request $request, FinanceExpense $expense): StreamedResponse

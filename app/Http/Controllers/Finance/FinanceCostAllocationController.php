@@ -32,19 +32,37 @@ class FinanceCostAllocationController extends Controller
         if ($request->filled('to')) {
             $query->whereDate('allocation_date', '<=', (string) $request->query('to'));
         }
+        if ($request->filled('q')) {
+            $q = '%'.trim((string) $request->query('q')).'%';
+            $query->where(function ($w) use ($q): void {
+                $w->where('category', 'like', $q)
+                    ->orWhere('notes', 'like', $q)
+                    ->orWhereHas('batch', fn ($b) => $b->where('batch_code', 'like', $q));
+            });
+        }
+
+        $count = (clone $query)->count();
+        $totalAmount = (float) (clone $query)->sum('amount');
+        $batchCount = (int) (clone $query)->select('batch_id')->distinct()->count('batch_id');
+        $linkedExpenses = (clone $query)->where('source_type', FinanceExpense::class)->count();
 
         $allocations = $query->orderByDesc('allocation_date')->orderByDesc('id')->paginate(15)->withQueryString();
-        $totalAmount = (float) (clone $query)->sum('amount');
 
         return view('finance.cost-allocations.index', [
             'allocations' => $allocations,
             'batches' => $this->businessBatches($businessId),
-            'totalAmount' => $totalAmount,
+            'summary' => [
+                'count' => $count,
+                'total' => $totalAmount,
+                'batches' => $batchCount,
+                'linked_expenses' => $linkedExpenses,
+            ],
             'filters' => [
                 'category' => (string) $request->query('category', ''),
                 'batch_id' => (string) $request->query('batch_id', ''),
                 'from' => (string) $request->query('from', ''),
                 'to' => (string) $request->query('to', ''),
+                'q' => (string) $request->query('q', ''),
             ],
         ]);
     }
@@ -109,6 +127,29 @@ class FinanceCostAllocationController extends Controller
         ]);
 
         return redirect()->route('finance.cost-allocations.edit', $costAllocation)->with('status', __('Cost allocation updated.'));
+    }
+
+    public function show(Request $request, FinanceCostAllocation $costAllocation): View
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $costAllocation->business_id === $businessId, 404);
+        $costAllocation->load(['batch', 'creator']);
+        if ($costAllocation->source_type === FinanceExpense::class) {
+            $costAllocation->load('source');
+        }
+
+        return view('finance.cost-allocations.show', [
+            'allocation' => $costAllocation,
+        ]);
+    }
+
+    public function destroy(Request $request, FinanceCostAllocation $costAllocation): RedirectResponse
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $costAllocation->business_id === $businessId, 404);
+        $costAllocation->delete();
+
+        return redirect()->route('finance.cost-allocations.index')->with('status', __('Cost allocation deleted.'));
     }
 
     public function storeTemplate(Request $request): RedirectResponse

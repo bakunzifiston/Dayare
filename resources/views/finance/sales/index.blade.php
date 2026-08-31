@@ -59,16 +59,15 @@
         @endif
 
         <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Sales summary') }}">
-            <x-kpi-card stat size="sm" color="slate" :title="__('Sales')" :value="$summary['count']" :subtitle="__('Invoices in this view')" glyph="clipboard" />
-            <x-kpi-card stat size="sm" color="bucha-success" :title="__('Amount')" :value="'RWF '.number_format((float) $summary['total'], 0)" :subtitle="__('Invoice totals')" glyph="currency" />
-            <x-kpi-card stat size="sm" color="amber" :title="__('Outstanding')" :value="'RWF '.number_format((float) $summary['outstanding'], 0)" :subtitle="__('Still unpaid')" glyph="clock" />
+            <x-kpi-card stat compact color="slate" :title="__('Sales')" :value="$summary['count']" glyph="clipboard" />
+            <x-kpi-card stat compact color="bucha-success" :title="__('Amount')" :value="number_format((float) $summary['total'], 0)" :subtitle="'RWF'" glyph="currency" />
+            <x-kpi-card stat compact color="amber" :title="__('Outstanding')" :value="number_format((float) $summary['outstanding'], 0)" :subtitle="'RWF'" glyph="clock" />
             <x-kpi-card
                 stat
-                size="sm"
+                compact
                 color="bucha"
                 :title="__('EBM follow-up')"
                 :value="$summary['ebm_follow_up']"
-                :subtitle="__('Missing an EBM record')"
                 glyph="alert"
                 :href="$summary['ebm_follow_up'] > 0 ? route('finance.ebm.index', ['state' => 'missing_ebm']) : null"
             />

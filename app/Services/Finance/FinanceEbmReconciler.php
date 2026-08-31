@@ -58,7 +58,7 @@ class FinanceEbmReconciler
     public function rows(int $businessId, ?string $state = null): Collection
     {
         $invoices = FinanceInvoice::query()
-            ->with('ebmRecord')
+            ->with(['ebmRecord', 'client'])
             ->where('business_id', $businessId)
             ->whereNotIn('status', ['draft', 'cancelled'])
             ->orderByDesc('issued_at')
@@ -89,6 +89,7 @@ class FinanceEbmReconciler
         }
 
         $orphans = FinanceEbmRecord::query()
+            ->with('invoice.client')
             ->where('business_id', $businessId)
             ->where(function ($q) use ($linkedIds): void {
                 $q->whereNull('finance_invoice_id');

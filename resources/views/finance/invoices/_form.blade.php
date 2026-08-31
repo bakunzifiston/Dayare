@@ -10,14 +10,14 @@
     $facilities = $facilities ?? collect();
 @endphp
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
     <div>
         <x-input-label for="invoice_number" :value="__('Invoice number')" />
-        <x-text-input id="invoice_number" name="invoice_number" type="text" class="mt-1 block w-full" :value="old('invoice_number', $invoice?->invoice_number)" placeholder="{{ __('Generated on save if empty') }}" />
+        <x-text-input id="invoice_number" name="invoice_number" type="text" class="mt-1 h-9 block w-full text-sm" :value="old('invoice_number', $invoice?->invoice_number)" placeholder="{{ __('Generated on save if empty') }}" />
     </div>
     <div>
         <x-input-label for="status" :value="__('Status')" />
-        <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300">
+        <select id="status" name="status" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
             @foreach (['draft', 'issued', 'overdue', 'paid', 'cancelled'] as $status)
                 <option value="{{ $status }}" @selected(old('status', $invoice?->status ?? 'draft') === $status)>{{ ucfirst($status) }}</option>
             @endforeach
@@ -25,14 +25,14 @@
     </div>
     <div>
         <x-input-label for="currency" :value="__('Currency')" />
-        <x-text-input id="currency" name="currency" type="text" class="mt-1 block w-full" :value="old('currency', $invoice?->currency ?? 'RWF')" required />
+        <x-text-input id="currency" name="currency" type="text" class="mt-1 h-9 block w-full text-sm" :value="old('currency', $invoice?->currency ?? 'RWF')" required />
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
     <div>
         <x-input-label for="client_id" :value="__('Client / customer')" />
-        <select id="client_id" name="client_id" class="mt-1 block w-full rounded-lg border-slate-300">
+        <select id="client_id" name="client_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
             <option value="">{{ __('Select client') }}</option>
             @foreach ($clients as $client)
                 <option value="{{ $client->id }}" @selected((string) old('client_id', $invoice?->client_id ?? '') === (string) $client->id)>{{ $client->name }}</option>
@@ -42,8 +42,7 @@
     </div>
     <div>
         <x-input-label for="animal_intake_id" :value="__('Client intake (optional)')" />
-        <p class="text-xs text-slate-500 mt-0.5">{{ __('Link an operational client intake when this invoice comes from slaughter, not a daily walk-in sale.') }}</p>
-        <select id="animal_intake_id" name="animal_intake_id" class="mt-1 block w-full rounded-lg border-slate-300">
+        <select id="animal_intake_id" name="animal_intake_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
             <option value="">{{ __('No intake — daily invoice') }}</option>
             @foreach ($clientAnimalIntakes as $intake)
                 <option
@@ -60,7 +59,7 @@
     </div>
     <div>
         <x-input-label for="facility_id" :value="__('Site / location')" />
-        <select id="facility_id" name="facility_id" class="mt-1 block w-full rounded-lg border-slate-300">
+        <select id="facility_id" name="facility_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
             <option value="">{{ __('Select site') }}</option>
             @foreach ($facilities as $facility)
                 <option value="{{ $facility->id }}" @selected((string) old('facility_id', $invoice?->facility_id ?? '') === (string) $facility->id)>
@@ -71,17 +70,17 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
     <div class="space-y-2">
         <x-input-label for="link_contract" :value="__('Have a contract?')" />
-        <select id="link_contract" name="link_contract" class="mt-1 block w-full rounded-lg border-slate-300">
+        <select id="link_contract" name="link_contract" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
             <option value="no" @selected($linkContractValue === 'no')>{{ __('No') }}</option>
             <option value="yes" @selected($linkContractValue === 'yes')>{{ __('Yes') }}</option>
         </select>
         <x-input-error class="mt-1" :messages="$errors->get('link_contract')" />
         <div id="invoice-contract-select-wrap" class="@if($linkContractValue === 'yes') @else hidden @endif">
             <x-input-label for="contract_id" :value="__('Contract')" class="mt-2" />
-            <select id="contract_id" name="contract_id" class="mt-1 block w-full rounded-lg border-slate-300" @if($linkContractValue !== 'yes') disabled @endif>
+            <select id="contract_id" name="contract_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" @if($linkContractValue !== 'yes') disabled @endif>
                 <option value="">{{ __('Select contract') }}</option>
                 @foreach($contracts as $contract)
                     <option value="{{ $contract->id }}" @selected((string) old('contract_id', $invoice?->contract_id ?? '') === (string) $contract->id)>{{ $contract->contract_number ?? ('#'.$contract->id) }}</option>
@@ -92,29 +91,29 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
     <div>
         <x-input-label for="issued_at" :value="__('Issued at')" />
-        <x-text-input id="issued_at" name="issued_at" type="datetime-local" class="mt-1 block w-full" :value="old('issued_at', ($invoice?->issued_at ?? now())->format('Y-m-d\\TH:i'))" />
+        <x-text-input id="issued_at" name="issued_at" type="datetime-local" class="mt-1 h-9 block w-full text-sm" :value="old('issued_at', ($invoice?->issued_at ?? now())->format('Y-m-d\\TH:i'))" />
     </div>
     <div>
         <x-input-label for="due_date" :value="__('Due date')" />
-        <x-text-input id="due_date" name="due_date" type="datetime-local" class="mt-1 block w-full" :value="old('due_date', optional($invoice?->due_date)->format('Y-m-d\\TH:i'))" />
+        <x-text-input id="due_date" name="due_date" type="datetime-local" class="mt-1 h-9 block w-full text-sm" :value="old('due_date', optional($invoice?->due_date)->format('Y-m-d\\TH:i'))" />
     </div>
 </div>
 <input type="hidden" name="paid_at" value="{{ old('paid_at', optional($invoice?->paid_at)->format('Y-m-d\\TH:i')) }}">
 <input type="hidden" name="amount_paid" value="{{ old('amount_paid', $invoice?->amount_paid ?? 0) }}">
 
-<div class="mt-6 rounded-lg border border-slate-200 p-4">
-    <h3 class="font-semibold text-slate-900">{{ __('Primary line item') }}</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+<div class="rounded-lg border border-slate-200 px-3 py-3">
+    <p class="text-sm font-semibold text-slate-900">{{ __('Line item') }}</p>
+    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-3">
         <div class="md:col-span-2">
             <x-input-label for="line_description" :value="__('Description')" />
-            <x-text-input id="line_description" name="line_description" type="text" class="mt-1 block w-full" :value="old('line_description', $lineData?->description ?? '')" required />
+            <x-text-input id="line_description" name="line_description" type="text" class="mt-1 h-9 block w-full text-sm" :value="old('line_description', $lineData?->description ?? '')" required />
         </div>
         <div>
             <x-input-label for="batch_id" :value="__('Batch')" />
-            <select id="batch_id" name="batch_id" class="mt-1 block w-full rounded-lg border-slate-300">
+            <select id="batch_id" name="batch_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
                 <option value="">{{ __('Select') }}</option>
                 @foreach($batches as $batch)
                     <option value="{{ $batch->id }}" @selected((string) old('batch_id', $lineData?->batch_id ?? '') === (string) $batch->id)>
@@ -126,9 +125,8 @@
         </div>
         <div>
             <x-input-label for="certificate_select" :value="__('Certificate')" />
-            <p class="text-xs text-slate-500 mt-0.5">{{ __('With a batch selected, the certificate comes from that batch. Clear the batch to pick a certificate manually.') }}</p>
             <input type="hidden" id="certificate_id_hidden" value="" disabled />
-            <select id="certificate_select" name="certificate_id" class="mt-1 block w-full rounded-lg border-slate-300">
+            <select id="certificate_select" name="certificate_id" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
                 <option value="">{{ __('Select') }}</option>
                 @foreach($certificates as $certificate)
                     <option value="{{ $certificate->id }}" @selected((string) old('certificate_id', $lineData?->certificate_id ?? '') === (string) $certificate->id)>{{ $certificate->certificate_number ?? ('#'.$certificate->id) }}</option>
@@ -138,16 +136,14 @@
         </div>
         <div>
             <x-input-label for="quantity" :value="__('Quantity')" />
-            <p class="text-xs text-slate-500 mt-0.5">{{ __('When a batch is selected, quantity and unit match that batch.') }}</p>
             <input type="hidden" id="quantity_hidden" value="" disabled />
-            <x-text-input id="quantity" name="quantity" type="number" step="0.0001" min="0.0001" class="mt-1 block w-full" :value="old('quantity', $lineData?->quantity ?? 1)" required />
+            <x-text-input id="quantity" name="quantity" type="number" step="0.0001" min="0.0001" class="mt-1 h-9 block w-full text-sm" :value="old('quantity', $lineData?->quantity ?? 1)" required />
             <p id="batch-quantity-hint" class="mt-1 text-sm text-slate-600 hidden" role="status"></p>
         </div>
         <div>
             <x-input-label for="quantity_unit" :value="__('Unit')" />
-            <p class="text-xs text-slate-500 mt-0.5">{{ __('When a batch is selected, the unit matches that batch. Otherwise choose a unit for the line quantity.') }}</p>
             <input type="hidden" id="quantity_unit_hidden" value="" disabled />
-            <select id="quantity_unit" name="quantity_unit" class="mt-1 block w-full rounded-lg border-slate-300">
+            <select id="quantity_unit" name="quantity_unit" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
                 <option value="">{{ __('Select') }}</option>
                 @foreach ($units as $unit)
                     <option value="{{ $unit['code'] }}" @selected((string) old('quantity_unit', $lineData?->quantity_unit ?? '') === (string) $unit['code'])>{{ $unit['name'] }}</option>
@@ -157,22 +153,22 @@
         </div>
         <div>
             <x-input-label for="unit_price" :value="__('Unit price')" />
-            <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('unit_price', $lineData?->unit_price ?? 0)" required />
+            <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 h-9 block w-full text-sm" :value="old('unit_price', $lineData?->unit_price ?? 0)" required />
         </div>
         <div>
             <x-input-label for="tax_amount" :value="__('Tax amount')" />
-            <x-text-input id="tax_amount" name="tax_amount" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('tax_amount', $invoice?->tax_amount ?? 0)" />
+            <x-text-input id="tax_amount" name="tax_amount" type="number" step="0.01" min="0" class="mt-1 h-9 block w-full text-sm" :value="old('tax_amount', $invoice?->tax_amount ?? 0)" />
         </div>
         <div>
             <x-input-label for="discount_amount" :value="__('Discount amount')" />
-            <x-text-input id="discount_amount" name="discount_amount" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('discount_amount', $invoice?->discount_amount ?? 0)" />
+            <x-text-input id="discount_amount" name="discount_amount" type="number" step="0.01" min="0" class="mt-1 h-9 block w-full text-sm" :value="old('discount_amount', $invoice?->discount_amount ?? 0)" />
         </div>
     </div>
 </div>
 
-<div class="mt-4">
+<div>
     <x-input-label for="notes" :value="__('Notes')" />
-    <textarea id="notes" name="notes" class="mt-1 block w-full rounded-lg border-slate-300" rows="3">{{ old('notes', $invoice?->notes ?? '') }}</textarea>
+    <textarea id="notes" name="notes" class="mt-1 block w-full rounded-lg border-slate-200 text-sm" rows="2">{{ old('notes', $invoice?->notes ?? '') }}</textarea>
 </div>
 
 <script>

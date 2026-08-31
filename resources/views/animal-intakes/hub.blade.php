@@ -60,33 +60,12 @@
                     </p>
                 </form>
 
-                <div class="profile-kpi-grid">
-                    <x-entity.kpi-stat :label="__('Animals on site')" :value="number_format($hubStats['heads_available'])" accent>
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="$hubStats['intakes_label']" :value="number_format($hubStats['intakes_in_period'])" accent>
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($hubStats['cattle_count'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Goat')" :value="number_format($hubStats['goat_count'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Sheep')" :value="number_format($hubStats['sheep_count'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                </div>
+                <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Intake summary') }}">
+                    <x-kpi-card stat compact color="slate" :title="__('Animals on site')" :value="number_format($hubStats['heads_available'])" glyph="intake" />
+                    <x-kpi-card stat compact color="bucha-success" :title="$hubStats['intakes_label']" :value="number_format($hubStats['intakes_in_period'])" glyph="calendar" />
+                    <x-kpi-card stat compact color="amber" :title="__('Cattle')" :value="number_format($hubStats['cattle_count'])" glyph="clipboard" />
+                    <x-kpi-card stat compact color="bucha" :title="__('Goat / sheep')" :value="number_format($hubStats['goat_count'] + $hubStats['sheep_count'])" glyph="clipboard" />
+                </section>
 
                 @if ($intakes->isEmpty())
                     <div class="profile-empty">

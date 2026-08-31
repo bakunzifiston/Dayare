@@ -695,13 +695,13 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
         Route::post('invoices/{invoice}/mark-paid', [FinanceInvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
         Route::post('invoices/from-delivery/{delivery}', [FinanceInvoiceController::class, 'createFromDelivery'])->name('invoices.from-delivery');
         Route::post('payments', [FinancePaymentController::class, 'store'])->name('payments.store');
-        Route::resource('payables', FinancePayableController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::resource('payables', FinancePayableController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
         Route::post('payables/{payable}/mark-paid', [FinancePayableController::class, 'markPaid'])->name('payables.mark-paid');
         Route::resource('casual-workers', FinanceCasualWorkerController::class)->except(['show']);
-        Route::resource('expenses', FinanceExpenseController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::resource('expenses', FinanceExpenseController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
         Route::get('expenses/{expense}/attachment', [FinanceExpenseController::class, 'download'])->name('expenses.attachment');
-        Route::resource('ebm', FinanceEbmController::class)->only(['index', 'create', 'store', 'edit', 'update'])->parameters(['ebm' => 'ebm']);
-        Route::resource('cost-allocations', FinanceCostAllocationController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::resource('ebm', FinanceEbmController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->parameters(['ebm' => 'ebm']);
+        Route::resource('cost-allocations', FinanceCostAllocationController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
         Route::post('cost-allocations/template', [FinanceCostAllocationController::class, 'storeTemplate'])->name('cost-allocations.store-template');
     });
 

@@ -48,37 +48,12 @@
                     <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
                 </form>
 
-                <div class="profile-kpi-grid">
-                    <x-entity.kpi-stat :label="$hubStats['certificates_label']" :value="number_format($hubStats['total_issued'])" accent>
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Active')" :value="number_format($hubStats['active'])" :accent="$hubStats['active'] > 0">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Expired')" :value="number_format($hubStats['expired'])" :accent="$hubStats['expired'] > 0">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Revoked')" :value="number_format($hubStats['revoked'])" :accent="$hubStats['revoked'] > 0">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat
-                        :label="__('Ready to issue')"
-                        :value="number_format($hubStats['ready_to_issue'])"
-                        :accent="$hubStats['ready_to_issue'] > 0"
-                    >
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                </div>
+                <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Certificates summary') }}">
+                    <x-kpi-card stat compact color="slate" :title="$hubStats['certificates_label']" :value="number_format($hubStats['total_issued'])" glyph="certificate" />
+                    <x-kpi-card stat compact color="bucha-success" :title="__('Active')" :value="number_format($hubStats['active'])" glyph="check" />
+                    <x-kpi-card stat compact color="amber" :title="__('Expired')" :value="number_format($hubStats['expired'])" glyph="clock" />
+                    <x-kpi-card stat compact color="bucha" :title="__('Ready to issue')" :value="number_format($hubStats['ready_to_issue'])" glyph="alert" />
+                </section>
 
                 @if ($readyExecutions->isNotEmpty())
                     <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">

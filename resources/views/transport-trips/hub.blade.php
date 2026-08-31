@@ -56,45 +56,12 @@
                     <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
                 </form>
 
-                <div class="profile-kpi-grid">
-                    <x-entity.kpi-stat :label="$hubStats['trips_label']" :value="number_format($hubStats['total_trips'])" accent>
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat
-                        :label="__('Pending')"
-                        :value="number_format($hubStats['pending'])"
-                        :accent="$hubStats['pending'] > 0"
-                    >
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat
-                        :label="__('In transit')"
-                        :value="number_format($hubStats['in_transit'])"
-                        :accent="$hubStats['in_transit'] > 0"
-                    >
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat
-                        :label="__('Arrived')"
-                        :value="number_format($hubStats['arrived'])"
-                        :accent="$hubStats['arrived'] > 0"
-                    >
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('With delivery confirmation')" :value="number_format($hubStats['with_delivery_confirmation'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                </div>
+                <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Transport summary') }}">
+                    <x-kpi-card stat compact color="slate" :title="$hubStats['trips_label']" :value="number_format($hubStats['total_trips'])" glyph="truck" />
+                    <x-kpi-card stat compact color="amber" :title="__('Pending')" :value="number_format($hubStats['pending'])" glyph="clock" />
+                    <x-kpi-card stat compact color="bucha" :title="__('In transit')" :value="number_format($hubStats['in_transit'])" glyph="play" />
+                    <x-kpi-card stat compact color="bucha-success" :title="__('Arrived')" :value="number_format($hubStats['arrived'])" glyph="check" />
+                </section>
 
                 @if ($trips->isEmpty())
                     <div class="profile-empty">

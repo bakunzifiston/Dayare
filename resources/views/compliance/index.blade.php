@@ -22,33 +22,12 @@
                 </p>
             </div>
 
-            <div class="rounded-xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
-                <div class="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
-                    <h3 class="text-sm font-semibold text-slate-700 uppercase tracking-wide">{{ __('Overview') }}</h3>
-                </div>
-                <div class="p-5">
-                    <div class="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-2xl font-bold tabular-nums {{ $hasIssues ? 'text-amber-600' : 'text-emerald-600' }}">{{ $kpis['total_issues'] }}</span>
-                            <span class="text-slate-600 font-medium">{{ __('Total issues') }}</span>
-                        </div>
-                        <span class="text-slate-300">·</span>
-                        <div class="flex flex-wrap gap-x-4 gap-y-1 text-slate-500">
-                            <span>{{ __('Expired licenses') }} <strong class="text-slate-700">{{ $kpis['expired_licenses'] }}</strong></span>
-                            <span>{{ __('Expired auth.') }} <strong class="text-slate-700">{{ $kpis['expired_authorizations'] }}</strong></span>
-                            <span>{{ __('Over capacity') }} <strong class="text-slate-700">{{ $kpis['over_capacity_plans'] }}</strong></span>
-                            <span>{{ __('Missing ante-mortem') }} <strong class="text-slate-700">{{ $kpis['missing_ante_mortem'] }}</strong></span>
-                            <span>{{ __('Missing post-mortem') }} <strong class="text-slate-700">{{ $kpis['missing_post_mortem'] }}</strong></span>
-                            <span>{{ __('Missing certificates') }} <strong class="text-slate-700">{{ $kpis['missing_certificates'] }}</strong></span>
-                            <span>{{ __('Missing transport') }} <strong class="text-slate-700">{{ $kpis['missing_transport'] }}</strong></span>
-                            <span>{{ __('Missing delivery') }} <strong class="text-slate-700">{{ $kpis['missing_delivery'] ?? 0 }}</strong></span>
-                            <span>{{ __('Temp. alerts') }} <strong class="text-slate-700">{{ $kpis['temperature_alerts'] ?? 0 }}</strong></span>
-                            <span>{{ __('Storage exceeded') }} <strong class="text-slate-700">{{ $kpis['storage_duration_exceeded'] ?? 0 }}</strong></span>
-                            <span>{{ __('Intakes (cert issues)') }} <strong class="text-slate-700">{{ $kpis['intakes_expired_health_cert'] ?? 0 }}</strong></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Compliance summary') }}">
+                <x-kpi-card stat compact :color="$hasIssues ? 'amber' : 'bucha-success'" :title="__('Total issues')" :value="number_format((int) ($kpis['total_issues'] ?? 0))" :glyph="$hasIssues ? 'alert' : 'check'" />
+                <x-kpi-card stat compact color="slate" :title="__('Expired licenses')" :value="number_format((int) ($kpis['expired_licenses'] ?? 0))" glyph="clock" />
+                <x-kpi-card stat compact color="amber" :title="__('Missing inspections')" :value="number_format((int) ($kpis['missing_ante_mortem'] ?? 0) + (int) ($kpis['missing_post_mortem'] ?? 0))" glyph="clipboard" />
+                <x-kpi-card stat compact color="bucha" :title="__('Missing certificates')" :value="number_format((int) ($kpis['missing_certificates'] ?? 0))" glyph="certificate" />
+            </section>
 
             @if ($hasIssues)
                 <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ __('Issues by category') }}</p>

@@ -45,39 +45,12 @@
                 <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
             </form>
 
-            {{-- Summary KPI bar --}}
-            <div class="profile-kpi-grid">
-                <x-entity.kpi-stat :label="$hubStats['plans_label']" :value="number_format($totalPlans)" accent>
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Approved')" :value="number_format($approvedCount)">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('With executions')" :value="number_format($plansWithExecutionsCount)">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($hubStats['cattle_count'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Goat')" :value="number_format($hubStats['goat_count'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Sheep')" :value="number_format($hubStats['sheep_count'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-            </div>
+            <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Slaughter plans summary') }}">
+                <x-kpi-card stat compact color="slate" :title="$hubStats['plans_label']" :value="number_format($totalPlans)" glyph="clipboard" />
+                <x-kpi-card stat compact color="bucha-success" :title="__('Approved')" :value="number_format($approvedCount)" glyph="check" />
+                <x-kpi-card stat compact color="amber" :title="__('With executions')" :value="number_format($plansWithExecutionsCount)" glyph="play" />
+                <x-kpi-card stat compact color="bucha" :title="__('Animals scheduled')" :value="number_format($hubStats['cattle_count'] + $hubStats['goat_count'] + $hubStats['sheep_count'])" glyph="intake" />
+            </section>
 
             {{-- Plans table --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">

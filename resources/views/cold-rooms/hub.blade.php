@@ -54,28 +54,12 @@
                     <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
                 </form>
 
-                <div class="profile-kpi-grid profile-kpi-grid--4">
-                    <x-entity.kpi-stat :label="__('Total rooms')" :value="number_format($hubStats['total_rooms'])" accent>
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="$hubStats['released_label']" :value="number_format($hubStats['released_count'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="$hubStats['storages_label']" :value="number_format($hubStats['storage_count'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                    <x-entity.kpi-stat :label="__('Standards')" :value="number_format($hubStats['standards'])">
-                        <x-slot:icon>
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                        </x-slot:icon>
-                    </x-entity.kpi-stat>
-                </div>
+                <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Cold room summary') }}">
+                    <x-kpi-card stat compact color="slate" :title="__('Total rooms')" :value="number_format($hubStats['total_rooms'])" glyph="building" />
+                    <x-kpi-card stat compact color="bucha-success" :title="$hubStats['released_label']" :value="number_format($hubStats['released_count'])" glyph="check" />
+                    <x-kpi-card stat compact color="amber" :title="$hubStats['storages_label']" :value="number_format($hubStats['storage_count'])" glyph="box" />
+                    <x-kpi-card stat compact color="bucha" :title="__('Standards')" :value="number_format($hubStats['standards'])" glyph="shield" />
+                </section>
 
                 @if ($openViolations->isNotEmpty())
                     <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

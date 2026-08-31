@@ -29,7 +29,7 @@
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         @include('finance.invoices._row-actions', ['invoice' => $invoice, 'from' => $from, 'showView' => false])
-                        <a href="{{ $backRoute }}" class="inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700">{{ __('Back') }}</a>
+                        <a href="{{ $backRoute }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50">{{ __('Back') }}</a>
                     </div>
                 </div>
             </section>

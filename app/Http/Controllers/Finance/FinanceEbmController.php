@@ -19,13 +19,38 @@ class FinanceEbmController extends Controller
     {
         $businessId = $this->activeBusinessId($request);
         $state = (string) $request->query('state', '');
+        $q = trim((string) $request->query('q', ''));
         $rows = $reconciler->rows($businessId, $state !== '' ? $state : null);
+
+        if ($q !== '') {
+            $needle = mb_strtolower($q);
+            $rows = $rows->filter(function (array $row) use ($needle): bool {
+                $haystacks = [
+                    (string) ($row['invoice']?->invoice_number ?? ''),
+                    (string) ($row['invoice']?->client?->name ?? ''),
+                    (string) ($row['ebm']?->ebm_invoice_number ?? ''),
+                    (string) ($row['ebm']?->ebm_receipt_number ?? ''),
+                ];
+
+                foreach ($haystacks as $value) {
+                    if ($value !== '' && str_contains(mb_strtolower($value), $needle)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })->values();
+        }
+
         $summary = $reconciler->summary($businessId);
 
         return view('finance.ebm.index', [
             'rows' => $rows,
             'summary' => $summary,
-            'filters' => ['state' => $state],
+            'filters' => [
+                'state' => $state,
+                'q' => $q,
+            ],
         ]);
     }
 
@@ -69,6 +94,8 @@ class FinanceEbmController extends Controller
         $businessId = $this->activeBusinessId($request);
         abort_unless((int) $ebm->business_id === $businessId, 404);
 
+        $ebm->loadMissing('invoice');
+
         return view('finance.ebm.edit', [
             'record' => $ebm,
             'invoices' => $this->invoicesForEbm($businessId, $ebm->finance_invoice_id),
@@ -96,6 +123,15 @@ class FinanceEbmController extends Controller
         $this->syncMismatchStatus($ebm);
 
         return redirect()->route('finance.ebm.index')->with('status', __('EBM record updated.'));
+    }
+
+    public function destroy(Request $request, FinanceEbmRecord $ebm): RedirectResponse
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $ebm->business_id === $businessId, 404);
+        $ebm->delete();
+
+        return redirect()->route('finance.ebm.index')->with('status', __('EBM record deleted.'));
     }
 
     private function validated(Request $request, int $businessId, ?int $recordId = null): array

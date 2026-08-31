@@ -75,15 +75,46 @@ class FinancePayableController extends Controller
             $q = '%'.trim((string) $request->query('q')).'%';
             $query->where(function ($w) use ($q): void {
                 $w->where('payable_number', 'like', $q)
-                    ->orWhere('notes', 'like', $q);
+                    ->orWhere('notes', 'like', $q)
+                    ->orWhereHas('supplier', function ($s) use ($q): void {
+                        $s->where('first_name', 'like', $q)->orWhere('last_name', 'like', $q);
+                    })
+                    ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $q))
+                    ->orWhereHas('employee', function ($e) use ($q): void {
+                        $e->where('first_name', 'like', $q)->orWhere('last_name', 'like', $q);
+                    })
+                    ->orWhereHas('casualWorker', function ($c) use ($q): void {
+                        $c->where('first_name', 'like', $q)->orWhere('last_name', 'like', $q);
+                    });
             });
         }
+
+        $count = (clone $query)->count();
+        $total = (float) (clone $query)->sum('total_amount');
+        $outstanding = (float) (clone $query)->toBase()->sum(DB::raw(
+            'CASE WHEN amount_paid < total_amount THEN total_amount - amount_paid ELSE 0 END'
+        ));
+        $overdue = (clone $query)->where(function ($w): void {
+            $w->where('status', 'overdue')
+                ->orWhere(function ($inner): void {
+                    $inner->whereNotNull('due_date')
+                        ->whereDate('due_date', '<', now()->toDateString())
+                        ->whereNotIn('status', ['paid', 'cancelled'])
+                        ->whereColumn('amount_paid', '<', 'total_amount');
+                });
+        })->count();
 
         $payables = $query->orderByDesc('issued_at')->orderByDesc('id')->paginate(15)->withQueryString();
 
         return view('finance.payables.index', [
             'payables' => $payables,
             'activeTab' => $tab,
+            'summary' => [
+                'count' => $count,
+                'total' => $total,
+                'outstanding' => $outstanding,
+                'overdue' => $overdue,
+            ],
             'filters' => [
                 'status' => (string) $request->query('status', ''),
                 'payment_state' => (string) $request->query('payment_state', ''),
@@ -252,6 +283,41 @@ class FinancePayableController extends Controller
         return redirect()->to(
             route('finance.payables.edit', $payable).'?tab='.urlencode($payable->payablesTabKey())
         )->with('status', __('AP payable updated.'));
+    }
+
+    public function show(Request $request, FinancePayable $payable): View
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $payable->business_id === $businessId, 404);
+        $payable->load([
+            'lines',
+            'supplier',
+            'client',
+            'employee',
+            'casualWorker',
+            'facility',
+            'financePayments.recordedBy',
+        ]);
+
+        return view('finance.payables.show', [
+            'payable' => $payable,
+            'line' => $payable->lines->first(),
+        ]);
+    }
+
+    public function destroy(Request $request, FinancePayable $payable): RedirectResponse
+    {
+        $businessId = $this->activeBusinessId($request);
+        abort_unless((int) $payable->business_id === $businessId, 404);
+        $tab = $payable->payablesTabKey();
+
+        DB::transaction(function () use ($payable): void {
+            $payable->financePayments()->delete();
+            $payable->delete();
+        });
+
+        return redirect()->route('finance.payables.index', ['tab' => $tab])
+            ->with('status', __('Payable deleted.'));
     }
 
     public function markPaid(Request $request, FinancePayable $payable, FinancePaymentService $payments): RedirectResponse

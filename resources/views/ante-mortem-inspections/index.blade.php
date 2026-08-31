@@ -48,52 +48,12 @@
                 <p class="hub-period-filter__hint">{{ $filters['range_label'] }}</p>
             </form>
 
-            {{-- Summary KPI bar --}}
-            <div class="profile-kpi-grid">
-                <x-entity.kpi-stat :label="$hubStats['inspections_label']" :value="number_format($hubStats['total_inspections'])" accent>
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Animals examined')" :value="number_format($hubStats['animals_examined'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Cattle')" :value="number_format($hubStats['cattle_count'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Goat')" :value="number_format($hubStats['goat_count'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat :label="__('Sheep')" :value="number_format($hubStats['sheep_count'])">
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 9.5c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zm11 0c0-1.5 1.5-3 3.5-3s3.5 1.5 3.5 3-1.5 3-3.5 3-3.5-1.5-3.5-3zM2 19c1.5-3 4.5-5 10-5s8.5 2 10 5"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat
-                    :label="$hubStats['rejected_label']"
-                    :value="number_format($hubStats['rejected_count'])"
-                    :accent="$hubStats['rejected_count'] > 0"
-                >
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-                <x-entity.kpi-stat
-                    :label="__('Plans without AM')"
-                    :value="number_format($hubStats['plans_without_am'])"
-                    :accent="$hubStats['plans_without_am'] > 0"
-                >
-                    <x-slot:icon>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    </x-slot:icon>
-                </x-entity.kpi-stat>
-            </div>
+            <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{ __('Ante-mortem summary') }}">
+                <x-kpi-card stat compact color="slate" :title="$hubStats['inspections_label']" :value="number_format($hubStats['total_inspections'])" glyph="clipboard" />
+                <x-kpi-card stat compact color="bucha-success" :title="__('Animals examined')" :value="number_format($hubStats['animals_examined'])" glyph="intake" />
+                <x-kpi-card stat compact color="amber" :title="$hubStats['rejected_label']" :value="number_format($hubStats['rejected_count'])" glyph="alert" />
+                <x-kpi-card stat compact color="bucha" :title="__('Plans without AM')" :value="number_format($hubStats['plans_without_am'])" glyph="clock" />
+            </section>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
                 @if ($inspections->isEmpty())

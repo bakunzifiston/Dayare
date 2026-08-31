@@ -52,14 +52,31 @@ class FinanceInvoiceController extends Controller
             $q = '%'.trim((string) $request->query('q')).'%';
             $query->where(function ($w) use ($q): void {
                 $w->where('invoice_number', 'like', $q)
-                    ->orWhere('notes', 'like', $q);
+                    ->orWhere('notes', 'like', $q)
+                    ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $q));
             });
         }
+
+        $count = (clone $query)->count();
+        $total = (float) (clone $query)->sum('total_amount');
+        $outstanding = (float) (clone $query)->toBase()->sum(DB::raw(
+            'CASE WHEN amount_paid < total_amount THEN total_amount - amount_paid ELSE 0 END'
+        ));
+        $ebmFollowUp = (clone $query)
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->whereDoesntHave('ebmRecord')
+            ->count();
 
         $invoices = $query->orderByDesc('issued_at')->orderByDesc('id')->paginate(15)->withQueryString();
 
         return view('finance.invoices.index', [
             'invoices' => $invoices,
+            'summary' => [
+                'count' => $count,
+                'total' => $total,
+                'outstanding' => $outstanding,
+                'ebm_follow_up' => $ebmFollowUp,
+            ],
             'filters' => [
                 'status' => (string) $request->query('status', ''),
                 'payment_state' => (string) $request->query('payment_state', ''),

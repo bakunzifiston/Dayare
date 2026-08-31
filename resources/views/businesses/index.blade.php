@@ -15,10 +15,10 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="flex flex-nowrap items-center gap-3 mb-6 overflow-x-auto pb-1 rounded-xl border border-slate-200/60 bg-white px-4 py-3 shadow-sm">
-                <x-kpi-card inline title="{{ __('Total businesses') }}" :value="$kpis['total']" color="blue" />
-                <x-kpi-card inline title="{{ __('Total facilities') }}" :value="$kpis['facilities']" color="slate" />
-            </div>
+            <section class="grid grid-cols-2 gap-3 lg:grid-cols-4 mb-6" aria-label="{{ __('Businesses summary') }}">
+                <x-kpi-card stat compact color="slate" :title="__('Total businesses')" :value="$kpis['total']" glyph="building" />
+                <x-kpi-card stat compact color="bucha" :title="__('Total facilities')" :value="$kpis['facilities']" glyph="building" />
+            </section>
             @if (session('status'))
                 <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
