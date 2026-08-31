@@ -1,60 +1,76 @@
 <x-app-layout>
     <x-slot name="header">
-        <span class="text-sm font-medium text-bucha-muted">{{ __('Casual workers (AP registry)') }}</span>
+        <span class="text-sm font-medium text-bucha-muted">{{ __('Casual workers') }}</span>
     </x-slot>
 
-    <div class="py-6 lg:py-8">
-        <div class="max-w-[1000px] mx-auto px-0 sm:px-0 space-y-4">
-            @if (session('error'))
-                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
-            @endif
-            @if (session('status'))
-                <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
-            @endif
+    @php
+        $workers = $workers ?? collect();
+    @endphp
 
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <a href="{{ route('finance.payables.index', ['tab' => 'casual']) }}" class="text-sm text-bucha-primary hover:underline">{{ __('← Back to casual payables') }}</a>
-                <a href="{{ route('finance.casual-workers.create') }}" class="rounded-lg bg-bucha-primary px-4 py-2 text-sm font-semibold text-white">{{ __('Add casual worker') }}</a>
+    <div class="space-y-5">
+        <section class="rounded-bucha border border-slate-200 bg-white px-4 py-3" aria-label="{{ __('Actions') }}">
+            <div class="flex items-center gap-2 overflow-x-auto">
+                <a href="{{ route('finance.payables.index', ['tab' => 'casual']) }}" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Casual payables') }}</a>
+                <a href="{{ route('finance.casual-workers.create') }}" class="ml-auto inline-flex h-9 shrink-0 items-center rounded-lg bg-bucha-primary px-3 text-xs font-semibold text-white hover:bg-bucha-burgundy">
+                    {{ __('Add casual worker') }}
+                </a>
+            </div>
+        </section>
+
+        @if (session('error'))
+            <div class="rounded-bucha border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
+        @endif
+        @if (session('status'))
+            <div class="rounded-bucha border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('status') }}</div>
+        @endif
+
+        <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
+            <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <p class="text-sm font-semibold text-slate-900">{{ __('Casual workers') }}</p>
+                <p class="text-xs text-slate-500">{{ trans_choice(':count record|:count records', $workers->total(), ['count' => number_format($workers->total())]) }}</p>
             </div>
 
-            <section class="rounded-bucha border border-slate-200 bg-white overflow-hidden">
+            @if ($workers->isEmpty())
+                <div class="px-6 py-14 text-center">
+                    <p class="text-sm font-medium text-slate-800">{{ __('No casual workers yet') }}</p>
+                    <p class="mt-1 text-sm text-slate-500">{{ __('Add a worker so they can appear on casual AP bills.') }}</p>
+                    <a href="{{ route('finance.casual-workers.create') }}" class="mt-4 inline-flex h-10 items-center rounded-bucha bg-bucha-primary px-4 text-sm font-semibold text-white">{{ __('Add casual worker') }}</a>
+                </div>
+            @else
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm">
-                        <thead class="bg-slate-50 text-slate-600">
+                        <thead class="bg-slate-50/80 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                             <tr>
-                                <th class="text-left px-4 py-2">{{ __('Name') }}</th>
-                                <th class="text-left px-4 py-2">{{ __('Phone') }}</th>
-                                <th class="text-left px-4 py-2">{{ __('National ID') }}</th>
-                                <th class="text-left px-4 py-2">{{ __('Active') }}</th>
-                                <th class="text-right px-4 py-2">{{ __('Actions') }}</th>
+                                <th class="px-4 py-3">{{ __('Name') }}</th>
+                                <th class="px-4 py-3">{{ __('Phone') }}</th>
+                                <th class="px-4 py-3">{{ __('National ID') }}</th>
+                                <th class="px-4 py-3">{{ __('Status') }}</th>
+                                <th class="px-4 py-3 text-right">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($workers as $worker)
-                                <tr class="border-t border-slate-100">
-                                    <td class="px-4 py-2 font-medium text-slate-800">{{ $worker->displayName() }}</td>
-                                    <td class="px-4 py-2">{{ $worker->phone ?? '—' }}</td>
-                                    <td class="px-4 py-2">{{ $worker->national_id ?? '—' }}</td>
-                                    <td class="px-4 py-2">{{ $worker->is_active ? __('Yes') : __('No') }}</td>
-                                    <td class="px-4 py-2 text-right space-x-2">
-                                        <a href="{{ route('finance.casual-workers.edit', $worker) }}" class="text-bucha-primary">{{ __('Edit') }}</a>
-                                        <form method="POST" action="{{ route('finance.casual-workers.destroy', $worker) }}" class="inline" onsubmit="return confirm(@js(__('Delete this casual worker?')))">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-700">{{ __('Delete') }}</button>
-                                        </form>
+                            @foreach ($workers as $worker)
+                                <tr class="border-t border-slate-100 hover:bg-slate-50/70">
+                                    <td class="px-4 py-3 font-medium text-slate-900">{{ $worker->displayName() }}</td>
+                                    <td class="px-4 py-3 text-slate-600">{{ $worker->phone ?? '—' }}</td>
+                                    <td class="px-4 py-3 tabular-nums text-slate-600">{{ $worker->national_id ?? '—' }}</td>
+                                    <td class="px-4 py-3">
+                                        <span @class([
+                                            'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
+                                            'bg-emerald-50 text-emerald-800' => $worker->is_active,
+                                            'bg-slate-100 text-slate-600' => ! $worker->is_active,
+                                        ])>{{ $worker->is_active ? __('Active') : __('Inactive') }}</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right">
+                                        @include('finance.casual-workers._row-actions', ['worker' => $worker])
                                     </td>
                                 </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="px-4 py-8 text-center text-slate-500">{{ __('No casual workers yet.') }}</td>
-                                </tr>
-                            @endforelse
+                            @endforeach
                         </tbody>
                     </table>
                 </div>
-                <div class="px-4 py-3 border-t border-slate-100">{{ $workers->links() }}</div>
-            </section>
-        </div>
+                <div class="border-t border-slate-100 px-4 py-3">{{ $workers->links() }}</div>
+            @endif
+        </section>
     </div>
 </x-app-layout>

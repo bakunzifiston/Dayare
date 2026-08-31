@@ -44,13 +44,14 @@ class FinanceDashboardController extends Controller
                 'charts' => [],
                 'kpiPeriod' => $period,
                 'kpiPeriodLabel' => $range['label'],
-                'quickLinks' => $this->quickLinks(),
+                'recentInvoices' => [],
+                'recentPayables' => [],
             ]);
         }
 
         $user->setActiveProcessorBusinessId($activeBusinessId);
         $business = Business::query()->find($activeBusinessId);
-        $kpiCards = $this->buildKpiCards($activeBusinessId, $filters, $range['label']);
+        $overview = $this->buildOverview($activeBusinessId, $filters, $range['label']);
         $ctx = ProcessorDashboardContext::forBusiness($activeBusinessId);
         $chartPayload = $charts->forRole(BusinessUser::ROLE_ACCOUNTANT, $ctx, $activeBusinessId, $filters);
 
@@ -58,34 +59,35 @@ class FinanceDashboardController extends Controller
             'user' => $user,
             'role' => $role,
             'activeBusiness' => $business,
-            'kpiCards' => $kpiCards,
+            'kpiCards' => $overview['kpiCards'],
             'charts' => $chartPayload,
             'kpiPeriod' => $period,
             'kpiPeriodLabel' => $range['label'],
-            'quickLinks' => $this->quickLinks(),
+            'recentInvoices' => $this->recentInvoices($activeBusinessId),
+            'recentPayables' => $this->recentPayables($activeBusinessId),
         ]);
     }
 
     /**
-     * @return list<array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string}>
+     * @return list<array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string, color: string, glyph: string}>
      */
     private function emptyKpiCards(string $periodLabel): array
     {
         return [
-            $this->kpiCard(__('Revenue'), '0 '.__('RWF'), $periodLabel, 'currency-dollar', false, route('finance.invoices.index')),
-            $this->kpiCard(__('AR outstanding'), '0 '.__('RWF'), __('0 overdue'), 'receipt', false, route('finance.invoices.index')),
-            $this->kpiCard(__('AP outstanding'), '0 '.__('RWF'), __('0 overdue'), 'clipboard-list', false, route('finance.payables.index')),
-            $this->kpiCard(__('Operating expenses'), '0 '.__('RWF'), $periodLabel, 'clipboard-list', false, route('finance.expenses.index')),
-            $this->kpiCard(__('Collection rate'), '0%', $periodLabel, 'chart-line', false, route('finance.invoices.index')),
-            $this->kpiCard(__('EBM follow-up'), '0', __('Missing or mismatched'), 'receipt', false, route('finance.ebm.index')),
+            $this->kpiCard(__('Revenue'), '0 '.__('RWF'), $periodLabel, 'currency-dollar', false, route('finance.invoices.index'), 'bucha-success', 'currency'),
+            $this->kpiCard(__('AR outstanding'), '0 '.__('RWF'), __('0 overdue'), 'receipt', false, route('finance.invoices.index'), 'amber', 'clock'),
+            $this->kpiCard(__('AP outstanding'), '0 '.__('RWF'), __('0 overdue'), 'clipboard-list', false, route('finance.payables.index'), 'amber', 'clock'),
+            $this->kpiCard(__('Operating expenses'), '0 '.__('RWF'), $periodLabel, 'clipboard-list', false, route('finance.expenses.index'), 'slate', 'clipboard'),
+            $this->kpiCard(__('Collection rate'), '0%', $periodLabel, 'chart-line', false, route('finance.invoices.index'), 'slate', 'check'),
+            $this->kpiCard(__('EBM follow-up'), '0', __('Missing or mismatched'), 'receipt', false, route('finance.ebm.index'), 'slate', 'alert'),
         ];
     }
 
     /**
      * @param  array{is_filtered: bool, start: ?\Carbon\Carbon, end: ?\Carbon\Carbon}  $filters
-     * @return list<array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string}>
+     * @return array{kpiCards: list<array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string, color: string, glyph: string}>}
      */
-    private function buildKpiCards(int $businessId, array $filters, string $periodLabel): array
+    private function buildOverview(int $businessId, array $filters, string $periodLabel): array
     {
         $fmtMoney = fn (float $n): string => $this->formatCompactMoney($n);
         $now = now();
@@ -105,11 +107,11 @@ class FinanceDashboardController extends Controller
 
         $arOutstanding = (float) DB::table('finance_invoices')
             ->where('business_id', $businessId)
-            ->sum(DB::raw('GREATEST(total_amount - amount_paid, 0)'));
+            ->sum(DB::raw('CASE WHEN total_amount > amount_paid THEN total_amount - amount_paid ELSE 0 END'));
 
         $apOutstanding = (float) DB::table('finance_payables')
             ->where('business_id', $businessId)
-            ->sum(DB::raw('GREATEST(total_amount - amount_paid, 0)'));
+            ->sum(DB::raw('CASE WHEN total_amount > amount_paid THEN total_amount - amount_paid ELSE 0 END'));
 
         $arOverdue = (int) FinanceInvoice::query()
             ->where('business_id', $businessId)
@@ -140,54 +142,68 @@ class FinanceDashboardController extends Controller
         }
 
         return [
-            $this->kpiCard(
-                __('Revenue'),
-                $fmtMoney($revenue),
-                $periodLabel,
-                'currency-dollar',
-                false,
-                route('finance.invoices.index'),
-            ),
-            $this->kpiCard(
-                __('AR outstanding'),
-                $fmtMoney($arOutstanding),
-                __(':count overdue', ['count' => $arOverdue]),
-                'receipt',
-                $arOverdue > 0,
-                route('finance.invoices.index'),
-            ),
-            $this->kpiCard(
-                __('AP outstanding'),
-                $fmtMoney($apOutstanding),
-                __(':count overdue', ['count' => $apOverdue]),
-                'clipboard-list',
-                $apOverdue > 0,
-                route('finance.payables.index'),
-            ),
-            $this->kpiCard(
-                __('Operating expenses'),
-                $fmtMoney($expenseTotal),
-                $periodLabel,
-                'clipboard-list',
-                false,
-                route('finance.expenses.index'),
-            ),
-            $this->kpiCard(
-                __('Collection rate'),
-                $collectionRate.'%',
-                $periodLabel,
-                'chart-line',
-                $collectionRate < 90 && $revenue > 0,
-                route('finance.invoices.index'),
-            ),
-            $this->kpiCard(
-                __('EBM follow-up'),
-                (string) $ebmFollowUp,
-                __('Missing or mismatched'),
-                'receipt',
-                $ebmFollowUp > 0,
-                route('finance.ebm.index'),
-            ),
+            'kpiCards' => [
+                $this->kpiCard(
+                    __('Revenue'),
+                    $fmtMoney($revenue),
+                    $periodLabel,
+                    'currency-dollar',
+                    false,
+                    route('finance.invoices.index'),
+                    'bucha-success',
+                    'currency',
+                ),
+                $this->kpiCard(
+                    __('AR outstanding'),
+                    $fmtMoney($arOutstanding),
+                    __(':count overdue', ['count' => $arOverdue]),
+                    'receipt',
+                    $arOverdue > 0,
+                    route('finance.invoices.index'),
+                    $arOverdue > 0 ? 'amber' : 'slate',
+                    'clock',
+                ),
+                $this->kpiCard(
+                    __('AP outstanding'),
+                    $fmtMoney($apOutstanding),
+                    __(':count overdue', ['count' => $apOverdue]),
+                    'clipboard-list',
+                    $apOverdue > 0,
+                    route('finance.payables.index'),
+                    $apOverdue > 0 ? 'amber' : 'slate',
+                    'clock',
+                ),
+                $this->kpiCard(
+                    __('Operating expenses'),
+                    $fmtMoney($expenseTotal),
+                    $periodLabel,
+                    'clipboard-list',
+                    false,
+                    route('finance.expenses.index'),
+                    'slate',
+                    'clipboard',
+                ),
+                $this->kpiCard(
+                    __('Collection rate'),
+                    $collectionRate.'%',
+                    $periodLabel,
+                    'chart-line',
+                    $collectionRate < 90 && $revenue > 0,
+                    route('finance.invoices.index'),
+                    ($collectionRate < 90 && $revenue > 0) ? 'bucha' : 'bucha-success',
+                    'check',
+                ),
+                $this->kpiCard(
+                    __('EBM follow-up'),
+                    (string) $ebmFollowUp,
+                    __('Missing or mismatched'),
+                    'receipt',
+                    $ebmFollowUp > 0,
+                    route('finance.ebm.index'),
+                    $ebmFollowUp > 0 ? 'bucha' : 'slate',
+                    'alert',
+                ),
+            ],
         ];
     }
 
@@ -212,7 +228,7 @@ class FinanceDashboardController extends Controller
     }
 
     /**
-     * @return array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string}
+     * @return array{label: string, value: string, hint: ?string, icon: string, accent: bool, href: ?string, color: string, glyph: string}
      */
     private function kpiCard(
         string $label,
@@ -221,24 +237,66 @@ class FinanceDashboardController extends Controller
         string $icon,
         bool $accent,
         ?string $href,
+        string $color = 'slate',
+        string $glyph = 'clipboard',
     ): array {
-        return compact('label', 'value', 'hint', 'icon', 'accent', 'href');
+        return compact('label', 'value', 'hint', 'icon', 'accent', 'href', 'color', 'glyph');
     }
 
     /**
-     * @return list<array{label: string, route: string}>
+     * @return list<array{number: string, party: string, amount: string, state: string, state_label: string, date: string, href: string}>
      */
-    private function quickLinks(): array
+    private function recentInvoices(int $businessId): array
     {
-        return [
-            ['label' => __('Daily sales'), 'route' => 'finance.sales.index'],
-            ['label' => __('AR invoices'), 'route' => 'finance.invoices.index'],
-            ['label' => __('EBM invoices'), 'route' => 'finance.ebm.index'],
-            ['label' => __('AP payables'), 'route' => 'finance.payables.index'],
-            ['label' => __('Expenses'), 'route' => 'finance.expenses.index'],
-            ['label' => __('Cost allocations'), 'route' => 'finance.cost-allocations.index'],
-            ['label' => __('Casual workers'), 'route' => 'finance.casual-workers.index'],
-        ];
+        return FinanceInvoice::query()
+            ->with('client')
+            ->where('business_id', $businessId)
+            ->whereNotIn('status', ['cancelled'])
+            ->orderByRaw('CASE WHEN amount_paid < total_amount THEN 0 ELSE 1 END')
+            ->orderByDesc('issued_at')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get()
+            ->map(function (FinanceInvoice $invoice): array {
+                return [
+                    'number' => (string) ($invoice->invoice_number ?: __('Invoice #:id', ['id' => $invoice->id])),
+                    'party' => $invoice->client?->name ?? '—',
+                    'amount' => $this->formatCompactMoney((float) $invoice->total_amount),
+                    'state' => $invoice->paymentState(),
+                    'state_label' => $invoice->paymentStateLabel(),
+                    'date' => optional($invoice->issued_at ?? $invoice->created_at)->format('d M Y') ?? '—',
+                    'href' => route('finance.invoices.show', $invoice),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @return list<array{number: string, party: string, amount: string, state: string, state_label: string, date: string, href: string}>
+     */
+    private function recentPayables(int $businessId): array
+    {
+        return FinancePayable::query()
+            ->with(['supplier', 'client', 'employee', 'casualWorker'])
+            ->where('business_id', $businessId)
+            ->whereNotIn('status', ['cancelled'])
+            ->orderByRaw('CASE WHEN amount_paid < total_amount THEN 0 ELSE 1 END')
+            ->orderByDesc('issued_at')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get()
+            ->map(function (FinancePayable $payable): array {
+                return [
+                    'number' => (string) ($payable->payable_number ?: __('Payable #:id', ['id' => $payable->id])),
+                    'party' => $payable->counterpartyLabel(),
+                    'amount' => $this->formatCompactMoney((float) $payable->total_amount),
+                    'state' => $payable->paymentState(),
+                    'state_label' => $payable->paymentStateLabel(),
+                    'date' => optional($payable->issued_at ?? $payable->created_at)->format('d M Y') ?? '—',
+                    'href' => route('finance.payables.show', $payable),
+                ];
+            })
+            ->all();
     }
 
     /**

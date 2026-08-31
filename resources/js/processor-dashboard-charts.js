@@ -19,8 +19,8 @@ const CHART_COLORS = {
     amber: DEFAULT_CHART_COLORS.semantic.warning,
 };
 
-const GRID_COLOR = 'rgba(113, 113, 122, 0.14)';
-const TICK_COLOR = '#71717a';
+const GRID_COLOR = 'rgba(148, 163, 184, 0.22)';
+const TICK_COLOR = '#64748b';
 const CHART_FONT = { family: 'Inter, ui-sans-serif, system-ui, sans-serif' };
 
 const centerTextPlugin = {
@@ -42,12 +42,12 @@ const centerTextPlugin = {
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = options.subColor || '#71717a';
-        ctx.font = `500 11px ${CHART_FONT.family}`;
-        ctx.fillText(options.subLabel || 'Total', centerX, centerY - 10);
-        ctx.fillStyle = options.color || '#18181b';
-        ctx.font = `600 20px ${CHART_FONT.family}`;
-        ctx.fillText(String(text), centerX, centerY + 12);
+        ctx.fillStyle = options.subColor || '#94a3b8';
+        ctx.font = `500 10px ${CHART_FONT.family}`;
+        ctx.fillText((options.subLabel || 'Total').toUpperCase(), centerX, centerY - 12);
+        ctx.fillStyle = options.color || '#0f172a';
+        ctx.font = `600 22px ${CHART_FONT.family}`;
+        ctx.fillText(String(text), centerX, centerY + 10);
         ctx.restore();
     },
 };
@@ -56,24 +56,118 @@ if (!Chart.registry.plugins.get('procDashCenterText')) {
     Chart.register(centerTextPlugin);
 }
 
-function baseBarOptions(height) {
+function hexToRgba(input, alpha) {
+    if (typeof input !== 'string') {
+        return `rgba(161, 29, 30, ${alpha})`;
+    }
+    if (input.startsWith('rgba')) {
+        return input;
+    }
+    if (input.startsWith('rgb(')) {
+        return input.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+    }
+
+    const hex = input.replace('#', '');
+    if (hex.length !== 3 && hex.length !== 6) {
+        return `rgba(161, 29, 30, ${alpha})`;
+    }
+
+    const full = hex.length === 3 ? hex.split('').map((char) => char + char).join('') : hex;
+    const n = parseInt(full, 16);
+
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+function formatCompact(value) {
+    const n = Number(value) || 0;
+    const abs = Math.abs(n);
+
+    if (abs >= 1_000_000_000) {
+        return `${(n / 1_000_000_000).toFixed(abs >= 100_000_000_000 ? 0 : 1)}B`;
+    }
+    if (abs >= 1_000_000) {
+        return `${(n / 1_000_000).toFixed(abs >= 100_000_000 ? 0 : 1)}M`;
+    }
+    if (abs >= 1_000) {
+        return `${(n / 1_000).toFixed(abs >= 100_000 ? 0 : 1)}K`;
+    }
+
+    return n.toLocaleString();
+}
+
+function formatTick(value, yCallback) {
+    if (yCallback === 'percent') {
+        return `${value}%`;
+    }
+    if (yCallback === 'millions') {
+        return `${value}M`;
+    }
+    if (yCallback === 'compact') {
+        return formatCompact(value);
+    }
+
+    return value;
+}
+
+function formatTooltipValue(value, yCallback) {
+    if (yCallback === 'percent') {
+        return `${value}%`;
+    }
+    if (yCallback === 'millions') {
+        return `${Number(value).toLocaleString()}M RWF`;
+    }
+    if (yCallback === 'compact') {
+        return `${formatCompact(value)} RWF`;
+    }
+
+    return Number(value).toLocaleString();
+}
+
+function tooltipOptions(yCallback = null) {
+    return {
+        backgroundColor: '#0f172a',
+        titleColor: '#f8fafc',
+        bodyColor: '#e2e8f0',
+        titleFont: { ...CHART_FONT, size: 12, weight: '600' },
+        bodyFont: { ...CHART_FONT, size: 11 },
+        padding: 12,
+        cornerRadius: 10,
+        displayColors: true,
+        boxPadding: 6,
+        boxWidth: 8,
+        boxHeight: 8,
+        usePointStyle: true,
+        caretSize: 6,
+        caretPadding: 8,
+        callbacks: {
+            label(context) {
+                const raw = context.parsed?.y ?? context.parsed ?? 0;
+                const name = context.dataset?.label ? `${context.dataset.label}: ` : '';
+
+                return `${name}${formatTooltipValue(raw, yCallback)}`;
+            },
+        },
+    };
+}
+
+function applyYCallback(options, yCallback) {
+    if (! yCallback || ! options.scales?.y?.ticks) {
+        return;
+    }
+
+    options.scales.y.ticks.callback = (value) => formatTick(value, yCallback);
+}
+
+function baseBarOptions(spec = {}) {
     return {
         responsive: true,
         maintainAspectRatio: false,
         layout: {
-            padding: { top: 8, right: 4, bottom: 0, left: 4 },
+            padding: { top: 10, right: 6, bottom: 2, left: 4 },
         },
         plugins: {
             legend: { display: false },
-            tooltip: {
-                backgroundColor: '#18181b',
-                titleFont: { ...CHART_FONT, size: 12, weight: '600' },
-                bodyFont: { ...CHART_FONT, size: 11 },
-                padding: 10,
-                cornerRadius: 8,
-                displayColors: true,
-                boxPadding: 4,
-            },
+            tooltip: tooltipOptions(spec.yCallback),
         },
         scales: {
             x: {
@@ -84,17 +178,17 @@ function baseBarOptions(height) {
                     font: { ...CHART_FONT, size: 11 },
                     maxRotation: 0,
                     autoSkip: true,
-                    padding: 6,
+                    padding: 8,
                 },
             },
             y: {
                 beginAtZero: true,
-                grid: { color: GRID_COLOR, drawBorder: false },
+                grid: { color: GRID_COLOR, drawBorder: false, lineWidth: 1 },
                 border: { display: false },
                 ticks: {
                     color: TICK_COLOR,
                     font: { ...CHART_FONT, size: 10 },
-                    padding: 8,
+                    padding: 10,
                     maxTicksLimit: 5,
                 },
             },
@@ -104,42 +198,34 @@ function baseBarOptions(height) {
 
 function formatLineDataset(ds, index) {
     const color = ds.borderColor || ds.backgroundColor || DEFAULT_CHART_COLORS.series[index % DEFAULT_CHART_COLORS.series.length];
-    const pointStyles = ['circle', 'triangle', 'rectRounded'];
 
     return {
         label: ds.label,
         data: ds.data,
         borderColor: color,
-        backgroundColor: color,
+        backgroundColor: hexToRgba(color, 0.14),
         pointBackgroundColor: color,
         pointBorderColor: '#ffffff',
         pointBorderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointStyle: pointStyles[index % pointStyles.length],
-        borderWidth: 2.5,
-        tension: 0.35,
-        fill: false,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHitRadius: 12,
+        pointStyle: 'circle',
+        borderWidth: 2.25,
+        tension: 0.4,
+        fill: ds.fill !== false,
     };
 }
 
-function lineChartOptions() {
-    return {
+function lineChartOptions(spec = {}) {
+    const options = {
         responsive: true,
         maintainAspectRatio: false,
-        layout: { padding: { top: 12, right: 8, bottom: 4, left: 4 } },
+        layout: { padding: { top: 14, right: 10, bottom: 4, left: 4 } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
             legend: { display: false },
-            tooltip: {
-                backgroundColor: '#18181b',
-                titleFont: { ...CHART_FONT, size: 12, weight: '600' },
-                bodyFont: { ...CHART_FONT, size: 11 },
-                padding: 10,
-                cornerRadius: 8,
-                displayColors: true,
-                boxPadding: 4,
-            },
+            tooltip: tooltipOptions(spec.yCallback),
         },
         scales: {
             x: {
@@ -156,33 +242,40 @@ function lineChartOptions() {
             },
             y: {
                 beginAtZero: true,
-                grid: { color: GRID_COLOR, drawBorder: false },
+                grid: { color: GRID_COLOR, drawBorder: false, lineWidth: 1 },
                 border: { display: false },
                 ticks: {
                     color: TICK_COLOR,
                     font: { ...CHART_FONT, size: 10 },
-                    padding: 8,
+                    padding: 10,
                     maxTicksLimit: 5,
                     precision: 0,
                 },
             },
         },
     };
+
+    if (spec.yMin !== undefined) {
+        options.scales.y.min = spec.yMin;
+    }
+    if (spec.yMax !== undefined) {
+        options.scales.y.max = spec.yMax;
+    }
+
+    applyYCallback(options, spec.yCallback);
+
+    return options;
 }
 
-function formatBarDataset(ds, type) {
-    const backgroundColor = ds.backgroundColor;
-    const borderColor = ds.borderColor ?? 'transparent';
-
+function formatBarDataset(ds) {
     return {
         ...ds,
-        backgroundColor,
-        borderColor,
+        backgroundColor: ds.backgroundColor,
+        borderColor: ds.borderColor ?? 'transparent',
         borderWidth: ds.borderWidth ?? 0,
-        borderRadius: ds.borderRadius ?? 6,
+        borderRadius: ds.borderRadius ?? { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
         borderSkipped: false,
-        maxBarThickness: ds.maxBarThickness ?? 44,
-        pointRadius: ds.pointRadius ?? (type === 'line' ? 3 : undefined),
+        maxBarThickness: ds.maxBarThickness ?? 36,
         skipNull: ds.skipNull ?? true,
     };
 }
@@ -200,7 +293,7 @@ function drawChart(canvas, spec) {
     const ctx = canvas.getContext('2d');
     const type = spec.type || 'bar';
     const labels = spec.labels || [];
-    const datasets = (spec.datasets || []).map((ds) => formatBarDataset(ds, type));
+    const datasets = (spec.datasets || []).map((ds) => formatBarDataset(ds));
 
     if (type === 'pie' || type === 'donut') {
         const pieLabels = spec.labels || [];
@@ -222,37 +315,36 @@ function drawChart(canvas, spec) {
                 datasets: [{
                     data: slices.map((slice) => slice.value),
                     backgroundColor: slices.map((slice) => slice.color),
-                    borderWidth: 0,
-                    hoverOffset: 4,
+                    borderColor: '#ffffff',
+                    borderWidth: 3,
+                    hoverOffset: 6,
                     spacing: 2,
+                    borderRadius: 4,
                 }],
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '72%',
-                layout: { padding: 4 },
+                cutout: '68%',
+                layout: { padding: 8 },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: '#18181b',
-                        titleFont: { ...CHART_FONT, size: 12, weight: '600' },
-                        bodyFont: { ...CHART_FONT, size: 11 },
-                        padding: 10,
-                        cornerRadius: 8,
+                        ...tooltipOptions(),
                         callbacks: {
                             label(context) {
                                 const value = context.parsed ?? 0;
                                 const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-                                return `${value.toLocaleString()} (${pct}%)`;
+
+                                return `${value.toLocaleString()} · ${pct}%`;
                             },
                         },
                     },
                     procDashCenterText: {
                         text: total.toLocaleString(),
-                        subLabel: 'Total',
-                        color: '#18181b',
-                        subColor: '#71717a',
+                        subLabel: spec.centerLabel || 'Total',
+                        color: '#0f172a',
+                        subColor: '#94a3b8',
                     },
                 },
             },
@@ -267,13 +359,13 @@ function drawChart(canvas, spec) {
         canvas._chartInstance = new Chart(ctx, {
             type: 'line',
             data: { labels, datasets: lineDatasets },
-            options: lineChartOptions(),
+            options: lineChartOptions(spec),
         });
 
         return;
     }
 
-    const options = baseBarOptions(spec.height);
+    const options = baseBarOptions(spec);
 
     if (spec.yMin !== undefined) {
         options.scales.y.min = spec.yMin;
@@ -281,28 +373,22 @@ function drawChart(canvas, spec) {
     if (spec.yMax !== undefined) {
         options.scales.y.max = spec.yMax;
     }
-    if (spec.yCallback === 'percent') {
-        options.scales.y.ticks.callback = (v) => `${v}%`;
-    } else if (spec.yCallback === 'millions') {
-        options.scales.y.ticks.callback = (v) => `${v}M`;
-    }
+
+    applyYCallback(options, spec.yCallback);
 
     if (spec.stacked) {
         options.scales.x.stacked = true;
         options.scales.y.stacked = true;
-        options.plugins.legend = {
-            display: false,
-        };
         options.scales.x.ticks.maxRotation = 45;
         options.scales.x.ticks.minRotation = 0;
         options.scales.x.ticks.autoSkip = true;
         options.datasets = {
             bar: {
-                categoryPercentage: 0.62,
-                barPercentage: 0.9,
+                categoryPercentage: 0.68,
+                barPercentage: 0.88,
             },
         };
-    } else if ((spec.datasets || []).length > 1) {
+    } else if ((spec.datasets || []).length > 1 && ! spec.legend?.length) {
         options.plugins.legend = {
             display: true,
             position: 'bottom',
@@ -311,7 +397,7 @@ function drawChart(canvas, spec) {
                 pointStyle: 'circle',
                 boxWidth: 8,
                 boxHeight: 8,
-                padding: 14,
+                padding: 16,
                 color: TICK_COLOR,
                 font: { ...CHART_FONT, size: 11 },
             },
@@ -338,6 +424,13 @@ function drawChart(canvas, spec) {
         };
         options.scales.x.grid = { color: GRID_COLOR, drawBorder: false };
         options.scales.x.beginAtZero = true;
+        options.datasets = {
+            bar: {
+                borderRadius: { topLeft: 0, topRight: 6, bottomLeft: 0, bottomRight: 6 },
+                categoryPercentage: 0.7,
+                barPercentage: 0.86,
+            },
+        };
     }
 
     if (spec.referenceLine !== undefined) {
@@ -353,11 +446,12 @@ function drawChart(canvas, spec) {
         });
     }
 
-    if (!spec.stacked && (spec.datasets || []).length === 1) {
+    if (! spec.stacked && (spec.datasets || []).length === 1) {
         options.datasets = {
             bar: {
-                categoryPercentage: 0.62,
-                barPercentage: 0.9,
+                categoryPercentage: 0.64,
+                barPercentage: 0.82,
+                borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
             },
         };
     }

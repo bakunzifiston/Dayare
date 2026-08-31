@@ -8,12 +8,12 @@ use App\Models\AnteMortemInspection;
 use App\Models\Batch;
 use App\Models\Certificate;
 use App\Models\Client;
-use App\Models\Contract;
-use App\Models\Demand;
-use App\Models\Employee;
 use App\Models\ColdRoom;
 use App\Models\ColdRoomViolation;
+use App\Models\Contract;
 use App\Models\DeliveryConfirmation;
+use App\Models\Demand;
+use App\Models\Employee;
 use App\Models\Facility;
 use App\Models\FinanceCostAllocation;
 use App\Models\FinanceInvoice;
@@ -1057,46 +1057,57 @@ class ProcessorDashboardCharts
         ];
 
         return [
-            $this->barChart(
-                'finance-pipeline',
-                __('Finance pipeline'),
-                220,
-                __('Revenue, payables, collections, and cost allocations for the selected period'),
-                $pipelineLabels,
-                [[
-                    'label' => __('RWF'),
-                    'data' => $pipelineData,
-                    'backgroundColor' => $pipelineColors,
-                ]],
-                null,
-                collect($pipelineLabels)->map(fn (string $label, int $index) => [
-                    'color' => $pipelineColors[$index] ?? $this->brandColor('primary'),
-                    'label' => $label,
-                ])->all(),
+            array_merge(
+                $this->barChart(
+                    'finance-pipeline',
+                    __('Finance pipeline'),
+                    240,
+                    __('Revenue, payables, collections, and cost allocations for the selected period'),
+                    $pipelineLabels,
+                    [[
+                        'label' => __('RWF'),
+                        'data' => $pipelineData,
+                        'backgroundColor' => $pipelineColors,
+                    ]],
+                    'compact',
+                    collect($pipelineLabels)->map(fn (string $label, int $index) => [
+                        'color' => $pipelineColors[$index] ?? $this->brandColor('primary'),
+                        'label' => $label,
+                    ])->all(),
+                ),
+                ['subtitle' => __('Amounts in RWF')],
             ),
             array_merge(
                 $this->pieChart(
                     'finance-ar-status',
                     __('AR invoice status'),
-                    220,
+                    228,
                     __('Paid, pending, and overdue invoices for the selected period'),
                     $arLabels,
                     $arData,
                     $arColors,
                 ),
-                ['emptyMessage' => __('No invoices for this period.')],
+                [
+                    'subtitle' => __('Share of invoices'),
+                    'centerLabel' => __('Invoices'),
+                    'emptyMessage' => __('No invoices for this period.'),
+                ],
             ),
             array_merge(
                 $this->pieChart(
                     'finance-ap-status',
                     __('AP payable status'),
-                    220,
+                    228,
                     __('Paid, open, and overdue payables for the selected period'),
                     $apLabels,
                     $apData,
                     $apColors,
                 ),
-                ['emptyMessage' => __('No payables for this period.')],
+                [
+                    'subtitle' => __('Share of payables'),
+                    'centerLabel' => __('Payables'),
+                    'emptyMessage' => __('No payables for this period.'),
+                ],
             ),
             array_merge(
                 $this->accountantFinanceTrend($businessId, $filters),
@@ -1280,30 +1291,36 @@ class ProcessorDashboardCharts
 
         $toMillions = static fn (float $amount): float => round($amount / 1_000_000, 1);
 
-        return $this->barChart(
-            'finance-revenue-payables-trend',
-            __('Revenue vs payables trend'),
-            220,
-            __('Monthly revenue and payables in RWF millions'),
-            $labels,
-            [
-                $this->coloredBarDataset(
-                    __('Revenue'),
-                    array_map(fn (string $key) => $toMillions($revenueCounts[$key]), $periodKeys),
-                    $this->brandColor('success'),
-                ),
-                $this->coloredBarDataset(
-                    __('Payables'),
-                    array_map(fn (string $key) => $toMillions($payableCounts[$key]), $periodKeys),
-                    $this->brandColor('primary'),
-                ),
+        return [
+            'id' => 'chart-finance-revenue-payables-trend',
+            'title' => __('Revenue vs payables'),
+            'subtitle' => __('Trend in RWF millions'),
+            'height' => 248,
+            'ariaLabel' => __('Monthly revenue and payables in RWF millions'),
+            'type' => 'line',
+            'labels' => $labels,
+            'datasets' => [
+                [
+                    'label' => __('Revenue'),
+                    'data' => array_map(fn (string $key) => $toMillions($revenueCounts[$key]), $periodKeys),
+                    'borderColor' => $this->brandColor('success'),
+                    'backgroundColor' => $this->brandColor('success'),
+                    'fill' => true,
+                ],
+                [
+                    'label' => __('Payables'),
+                    'data' => array_map(fn (string $key) => $toMillions($payableCounts[$key]), $periodKeys),
+                    'borderColor' => $this->brandColor('primary'),
+                    'backgroundColor' => $this->brandColor('primary'),
+                    'fill' => true,
+                ],
             ],
-            'millions',
-            [
+            'legend' => [
                 ['color' => $this->brandColor('success'), 'label' => __('Revenue')],
                 ['color' => $this->brandColor('primary'), 'label' => __('Payables')],
             ],
-        );
+            'yCallback' => 'millions',
+        ];
     }
 
     /**

@@ -1,58 +1,53 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ $facility->facility_name }}
-            </h2>
-            <div class="flex gap-2">
-                <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
-                    {{ __('Edit') }}
-                </a>
-                <form method="POST" action="{{ route('businesses.facilities.destroy', [$business, $facility]) }}" onsubmit="return confirm('{{ __('Are you sure you want to delete this facility? This cannot be undone.') }}');">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700">
-                        {{ __('Delete') }}
-                    </button>
-                </form>
-                <a href="{{ route('businesses.facilities.index', $business) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                    {{ __('Back to Facilities') }}
-                </a>
-            </div>
-        </div>
+        <span class="text-sm font-medium text-bucha-muted">{{ __('Facilities') }}</span>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="space-y-5">
+        <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div>
+                    <p class="text-sm font-semibold text-slate-900">{{ $facility->facility_name }}</p>
+                    <p class="text-xs text-slate-500">{{ $facility->facility_type }} · {{ ucfirst($facility->status) }}</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{{ route('businesses.facilities.edit', [$business, $facility]) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Edit') }}</a>
+                    <form method="POST" action="{{ route('businesses.facilities.destroy', [$business, $facility]) }}" onsubmit="return confirm('{{ __('Are you sure you want to delete this facility? This cannot be undone.') }}');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="inline-flex h-8 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700 hover:bg-red-100">{{ __('Delete') }}</button>
+                    </form>
+                    <a href="{{ route('businesses.facilities.index', $business) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Back') }}</a>
+                </div>
+            </div>
+            <dl class="grid grid-cols-1 gap-x-6 gap-y-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Facility Name') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->facility_name }}</dd>
+                        <dt class="text-xs text-slate-500">{{ __('Facility Name') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">{{ $facility->facility_name }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Facility Type') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->facility_type }}</dd>
+                        <dt class="text-xs text-slate-500">{{ __('Facility Type') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">{{ $facility->facility_type }}</dd>
                     </div>
                     <div class="sm:col-span-2">
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Location') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->location_display }}</dd>
+                        <dt class="text-xs text-slate-500">{{ __('Location') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">{{ $facility->location_display }}</dd>
                     </div>
                     <div class="sm:col-span-2">
-                        <dt class="text-sm font-medium text-gray-500">{{ __('GPS') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->gps ?? '—' }}</dd>
+                        <dt class="text-xs text-slate-500">{{ __('GPS') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">{{ $facility->gps ?? '—' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('License Number') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->license_number ?? '—' }}</dd>
+                        <dt class="text-xs text-slate-500">{{ __('License Number') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">{{ $facility->license_number ?? '—' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('License Issue Date') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->license_issue_date?->format('d M Y') ?? '—' }}</dd>
+                        <dt class="text-xs text-slate-500">{{ __('License Issue Date') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">{{ $facility->license_issue_date?->format('d M Y') ?? '—' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('License Expiry Date') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">
+                        <dt class="text-xs text-slate-500">{{ __('License Expiry Date') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">
                             {{ $facility->license_expiry_date?->format('d M Y') ?? '—' }}
                             @if ($facility->isLicenseExpired())
                                 <span class="text-red-600">{{ __('(Expired)') }}</span>
@@ -60,22 +55,24 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Daily Production Capacity') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $facility->daily_capacity ?? '—' }}</dd>
+                        <dt class="text-xs text-slate-500">{{ __('Daily Production Capacity') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">{{ $facility->daily_capacity ?? '—' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Status') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($facility->status) }}</dd>
+                        <dt class="text-xs text-slate-500">{{ __('Status') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">{{ ucfirst($facility->status) }}</dd>
                     </div>
                 </dl>
-            </div>
+        </section>
 
             @if ($facility->employees->isNotEmpty())
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 mt-6">
-                    <h3 class="text-base font-semibold text-slate-800 mb-3">{{ __('Employees at this facility') }}</h3>
+                <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
+                    <div class="border-b border-slate-100 px-4 py-3">
+                        <p class="text-sm font-semibold text-slate-900">{{ __('Employees at this facility') }}</p>
+                    </div>
                     <ul class="divide-y divide-slate-100">
                         @foreach ($facility->employees as $emp)
-                            <li class="py-2.5 flex justify-between items-center">
+                            <li class="flex items-center justify-between gap-3 px-4 py-2.5">
                                 <div>
                                     <a href="{{ route('employees.show', $emp) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ $emp->first_name }} {{ $emp->last_name }}</a>
                                     <span class="text-sm text-slate-500 ml-1">— {{ $emp->job_title ? (\App\Models\Employee::JOB_TITLES[$emp->job_title] ?? $emp->job_title) : __('—') }}</span>
@@ -86,22 +83,23 @@
                             </li>
                         @endforeach
                     </ul>
-                </div>
+                </section>
             @endif
 
             @if ($facility->inspectors->isNotEmpty())
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60 p-6 mt-6">
-                    <h3 class="text-base font-semibold text-slate-800 mb-3">{{ __('Inspectors assigned to this facility') }}</h3>
+                <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
+                    <div class="border-b border-slate-100 px-4 py-3">
+                        <p class="text-sm font-semibold text-slate-900">{{ __('Inspectors assigned to this facility') }}</p>
+                    </div>
                     <ul class="divide-y divide-slate-100">
                         @foreach ($facility->inspectors as $insp)
-                            <li class="py-2.5">
+                            <li class="px-4 py-2.5">
                                 <a href="{{ route('inspectors.show', $insp) }}" class="font-medium text-slate-900 hover:text-bucha-primary">{{ $insp->full_name }}</a>
                                 <span class="text-sm text-slate-500"> — {{ $insp->authorization_number }} · {{ ucfirst($insp->status) }}</span>
                             </li>
                         @endforeach
                     </ul>
-                </div>
+                </section>
             @endif
-        </div>
     </div>
 </x-app-layout>

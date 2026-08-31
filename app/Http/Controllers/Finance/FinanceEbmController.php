@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Finance\Concerns\ResolvesProcessorFinanceContext;
+use App\Http\Requests\Finance\SaveFinanceEbmRequest;
 use App\Models\FinanceEbmRecord;
 use App\Models\FinanceInvoice;
 use App\Services\Finance\FinanceEbmReconciler;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class FinanceEbmController extends Controller
 {
@@ -66,10 +66,10 @@ class FinanceEbmController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(SaveFinanceEbmRequest $request): RedirectResponse
     {
         $businessId = $this->activeBusinessId($request);
-        $data = $this->validated($request, $businessId);
+        $data = $this->applyLinkedInvoiceDefaults($request->validated(), $businessId);
 
         $record = FinanceEbmRecord::query()->create([
             'business_id' => $businessId,
@@ -103,11 +103,11 @@ class FinanceEbmController extends Controller
         ]);
     }
 
-    public function update(Request $request, FinanceEbmRecord $ebm): RedirectResponse
+    public function update(SaveFinanceEbmRequest $request, FinanceEbmRecord $ebm): RedirectResponse
     {
         $businessId = $this->activeBusinessId($request);
         abort_unless((int) $ebm->business_id === $businessId, 404);
-        $data = $this->validated($request, $businessId, $ebm->id);
+        $data = $this->applyLinkedInvoiceDefaults($request->validated(), $businessId);
 
         $ebm->update([
             'finance_invoice_id' => $data['finance_invoice_id'],
@@ -134,48 +134,33 @@ class FinanceEbmController extends Controller
         return redirect()->route('finance.ebm.index')->with('status', __('EBM record deleted.'));
     }
 
-    private function validated(Request $request, int $businessId, ?int $recordId = null): array
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function applyLinkedInvoiceDefaults(array $data, int $businessId): array
     {
-        $unique = Rule::unique('finance_ebm_records', 'ebm_invoice_number')->where(fn ($q) => $q->where('business_id', $businessId));
-        if ($recordId !== null) {
-            $unique = $unique->ignore($recordId);
-        }
-
-        $invoiceUnique = Rule::unique('finance_ebm_records', 'finance_invoice_id');
-        if ($recordId !== null) {
-            $invoiceUnique = $invoiceUnique->ignore($recordId);
-        }
-
-        $data = $request->validate([
-            'finance_invoice_id' => ['nullable', 'integer', $invoiceUnique],
-            'facility_id' => ['nullable', 'integer'],
-            'ebm_invoice_number' => ['required', 'string', 'max:80', $unique],
-            'ebm_receipt_number' => ['nullable', 'string', 'max:80'],
-            'issued_at' => ['nullable', 'date'],
-            'amount' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['required', Rule::in(FinanceEbmRecord::STATUSES)],
-            'notes' => ['nullable', 'string'],
-        ]);
-
         if (! empty($data['finance_invoice_id'])) {
             $invoice = FinanceInvoice::query()
                 ->where('business_id', $businessId)
                 ->whereKey($data['finance_invoice_id'])
                 ->first();
-            abort_unless($invoice !== null, 422, __('Invalid invoice.'));
-            $data['finance_invoice_id'] = (int) $invoice->id;
-            if (empty($data['facility_id'])) {
+
+            $data['finance_invoice_id'] = $invoice !== null ? (int) $invoice->id : null;
+            if ($invoice !== null && empty($data['facility_id'])) {
                 $data['facility_id'] = $invoice->resolvedFacilityId();
             }
-            if ($data['amount'] === null || $data['amount'] === '') {
+            if ($invoice !== null && ($data['amount'] === null || $data['amount'] === '')) {
                 $data['amount'] = $invoice->total_amount;
             }
         } else {
             $data['finance_invoice_id'] = null;
         }
 
-        $data['facility_id'] = $this->assertFacility($businessId, ! empty($data['facility_id']) ? (int) $data['facility_id'] : null);
-        $data['amount'] = $data['amount'] !== null && $data['amount'] !== '' ? round((float) $data['amount'], 2) : null;
+        $data['facility_id'] = ! empty($data['facility_id']) ? (int) $data['facility_id'] : null;
+        $data['amount'] = isset($data['amount']) && $data['amount'] !== null && $data['amount'] !== ''
+            ? round((float) $data['amount'], 2)
+            : null;
 
         return $data;
     }

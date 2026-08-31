@@ -1,113 +1,104 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-                <a href="{{ route('transport-trips.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Transport') }}</a>
-                <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('Transport trip') }} — {{ $trip->vehicle_plate_number }}
-                </h2>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('transport-trips.edit', $trip) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
-                    {{ __('Edit') }}
-                </a>
-                <a href="{{ route('certificates.show', $trip->certificate) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
-                    {{ __('View certificate') }}
-                </a>
-                <a href="{{ route('transport-trips.hub') }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                    {{ __('All trips') }}
-                </a>
-            </div>
-        </div>
+        <span class="text-sm font-medium text-bucha-muted">{{ __('Transport') }}</span>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-4">
-            @if (session('status'))
-                <div class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
-            @endif
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Certificate') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">
-                            <a href="{{ route('certificates.show', $trip->certificate) }}" class="text-bucha-primary hover:underline">
-                                {{ $trip->certificate->certificate_number ?: '#' . $trip->certificate_id }}
-                            </a>
-                        </dd>
-                    </div>
-                    @if ($trip->batch)
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">{{ __('Batch') }}</dt>
-                            <dd class="mt-1 text-sm text-gray-900">
-                                <a href="{{ route('batches.show', $trip->batch) }}" class="text-bucha-primary hover:underline">{{ $trip->batch->batch_code }}</a>
-                            </dd>
-                        </div>
-                    @endif
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Vehicle plate number') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $trip->vehicle_plate_number }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Driver name') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $trip->driver_name }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Driver phone') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $trip->driver_phone ?: '—' }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Origin facility') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $trip->originFacility ? $trip->originFacility->facility_name : '—' }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Destination') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">
-                            @if ($trip->isExternalDestination())
-                                <span class="text-gray-600">{{ __('Other place') }}</span> — {{ $trip->destination_display }}
-                                @if ($trip->destination_address)
-                                    <span class="block text-gray-500 mt-1">{{ $trip->destination_address }}</span>
-                                @endif
-                            @else
-                                {{ $trip->destination_display }}
-                            @endif
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Departure date') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $trip->departure_date->format('d M Y') }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Arrival date') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">@if ($trip->arrival_date){{ $trip->arrival_date->format('d M Y') }}@else—@endif</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">{{ __('Status') }}</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ ucfirst(str_replace('_', ' ', $trip->status)) }}</dd>
-                    </div>
-                </dl>
-            </div>
+    <div class="space-y-5">
+        @if (session('status'))
+            <div class="rounded-bucha border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('status') }}</div>
+        @endif
 
-            @if ($trip->deliveryConfirmation)
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Delivery confirmation') }}</h3>
-                    <p class="text-sm text-gray-600 mb-2">
+        <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div>
+                    <p class="text-sm font-semibold text-slate-900">{{ $trip->vehicle_plate_number }}</p>
+                    <p class="text-xs text-slate-500">{{ $trip->driver_name }} · {{ ucfirst(str_replace('_', ' ', $trip->status)) }}</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{{ route('transport-trips.edit', $trip) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Edit') }}</a>
+                    <a href="{{ route('certificates.show', $trip->certificate) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Certificate') }}</a>
+                    <a href="{{ route('transport-trips.hub') }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Back') }}</a>
+                </div>
+            </div>
+            <dl class="grid grid-cols-1 gap-x-6 gap-y-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Certificate') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">
+                        <a href="{{ route('certificates.show', $trip->certificate) }}" class="text-bucha-primary hover:underline">
+                            {{ $trip->certificate->certificate_number ?: '#' . $trip->certificate_id }}
+                        </a>
+                    </dd>
+                </div>
+                @if ($trip->batch)
+                    <div>
+                        <dt class="text-xs text-slate-500">{{ __('Batch') }}</dt>
+                        <dd class="mt-0.5 text-sm text-slate-900">
+                            <a href="{{ route('batches.show', $trip->batch) }}" class="text-bucha-primary hover:underline">{{ $trip->batch->batch_code }}</a>
+                        </dd>
+                    </div>
+                @endif
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Vehicle plate number') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $trip->vehicle_plate_number }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Driver name') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $trip->driver_name }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Driver phone') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $trip->driver_phone ?: '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Origin facility') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $trip->originFacility ? $trip->originFacility->facility_name : '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Destination') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">
+                        @if ($trip->isExternalDestination())
+                            <span class="text-slate-600">{{ __('Other place') }}</span> — {{ $trip->destination_display }}
+                            @if ($trip->destination_address)
+                                <span class="mt-0.5 block text-xs text-slate-500">{{ $trip->destination_address }}</span>
+                            @endif
+                        @else
+                            {{ $trip->destination_display }}
+                        @endif
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Departure date') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $trip->departure_date->format('d M Y') }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Arrival date') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">@if ($trip->arrival_date){{ $trip->arrival_date->format('d M Y') }}@else—@endif</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Status') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ ucfirst(str_replace('_', ' ', $trip->status)) }}</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
+            <div class="border-b border-slate-100 px-4 py-3">
+                <p class="text-sm font-semibold text-slate-900">{{ __('Delivery confirmation') }}</p>
+            </div>
+            <div class="px-4 py-4">
+                @if ($trip->deliveryConfirmation)
+                    <p class="text-sm text-slate-600">
                         {{ $trip->deliveryConfirmation->receiver_display }}
                         · {{ $trip->deliveryConfirmation->received_quantity }} {{ $trip->deliveryConfirmation->received_unit ?? 'units' }}
                         · {{ $trip->deliveryConfirmation->received_date->format('d M Y') }}
                         · {{ ucfirst($trip->deliveryConfirmation->confirmation_status) }}
                     </p>
-                    <a href="{{ route('delivery-confirmations.show', $trip->deliveryConfirmation) }}" class="text-sm text-bucha-primary hover:underline">{{ __('View confirmation') }}</a>
-                </div>
-            @else
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mt-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Next step: confirm delivery') }}</h3>
-                    <p class="text-sm text-gray-600 mb-3">{{ __('Record trip only logs the movement. Add received quantity, unit, contract, and international export documents on the delivery confirmation.') }}</p>
-                    <a href="{{ route('delivery-confirmations.create', ['transport_trip_id' => $trip->id]) }}" class="inline-flex items-center px-4 py-2 bg-bucha-primary border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-bucha-burgundy">
-                        {{ __('Confirm delivery for this trip') }}
-                    </a>
-                </div>
-            @endif
-        </div>
+                    <a href="{{ route('delivery-confirmations.show', $trip->deliveryConfirmation) }}" class="mt-2 inline-flex text-xs font-medium text-bucha-primary hover:underline">{{ __('View confirmation') }}</a>
+                @else
+                    <p class="text-sm text-slate-500">{{ __('Record trip only logs the movement. Add received quantity, unit, contract, and international export documents on the delivery confirmation.') }}</p>
+                    <a href="{{ route('delivery-confirmations.create', ['transport_trip_id' => $trip->id]) }}" class="mt-3 inline-flex h-8 items-center rounded-lg bg-bucha-primary px-3 text-xs font-semibold text-white hover:bg-bucha-burgundy">{{ __('Confirm delivery') }}</a>
+                @endif
+            </div>
+        </section>
     </div>
 </x-app-layout>

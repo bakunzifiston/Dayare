@@ -11,7 +11,7 @@
                 $isPie = $chartType === 'pie' || $chartType === 'donut';
                 $isTrendLine = ! $isPie && $chartType === 'line';
                 $isStackedBar = ! $isPie && ! empty($chart['stacked']);
-                $showTrendLegend = ($isStackedBar || $isTrendLine) && ! empty($chart['legend']);
+                $showLegend = ! $isPie && ! empty($chart['legend']);
                 if ($isPie) {
                     $chartDataTotal = array_sum($chart['data'] ?? []);
                 } elseif (! empty($chart['datasets'])) {
@@ -34,11 +34,16 @@
                     })->filter(fn (array $item) => $item['value'] > 0)->values()->all()
                     : [];
             @endphp
-            <div @class(['proc-dash__chart-card', 'proc-dash__chart-card--full' => ! empty($chart['fullWidth'])])>
-                <p class="proc-dash__chart-title">{{ $chart['title'] }}</p>
+            <article @class(['proc-dash__chart-card', 'proc-dash__chart-card--full' => ! empty($chart['fullWidth'])])>
+                <div class="proc-dash__chart-head">
+                    <p class="proc-dash__chart-title">{{ $chart['title'] }}</p>
+                    @if (! empty($chart['subtitle']))
+                        <p class="proc-dash__chart-sub">{{ $chart['subtitle'] }}</p>
+                    @endif
+                </div>
 
-                @if ($showTrendLegend)
-                    <div class="proc-dash__chart-legend proc-dash__chart-legend--stacked">
+                @if ($showLegend)
+                    <div @class(['proc-dash__chart-legend', 'proc-dash__chart-legend--stacked' => $isStackedBar || $isTrendLine])>
                         @foreach ($chart['legend'] as $item)
                             <span class="proc-dash__legend-item">
                                 <span class="proc-dash__legend-swatch" style="background: {{ $item['color'] }}"></span>
@@ -52,7 +57,7 @@
                     <div class="proc-dash__chart-empty">{{ $chart['emptyMessage'] ?? __('No data for this period.') }}</div>
                 @elseif ($isPie)
                     <div class="proc-dash__chart-pie">
-                        <div class="proc-dash__chart-pie-canvas" style="height: {{ (int) ($chart['height'] ?? 200) }}px">
+                        <div class="proc-dash__chart-pie-canvas" style="height: {{ (int) ($chart['height'] ?? 220) }}px">
                             <canvas
                                 id="{{ $chart['id'] }}"
                                 role="img"
@@ -62,14 +67,19 @@
                         <div class="proc-dash__chart-pie-legend" aria-hidden="true">
                             @foreach ($pieLegend as $item)
                                 <div class="proc-dash__chart-pie-legend-item">
-                                    <span class="proc-dash__chart-pie-legend-label">
-                                        <span class="proc-dash__legend-swatch" style="background: {{ $item['color'] }}"></span>
-                                        <span>{{ $item['label'] }}</span>
-                                    </span>
-                                    <span class="proc-dash__chart-pie-legend-value">
-                                        {{ number_format($item['value'], $item['value'] == floor($item['value']) ? 0 : 1) }}
-                                        <span class="proc-dash__chart-pie-legend-percent">({{ $item['percent'] }}%)</span>
-                                    </span>
+                                    <div class="proc-dash__chart-pie-legend-row">
+                                        <span class="proc-dash__chart-pie-legend-label">
+                                            <span class="proc-dash__legend-swatch" style="background: {{ $item['color'] }}"></span>
+                                            <span>{{ $item['label'] }}</span>
+                                        </span>
+                                        <span class="proc-dash__chart-pie-legend-value">
+                                            {{ number_format($item['value'], $item['value'] == floor($item['value']) ? 0 : 1) }}
+                                            <span class="proc-dash__chart-pie-legend-percent">{{ $item['percent'] }}%</span>
+                                        </span>
+                                    </div>
+                                    <div class="proc-dash__chart-pie-legend-track">
+                                        <span class="proc-dash__chart-pie-legend-fill" style="width: {{ min(100, (int) $item['percent']) }}%; background: {{ $item['color'] }}"></span>
+                                    </div>
                                 </div>
                             @endforeach
                         </div>
@@ -79,7 +89,7 @@
                         'proc-dash__chart-wrap',
                         'proc-dash__chart-wrap--line' => $isTrendLine,
                         'proc-dash__chart-wrap--bar' => ! $isTrendLine,
-                    ]) style="height: {{ (int) ($chart['height'] ?? 200) }}px">
+                    ]) style="height: {{ (int) ($chart['height'] ?? 220) }}px">
                         <canvas
                             id="{{ $chart['id'] }}"
                             role="img"
@@ -87,7 +97,7 @@
                         >{{ $chart['ariaLabel'] ?? $chart['title'] }}</canvas>
                     </div>
                 @endif
-            </div>
+            </article>
         @endforeach
     </section>
 @endif

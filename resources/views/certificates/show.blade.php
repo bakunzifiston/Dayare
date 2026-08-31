@@ -11,25 +11,28 @@
     @endpush
 
     <x-slot name="header">
-        <div class="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <a href="{{ route('certificates.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Certificates') }}</a>
-                <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('Certificate') }} — {{ $certificateNumber }}
-                </h2>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('certificates.edit', $certificate) }}#pdf-details" class="rica-btn rica-btn--secondary">{{ __('Edit PDF details') }}</a>
-                <a href="{{ route('certificates.export-single', $certificate) }}" class="rica-btn rica-btn--primary">{{ __('Download PDF') }}</a>
-                @if ($certificate->certificateQr)
-                    <a href="{{ $certificate->certificateQr->trace_url }}" target="_blank" rel="noopener" class="rica-btn rica-btn--secondary">{{ __('Open trace page') }}</a>
-                @endif
-            </div>
-        </div>
+        <span class="text-sm font-medium text-bucha-muted">{{ __('Certificates') }}</span>
     </x-slot>
 
-    <div class="py-8">
-        <div class="rica-report-page cert-trace-page max-w-3xl mx-auto sm:px-6 lg:px-8">
+    <div class="space-y-5">
+        <section class="no-print overflow-hidden rounded-bucha border border-slate-200 bg-white">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div>
+                    <p class="text-sm font-semibold text-slate-900">{{ $certificateNumber }}</p>
+                    <p class="text-xs text-slate-500">{{ __('Certificate') }}</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{{ route('certificates.edit', $certificate) }}#pdf-details" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Edit PDF details') }}</a>
+                    <a href="{{ route('certificates.export-single', $certificate) }}" class="inline-flex h-8 items-center rounded-lg bg-bucha-primary px-3 text-xs font-semibold text-white hover:bg-bucha-burgundy">{{ __('Download PDF') }}</a>
+                    @if ($certificate->certificateQr)
+                        <a href="{{ $certificate->certificateQr->trace_url }}" target="_blank" rel="noopener" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Open trace page') }}</a>
+                    @endif
+                    <a href="{{ route('certificates.hub') }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Back') }}</a>
+                </div>
+            </div>
+        </section>
+
+        <div class="rica-report-page cert-trace-page mx-auto max-w-3xl">
             @if ($errors->has('certificate_pdf'))
                 <div class="no-print mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                     {{ $errors->first('certificate_pdf') }}

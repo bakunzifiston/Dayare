@@ -320,4 +320,206 @@ class ProcessorFinanceDailyRecordsTest extends TestCase
         ]);
         $this->assertDatabaseMissing('finance_ebm_records', ['ebm_invoice_number' => 'EBM-DEL-1']);
     }
+
+    public function test_ebm_store_requires_invoice_number(): void
+    {
+        [$user] = $this->processorContext();
+
+        $this->actingAs($user)
+            ->from(route('finance.ebm.create'))
+            ->post(route('finance.ebm.store'), [
+                'ebm_invoice_number' => '   ',
+                'status' => 'issued',
+            ])
+            ->assertRedirect(route('finance.ebm.create'))
+            ->assertSessionHasErrors('ebm_invoice_number');
+    }
+
+    public function test_ebm_store_rejects_duplicate_number_for_same_business(): void
+    {
+        [$user, $business] = $this->processorContext();
+        FinanceEbmRecord::query()->create([
+            'business_id' => $business->id,
+            'ebm_invoice_number' => 'EBM-DUP-1',
+            'status' => FinanceEbmRecord::STATUS_ISSUED,
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('finance.ebm.create'))
+            ->post(route('finance.ebm.store'), [
+                'ebm_invoice_number' => 'EBM-DUP-1',
+                'status' => 'issued',
+            ])
+            ->assertRedirect(route('finance.ebm.create'))
+            ->assertSessionHasErrors('ebm_invoice_number');
+    }
+
+    public function test_ebm_store_rejects_invoice_from_another_business(): void
+    {
+        [$user] = $this->processorContext();
+        $otherBusiness = Business::factory()->create(['type' => Business::TYPE_PROCESSOR]);
+        $foreignInvoice = FinanceInvoice::query()->create([
+            'business_id' => $otherBusiness->id,
+            'invoice_number' => 'AR-FOREIGN-1',
+            'source_type' => FinanceInvoice::SOURCE_MANUAL,
+            'status' => 'issued',
+            'currency' => 'RWF',
+            'subtotal' => 1000,
+            'total_amount' => 1000,
+            'amount_paid' => 0,
+            'issued_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('finance.ebm.create'))
+            ->post(route('finance.ebm.store'), [
+                'finance_invoice_id' => $foreignInvoice->id,
+                'ebm_invoice_number' => 'EBM-FOREIGN',
+                'status' => 'issued',
+            ])
+            ->assertRedirect(route('finance.ebm.create'))
+            ->assertSessionHasErrors('finance_invoice_id');
+    }
+
+    public function test_ebm_store_rejects_second_record_for_same_invoice(): void
+    {
+        [$user, $business, $facility, $client] = $this->processorContext();
+        $invoice = FinanceInvoice::query()->create([
+            'business_id' => $business->id,
+            'client_id' => $client->id,
+            'facility_id' => $facility->id,
+            'invoice_number' => 'AR-EBM-UNIQUE',
+            'source_type' => FinanceInvoice::SOURCE_MANUAL,
+            'status' => 'issued',
+            'currency' => 'RWF',
+            'subtotal' => 2500,
+            'total_amount' => 2500,
+            'amount_paid' => 0,
+            'issued_at' => now(),
+        ]);
+        FinanceEbmRecord::query()->create([
+            'business_id' => $business->id,
+            'finance_invoice_id' => $invoice->id,
+            'ebm_invoice_number' => 'EBM-FIRST',
+            'amount' => 2500,
+            'status' => FinanceEbmRecord::STATUS_ISSUED,
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('finance.ebm.create'))
+            ->post(route('finance.ebm.store'), [
+                'finance_invoice_id' => $invoice->id,
+                'ebm_invoice_number' => 'EBM-SECOND',
+                'status' => 'issued',
+            ])
+            ->assertRedirect(route('finance.ebm.create'))
+            ->assertSessionHasErrors('finance_invoice_id');
+    }
+
+    public function test_ebm_store_rejects_negative_amount_and_invalid_status(): void
+    {
+        [$user] = $this->processorContext();
+
+        $this->actingAs($user)
+            ->from(route('finance.ebm.create'))
+            ->post(route('finance.ebm.store'), [
+                'ebm_invoice_number' => 'EBM-BAD-AMT',
+                'amount' => -10,
+                'status' => 'not-a-status',
+            ])
+            ->assertRedirect(route('finance.ebm.create'))
+            ->assertSessionHasErrors(['amount', 'status']);
+    }
+
+    public function test_ebm_store_saves_valid_record_and_copies_invoice_amount(): void
+    {
+        [$user, $business, $facility, $client] = $this->processorContext();
+        $invoice = FinanceInvoice::query()->create([
+            'business_id' => $business->id,
+            'client_id' => $client->id,
+            'facility_id' => $facility->id,
+            'invoice_number' => 'AR-EBM-OK',
+            'source_type' => FinanceInvoice::SOURCE_MANUAL,
+            'status' => 'issued',
+            'currency' => 'RWF',
+            'subtotal' => 5000,
+            'total_amount' => 5000,
+            'amount_paid' => 0,
+            'issued_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('finance.ebm.store'), [
+                'finance_invoice_id' => $invoice->id,
+                'ebm_invoice_number' => '  EBM-OK-1  ',
+                'status' => 'issued',
+            ])
+            ->assertRedirect(route('finance.ebm.index'));
+
+        $record = FinanceEbmRecord::query()->where('ebm_invoice_number', 'EBM-OK-1')->first();
+        $this->assertNotNull($record);
+        $this->assertSame((int) $invoice->id, (int) $record->finance_invoice_id);
+        $this->assertSame((int) $facility->id, (int) $record->facility_id);
+        $this->assertSame(5000.0, (float) $record->amount);
+    }
+
+    public function test_ebm_update_keeps_own_number_and_rejects_another_duplicate(): void
+    {
+        [$user, $business] = $this->processorContext();
+        $record = FinanceEbmRecord::query()->create([
+            'business_id' => $business->id,
+            'ebm_invoice_number' => 'EBM-EDIT-1',
+            'status' => FinanceEbmRecord::STATUS_ISSUED,
+        ]);
+        FinanceEbmRecord::query()->create([
+            'business_id' => $business->id,
+            'ebm_invoice_number' => 'EBM-EDIT-2',
+            'status' => FinanceEbmRecord::STATUS_ISSUED,
+        ]);
+
+        $this->actingAs($user)
+            ->put(route('finance.ebm.update', $record), [
+                'ebm_invoice_number' => 'EBM-EDIT-1',
+                'status' => 'pending',
+            ])
+            ->assertRedirect(route('finance.ebm.index'));
+
+        $this->assertSame('pending', $record->fresh()->status);
+
+        $this->actingAs($user)
+            ->from(route('finance.ebm.edit', $record))
+            ->put(route('finance.ebm.update', $record), [
+                'ebm_invoice_number' => 'EBM-EDIT-2',
+                'status' => 'issued',
+            ])
+            ->assertRedirect(route('finance.ebm.edit', $record))
+            ->assertSessionHasErrors('ebm_invoice_number');
+    }
+
+    public function test_finance_dashboard_shows_kpis_and_open_receivables(): void
+    {
+        [$user, $business, $facility, $client] = $this->processorContext();
+        FinanceInvoice::query()->create([
+            'business_id' => $business->id,
+            'client_id' => $client->id,
+            'facility_id' => $facility->id,
+            'invoice_number' => 'AR-DASH-1',
+            'source_type' => FinanceInvoice::SOURCE_MANUAL,
+            'status' => 'issued',
+            'currency' => 'RWF',
+            'subtotal' => 12000,
+            'total_amount' => 12000,
+            'amount_paid' => 0,
+            'issued_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('finance.dashboard'))
+            ->assertOk()
+            ->assertSee(__('Open receivables'))
+            ->assertSee(__('Open payables'))
+            ->assertDontSee(__('Finance modules'))
+            ->assertSee('AR-DASH-1')
+            ->assertSee(__('Record sale'));
+    }
 }
