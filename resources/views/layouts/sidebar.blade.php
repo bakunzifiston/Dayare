@@ -39,6 +39,7 @@
                 ['label' => __('Contracts'), 'route' => 'contracts.index', 'icon' => 'clipboard', 'permission' => 'manage_contracts'],
                 ['label' => __('Clients'), 'route' => 'clients.index', 'icon' => 'user', 'permission' => 'manage_clients'],
                 ['label' => __('Demand'), 'route' => 'demands.index', 'icon' => 'clipboard-list', 'permission' => 'manage_demand'],
+                ['label' => __('Compliance'), 'route' => 'sales-compliance.hub', 'icon' => 'shield', 'permission' => 'manage_sales_compliance', 'routeIs' => ['sales-compliance.*']],
             ],
         ],
         [

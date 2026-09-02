@@ -91,6 +91,11 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\PwaServiceWorkerController;
 use App\Http\Controllers\RecipientController;
+use App\Http\Controllers\SalesCompliance\SalesComplianceCertificateRuleController;
+use App\Http\Controllers\SalesCompliance\SalesComplianceDashboardController;
+use App\Http\Controllers\SalesCompliance\SalesComplianceEscalationController;
+use App\Http\Controllers\SalesCompliance\SalesComplianceInspectionController;
+use App\Http\Controllers\SalesCompliance\SalesComplianceSiteController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SlaughterExecutionController;
@@ -687,6 +692,20 @@ Route::middleware(['auth', 'tenant', 'workspace:processor', 'tenant.permission']
     Route::resource('demands', DemandController::class);
     Route::get('recipients', [RecipientController::class, 'index'])->name('recipients.index');
     Route::delete('client-activities/{client_activity}', [App\Http\Controllers\ClientActivityController::class, 'destroy'])->name('client-activities.destroy');
+
+    Route::prefix('sales-compliance')->name('sales-compliance.')->group(function () {
+        Route::get('/', SalesComplianceDashboardController::class)->name('hub');
+        Route::resource('sites', SalesComplianceSiteController::class);
+        Route::post('inspections/{inspection}/record', [SalesComplianceInspectionController::class, 'record'])->name('inspections.record');
+        Route::get('inspections/{inspection}/attachments/{attachment}', [SalesComplianceInspectionController::class, 'downloadAttachment'])->name('inspections.attachments.download');
+        Route::resource('inspections', SalesComplianceInspectionController::class)->except(['index']);
+        Route::resource('escalations', SalesComplianceEscalationController::class)->only(['create', 'store', 'show', 'update']);
+        Route::get('certificate-rules', [SalesComplianceCertificateRuleController::class, 'index'])->name('rules.index');
+        Route::post('certificate-rules', [SalesComplianceCertificateRuleController::class, 'store'])->name('rules.store');
+        Route::delete('certificate-rules/{rule}', [SalesComplianceCertificateRuleController::class, 'destroy'])
+            ->whereNumber('rule')
+            ->name('rules.destroy');
+    });
 
     Route::prefix('finance')->name('finance.')->group(function () {
         Route::get('/', FinanceDashboardController::class)->name('dashboard');

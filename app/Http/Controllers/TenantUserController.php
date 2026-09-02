@@ -54,7 +54,7 @@ class TenantUserController extends Controller
             BusinessUser::ROLE_INSPECTOR => __('Handles ante/post-mortem inspections and certification steps.'),
             BusinessUser::ROLE_TRANSPORT_MANAGER => __('Manages trip dispatch, delivery confirmation, and transport tracking.'),
             BusinessUser::ROLE_ACCOUNTANT => __('Manages receivables, payables, and finance reporting for the business.'),
-            BusinessUser::ROLE_SALES_MARKETING_OFFICER => __('Manages CRM, employees, suppliers, contracts, clients, and demand.'),
+            BusinessUser::ROLE_SALES_MARKETING_OFFICER => __('Manages CRM, employees, suppliers, contracts, clients, demand, and site compliance.'),
             default => '',
         };
     }

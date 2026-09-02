@@ -116,6 +116,8 @@ class BusinessUser extends Pivot
 
     public const PERMISSION_MANAGE_DEMAND = 'manage_demand';
 
+    public const PERMISSION_MANAGE_SALES_COMPLIANCE = 'manage_sales_compliance';
+
     public const ACTION_PERMISSIONS = [
         self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
         self::PERMISSION_VIEW_ALL_MODULES,
@@ -155,6 +157,7 @@ class BusinessUser extends Pivot
         self::PERMISSION_MANAGE_CONTRACTS,
         self::PERMISSION_MANAGE_CLIENTS,
         self::PERMISSION_MANAGE_DEMAND,
+        self::PERMISSION_MANAGE_SALES_COMPLIANCE,
     ];
 
     public const ROLE_PERMISSION_MAP = [
@@ -180,6 +183,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_MANAGE_CONTRACTS,
             self::PERMISSION_MANAGE_CLIENTS,
             self::PERMISSION_MANAGE_DEMAND,
+            self::PERMISSION_MANAGE_SALES_COMPLIANCE,
         ],
         self::ROLE_OPERATIONS_MANAGER => [
             self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
@@ -200,6 +204,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_EXPORT_DOCUMENTS,
             self::PERMISSION_MONITOR_TEMPERATURE_LOGS,
             self::PERMISSION_VIEW_CERTIFICATES,
+            self::PERMISSION_MANAGE_SALES_COMPLIANCE,
         ],
         self::ROLE_INSPECTOR => [
             self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
@@ -209,6 +214,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_VIEW_ASSIGNED_BATCHES,
             self::PERMISSION_VIEW_INSPECTIONS,
             self::PERMISSION_VIEW_CERTIFICATES,
+            self::PERMISSION_MANAGE_SALES_COMPLIANCE,
         ],
         self::ROLE_TRANSPORT_MANAGER => [
             self::PERMISSION_VIEW_PROCESSOR_DASHBOARD,
@@ -239,6 +245,7 @@ class BusinessUser extends Pivot
             self::PERMISSION_MANAGE_CONTRACTS,
             self::PERMISSION_MANAGE_CLIENTS,
             self::PERMISSION_MANAGE_DEMAND,
+            self::PERMISSION_MANAGE_SALES_COMPLIANCE,
         ],
     ];
 

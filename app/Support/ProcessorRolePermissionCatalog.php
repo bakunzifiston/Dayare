@@ -84,7 +84,7 @@ class ProcessorRolePermissionCatalog
             ],
             'sales_marketing' => [
                 'label' => __('Sales & Marketing'),
-                'description' => __('CRM, employees, suppliers, contracts, clients, and demand.'),
+                'description' => __('CRM, employees, suppliers, contracts, clients, demand, and site compliance.'),
                 'permissions' => [
                     BusinessUser::PERMISSION_VIEW_CRM => __('View CRM dashboard'),
                     BusinessUser::PERMISSION_MANAGE_EMPLOYEES => __('Manage employees'),
@@ -92,6 +92,7 @@ class ProcessorRolePermissionCatalog
                     BusinessUser::PERMISSION_MANAGE_CONTRACTS => __('Manage contracts'),
                     BusinessUser::PERMISSION_MANAGE_CLIENTS => __('Manage clients'),
                     BusinessUser::PERMISSION_MANAGE_DEMAND => __('Manage customer demand'),
+                    BusinessUser::PERMISSION_MANAGE_SALES_COMPLIANCE => __('Manage sales compliance inspections'),
                 ],
             ],
             'finance' => [

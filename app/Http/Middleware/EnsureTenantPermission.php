@@ -126,6 +126,12 @@ class EnsureTenantPermission
             'update' => BusinessUser::PERMISSION_MANAGE_DEMAND,
             'delete' => BusinessUser::PERMISSION_MANAGE_DEMAND,
         ],
+        'sales-compliance' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_SALES_COMPLIANCE,
+            'create' => BusinessUser::PERMISSION_MANAGE_SALES_COMPLIANCE,
+            'update' => BusinessUser::PERMISSION_MANAGE_SALES_COMPLIANCE,
+            'delete' => BusinessUser::PERMISSION_MANAGE_SALES_COMPLIANCE,
+        ],
         'recipients' => ['view' => BusinessUser::PERMISSION_MANAGE_CLIENTS],
         'finance.dashboard' => ['view' => BusinessUser::PERMISSION_VIEW_FINANCE_DASHBOARD],
         'finance.invoices' => [

@@ -167,6 +167,7 @@ class RolePermissionCustomizationTest extends TestCase
             BusinessUser::PERMISSION_MANAGE_CONTRACTS,
             BusinessUser::PERMISSION_MANAGE_CLIENTS,
             BusinessUser::PERMISSION_MANAGE_DEMAND,
+            BusinessUser::PERMISSION_MANAGE_SALES_COMPLIANCE,
         ] as $permission) {
             $this->assertTrue($member->canProcessorPermission($permission, $business->id));
         }
@@ -198,6 +199,11 @@ class RolePermissionCustomizationTest extends TestCase
         $this->actingAs($member)
             ->withSession(['active_processor_business_id' => $business->id])
             ->get(route('clients.index'))
+            ->assertOk();
+
+        $this->actingAs($member)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->get(route('sales-compliance.hub'))
             ->assertOk();
 
         $this->actingAs($member)

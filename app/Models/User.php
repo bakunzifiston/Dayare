@@ -706,6 +706,7 @@ class User extends Authenticatable
             BusinessUser::PERMISSION_VIEW_CRM => 'crm.dashboard',
             BusinessUser::PERMISSION_MANAGE_CLIENTS => 'clients.index',
             BusinessUser::PERMISSION_MANAGE_DEMAND => 'demands.index',
+            BusinessUser::PERMISSION_MANAGE_SALES_COMPLIANCE => 'sales-compliance.hub',
             BusinessUser::PERMISSION_MANAGE_SUPPLIERS => 'suppliers.index',
             BusinessUser::PERMISSION_MANAGE_CONTRACTS => 'contracts.index',
             BusinessUser::PERMISSION_MANAGE_EMPLOYEES => 'employees.index',

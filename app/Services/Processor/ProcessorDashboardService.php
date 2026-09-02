@@ -523,6 +523,7 @@ class ProcessorDashboardService
                 $this->action(__('Suppliers'), 'building', 'suppliers.index', BusinessUser::PERMISSION_MANAGE_SUPPLIERS),
                 $this->action(__('Contracts'), 'clipboard', 'contracts.index', BusinessUser::PERMISSION_MANAGE_CONTRACTS),
                 $this->action(__('Employees'), 'users', 'employees.index', BusinessUser::PERMISSION_MANAGE_EMPLOYEES),
+                $this->action(__('Compliance'), 'shield', 'sales-compliance.hub', BusinessUser::PERMISSION_MANAGE_SALES_COMPLIANCE),
             ],
         ];
     }
