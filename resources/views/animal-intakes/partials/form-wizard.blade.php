@@ -24,21 +24,8 @@
     ];
 
     if (old('animals')) {
-        $initialAnimals = collect(old('animals'))->map(function ($row) {
-            return array_merge([
-                'id' => null,
-                'ear_tag' => '',
-                'species' => $defaultSpecies,
-                'sex' => AnimalIntake::SEX_MALE,
-                'age_months' => '',
-                'live_weight_kg' => '',
-                'body_condition_score' => 'good',
-                'unit_price' => '',
-                'service_fee' => '',
-                'health_status' => AnimalIntakeItem::HEALTH_HEALTHY,
-                'notes' => '',
-                'slaughter_plan_id' => null,
-            ], is_array($row) ? $row : []);
+        $initialAnimals = collect(old('animals'))->map(function ($row) use ($blankAnimal) {
+            return array_merge($blankAnimal, is_array($row) ? $row : []);
         })->values()->all();
     } elseif ($intake?->relationLoaded('items') && $intake->items->isNotEmpty()) {
         $initialAnimals = $intake->items->map(fn ($item) => [

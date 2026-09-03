@@ -193,6 +193,31 @@ class AnimalIntakeStoreTest extends TestCase
         $response->assertSessionHasErrors('client_id');
     }
 
+    public function test_create_form_renders_after_validation_redirect_with_old_animals(): void
+    {
+        [$user, $facility] = $this->makeIntakeContext('REG-AIS-OLD-'.uniqid());
+
+        $this->actingAs($user)
+            ->from(route('animal-intakes.create'))
+            ->followingRedirects()
+            ->post(route('animal-intakes.store'), [
+                'facility_id' => $facility->id,
+                'source_type' => AnimalIntake::SOURCE_TYPE_CLIENT,
+                'intake_date' => now('Africa/Kigali')->format('Y-m-d\TH:i'),
+                'is_draft' => '0',
+                'animals' => [
+                    [
+                        'ear_tag' => 'EAR-OLD-'.uniqid(),
+                        'species' => 'Goats',
+                        'sex' => AnimalIntake::SEX_MALE,
+                        'health_status' => 'healthy',
+                        'body_condition_score' => 'good',
+                    ],
+                ],
+            ])
+            ->assertOk();
+    }
+
     public function test_store_allows_intake_without_supporting_documents(): void
     {
         [$user, $facility, $client] = $this->makeIntakeContext('REG-AIS-DOCS-'.uniqid());
