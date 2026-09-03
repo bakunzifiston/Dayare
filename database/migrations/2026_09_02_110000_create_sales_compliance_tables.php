@@ -16,8 +16,10 @@ return new class extends Migration
             $table->string('site_type', 40);
             $table->string('name');
             $table->string('location_address');
-            $table->decimal('latitude', 10, 7)->nullable();
-            $table->decimal('longitude', 10, 7)->nullable();
+            $table->foreignId('country_id')->nullable()->constrained('administrative_divisions')->nullOnDelete();
+            $table->foreignId('province_id')->nullable()->constrained('administrative_divisions')->nullOnDelete();
+            $table->foreignId('district_id')->nullable()->constrained('administrative_divisions')->nullOnDelete();
+            $table->foreignId('sector_id')->nullable()->constrained('administrative_divisions')->nullOnDelete();
             $table->string('event_type')->nullable();
             $table->string('event_name')->nullable();
             $table->string('contact_name')->nullable();

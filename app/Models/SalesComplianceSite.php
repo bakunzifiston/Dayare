@@ -17,8 +17,10 @@ class SalesComplianceSite extends Model
         'site_type',
         'name',
         'location_address',
-        'latitude',
-        'longitude',
+        'country_id',
+        'province_id',
+        'district_id',
+        'sector_id',
         'event_type',
         'event_name',
         'contact_name',
@@ -31,8 +33,6 @@ class SalesComplianceSite extends Model
     {
         return [
             'is_active' => 'boolean',
-            'latitude' => 'decimal:7',
-            'longitude' => 'decimal:7',
         ];
     }
 
@@ -44,6 +44,26 @@ class SalesComplianceSite extends Model
     public function inspections(): HasMany
     {
         return $this->hasMany(SalesComplianceInspection::class, 'site_id');
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'country_id');
+    }
+
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'province_id');
+    }
+
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'district_id');
+    }
+
+    public function sector(): BelongsTo
+    {
+        return $this->belongsTo(AdministrativeDivision::class, 'sector_id');
     }
 
     public function escalations(): HasMany
@@ -58,10 +78,16 @@ class SalesComplianceSite extends Model
 
     public function locationDisplay(): string
     {
-        $geo = ($this->latitude !== null && $this->longitude !== null)
-            ? sprintf('%s, %s', $this->latitude, $this->longitude)
-            : null;
+        $parts = collect([
+            $this->province?->name,
+            $this->district?->name,
+            $this->sector?->name,
+        ])->filter();
 
-        return implode(' · ', array_filter([$this->location_address, $geo]));
+        if ($parts->isNotEmpty()) {
+            return $parts->implode(', ');
+        }
+
+        return (string) ($this->location_address ?: '—');
     }
 }

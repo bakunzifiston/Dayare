@@ -31,8 +31,20 @@
                     <dd class="mt-0.5 text-sm text-slate-900">{{ $site->siteTypeLabel() }}</dd>
                 </div>
                 <div>
-                    <dt class="text-xs text-slate-500">{{ __('Location') }}</dt>
-                    <dd class="mt-0.5 text-sm text-slate-900">{{ $site->locationDisplay() }}</dd>
+                    <dt class="text-xs text-slate-500">{{ __('Country') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $site->country?->name ?: __('Rwanda') }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Province') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $site->province?->name ?: '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('District') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $site->district?->name ?: '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">{{ __('Sector') }}</dt>
+                    <dd class="mt-0.5 text-sm text-slate-900">{{ $site->sector?->name ?: '—' }}</dd>
                 </div>
                 @if ($site->site_type === \App\Support\SalesComplianceCatalog::SITE_PRIVATE_EVENT)
                     <div>

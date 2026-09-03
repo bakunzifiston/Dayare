@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\SalesCompliance;
 
+use App\Models\AdministrativeDivision;
 use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\Facility;
@@ -341,5 +342,51 @@ class SalesComplianceModuleTest extends TestCase
             SalesComplianceCatalog::SITE_RESTAURANT,
             SalesComplianceCatalog::MEAT_SOURCE_PROCESSOR
         ));
+    }
+
+    public function test_site_location_is_saved_from_rwanda_division_selection(): void
+    {
+        [$user, $business] = $this->processorContext();
+        $country = AdministrativeDivision::query()->create([
+            'name' => 'Rwanda',
+            'type' => AdministrativeDivision::TYPE_COUNTRY,
+        ]);
+        $province = AdministrativeDivision::query()->create([
+            'parent_id' => $country->id,
+            'name' => 'Kigali City',
+            'type' => AdministrativeDivision::TYPE_PROVINCE,
+        ]);
+        $district = AdministrativeDivision::query()->create([
+            'parent_id' => $province->id,
+            'name' => 'Gasabo',
+            'type' => AdministrativeDivision::TYPE_DISTRICT,
+        ]);
+        $sector = AdministrativeDivision::query()->create([
+            'parent_id' => $district->id,
+            'name' => 'Kacyiru',
+            'type' => AdministrativeDivision::TYPE_SECTOR,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['active_processor_business_id' => $business->id])
+            ->post(route('sales-compliance.sites.store'), [
+                'site_type' => SalesComplianceCatalog::SITE_RESTAURANT,
+                'name' => 'Kacyiru Grill',
+                'country_id' => $country->id,
+                'province_id' => $province->id,
+                'district_id' => $district->id,
+                'sector_id' => $sector->id,
+                'contact_name' => 'Aline Uwase',
+                'is_active' => '1',
+            ])
+            ->assertRedirect();
+
+        $site = SalesComplianceSite::query()->where('business_id', $business->id)->first();
+        $this->assertNotNull($site);
+        $this->assertSame((int) $country->id, (int) $site->country_id);
+        $this->assertSame((int) $province->id, (int) $site->province_id);
+        $this->assertSame((int) $district->id, (int) $site->district_id);
+        $this->assertSame((int) $sector->id, (int) $site->sector_id);
+        $this->assertSame('Kigali City, Gasabo, Kacyiru', $site->locationDisplay());
     }
 }

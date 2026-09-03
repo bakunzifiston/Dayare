@@ -51,7 +51,7 @@
                                 <tr class="border-t border-slate-100 hover:bg-slate-50/70">
                                     <td class="px-4 py-2.5 font-medium text-slate-900">{{ $site->name }}</td>
                                     <td class="px-4 py-2.5 text-slate-700">{{ $site->siteTypeLabel() }}</td>
-                                    <td class="px-4 py-2.5 text-slate-700">{{ $site->location_address }}</td>
+                                    <td class="px-4 py-2.5 text-slate-700">{{ $site->locationDisplay() }}</td>
                                     <td class="px-4 py-2.5 text-slate-700">{{ $site->contact_name ?: '—' }}</td>
                                     <td class="px-4 py-2.5">
                                         <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $site->is_active ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600' }}">{{ $site->is_active ? __('Active') : __('Inactive') }}</span>

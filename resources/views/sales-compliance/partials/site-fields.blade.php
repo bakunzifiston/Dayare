@@ -1,6 +1,10 @@
 @php
     $site = $site ?? null;
     $type = old('site_type', $site?->site_type ?? \App\Support\SalesComplianceCatalog::SITE_RESTAURANT);
+    $locationCountryId = (string) old('country_id', $site?->country_id ?? '');
+    $locationProvinceId = (string) old('province_id', $site?->province_id ?? '');
+    $locationDistrictId = (string) old('district_id', $site?->district_id ?? '');
+    $locationSectorId = (string) old('sector_id', $site?->sector_id ?? '');
 @endphp
 <div class="grid gap-4 sm:grid-cols-2">
     <div>
@@ -17,21 +21,51 @@
         <x-text-input id="name" name="name" type="text" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('name', $site?->name)" required />
         <x-input-error class="mt-2" :messages="$errors->get('name')" />
     </div>
-    <div class="sm:col-span-2">
-        <x-input-label for="location_address" :value="__('Site location')" />
-        <x-text-input id="location_address" name="location_address" type="text" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('location_address', $site?->location_address)" required />
-        <p class="mt-1 text-xs text-slate-500">{{ __('Street address. Optional coordinates can be added below.') }}</p>
-        <x-input-error class="mt-2" :messages="$errors->get('location_address')" />
-    </div>
-    <div>
-        <x-input-label for="latitude" :value="__('Latitude')" />
-        <x-text-input id="latitude" name="latitude" type="number" step="0.0000001" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('latitude', $site?->latitude)" />
-        <x-input-error class="mt-2" :messages="$errors->get('latitude')" />
-    </div>
-    <div>
-        <x-input-label for="longitude" :value="__('Longitude')" />
-        <x-text-input id="longitude" name="longitude" type="number" step="0.0000001" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :value="old('longitude', $site?->longitude)" />
-        <x-input-error class="mt-2" :messages="$errors->get('longitude')" />
+    <div class="sm:col-span-2 grid gap-4 sm:grid-cols-2" x-data="salesComplianceLocationDropdowns()" x-init="loadCountries()">
+        <input type="hidden" name="country_id" :value="countryId || ''">
+        <input type="hidden" name="province_id" :value="provinceId || ''">
+        <input type="hidden" name="district_id" :value="districtId || ''">
+        <input type="hidden" name="sector_id" :value="sectorId || ''">
+        <div>
+            <x-input-label for="country_id" :value="__('Country')" />
+            <select id="country_id" x-model="countryId" @change="onCountryChange()" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm">
+                <option value="">{{ __('Select country') }}</option>
+                <template x-for="d in countries" :key="d.id">
+                    <option :value="String(d.id)" x-text="d.name"></option>
+                </template>
+            </select>
+            <x-input-error class="mt-2" :messages="$errors->get('country_id')" />
+        </div>
+        <div>
+            <x-input-label for="province_id" :value="__('Province')" />
+            <select id="province_id" x-model="provinceId" @change="onProvinceChange()" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :disabled="!countryId">
+                <option value="">{{ __('Select province') }}</option>
+                <template x-for="d in provinces" :key="d.id">
+                    <option :value="String(d.id)" x-text="d.name"></option>
+                </template>
+            </select>
+            <x-input-error class="mt-2" :messages="$errors->get('province_id')" />
+        </div>
+        <div>
+            <x-input-label for="district_id" :value="__('District')" />
+            <select id="district_id" x-model="districtId" @change="onDistrictChange()" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :disabled="!provinceId">
+                <option value="">{{ __('Select district') }}</option>
+                <template x-for="d in districts" :key="d.id">
+                    <option :value="String(d.id)" x-text="d.name"></option>
+                </template>
+            </select>
+            <x-input-error class="mt-2" :messages="$errors->get('district_id')" />
+        </div>
+        <div>
+            <x-input-label for="sector_id" :value="__('Sector')" />
+            <select id="sector_id" x-model="sectorId" class="mt-1 h-9 block w-full rounded-lg border-slate-200 text-sm" :disabled="!districtId">
+                <option value="">{{ __('Select sector') }}</option>
+                <template x-for="d in sectors" :key="d.id">
+                    <option :value="String(d.id)" x-text="d.name"></option>
+                </template>
+            </select>
+            <x-input-error class="mt-2" :messages="$errors->get('sector_id')" />
+        </div>
     </div>
 </div>
 
@@ -94,4 +128,74 @@
         type.addEventListener('change', sync);
         sync();
     })();
+
+    window.salesComplianceLocationDropdowns = function () {
+        const baseUrl = @json(route('divisions.index'));
+        return {
+            countries: [],
+            provinces: [],
+            districts: [],
+            sectors: [],
+            countryId: @json($locationCountryId),
+            provinceId: @json($locationProvinceId),
+            districtId: @json($locationDistrictId),
+            sectorId: @json($locationSectorId),
+            async fetchChildren(parentId) {
+                try {
+                    const url = parentId ? `${baseUrl}?parent_id=${parentId}` : baseUrl;
+                    const res = await fetch(url, {
+                        credentials: 'same-origin',
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    const data = await res.json();
+                    return Array.isArray(data) ? data : [];
+                } catch (e) {
+                    return [];
+                }
+            },
+            async loadCountries() {
+                this.countries = await this.fetchChildren(null);
+                if (! this.countryId) {
+                    const rwanda = this.countries.find((country) => String(country.name || '').toLowerCase() === 'rwanda');
+                    if (rwanda) {
+                        this.countryId = String(rwanda.id);
+                    }
+                }
+                await this.restoreCascade();
+            },
+            async restoreCascade() {
+                if (! this.countryId) {
+                    return;
+                }
+                this.provinces = await this.fetchChildren(this.countryId);
+                if (this.provinceId) {
+                    this.districts = await this.fetchChildren(this.provinceId);
+                    if (this.districtId) {
+                        this.sectors = await this.fetchChildren(this.districtId);
+                    }
+                }
+            },
+            async onCountryChange() {
+                this.provinceId = this.districtId = this.sectorId = '';
+                this.provinces = this.districts = this.sectors = [];
+                if (this.countryId) {
+                    this.provinces = await this.fetchChildren(this.countryId);
+                }
+            },
+            async onProvinceChange() {
+                this.districtId = this.sectorId = '';
+                this.districts = this.sectors = [];
+                if (this.provinceId) {
+                    this.districts = await this.fetchChildren(this.provinceId);
+                }
+            },
+            async onDistrictChange() {
+                this.sectorId = '';
+                this.sectors = [];
+                if (this.districtId) {
+                    this.sectors = await this.fetchChildren(this.districtId);
+                }
+            },
+        };
+    };
 </script>

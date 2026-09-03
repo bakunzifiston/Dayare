@@ -22,9 +22,10 @@ class StoreSalesComplianceSiteRequest extends FormRequest
         return [
             'site_type' => ['required', Rule::in(SalesComplianceCatalog::SITE_TYPES)],
             'name' => ['required', 'string', 'max:160'],
-            'location_address' => ['required', 'string', 'max:255'],
-            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'country_id' => ['required', 'integer', 'exists:administrative_divisions,id'],
+            'province_id' => ['required', 'integer', 'exists:administrative_divisions,id'],
+            'district_id' => ['required', 'integer', 'exists:administrative_divisions,id'],
+            'sector_id' => ['required', 'integer', 'exists:administrative_divisions,id'],
             'event_type' => ['nullable', 'string', 'max:80'],
             'event_name' => ['nullable', 'string', 'max:160'],
             'contact_name' => ['nullable', 'string', 'max:120'],
