@@ -611,7 +611,38 @@ class SlaughterExecutionTest extends TestCase
             ->assertSee('Select slaughter session', false)
             ->assertSee((string) $this->plan->id, false)
             ->assertSee($this->assignedItems->first()->ear_tag, false)
-            ->assertSee('Add slaughter now', false);
+            ->assertSee('Add slaughter now', false)
+            ->assertSee('slaughter-animal-checkbox', false)
+            ->assertSee('function escapeHtml', false);
+    }
+
+    public function test_create_form_auto_selects_single_remaining_animal(): void
+    {
+        $keep = $this->assignedItems->first();
+        AnteMortemInspectionItem::query()
+            ->where('ante_mortem_inspection_id', $this->amInspection->id)
+            ->where('animal_intake_item_id', '!=', $keep->id)
+            ->update(['outcome' => AnteMortemInspectionItem::OUTCOME_REJECTED]);
+        $this->amInspection->update([
+            'number_approved' => 1,
+            'number_rejected' => 4,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('slaughter-executions.create'));
+
+        $response->assertOk()
+            ->assertSee($keep->ear_tag, false)
+            ->assertSeeText('0 / 1')
+            ->assertSee(__('slaughtered on this session'), false)
+            ->assertSee(__('remaining to record'), false)
+            ->assertSee(__('Add slaughter now') . ' (1)', false)
+            ->assertDontSee($this->assignedItems->skip(1)->first()->ear_tag, false);
+
+        $this->assertMatchesRegularExpression(
+            '/data-animal-id="'.$keep->id.'"[\s\S]{0,1200}?\bchecked\b/',
+            $response->getContent(),
+        );
     }
 
     public function test_create_form_lists_partial_session_for_continue(): void
@@ -733,8 +764,8 @@ class SlaughterExecutionTest extends TestCase
             ->assertSee('2/5 slaughtered, 3 remaining', false)
             ->assertSee(__('Add slaughter now') . ' (3)', false)
             ->assertSee(__('Already slaughtered') . ' (2)', false)
-            ->assertSee('2</span> / 5', false)
-            ->assertSee('3</span>', false);
+            ->assertSeeText('2 / 5')
+            ->assertSeeText('3');
     }
 
     public function test_mobile_slaughter_execution_show_includes_post_mortem_inspectable_animals(): void

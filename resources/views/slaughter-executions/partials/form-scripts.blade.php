@@ -34,6 +34,14 @@
     var slaughterExecutionPlanData = @json($slaughterExecutionPlanData);
     var isCreateForm = document.querySelector('[data-form-mode="create"]') !== null;
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
     function planDataForId(planId) {
         if (!planId) {
             return {};
@@ -136,7 +144,16 @@
         });
 
         var recordedCount = document.querySelectorAll('.slaughter-recorded-row').length;
-        var totalCount = recordedCount + newCount;
+        var selectedPending = document.querySelectorAll('.slaughter-animal-checkbox:checked').length;
+        var totalCount = recordedCount + selectedPending;
+
+        var recordedEl = document.getElementById('slaughter-session-recorded-count');
+        var approvedEl = document.getElementById('slaughter-session-approved-count');
+        var pendingEl = document.getElementById('slaughter-session-pending-count');
+        var approvedCount = currentApprovedAnimals.length || (recordedCount + document.querySelectorAll('.slaughter-animal-card').length);
+        if (recordedEl) recordedEl.textContent = String(totalCount);
+        if (approvedEl) approvedEl.textContent = String(approvedCount);
+        if (pendingEl) pendingEl.textContent = String(Math.max(0, approvedCount - totalCount));
 
         var summary = document.getElementById('yield-summary');
         var totalEl = document.getElementById('yield-total');
@@ -150,10 +167,10 @@
 
         var statusSelect = document.getElementById('status');
         if (statusSelect && totalCount > 0) {
-            var approvedCount = currentApprovedAnimals.length;
-            if (approvedCount > 0 && totalCount < approvedCount) {
+            var approvedForStatus = currentApprovedAnimals.length;
+            if (approvedForStatus > 0 && totalCount < approvedForStatus) {
                 statusSelect.value = 'in_progress';
-            } else if (approvedCount > 0 && totalCount >= approvedCount) {
+            } else if (approvedForStatus > 0 && totalCount >= approvedForStatus) {
                 statusSelect.value = 'completed';
             } else if (isCreateForm) {
                 statusSelect.value = 'completed';
@@ -192,22 +209,54 @@
     }
 
     function bindAnimalCards() {
-        document.querySelectorAll('.slaughter-animal-card').forEach(function (card) {
-            var checkbox = card.querySelector('.slaughter-animal-checkbox');
-            if (!checkbox || checkbox.dataset.bound === '1') return;
-            checkbox.dataset.bound = '1';
+        var container = document.getElementById('per-animal-slaughter-container');
+        if (container && container.dataset.bound !== '1') {
+            container.dataset.bound = '1';
 
-            checkbox.addEventListener('change', function () {
-                toggleAnimalCard(card, checkbox.checked);
+            container.addEventListener('change', function (event) {
+                var target = event.target;
+                if (target.classList.contains('slaughter-animal-checkbox')) {
+                    var card = target.closest('.slaughter-animal-card');
+                    if (!card) return;
+                    toggleAnimalCard(card, target.checked);
+                    reindexSlaughterFields();
+                    updateYieldTotal();
+                    return;
+                }
+                if (target.classList.contains('slaughter-meat-qty')) {
+                    updateYieldTotal();
+                }
+            });
+
+            container.addEventListener('input', function (event) {
+                if (event.target.classList.contains('slaughter-meat-qty')) {
+                    updateYieldTotal();
+                }
+            });
+        }
+
+        reindexSlaughterFields();
+        updateYieldTotal();
+        autoSelectSinglePendingAnimal();
+    }
+
+    function autoSelectSinglePendingAnimal() {
+        var pendingCards = document.querySelectorAll('.slaughter-animal-card');
+        if (pendingCards.length !== 1) return;
+
+        var card = pendingCards[0];
+        var checkbox = card.querySelector('.slaughter-animal-checkbox');
+        if (!checkbox || checkbox.checked) {
+            if (checkbox && checkbox.checked) {
+                toggleAnimalCard(card, true);
                 reindexSlaughterFields();
                 updateYieldTotal();
-            });
+            }
+            return;
+        }
 
-            card.querySelectorAll('.slaughter-meat-qty').forEach(function (input) {
-                input.addEventListener('input', updateYieldTotal);
-            });
-        });
-
+        checkbox.checked = true;
+        toggleAnimalCard(card, true);
         reindexSlaughterFields();
         updateYieldTotal();
     }
@@ -310,10 +359,11 @@
         var pendingCount = pendingAnimals.length;
 
         var html = '<div class="mb-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">'
-            + '<span class="font-semibold">' + recordedCount + '</span> / ' + approvedCount + ' '
+            + '<span id="slaughter-session-recorded-count" class="font-semibold">' + recordedCount + '</span> / '
+            + '<span id="slaughter-session-approved-count">' + approvedCount + '</span> '
             + @json(__('slaughtered on this session'))
             + ' <span class="mx-1">·</span> '
-            + '<span class="font-semibold">' + pendingCount + '</span> '
+            + '<span id="slaughter-session-pending-count" class="font-semibold">' + pendingCount + '</span> '
             + @json(__('remaining to record'))
             + '</div>';
 
@@ -353,6 +403,7 @@
         }
 
         if (pendingCount > 0) {
+            var autoSelectSingle = pendingCount === 1;
             html += '<div><h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-600">'
                 + @json(__('Add slaughter now')) + ' (' + pendingCount + ')</h4>'
                 + '<div class="space-y-4">';
@@ -362,22 +413,26 @@
                 var liveWeight = animal.live_weight_kg
                     ? Number(animal.live_weight_kg).toFixed(2) + ' kg ' + @json(__('live'))
                     : '';
+                var checkedAttr = autoSelectSingle ? ' checked' : '';
+                var disabledAttr = autoSelectSingle ? '' : ' disabled';
+                var fieldsHidden = autoSelectSingle ? '' : ' hidden';
+                var qtyValue = autoSelectSingle ? meatQty : '';
 
                 html += '<div class="overflow-hidden rounded-lg border border-slate-200 slaughter-animal-card slaughter-animal-card--pending" data-animal-id="' + animal.id + '">'
-                    + '<div class="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">'
-                    + '<label class="inline-flex items-center gap-2">'
-                    + '<input type="checkbox" class="slaughter-animal-checkbox rounded border-gray-300 text-bucha-primary focus:ring-bucha-primary">'
-                    + '<span class="text-xs font-medium uppercase tracking-wide text-slate-500">' + @json(__('Slaughter now')) + '</span></label>'
+                    + '<label class="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 cursor-pointer">'
+                    + '<span class="inline-flex items-center gap-2 shrink-0">'
+                    + '<input type="checkbox" class="slaughter-animal-checkbox rounded border-gray-300 text-bucha-primary focus:ring-bucha-primary"' + checkedAttr + '>'
+                    + '<span class="text-xs font-medium uppercase tracking-wide text-slate-500">' + @json(__('Slaughter now')) + '</span></span>'
                     + '<div class="min-w-0 flex-1"><p class="font-mono text-sm font-medium text-slate-900">' + escapeHtml(animal.ear_tag) + '</p>'
                     + '<p class="mt-0.5 text-xs text-slate-500">' + escapeHtml(animal.species) + ' · ' + escapeHtml(animal.sex)
-                    + (liveWeight ? ' · ' + liveWeight : '') + '</p></div></div>'
-                    + '<div class="slaughter-animal-fields grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 hidden">'
-                    + '<input type="hidden" class="slaughter-animal-id" value="' + animal.id + '" disabled>'
+                    + (liveWeight ? ' · ' + liveWeight : '') + '</p></div></label>'
+                    + '<div class="slaughter-animal-fields grid grid-cols-1 gap-3 p-4 sm:grid-cols-2' + fieldsHidden + '">'
+                    + '<input type="hidden" class="slaughter-animal-id" value="' + animal.id + '"' + disabledAttr + '>'
                     + '<div><label class="block text-xs font-medium text-slate-600">' + @json(__('Meat quantity (kg)')) + '</label>'
                     + '<input type="number" class="slaughter-meat-qty mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"'
-                    + ' value="" min="0.1" max="9999" step="0.01" placeholder="kg" disabled></div>'
+                    + ' value="' + escapeHtml(qtyValue) + '" min="0.1" max="9999" step="0.01" placeholder="kg"' + disabledAttr + '></div>'
                     + '<div><label class="block text-xs font-medium text-slate-600">' + @json(__('Notes (optional)')) + '</label>'
-                    + '<input type="text" class="slaughter-notes mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary" value="" disabled></div>'
+                    + '<input type="text" class="slaughter-notes mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary" value=""' + disabledAttr + '></div>'
                     + '</div></div>';
             });
 
@@ -451,15 +506,22 @@
         var planSelect = document.querySelector('[name="slaughter_plan_id"]:not([type="hidden"])');
         var timeInput = document.getElementById('slaughter_time');
 
+        bindAnimalCards();
+
         if (planSelect) {
             planSelect.addEventListener('change', function () { updateFromPlan(this); });
             if (planSelect.value) {
                 updateFromPlan(planSelect);
-            } else {
-                bindAnimalCards();
             }
         } else {
-            bindAnimalCards();
+            var hiddenPlan = document.querySelector('input[name="slaughter_plan_id"][type="hidden"]');
+            if (hiddenPlan && hiddenPlan.value) {
+                var planData = planDataForId(hiddenPlan.value);
+                currentApprovedAnimals = asAnimalList(planData.approved_items || []);
+                currentSlaughteredIds = asAnimalList(planData.slaughtered_ids || []).map(function (id) {
+                    return Number(id);
+                });
+            }
         }
 
         if (timeInput) {
