@@ -130,7 +130,7 @@ class User extends Authenticatable
             self::SUPER_ADMIN_MODULE_VIBE_PROGRAMME => 'super-admin.vibe-programme.index',
             self::SUPER_ADMIN_MODULE_CONFIGURATION => 'super-admin.configurations.index',
             self::SUPER_ADMIN_MODULE_USER_MANAGEMENT => 'super-admin.users.index',
-            self::SUPER_ADMIN_MODULE_USERS => 'super-admin.tenants.index',
+            self::SUPER_ADMIN_MODULE_USERS => 'super-admin.tenants.overview',
             self::SUPER_ADMIN_MODULE_SYSTEM_SETTINGS => 'settings.edit',
             self::SUPER_ADMIN_MODULE_RICA => 'rica.dashboard',
         ];

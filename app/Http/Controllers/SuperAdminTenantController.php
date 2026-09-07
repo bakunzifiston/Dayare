@@ -5,12 +5,34 @@ namespace App\Http\Controllers;
 use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\User;
+use App\Services\SuperAdmin\SuperAdminUserOverviewService;
 use App\Support\TenantEnvironmentScope;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class SuperAdminTenantController extends Controller
 {
+    public function __construct(
+        private readonly SuperAdminUserOverviewService $userOverview,
+    ) {}
+
+    public function overview(Request $request): View
+    {
+        $tenantEnvironmentFilter = TenantEnvironmentScope::resolveFromRequest($request);
+        TenantEnvironmentScope::setFilter($tenantEnvironmentFilter);
+        $workspaceType = SuperAdminUserOverviewService::resolveWorkspaceType(
+            $request->query(SuperAdminUserOverviewService::WORKSPACE_QUERY)
+        );
+
+        return view('super-admin.tenants.overview', array_merge(
+            $this->userOverview->build($workspaceType),
+            [
+                'tenantEnvironmentFilter' => $tenantEnvironmentFilter,
+                'workspaceType' => $workspaceType,
+            ],
+        ));
+    }
+
     public function index(Request $request): View
     {
         $tenantEnvironmentFilter = TenantEnvironmentScope::resolveFromRequest($request);

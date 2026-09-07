@@ -754,6 +754,9 @@ Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->nam
     Route::get('compliance', [SuperAdminComplianceController::class, 'index'])
         ->middleware('super_admin.module:dashboard')
         ->name('compliance.index');
+    Route::get('tenants/overview', [SuperAdminTenantController::class, 'overview'])
+        ->middleware('super_admin.module:users')
+        ->name('tenants.overview');
     Route::get('tenants', [SuperAdminTenantController::class, 'index'])
         ->middleware('super_admin.module:users')
         ->name('tenants.index');

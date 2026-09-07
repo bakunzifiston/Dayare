@@ -10,186 +10,178 @@
 
     <div class="py-6">
         <div class="max-w-7xl mx-auto space-y-6">
+            @include('super-admin.tenants.partials.users-tabs', ['tenantEnvironmentFilter' => $tenantEnvironmentFilter])
+
             <x-super-admin.tenant-environment-filter
                 :action="route('super-admin.tenants.index')"
                 :current="$tenantEnvironmentFilter"
             />
 
-            <section class="space-y-6">
-                <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Tenants table') }}</h2>
-
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
-                    <div class="px-6 py-4 border-b border-slate-100">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <h3 class="text-sm font-semibold text-slate-700">{{ __('Tenants') }}</h3>
-                                <p class="text-xs text-slate-500 mt-0.5">{{ __('Tenant name with number of registered businesses and users.') }}</p>
-                            </div>
-                            @if (auth()->user()?->hasSuperAdminModuleAccess(\App\Models\User::SUPER_ADMIN_MODULE_USERS))
-                                <button
-                                    type="button"
-                                    id="tenant-bulk-delete-trigger"
-                                    class="inline-flex items-center px-3 py-2 rounded-md text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    disabled
-                                >
-                                    {{ __('Delete selected') }}
-                                </button>
+            <section class="profile-list-shell">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Tenants') }}</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">{{ __('Tenant name with number of registered businesses and users.') }}</p>
+                    </div>
+                    @if (auth()->user()?->hasSuperAdminModuleAccess(\App\Models\User::SUPER_ADMIN_MODULE_USERS))
+                        <div class="flex flex-wrap items-center gap-3">
+                            @if ($tenantRows->isNotEmpty())
+                                <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                                    <input id="tenant-select-all" type="checkbox" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                                    {{ __('Select all') }}
+                                </label>
                             @endif
+                            <button
+                                type="button"
+                                id="tenant-bulk-delete-trigger"
+                                class="inline-flex items-center px-3 py-2 rounded-md text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                disabled
+                            >
+                                {{ __('Delete selected') }}
+                            </button>
                         </div>
-                    </div>
-                    <div class="overflow-x-auto max-h-[560px]">
-                        @if ($tenantRows->isEmpty())
-                            <div class="p-6 text-sm text-slate-500">{{ __('No tenants yet.') }}</div>
-                        @else
-                            <table class="min-w-full text-sm">
-                                <thead class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur border-b border-slate-200">
-                                    <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                        <th class="px-4 py-3">
-                                            <input id="tenant-select-all" type="checkbox" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
-                                        </th>
-                                        <th class="px-4 py-3">{{ __('Tenant name') }}</th>
-                                        <th class="px-4 py-3">{{ __('Login email') }}</th>
-                                        <th class="px-4 py-3">{{ __('Registered businesses') }}</th>
-                                        <th class="px-4 py-3">{{ __('Business type') }}</th>
-                                        <th class="px-4 py-3">{{ __('Number of businesses') }}</th>
-                                        <th class="px-4 py-3">{{ __('Number of users') }}</th>
-                                        <th class="px-4 py-3">{{ __('Environment') }}</th>
-                                        <th class="px-4 py-3 text-right">{{ __('Actions') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100">
-                                    @foreach ($tenantRows as $tenant)
-                                        <tr class="hover:bg-slate-50/70 transition-colors align-top">
-                                            <td class="px-4 py-3.5">
-                                                @if ((int) ($tenant['id'] ?? 0) !== (int) Auth::id() && auth()->user()?->hasSuperAdminModuleAccess(\App\Models\User::SUPER_ADMIN_MODULE_USERS))
-                                                    <input
-                                                        type="checkbox"
-                                                        class="tenant-select-checkbox rounded border-slate-300 text-rose-600 focus:ring-rose-500"
-                                                        value="{{ $tenant['id'] }}"
-                                                    />
-                                                @else
-                                                    <span class="text-slate-300">—</span>
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-3.5">
-                                                <p class="font-medium text-slate-900">{{ $tenant['tenant_name'] }}</p>
-                                            </td>
-                                            <td class="px-4 py-3.5 text-slate-700">
-                                                <span class="text-xs sm:text-sm">{{ $tenant['tenant_email'] ?? '—' }}</span>
-                                            </td>
-                                            <td class="px-4 py-3.5 text-slate-700">
-                                                @if (!empty($tenant['business_names']))
-                                                    <div class="flex flex-wrap gap-1.5 max-w-xl">
-                                                        @foreach ($tenant['business_names'] as $businessName)
-                                                            <span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                                                                {{ $businessName }}
-                                                            </span>
-                                                        @endforeach
-                                                    </div>
-                                                @else
-                                                    <span class="text-slate-400">—</span>
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-3.5 text-slate-700">
-                                                @if (!empty($tenant['business_types']))
-                                                    <div class="flex flex-wrap gap-1.5">
-                                                        @foreach ($tenant['business_types'] as $businessType)
-                                                            <span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                                                                {{ $businessType }}
-                                                            </span>
-                                                        @endforeach
-                                                    </div>
-                                                @else
-                                                    <span class="text-slate-400">—</span>
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-3.5">
-                                                <span class="inline-flex min-w-8 justify-center rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-700">{{ $tenant['businesses_count'] }}</span>
-                                            </td>
-                                            <td class="px-4 py-3.5">
-                                                <span class="inline-flex min-w-8 justify-center rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-700">{{ $tenant['users_count'] }}</span>
-                                            </td>
-                                            <td class="px-4 py-3.5">
-                                                @if (auth()->user()?->hasSuperAdminModuleAccess(\App\Models\User::SUPER_ADMIN_MODULE_USERS) && (int) ($tenant['id'] ?? 0) !== (int) Auth::id())
-                                                    <form method="POST" action="{{ route('super-admin.tenants.environment', ['tenant' => $tenant['id']]) }}" class="inline-flex items-center gap-2">
-                                                        @csrf
-                                                        @method('PATCH')
-                                                        <select
-                                                            name="tenant_environment"
-                                                            onchange="this.form.submit()"
-                                                            class="text-xs rounded-md border-slate-300 py-1 pl-2 pr-7 focus:border-bucha-primary focus:ring-bucha-primary {{ ($tenant['tenant_environment'] ?? 'live') === 'test' ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-emerald-50 text-emerald-900 border-emerald-200' }}"
-                                                            aria-label="{{ __('Tenant environment for :name', ['name' => $tenant['tenant_name']]) }}"
-                                                        >
-                                                            <option value="live" @selected(($tenant['tenant_environment'] ?? 'live') === 'live')>{{ __('Live') }}</option>
-                                                            <option value="test" @selected(($tenant['tenant_environment'] ?? 'live') === 'test')>{{ __('Test') }}</option>
-                                                        </select>
-                                                    </form>
-                                                @else
-                                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold {{ ($tenant['tenant_environment'] ?? 'live') === 'test' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800' }}">
-                                                        {{ ($tenant['tenant_environment'] ?? 'live') === 'test' ? __('Test') : __('Live') }}
-                                                    </span>
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-3.5 text-right">
-                                                @if ((int) ($tenant['id'] ?? 0) !== (int) Auth::id() && auth()->user()?->hasSuperAdminModuleAccess(\App\Models\User::SUPER_ADMIN_MODULE_USERS))
-                                                    <button
-                                                        type="button"
-                                                        class="tenant-delete-trigger text-rose-600 hover:text-rose-800 text-xs font-semibold"
-                                                        data-delete-url="{{ route('super-admin.tenants.destroy', ['tenant' => $tenant['id']]) }}"
-                                                        data-tenant-name="{{ $tenant['tenant_name'] }}"
-                                                        data-businesses-count="{{ $tenant['businesses_count'] }}"
-                                                        data-staff-count="{{ $tenant['staff_count'] }}"
-                                                    >
-                                                        {{ __('Delete') }}
-                                                    </button>
-                                                @else
-                                                    <span class="text-slate-400 text-xs">—</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        @endif
-                    </div>
+                    @endif
                 </div>
 
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-slate-200/60">
-                    <div class="px-6 py-4 border-b border-slate-100">
-                        <h3 class="text-sm font-semibold text-slate-700">{{ __('Users') }}</h3>
+                @if ($tenantRows->isEmpty())
+                    <div class="profile-empty">{{ __('No tenants yet.') }}</div>
+                @else
+                    <div class="profile-cards-grid">
+                        @foreach ($tenantRows as $tenant)
+                            @php
+                                $canManageTenant = (int) ($tenant['id'] ?? 0) !== (int) Auth::id()
+                                    && auth()->user()?->hasSuperAdminModuleAccess(\App\Models\User::SUPER_ADMIN_MODULE_USERS);
+                                $isTest = ($tenant['tenant_environment'] ?? 'live') === 'test';
+                                $initial = strtoupper(substr((string) ($tenant['tenant_name'] ?: '?'), 0, 1));
+                            @endphp
+                            <x-entity.profile-card>
+                                <x-slot:avatar>{{ $initial }}</x-slot:avatar>
+                                <x-slot:title>
+                                    <span class="inline-flex items-center gap-2 min-w-0">
+                                        @if ($canManageTenant)
+                                            <input
+                                                type="checkbox"
+                                                class="tenant-select-checkbox rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                                value="{{ $tenant['id'] }}"
+                                                aria-label="{{ __('Select :name', ['name' => $tenant['tenant_name']]) }}"
+                                            />
+                                        @endif
+                                        <span class="truncate">{{ $tenant['tenant_name'] }}</span>
+                                    </span>
+                                </x-slot:title>
+                                <x-slot:subtitle>{{ $tenant['tenant_email'] ?? '—' }}</x-slot:subtitle>
+                                <x-slot:badge>
+                                    <x-entity.status-pill
+                                        :tone="$isTest ? 'warning' : 'active'"
+                                        :label="$isTest ? __('Test') : __('Live')"
+                                    />
+                                </x-slot:badge>
+
+                                <div class="profile-card__row">
+                                    <span class="profile-card__row-label">{{ __('Registered businesses') }}</span>
+                                    <span class="profile-card__row-value">
+                                        @if (!empty($tenant['business_names']))
+                                            <span class="inline-flex flex-wrap justify-end gap-1.5">
+                                                @foreach ($tenant['business_names'] as $businessName)
+                                                    <span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                                                        {{ $businessName }}
+                                                    </span>
+                                                @endforeach
+                                            </span>
+                                        @else
+                                            —
+                                        @endif
+                                    </span>
+                                </div>
+                                <div class="profile-card__row">
+                                    <span class="profile-card__row-label">{{ __('Business type') }}</span>
+                                    <span class="profile-card__row-value">
+                                        @if (!empty($tenant['business_types']))
+                                            <span class="inline-flex flex-wrap justify-end gap-1.5">
+                                                @foreach ($tenant['business_types'] as $businessType)
+                                                    <span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                                                        {{ $businessType }}
+                                                    </span>
+                                                @endforeach
+                                            </span>
+                                        @else
+                                            —
+                                        @endif
+                                    </span>
+                                </div>
+                                @if ($canManageTenant)
+                                    <div class="profile-card__row">
+                                        <span class="profile-card__row-label">{{ __('Environment') }}</span>
+                                        <span class="profile-card__row-value">
+                                            <form method="POST" action="{{ route('super-admin.tenants.environment', ['tenant' => $tenant['id']]) }}" class="inline-flex items-center">
+                                                @csrf
+                                                @method('PATCH')
+                                                <select
+                                                    name="tenant_environment"
+                                                    onchange="this.form.submit()"
+                                                    class="text-xs rounded-md border-slate-300 py-1 pl-2 pr-7 focus:border-bucha-primary focus:ring-bucha-primary {{ $isTest ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-emerald-50 text-emerald-900 border-emerald-200' }}"
+                                                    aria-label="{{ __('Tenant environment for :name', ['name' => $tenant['tenant_name']]) }}"
+                                                >
+                                                    <option value="live" @selected(! $isTest)>{{ __('Live') }}</option>
+                                                    <option value="test" @selected($isTest)>{{ __('Test') }}</option>
+                                                </select>
+                                            </form>
+                                        </span>
+                                    </div>
+                                @endif
+
+                                <x-slot:highlights>
+                                    <x-entity.profile-highlight :value="number_format($tenant['businesses_count'])" :label="__('Businesses')" />
+                                    <x-entity.profile-highlight :value="number_format($tenant['users_count'])" :label="__('Users')" />
+                                </x-slot:highlights>
+
+                                @if ($canManageTenant)
+                                    <x-slot:actions>
+                                        <x-entity.text-action
+                                            variant="danger"
+                                            class="tenant-delete-trigger"
+                                            data-delete-url="{{ route('super-admin.tenants.destroy', ['tenant' => $tenant['id']]) }}"
+                                            data-tenant-name="{{ $tenant['tenant_name'] }}"
+                                            data-businesses-count="{{ $tenant['businesses_count'] }}"
+                                            data-staff-count="{{ $tenant['staff_count'] }}"
+                                        >{{ __('Delete') }}</x-entity.text-action>
+                                    </x-slot:actions>
+                                @endif
+                            </x-entity.profile-card>
+                        @endforeach
+                    </div>
+                @endif
+
+                <div class="flex flex-wrap items-start justify-between gap-3 pt-2">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wider">{{ __('Users') }}</h2>
                         <p class="text-xs text-slate-500 mt-0.5">{{ __('Registered users with role and tenant assignment.') }}</p>
                     </div>
-                    <div class="overflow-x-auto max-h-[440px]">
-                        @if ($tenantUserRows->isEmpty())
-                            <div class="p-6 text-sm text-slate-500">{{ __('No users yet.') }}</div>
-                        @else
-                            <table class="min-w-full text-sm">
-                                <thead class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur border-b border-slate-200">
-                                    <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                        <th class="px-4 py-3">{{ __('Name') }}</th>
-                                        <th class="px-4 py-3">{{ __('Email') }}</th>
-                                        <th class="px-4 py-3">{{ __('Role') }}</th>
-                                        <th class="px-4 py-3">{{ __('Tenant') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100">
-                                    @foreach ($tenantUserRows as $row)
-                                        <tr class="hover:bg-slate-50/70 transition-colors">
-                                            <td class="px-4 py-3.5 font-medium text-slate-900">{{ $row['name'] ?? '—' }}</td>
-                                            <td class="px-4 py-3.5 text-slate-600">{{ $row['email'] ?? '—' }}</td>
-                                            <td class="px-4 py-3.5 text-slate-600">
-                                                <span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                                                    {{ str_replace('_', ' ', ucfirst((string) ($row['role'] ?? 'User'))) }}
-                                                </span>
-                                            </td>
-                                            <td class="px-4 py-3.5 text-slate-600">{{ $row['tenant'] ?? '—' }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        @endif
-                    </div>
                 </div>
+
+                @if ($tenantUserRows->isEmpty())
+                    <div class="profile-empty">{{ __('No users yet.') }}</div>
+                @else
+                    <div class="profile-cards-grid">
+                        @foreach ($tenantUserRows as $row)
+                            @php
+                                $userName = (string) ($row['name'] ?? '—');
+                                $userInitial = strtoupper(substr($userName !== '' ? $userName : '?', 0, 1));
+                                $roleLabel = str_replace('_', ' ', ucfirst((string) ($row['role'] ?? 'User')));
+                            @endphp
+                            <x-entity.profile-card>
+                                <x-slot:avatar>{{ $userInitial }}</x-slot:avatar>
+                                <x-slot:title>{{ $userName }}</x-slot:title>
+                                <x-slot:subtitle>{{ $row['email'] ?? '—' }}</x-slot:subtitle>
+                                <x-slot:badge>
+                                    <x-entity.status-pill tone="muted" :label="$roleLabel" />
+                                </x-slot:badge>
+
+                                <x-entity.profile-row :label="__('Tenant')">{{ $row['tenant'] ?? '—' }}</x-entity.profile-row>
+                            </x-entity.profile-card>
+                        @endforeach
+                    </div>
+                @endif
             </section>
         </div>
     </div>
