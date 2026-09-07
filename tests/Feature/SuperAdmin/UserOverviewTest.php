@@ -230,7 +230,7 @@ class UserOverviewTest extends TestCase
         $this->assertSame('super-admin.tenants.overview', $admin->defaultSuperAdminHomeRouteName());
     }
 
-    public function test_directory_renders_tenants_and_users_as_cards(): void
+    public function test_directory_lists_tenants_and_users_in_tables(): void
     {
         $admin = User::factory()->create([
             'is_super_admin' => true,
@@ -258,13 +258,127 @@ class UserOverviewTest extends TestCase
         $this->actingAs($admin)
             ->get(route('super-admin.tenants.index'))
             ->assertOk()
-            ->assertSee('profile-card', false)
+            ->assertSee('<table', false)
+            ->assertSeeText('Tenant name')
             ->assertSeeText('Card Tenant Owner')
             ->assertSeeText('card-tenant@example.com')
             ->assertSeeText('Card Meats Ltd')
             ->assertSeeText('Card Staff User')
-            ->assertDontSeeText('Tenants table')
-            ->assertDontSee('<table', false);
+            ->assertSeeText('Profile')
+            ->assertSee(route('super-admin.tenants.show', $owner).'#users', false)
+            ->assertDontSee('profile-card', false);
+    }
+
+    public function test_directory_filters_tenants_and_users_by_workspace_type(): void
+    {
+        $admin = User::factory()->create([
+            'is_super_admin' => true,
+            'super_admin_permissions' => [User::SUPER_ADMIN_MODULE_USERS],
+        ]);
+
+        $processorOwner = User::factory()->create([
+            'name' => 'Directory Processor Owner',
+            'email' => 'directory-processor@example.com',
+            'tenant_environment' => User::TENANT_ENVIRONMENT_LIVE,
+        ]);
+        $processorBusiness = Business::factory()->for($processorOwner, 'user')->create([
+            'type' => Business::TYPE_PROCESSOR,
+            'business_name' => 'Directory Processor Ltd',
+        ]);
+        $processorStaff = User::factory()->create([
+            'name' => 'Directory Processor Staff',
+            'email' => 'directory-processor-staff@example.com',
+        ]);
+        BusinessUser::query()->create([
+            'business_id' => $processorBusiness->id,
+            'user_id' => $processorStaff->id,
+            'role' => BusinessUser::ROLE_INSPECTOR,
+        ]);
+
+        $butcherOwner = User::factory()->create([
+            'name' => 'Directory Butcher Owner',
+            'email' => 'directory-butcher@example.com',
+            'tenant_environment' => User::TENANT_ENVIRONMENT_LIVE,
+        ]);
+        Business::factory()->for($butcherOwner, 'user')->butcher()->create([
+            'business_name' => 'Directory Butcher Shop',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('super-admin.tenants.index', ['workspace' => Business::TYPE_PROCESSOR]))
+            ->assertOk()
+            ->assertSeeText('Processor')
+            ->assertSeeText('Directory Processor Owner')
+            ->assertSeeText('Directory Processor Staff')
+            ->assertSeeText('Directory Processor Ltd')
+            ->assertDontSee('directory-butcher@example.com')
+            ->assertDontSee('Directory Butcher Shop')
+            ->assertViewHas('workspaceType', Business::TYPE_PROCESSOR);
+
+        $this->actingAs($admin)
+            ->get(route('super-admin.tenants.index'))
+            ->assertOk()
+            ->assertSeeText('Directory Processor Owner')
+            ->assertSeeText('Directory Butcher Owner')
+            ->assertViewHas('workspaceType', null);
+    }
+
+    public function test_super_admin_can_open_tenant_profile(): void
+    {
+        $admin = User::factory()->create([
+            'is_super_admin' => true,
+            'super_admin_permissions' => [User::SUPER_ADMIN_MODULE_USERS],
+        ]);
+
+        $owner = User::factory()->create([
+            'name' => 'Profile Tenant Owner',
+            'email' => 'profile-tenant@example.com',
+            'tenant_environment' => User::TENANT_ENVIRONMENT_LIVE,
+        ]);
+        $business = Business::factory()->for($owner, 'user')->create([
+            'business_name' => 'Profile Meats Ltd',
+        ]);
+        $staff = User::factory()->unverified()->create([
+            'name' => 'Profile Staff User',
+            'email' => 'profile-staff@example.com',
+        ]);
+        BusinessUser::query()->create([
+            'business_id' => $business->id,
+            'user_id' => $staff->id,
+            'role' => BusinessUser::ROLE_INSPECTOR,
+        ]);
+        $signedInAt = now()->subHours(3);
+        $this->recordSession($owner->id, $signedInAt->timestamp);
+
+        $expectedSignIn = $signedInAt
+            ->timezone((string) config('app.display_timezone', config('app.timezone')))
+            ->format('d M Y H:i');
+
+        $this->actingAs($admin)
+            ->get(route('super-admin.tenants.show', $owner))
+            ->assertOk()
+            ->assertSeeText('Account')
+            ->assertSeeText('Profile Tenant Owner')
+            ->assertSeeText('profile-tenant@example.com')
+            ->assertSeeText('Profile Meats Ltd')
+            ->assertSeeText('Profile Staff User')
+            ->assertSeeText('Last sign in')
+            ->assertSeeText($expectedSignIn)
+            ->assertSeeText('Never')
+            ->assertDontSee('profile-card', false)
+            ->assertDontSee('Tenant profile');
+    }
+
+    public function test_super_admin_profile_is_not_a_tenant_profile(): void
+    {
+        $admin = User::factory()->create([
+            'is_super_admin' => true,
+            'super_admin_permissions' => [User::SUPER_ADMIN_MODULE_USERS],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('super-admin.tenants.show', $admin))
+            ->assertNotFound();
     }
 
     private function recordSession(int $userId, int $lastActivity): void

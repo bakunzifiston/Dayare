@@ -1,14 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="text-xl font-semibold leading-tight text-slate-800">
-                    {{ __('Individual access') }}
-                </h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    {{ __('Customize access for :name without changing other users in the same role.', ['name' => $member->name]) }}
-                </p>
-            </div>
+            <h2 class="text-xl font-semibold leading-tight text-slate-800">
+                {{ $member->name }}
+            </h2>
             <a href="{{ route('tenant-users.index') }}" class="inline-flex items-center rounded-bucha border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 {{ __('Back to users') }}
             </a>

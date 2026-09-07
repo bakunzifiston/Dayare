@@ -760,6 +760,9 @@ Route::middleware(['auth', 'tenant', 'super_admin'])->prefix('super-admin')->nam
     Route::get('tenants', [SuperAdminTenantController::class, 'index'])
         ->middleware('super_admin.module:users')
         ->name('tenants.index');
+    Route::get('tenants/{tenant}', [SuperAdminTenantController::class, 'show'])
+        ->middleware('super_admin.module:users')
+        ->name('tenants.show');
     Route::get('configuration', [SuperAdminConfigurationController::class, 'index'])
         ->middleware('super_admin.module:configuration')
         ->name('configurations.index');
