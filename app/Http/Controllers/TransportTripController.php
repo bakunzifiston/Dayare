@@ -438,6 +438,7 @@ class TransportTripController extends Controller
         return [
             'certificates' => $this->transportableCertificateOptions($certificateIds),
             'facilities' => $this->facilityOptions($request),
+            'destinationCountries' => config('processor.destination_countries', []),
             'selectedCertificateId' => null,
         ];
     }

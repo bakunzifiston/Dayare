@@ -21,6 +21,7 @@ trait PreparesDeliveryConfirmationFromTransport
 
         $service = app(DeliveryTransportAlignmentService::class);
         $defaults = $service->receiverDefaultsFromTrip($trip);
+        $locked = $service->lockedReceiverFields($trip);
 
         $merge = [];
 
@@ -29,15 +30,18 @@ trait PreparesDeliveryConfirmationFromTransport
             'receiver_country',
             'receiver_address',
         ] as $field) {
-            if (! $this->filled($field) && $defaults[$field] !== null) {
+            if (array_key_exists($field, $locked)) {
+                // Locked destination fields always come from the transport trip.
+                $merge[$field] = $locked[$field];
+            } elseif (! $this->filled($field) && $defaults[$field] !== null) {
                 $merge[$field] = $defaults[$field];
             }
         }
 
-        foreach ($service->lockedReceiverFields($trip) as $field => $value) {
-            if (! $this->filled($field)) {
-                $merge[$field] = $value;
-            }
+        if (isset($merge['receiver_country']) && filled($merge['receiver_country'])) {
+            $merge['receiver_country'] = strtoupper((string) $merge['receiver_country']);
+        } elseif ($this->filled('receiver_country')) {
+            $merge['receiver_country'] = strtoupper((string) $this->input('receiver_country'));
         }
 
         $this->merge($merge);

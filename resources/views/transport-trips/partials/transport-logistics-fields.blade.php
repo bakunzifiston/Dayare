@@ -11,46 +11,37 @@
     $phone = old('driver_phone', $trip?->driver_phone ?? ($transportDefaults['driver_phone'] ?? ''));
 @endphp
 
-<div class="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-4">
-    <div>
-        <p class="text-sm font-medium text-slate-800">{{ __('Vehicle and driver') }}</p>
-        <p class="mt-1 text-xs text-slate-600">{{ __('Filled from the certificate when available. Locked fields must match the certificate transporter section.') }}</p>
-    </div>
+<x-wizard-section :title="__('Vehicle and driver')">
+    <x-certificate-sourced-field
+        name="vehicle_plate_number"
+        :label="__('Vehicle plate number')"
+        :value="$vehicle"
+        :locked="$locked->contains('vehicle_plate_number')"
+        required
+        mono
+    />
+    <x-input-error class="mt-2" :messages="$errors->get('vehicle_plate_number')" />
 
-    <div>
-        <x-input-label for="vehicle_plate_number" :value="__('Vehicle plate number')" />
-        @if ($locked->contains('vehicle_plate_number'))
-            <p class="mt-1 text-sm text-gray-900 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 font-mono">{{ $vehicle }}</p>
-            <input type="hidden" name="vehicle_plate_number" value="{{ $vehicle }}">
-            <p class="mt-1 text-xs text-emerald-700">{{ __('From certificate — edit on the certificate if this must change.') }}</p>
-        @else
-            <x-text-input id="vehicle_plate_number" name="vehicle_plate_number" type="text" class="mt-1 block w-full" :value="$vehicle" required />
-        @endif
-        <x-input-error class="mt-2" :messages="$errors->get('vehicle_plate_number')" />
-    </div>
-
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="bucha-wizard-grid">
         <div>
-            <x-input-label for="driver_name" :value="__('Driver name')" />
-            @if ($locked->contains('driver_name'))
-                <p class="mt-1 text-sm text-gray-900 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">{{ $driver }}</p>
-                <input type="hidden" name="driver_name" value="{{ $driver }}">
-                <p class="mt-1 text-xs text-emerald-700">{{ __('From certificate') }}</p>
-            @else
-                <x-text-input id="driver_name" name="driver_name" type="text" class="mt-1 block w-full" :value="$driver" required />
-            @endif
+            <x-certificate-sourced-field
+                name="driver_name"
+                :label="__('Driver name')"
+                :value="$driver"
+                :locked="$locked->contains('driver_name')"
+                required
+            />
             <x-input-error class="mt-2" :messages="$errors->get('driver_name')" />
         </div>
         <div>
-            <x-input-label for="driver_phone" :value="__('Driver phone')" />
-            @if ($locked->contains('driver_phone'))
-                <p class="mt-1 text-sm text-gray-900 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">{{ $phone ?: '—' }}</p>
-                <input type="hidden" name="driver_phone" value="{{ $phone }}">
-                <p class="mt-1 text-xs text-emerald-700">{{ __('From certificate') }}</p>
-            @else
-                <x-text-input id="driver_phone" name="driver_phone" type="text" class="mt-1 block w-full" :value="$phone" />
-            @endif
+            <x-certificate-sourced-field
+                name="driver_phone"
+                :label="__('Driver phone')"
+                :value="$phone"
+                :locked="$locked->contains('driver_phone')"
+                type="tel"
+            />
             <x-input-error class="mt-2" :messages="$errors->get('driver_phone')" />
         </div>
     </div>
-</div>
+</x-wizard-section>

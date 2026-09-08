@@ -591,6 +591,7 @@ class DeliveryConfirmationController extends Controller
                 ]),
             'receivedUnits' => ReceivedUnit::cases(),
             'contractsUrl' => route('delivery-confirmations.contracts'),
+            'destinationCountries' => config('processor.destination_countries', []),
         ];
     }
 }

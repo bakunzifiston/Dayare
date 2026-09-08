@@ -34,7 +34,7 @@ class DeliveryConfirmationTransportAlignmentTest extends TestCase
         ]);
     }
 
-    public function test_store_rejects_receiver_name_that_does_not_match_trip(): void
+    public function test_store_uses_trip_destination_when_receiver_name_differs(): void
     {
         $fixture = $this->createProcessorTransportFixture(BusinessUser::ROLE_TRANSPORT_MANAGER);
 
@@ -47,7 +47,12 @@ class DeliveryConfirmationTransportAlignmentTest extends TestCase
                 'receiver_name' => 'Wrong Receiver',
                 'confirmation_status' => DeliveryConfirmation::STATUS_CONFIRMED,
             ])
-            ->assertSessionHasErrors('receiver_name');
+            ->assertRedirect(route('delivery-confirmations.hub'));
+
+        $this->assertDatabaseHas('delivery_confirmations', [
+            'transport_trip_id' => $fixture['trip']->id,
+            'receiver_name' => $fixture['destination']->facility_name,
+        ]);
     }
 
     public function test_store_rejects_receiving_facility_id(): void

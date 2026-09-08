@@ -107,6 +107,9 @@ class TransportTrip extends Model
             $attributes['destination_address'] = null;
         } else {
             $attributes['destination_facility_id'] = null;
+            if (array_key_exists('destination_country', $attributes) && filled($attributes['destination_country'])) {
+                $attributes['destination_country'] = strtoupper((string) $attributes['destination_country']);
+            }
         }
 
         return $attributes;

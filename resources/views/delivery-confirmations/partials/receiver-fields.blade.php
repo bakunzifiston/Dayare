@@ -1,54 +1,64 @@
-@props([
-    'receiverName' => '',
-    'receiverCountry' => '',
-    'receiverAddress' => '',
-    'lockedReceiverFields' => collect(),
-])
-
 @php
-    $locked = collect($lockedReceiverFields);
+    $receiverName = $receiverName ?? '';
+    $receiverCountry = strtoupper((string) ($receiverCountry ?? ''));
+    $receiverAddress = $receiverAddress ?? '';
+    $locked = collect($lockedReceiverFields ?? []);
+    $countries = collect($destinationCountries ?? config('processor.destination_countries', []))
+        ->mapWithKeys(fn ($label, $code) => [strtoupper((string) $code) => $label])
+        ->all();
+
+    if ($receiverCountry !== '' && ! array_key_exists($receiverCountry, $countries)) {
+        $countries[$receiverCountry] = $receiverCountry;
+    }
+
+    $countryLabel = $countries[$receiverCountry] ?? $receiverCountry;
 @endphp
 
-<div class="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-4">
+<x-wizard-section :title="__('Receiver')">
     <div>
-        <p class="text-sm font-medium text-slate-800">{{ __('Receiver (from transport destination)') }}</p>
-        <p class="mt-1 text-xs text-slate-600">{{ __('Must match the destination recorded on the selected transport trip.') }}</p>
-    </div>
-
-    <div id="receiver_name_field">
-        <x-input-label for="receiver_name" :value="__('Receiver name')" />
-        @if ($locked->contains('receiver_name'))
-            <p class="mt-1 text-sm text-gray-900 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">{{ $receiverName }}</p>
-            <input type="hidden" name="receiver_name" id="receiver_name" value="{{ $receiverName }}">
-            <p class="mt-1 text-xs text-emerald-700">{{ __('From transport trip — edit the trip if this must change.') }}</p>
-        @else
-            <x-text-input id="receiver_name" name="receiver_name" type="text" class="mt-1 block w-full" :value="$receiverName" required />
-        @endif
+        <div id="receiver_name_field">
+            <x-certificate-sourced-field
+                name="receiver_name"
+                :label="__('Receiver name')"
+                :value="$receiverName"
+                :locked="$locked->contains('receiver_name')"
+                required
+            />
+        </div>
         <x-input-error class="mt-2" :messages="$errors->get('receiver_name')" />
     </div>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div id="receiver_country_field">
-            <x-input-label for="receiver_country" :value="__('Receiver country (optional)')" />
-            @if ($locked->contains('receiver_country'))
-                <p class="mt-1 text-sm text-gray-900 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">{{ $receiverCountry ?: '—' }}</p>
-                <input type="hidden" name="receiver_country" id="receiver_country" value="{{ $receiverCountry }}">
-                <p class="mt-1 text-xs text-emerald-700">{{ __('From transport trip') }}</p>
-            @else
-                <x-text-input id="receiver_country" name="receiver_country" type="text" class="mt-1 block w-full" :value="$receiverCountry" />
-            @endif
+    <div class="bucha-wizard-grid">
+        <div>
+            <div id="receiver_country_field">
+                <x-wizard-field for="receiver_country" :label="__('Receiver country (optional)')">
+                    @if ($locked->contains('receiver_country'))
+                        <p class="bucha-wizard-input flex items-center bg-slate-50 text-slate-800 border-slate-200">
+                            {{ filled($receiverCountry) ? $countryLabel : '—' }}
+                        </p>
+                        <input type="hidden" name="receiver_country" id="receiver_country" value="{{ $receiverCountry }}">
+                    @else
+                        <select id="receiver_country" name="receiver_country" class="bucha-wizard-select">
+                            <option value="">{{ __('Select country') }}</option>
+                            @foreach ($countries as $code => $label)
+                                <option value="{{ $code }}" @selected($receiverCountry === $code)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    @endif
+                </x-wizard-field>
+            </div>
             <x-input-error class="mt-2" :messages="$errors->get('receiver_country')" />
         </div>
-        <div id="receiver_address_field">
-            <x-input-label for="receiver_address" :value="__('Receiver address (optional)')" />
-            @if ($locked->contains('receiver_address'))
-                <p class="mt-1 text-sm text-gray-900 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">{{ $receiverAddress ?: '—' }}</p>
-                <input type="hidden" name="receiver_address" id="receiver_address" value="{{ $receiverAddress }}">
-                <p class="mt-1 text-xs text-emerald-700">{{ __('From transport trip') }}</p>
-            @else
-                <x-text-input id="receiver_address" name="receiver_address" type="text" class="mt-1 block w-full" :value="$receiverAddress" />
-            @endif
+        <div>
+            <div id="receiver_address_field">
+                <x-certificate-sourced-field
+                    name="receiver_address"
+                    :label="__('Receiver address (optional)')"
+                    :value="$receiverAddress"
+                    :locked="$locked->contains('receiver_address')"
+                />
+            </div>
             <x-input-error class="mt-2" :messages="$errors->get('receiver_address')" />
         </div>
     </div>
-</div>
+</x-wizard-section>

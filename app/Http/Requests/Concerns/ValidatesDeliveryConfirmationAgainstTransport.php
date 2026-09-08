@@ -28,7 +28,16 @@ trait ValidatesDeliveryConfirmationAgainstTransport
                     continue;
                 }
 
-                if (trim((string) $submitted) !== $expected) {
+                $left = trim((string) $submitted);
+                $right = trim((string) $expected);
+
+                // Country codes are compared case-insensitively.
+                if ($field === 'receiver_country') {
+                    $left = strtoupper($left);
+                    $right = strtoupper($right);
+                }
+
+                if ($left !== $right) {
                     $validator->errors()->add(
                         $field,
                         __('This must match the destination recorded on the transport trip.')

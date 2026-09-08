@@ -2,17 +2,17 @@
     <x-slot name="header">
         <div>
             <a href="{{ route('certificates.hub') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Certificates') }}</a>
-            <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">
+            <h2 class="mt-1 font-semibold text-xl text-slate-800 leading-tight">
                 {{ __('Edit certificate') }} — {{ $certificate->certificate_number ?: '#' . $certificate->id }}
             </h2>
         </div>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+    <div class="py-10">
+        <div class="mx-auto max-w-3xl sm:px-6 lg:px-8">
+            <div class="bucha-wizard-panel">
                 @if ($errors->any())
-                    <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <div class="mb-6 rounded-bucha border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                         <p class="font-medium">{{ __('Please fix the following:') }}</p>
                         <ul class="mt-2 list-disc list-inside space-y-1">
                             @foreach ($errors->all() as $error)
@@ -22,102 +22,30 @@
                     </div>
                 @endif
 
-                <form method="post" action="{{ route('certificates.update', $certificate) }}" class="space-y-6" id="certificate-edit-form">
+                <form method="post" action="{{ route('certificates.update', $certificate) }}" class="bucha-wizard-form" id="certificate-edit-form">
                     @csrf
                     @method('put')
 
-                    <div>
-                        <x-input-label :value="__('Slaughter execution')" />
-                        <p class="mt-1 text-sm text-gray-900 rounded-md border border-gray-200 bg-slate-50 px-3 py-2">
-                            {{ $executionLabel ?? '—' }}
-                        </p>
+                    <x-wizard-section :title="__('Source')">
+                        <x-wizard-field :label="__('Slaughter execution')">
+                            <p class="bucha-wizard-input flex items-center bg-slate-50 text-slate-800">{{ $executionLabel ?? '—' }}</p>
+                        </x-wizard-field>
                         <input type="hidden" name="batch_id" value="{{ old('batch_id', $certificate->batch_id) }}" />
                         <x-input-error class="mt-2" :messages="$errors->get('batch_id')" />
-                    </div>
 
-                    <div class="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3">
-                        <x-input-label :value="__('Certified animal')" />
-                        <p class="mt-1 text-sm font-mono text-slate-900">{{ $certifiedAnimalLabel ?? '—' }}</p>
-                        <p class="mt-1 text-xs text-slate-500">{{ __('Certificates are issued per animal and cannot be moved to another animal.') }}</p>
-                    </div>
+                        <x-wizard-field :label="__('Certified animal')">
+                            <p class="bucha-wizard-input flex items-center bg-slate-50 font-mono text-slate-900">{{ $certifiedAnimalLabel ?? '—' }}</p>
+                        </x-wizard-field>
+                    </x-wizard-section>
 
-                    <div>
-                        <x-input-label for="inspector_id" :value="__('Inspector')" />
-                        <select id="inspector_id" name="inspector_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            <option value="">{{ __('Select inspector') }}</option>
-                            @foreach ($inspectorsByFacility as $fid => $inspectors)
-                                @foreach ($inspectors as $insp)
-                                    <option value="{{ $insp['id'] }}" data-facility-id="{{ $fid }}" @selected(old('inspector_id', $certificate->inspector_id) == $insp['id'])>{{ $insp['label'] }}</option>
-                                @endforeach
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('inspector_id')" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="facility_id" :value="__('Facility')" />
-                        <select id="facility_id" name="facility_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
-                            @foreach ($facilities as $f)
-                                <option value="{{ $f['id'] }}" data-facility-id="{{ $f['id'] }}" @selected(old('facility_id', $certificate->facility_id) == $f['id'])>{{ $f['label'] }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('facility_id')" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="slaughterhouse_display_name" :value="__('Slaughterhouse name (on certificate)')" />
-                        <x-text-input
-                            id="slaughterhouse_display_name"
-                            name="slaughterhouse_display_name"
-                            type="text"
-                            class="mt-1 block w-full uppercase"
-                            :value="old('slaughterhouse_display_name', $certificate->slaughterhouse_display_name ?: \App\Services\Processor\CertificatePdfService::NYAGATARE_FACILITY_NAME)"
-                            required
-                        />
-                        <p class="mt-1 text-xs text-gray-500">{{ __('Enter the official name exactly as it should appear on the printed certificate.') }}</p>
-                        <x-input-error class="mt-2" :messages="$errors->get('slaughterhouse_display_name')" />
-                    </div>
-
-                    @include('certificates.partials.pdf-details-form', [
+                    @include('certificates.partials.issue-fields', [
+                        'certificate' => $certificate,
+                        'inspectorsByFacility' => $inspectorsByFacility,
+                        'facilities' => $facilities,
                         'pdfDefaults' => $pdfDefaults ?? [],
                         'savedPdfDetails' => $savedPdfDetails ?? [],
+                        'submitLabel' => __('Update certificate'),
                     ])
-
-                    <div>
-                        <x-input-label for="certificate_number" :value="__('Certificate number')" />
-                        <x-text-input id="certificate_number" name="certificate_number" type="text" class="mt-1 block w-full" :value="old('certificate_number', $certificate->certificate_number)" />
-                        <x-input-error class="mt-2" :messages="$errors->get('certificate_number')" />
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <x-input-label for="issued_at" :value="__('Issue date')" />
-                            <x-text-input id="issued_at" name="issued_at" type="date" class="mt-1 block w-full" :value="old('issued_at', $certificate->issued_at?->format('Y-m-d'))" required />
-                            <x-input-error class="mt-2" :messages="$errors->get('issued_at')" />
-                        </div>
-                        <div>
-                            <x-input-label for="expiry_date" :value="__('Expiry date (if applicable)')" />
-                            <x-text-input id="expiry_date" name="expiry_date" type="date" class="mt-1 block w-full" :value="old('expiry_date', $certificate->expiry_date?->format('Y-m-d'))" />
-                            <x-input-error class="mt-2" :messages="$errors->get('expiry_date')" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm">
-                            @foreach (\App\Models\Certificate::STATUSES as $s)
-                                <option value="{{ $s }}" @selected(old('status', $certificate->status) === $s)>{{ ucfirst($s) }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('status')" />
-                    </div>
-
-                    <div class="flex gap-4">
-                        <x-primary-button>{{ __('Update certificate') }}</x-primary-button>
-                        <a href="{{ route('certificates.hub') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50">
-                            {{ __('Cancel') }}
-                        </a>
-                    </div>
                 </form>
             </div>
         </div>

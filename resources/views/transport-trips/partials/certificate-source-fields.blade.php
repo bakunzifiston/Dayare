@@ -13,13 +13,9 @@
     $certificateLocked = $lockedTransportFields ?: ($selected['locked_fields'] ?? []);
 @endphp
 
-<div class="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-4">
-    <p class="text-sm font-medium text-slate-800">{{ __('Certified product') }}</p>
-    <p class="text-xs text-slate-600">{{ __('Select the meat inspection certificate for this shipment. Batch, facility, and transporter details come from the certificate when recorded there.') }}</p>
-
-    <div>
-        <x-input-label for="certificate_id" :value="__('Certificate')" />
-        <select id="certificate_id" name="certificate_id" class="mt-1 block w-full border-gray-300 focus:border-bucha-primary focus:ring-bucha-primary rounded-md shadow-sm" required>
+<x-wizard-section :title="__('Certified product')">
+    <x-wizard-field for="certificate_id" :label="__('Certificate')" required>
+        <select id="certificate_id" name="certificate_id" class="bucha-wizard-select" required>
             <option value="">{{ __('Select certificate') }}</option>
             @foreach ($certificates as $c)
                 <option value="{{ $c['id'] }}"
@@ -33,24 +29,28 @@
             @endforeach
         </select>
         <x-input-error class="mt-2" :messages="$errors->get('certificate_id')" />
-    </div>
+    </x-wizard-field>
 
     <input type="hidden" id="trip_batch_id" name="batch_id" value="{{ old('batch_id', $trip?->batch_id ?? $selected['batch_id'] ?? '') }}" />
 
-    <div id="certificate-derived-fields" @class(['space-y-3', 'hidden' => ! $selected])>
-        <div>
-            <x-input-label :value="__('Batch')" />
-            <p id="linked_batch_display" class="mt-1 text-sm text-gray-900 rounded-md border border-gray-200 bg-white px-3 py-2">{{ $selected['batch_label'] ?? '—' }}</p>
-        </div>
-        <div>
-            <x-input-label :value="__('Slaughter facility')" />
-            <p id="linked_facility_display" class="mt-1 text-sm text-gray-900 rounded-md border border-gray-200 bg-white px-3 py-2">{{ $selected['facility_label'] ?? '—' }}</p>
-        </div>
+    <div id="certificate-derived-fields" @class(['bucha-wizard-grid', 'hidden' => ! $selected])>
+        <x-wizard-field :label="__('Batch')">
+            <p id="linked_batch_display" class="bucha-wizard-input flex items-center bg-slate-50 text-slate-800">{{ $selected['batch_label'] ?? '—' }}</p>
+        </x-wizard-field>
+        <x-wizard-field :label="__('Slaughter facility')">
+            <p id="linked_facility_display" class="bucha-wizard-input flex items-center bg-slate-50 text-slate-800">{{ $selected['facility_label'] ?? '—' }}</p>
+        </x-wizard-field>
     </div>
-</div>
+</x-wizard-section>
 
 <script>
 (function() {
+    var countryLabels = @json(
+        collect(config('processor.destination_countries', []))
+            ->mapWithKeys(fn ($label, $code) => [strtoupper((string) $code) => $label])
+            ->all()
+    );
+
     window.applyTransportDefaultsFromCertificate = function(defaults, lockedFields) {
         var locked = lockedFields || [];
         var fields = [
@@ -69,8 +69,31 @@
             if (!input || !value) {
                 return;
             }
+
+            if (key === 'destination_country') {
+                value = String(value).toUpperCase();
+            }
+
             if (locked.indexOf(key) !== -1 || !input.value) {
+                if (key === 'destination_country' && input.tagName === 'SELECT') {
+                    var hasOption = Array.prototype.some.call(input.options, function(opt) {
+                        return opt.value === value;
+                    });
+                    if (!hasOption) {
+                        var opt = document.createElement('option');
+                        opt.value = value;
+                        opt.textContent = countryLabels[value] || value;
+                        input.appendChild(opt);
+                    }
+                }
+
                 input.value = value;
+                var display = input.previousElementSibling;
+                if (input.dataset.certificateSourced === '1' && display && display.tagName === 'P') {
+                    display.textContent = key === 'destination_country'
+                        ? (countryLabels[value] || value || '—')
+                        : (value || '—');
+                }
             }
         });
     };
