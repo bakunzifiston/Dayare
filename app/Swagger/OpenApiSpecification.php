@@ -104,7 +104,7 @@ MD
         ),
         new OA\Tag(
             name: 'Post Mortem Inspections',
-            description: 'Post-slaughter inspection and disposition. Mobile: `POST /api/v1/post-mortem-inspections`. FK: `batch_id`, `inspector_id`.',
+            description: 'Post-slaughter inspection and disposition. FormRequest uses `slaughter_execution_id`. Mobile: list/show/update/delete plus `POST /api/v1/post-mortem-inspections` (see PostMortemCreateRequest for known mobile store drift).',
         ),
         new OA\Tag(
             name: 'Certificates',
@@ -116,11 +116,11 @@ MD
         ),
         new OA\Tag(
             name: 'Transport Trips',
-            description: 'Movement of product. FK: `certificate_id`, `origin_facility_id`, `destination_facility_id` required; `batch_id` nullable.',
+            description: 'Movement of certified product. Create requires `certificate_id`, `origin_facility_id`, and external `destination_name` (`destination_facility_id` prohibited on store). Optional ISO-2 `destination_country` / `destination_address`. Locked vehicle/driver/destination fields may be forced from the certificate.',
         ),
         new OA\Tag(
             name: 'Delivery Confirmations',
-            description: 'Receiving confirmation for a transport trip. FK: `transport_trip_id`, etc.',
+            description: 'Receiving confirmation for a transport trip (`transport_trip_id`). Receiver name/country/address are defaulted and locked from the trip destination when present. `receiving_facility_id` is prohibited on create.',
         ),
         new OA\Tag(
             name: 'Compliance',

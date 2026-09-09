@@ -36,6 +36,59 @@
                 "security": []
             }
         },
+        "/api/v1/verify/permit/{identifier}": {
+            "get": {
+                "tags": [
+                    "Mobile API"
+                ],
+                "summary": "Public permit verification",
+                "description": "Looks up a permit by number, verification code, or token. Throttled (60/min). Response may use `{ success, data }` without `message`.",
+                "operationId": "apiV1VerifyPermit",
+                "parameters": [
+                    {
+                        "name": "identifier",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Permit details in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Permit not found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Throttled.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
         "/api/v1/auth/login": {
             "post": {
                 "tags": [
@@ -1961,6 +2014,95 @@
                                 }
                             }
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Facility not found or outside current workspace scope.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/monthly-inspection-reports/{facility}/pdf": {
+            "get": {
+                "tags": [
+                    "Mobile API",
+                    "Monthly Inspection Reports",
+                    "Facilities"
+                ],
+                "summary": "Download monthly inspection report PDF",
+                "description": "Returns a PDF file download (not the ApiJson envelope). Period defaults to the current month; pass `year`+`month` or `month=YYYY-MM`.",
+                "operationId": "mobileMonthlyInspectionReportsPdf",
+                "parameters": [
+                    {
+                        "name": "facility",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "year",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "description": "Month number 1–12 when used with year, or `YYYY-MM` string.",
+                            "oneOf": [
+                                {
+                                    "type": "integer",
+                                    "maximum": 12,
+                                    "minimum": 1
+                                },
+                                {
+                                    "type": "string",
+                                    "example": "2026-06"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PDF download (`application/pdf`)."
                     },
                     "401": {
                         "description": "Unauthorized",
@@ -4112,7 +4254,7 @@
                     "Batches"
                 ],
                 "summary": "Create warehouse storage record",
-                "description": "Creates a cold-room storage entry. Certificate must be in workspace scope, active, and not already in storage.",
+                "description": "Creates cold-room storage from approved post-mortem items (`post_mortem_inspection_item_ids`). See WarehouseStorageCreateRequest. Note: mobile controller and FormRequest historically drifted; prefer web cold-room flow until mobile store is fully aligned.",
                 "operationId": "mobileWarehouseStoragesStore",
                 "requestBody": {
                     "required": true,
@@ -4156,7 +4298,7 @@
                         }
                     },
                     "404": {
-                        "description": "Facility or certificate not found / outside workspace scope.",
+                        "description": "Facility or items not found / outside workspace scope.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4216,7 +4358,13 @@
                         "in": "query",
                         "required": false,
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "in_transit",
+                                "arrived",
+                                "completed"
+                            ]
                         }
                     },
                     {
@@ -4230,6 +4378,7 @@
                     {
                         "name": "destination_facility_id",
                         "in": "query",
+                        "description": "Legacy facility destinations only.",
                         "required": false,
                         "schema": {
                             "type": "integer"
@@ -4310,7 +4459,7 @@
                     "Warehouse Storage"
                 ],
                 "summary": "Create transport trip",
-                "description": "Creates a transport trip. Certificate and facilities must be in workspace scope; optional warehouse storage must be released.",
+                "description": "Creates a transport trip with an external destination (`destination_name` required; `destination_facility_id` prohibited). Certificate must be active, non-expired, and in workspace scope. Locked certificate fields (vehicle/driver/destination/departure) are forced from the certificate.",
                 "operationId": "mobileTransportTripsStore",
                 "requestBody": {
                     "required": true,
@@ -4364,7 +4513,129 @@
                         }
                     },
                     "422": {
-                        "description": "Validation or business rule error",
+                        "description": "Validation or certificate alignment error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/transport-trips/export": {
+            "get": {
+                "tags": [
+                    "Mobile API",
+                    "Transport Trips"
+                ],
+                "summary": "Export transport trips (JSON array)",
+                "description": "Requires processor permission `export_records`. Returns all matching trips in `data` (not paginated).",
+                "operationId": "mobileTransportTripsExport",
+                "parameters": [
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "csv",
+                                "excel",
+                                "pdf",
+                                "json"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "in_transit",
+                                "arrived",
+                                "completed"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "origin_facility_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "destination_facility_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trip array in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Missing export_records permission.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4449,6 +4720,127 @@
                 ]
             }
         },
+        "/api/v1/delivery-confirmations/export": {
+            "get": {
+                "tags": [
+                    "Mobile API",
+                    "Delivery Confirmations"
+                ],
+                "summary": "Export delivery confirmations (JSON array)",
+                "description": "Requires processor permission `export_records`. Returns matching confirmations with relations in `data`.",
+                "operationId": "mobileDeliveryConfirmationsExport",
+                "parameters": [
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "csv",
+                                "excel",
+                                "pdf",
+                                "json"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "confirmation_status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "confirmed",
+                                "disputed"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "receiving_facility_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "client_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation array in `data`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Missing export_records permission.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/delivery-confirmations": {
             "post": {
                 "tags": [
@@ -4457,7 +4849,7 @@
                     "Transport Trips"
                 ],
                 "summary": "Create delivery confirmation",
-                "description": "Creates a delivery confirmation for a transport trip in workspace scope. Client must be active if provided.",
+                "description": "Creates a delivery confirmation for a transport trip in workspace scope. Receiver fields locked from the trip destination are forced server-side. Do not send `receiving_facility_id`. Client must be active if provided.",
                 "operationId": "mobileDeliveryConfirmationsStore",
                 "requestBody": {
                     "required": true,
@@ -4511,7 +4903,7 @@
                         }
                     },
                     "422": {
-                        "description": "Validation or business rule error",
+                        "description": "Validation, inactive client, or receiver alignment error",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -5552,6 +5944,18 @@
                         "type": "string",
                         "format": "date",
                         "nullable": true
+                    },
+                    "movement_permit_document": {
+                        "description": "Optional movement permit PDF or image.",
+                        "type": "string",
+                        "format": "binary",
+                        "nullable": true
+                    },
+                    "receipt_document": {
+                        "description": "Optional receipt PDF or image.",
+                        "type": "string",
+                        "format": "binary",
+                        "nullable": true
                     }
                 },
                 "type": "object"
@@ -5680,6 +6084,18 @@
                     "health_certificate_expiry_date": {
                         "type": "string",
                         "format": "date",
+                        "nullable": true
+                    },
+                    "movement_permit_document": {
+                        "description": "Optional movement permit PDF or image.",
+                        "type": "string",
+                        "format": "binary",
+                        "nullable": true
+                    },
+                    "receipt_document": {
+                        "description": "Optional receipt PDF or image.",
+                        "type": "string",
+                        "format": "binary",
                         "nullable": true
                     },
                     "status": {
@@ -6516,10 +6932,14 @@
                 "type": "object"
             },
             "DeliveryConfirmation": {
-                "description": "Confirms receipt for a transport trip. FK: transport_trip_id.",
+                "description": "Confirms receipt for a transport trip. Receiver fields align with the trip destination. `receiving_facility_id` is not accepted on create (prohibited).",
                 "required": [
                     "id",
-                    "transport_trip_id"
+                    "transport_trip_id",
+                    "received_quantity",
+                    "received_date",
+                    "receiver_name",
+                    "confirmation_status"
                 ],
                 "properties": {
                     "id": {
@@ -6531,13 +6951,21 @@
                         "example": 500
                     },
                     "receiving_facility_id": {
+                        "description": "Legacy; not settable via mobile create.",
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "client_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "contract_id": {
                         "type": "integer",
                         "nullable": true
                     },
                     "received_quantity": {
-                        "type": "number",
-                        "format": "float",
-                        "nullable": true
+                        "type": "integer",
+                        "example": 24
                     },
                     "received_unit": {
                         "type": "string",
@@ -6554,6 +6982,19 @@
                     "received_date": {
                         "type": "string",
                         "format": "date",
+                        "example": "2026-04-23"
+                    },
+                    "receiver_name": {
+                        "type": "string",
+                        "example": "Nairobi Cold Store"
+                    },
+                    "receiver_country": {
+                        "type": "string",
+                        "example": "KE",
+                        "nullable": true
+                    },
+                    "receiver_address": {
+                        "type": "string",
                         "nullable": true
                     },
                     "confirmation_status": {
@@ -6568,7 +7009,7 @@
                 "type": "object"
             },
             "DeliveryConfirmationCreateRequest": {
-                "description": "Create delivery confirmation for a transport trip in workspace scope.",
+                "description": "Create delivery confirmation for a transport trip in workspace scope.\n\n**Receiver alignment:** When the trip has destination name/country/address, the server forces those into\n`receiver_name` / `receiver_country` / `receiver_address` (locked fields). Do not send `receiving_facility_id` (prohibited).\n\nOptional `client_id` must be an active client on an accessible business; `contract_id` must be in scope.",
                 "required": [
                     "transport_trip_id",
                     "received_quantity",
@@ -6580,11 +7021,6 @@
                     "transport_trip_id": {
                         "type": "integer",
                         "example": 44
-                    },
-                    "receiving_facility_id": {
-                        "type": "integer",
-                        "example": 5,
-                        "nullable": true
                     },
                     "client_id": {
                         "type": "integer",
@@ -6619,19 +7055,21 @@
                         "example": "2026-04-23"
                     },
                     "receiver_name": {
+                        "description": "Overwritten from trip destination when locked.",
                         "type": "string",
-                        "example": "Warehouse Receiver",
+                        "example": "Nairobi Cold Store",
                         "maxLength": 255
                     },
                     "receiver_country": {
+                        "description": "Usually ISO-2 from trip; overwritten when locked.",
                         "type": "string",
-                        "example": "Rwanda",
+                        "example": "KE",
                         "nullable": true,
                         "maxLength": 100
                     },
                     "receiver_address": {
                         "type": "string",
-                        "example": "Kigali Special Economic Zone",
+                        "example": "Industrial Area, Nairobi",
                         "nullable": true
                     },
                     "confirmation_status": {
@@ -6859,20 +7297,20 @@
                 "type": "object"
             },
             "PostMortemCreateRequest": {
-                "description": "approved+condemned ≤ total_examined; observations must cover PostMortemChecklist for species; abnormal critical items can force result rejected.",
+                "description": "Create post-mortem inspection.\n\n**FormRequest contract:** requires `slaughter_execution_id` (not `batch_id`). Counts: approved+condemned ≤ total_examined.\nProvide species checklist `observations` and/or per-animal `item_outcomes`.\n\n**Known mobile drift:** `MobileCollectionController::postMortemStore` currently scopes using `batch_id` from validated input,\nwhile `StorePostMortemInspectionRequest` validates `slaughter_execution_id`. Prefer web post-mortem create until mobile is aligned.",
                 "required": [
-                    "batch_id",
+                    "slaughter_execution_id",
                     "inspector_id",
                     "species",
                     "inspection_date",
                     "total_examined",
                     "approved_quantity",
-                    "condemned_quantity",
-                    "observations"
+                    "condemned_quantity"
                 ],
                 "properties": {
-                    "batch_id": {
-                        "type": "integer"
+                    "slaughter_execution_id": {
+                        "type": "integer",
+                        "example": 70
                     },
                     "inspector_id": {
                         "type": "integer"
@@ -6886,15 +7324,15 @@
                         "format": "date"
                     },
                     "total_examined": {
-                        "type": "integer",
+                        "type": "number",
                         "minimum": 0
                     },
                     "approved_quantity": {
-                        "type": "integer",
+                        "type": "number",
                         "minimum": 0
                     },
                     "condemned_quantity": {
-                        "type": "integer",
+                        "type": "number",
                         "minimum": 0
                     },
                     "notes": {
@@ -6903,14 +7341,23 @@
                         "maxLength": 5000
                     },
                     "observations": {
-                        "description": "Keyed by checklist item id; each value: { \"value\": string (max 20), \"notes\": string|null (max 5000) } per PostMortemChecklist.",
+                        "description": "Keyed by checklist item id; each value: { \"value\": string, \"notes\": string|null }.",
                         "type": "object",
                         "example": {
                             "carcass_condition": {
                                 "value": "normal",
                                 "notes": null
                             }
-                        }
+                        },
+                        "nullable": true
+                    },
+                    "item_outcomes": {
+                        "description": "Per-animal outcomes when the execution has inspectable animals.",
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "nullable": true
                     }
                 },
                 "type": "object"
@@ -7206,12 +7653,16 @@
                 "type": "object"
             },
             "TransportTrip": {
-                "description": "Transport movement. FK: certificate_id, origin_facility_id, destination_facility_id required; batch_id nullable.",
+                "description": "Transport movement of certified product. Create requires an external destination (`destination_name`); `destination_facility_id` is prohibited on mobile/web store. Legacy rows may still have a facility destination.",
                 "required": [
                     "id",
                     "certificate_id",
                     "origin_facility_id",
-                    "destination_facility_id"
+                    "destination_name",
+                    "vehicle_plate_number",
+                    "driver_name",
+                    "departure_date",
+                    "status"
                 ],
                 "properties": {
                     "id": {
@@ -7227,7 +7678,7 @@
                         "nullable": true
                     },
                     "batch_id": {
-                        "description": "Optional link to batch when applicable.",
+                        "description": "Optional; often derived from the certificate.",
                         "type": "integer",
                         "nullable": true
                     },
@@ -7236,14 +7687,44 @@
                         "example": 3
                     },
                     "destination_facility_id": {
+                        "description": "Legacy/internal facility destination; null for external destinations.",
                         "type": "integer",
-                        "example": 4
+                        "nullable": true
                     },
-                    "vehicle_plate_number": {
+                    "destination_name": {
+                        "type": "string",
+                        "example": "Nairobi Cold Store"
+                    },
+                    "destination_country": {
+                        "description": "ISO 3166-1 alpha-2 from config processor.destination_countries.",
+                        "type": "string",
+                        "example": "KE",
+                        "nullable": true,
+                        "maxLength": 2
+                    },
+                    "destination_address": {
                         "type": "string",
                         "nullable": true
                     },
+                    "vehicle_plate_number": {
+                        "type": "string",
+                        "example": "RAB123C"
+                    },
+                    "driver_name": {
+                        "type": "string",
+                        "example": "Jean Claude"
+                    },
+                    "driver_phone": {
+                        "type": "string",
+                        "example": "+250788000000",
+                        "nullable": true
+                    },
                     "departure_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-04-22"
+                    },
+                    "arrival_date": {
                         "type": "string",
                         "format": "date",
                         "nullable": true
@@ -7261,11 +7742,11 @@
                 "type": "object"
             },
             "TransportTripCreateRequest": {
-                "description": "Create transport trip. Requires an active, non-expired certificate in workspace scope.",
+                "description": "Create transport trip for an active, non-expired certificate in workspace scope.\n\n**Destination:** `destination_name` is required. `destination_facility_id` must not be sent (prohibited).\nOptional `destination_country` is an ISO-2 code from `config('processor.destination_countries')` (e.g. RW, KE, TZ).\nOptional `destination_address`.\n\n**Certificate alignment:** When the certificate PDF / linked data locks vehicle, driver, destination, or departure fields,\nthe server overwrites those values from the certificate and rejects mismatches.",
                 "required": [
                     "certificate_id",
                     "origin_facility_id",
-                    "destination_facility_id",
+                    "destination_name",
                     "vehicle_plate_number",
                     "driver_name",
                     "departure_date",
@@ -7286,9 +7767,22 @@
                         "type": "integer",
                         "example": 3
                     },
-                    "destination_facility_id": {
-                        "type": "integer",
-                        "example": 4
+                    "destination_name": {
+                        "type": "string",
+                        "example": "Nairobi Cold Store",
+                        "maxLength": 255
+                    },
+                    "destination_country": {
+                        "description": "ISO 3166-1 alpha-2; stored uppercase.",
+                        "type": "string",
+                        "example": "KE",
+                        "nullable": true,
+                        "maxLength": 2
+                    },
+                    "destination_address": {
+                        "type": "string",
+                        "example": "Industrial Area, Nairobi",
+                        "nullable": true
                     },
                     "vehicle_plate_number": {
                         "type": "string",
@@ -7489,12 +7983,11 @@
                 "type": "object"
             },
             "WarehouseStorageCreateRequest": {
-                "description": "Create cold-room storage record. Certificate must be in workspace scope, active, and not already in storage.",
+                "description": "Create cold-room storage from approved post-mortem inspection items (FormRequest contract).\n\nRequired: `warehouse_facility_id`, `post_mortem_inspection_item_ids` (min 1), `entry_date`, `quantity_unit`.\nOptional: `cold_room_id` (required when the facility has cold rooms), `quantities` map keyed by item id, `temperature_at_entry`.\n\n**Known mobile drift:** `MobileCollectionController::warehouseStoragesStore` still reads certificate-centric fields after validation.\nPrefer the web cold-room flow until the mobile action is aligned with this request body.",
                 "required": [
                     "warehouse_facility_id",
-                    "certificate_id",
+                    "post_mortem_inspection_item_ids",
                     "entry_date",
-                    "quantity_stored",
                     "quantity_unit"
                 ],
                 "properties": {
@@ -7507,20 +8000,32 @@
                         "example": 12,
                         "nullable": true
                     },
-                    "certificate_id": {
-                        "type": "integer",
-                        "example": 120
+                    "post_mortem_inspection_item_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "example": [
+                            101,
+                            102
+                        ],
+                        "minItems": 1
+                    },
+                    "quantities": {
+                        "description": "Optional map of post_mortem_inspection_item_id => quantity.",
+                        "type": "object",
+                        "example": {
+                            "101": 120.5
+                        },
+                        "nullable": true,
+                        "additionalProperties": {
+                            "type": "number"
+                        }
                     },
                     "entry_date": {
                         "type": "string",
                         "format": "date",
                         "example": "2026-04-22"
-                    },
-                    "storage_location": {
-                        "type": "string",
-                        "example": "Aisle B / Rack 3",
-                        "nullable": true,
-                        "maxLength": 255
                     },
                     "temperature_at_entry": {
                         "type": "number",
@@ -7529,11 +8034,6 @@
                         "nullable": true,
                         "maximum": 50,
                         "minimum": -50
-                    },
-                    "quantity_stored": {
-                        "type": "integer",
-                        "example": 24,
-                        "minimum": 1
                     },
                     "quantity_unit": {
                         "type": "string",
@@ -7613,7 +8113,7 @@
         },
         {
             "name": "Post Mortem Inspections",
-            "description": "Post-slaughter inspection and disposition. Mobile: `POST /api/v1/post-mortem-inspections`. FK: `batch_id`, `inspector_id`."
+            "description": "Post-slaughter inspection and disposition. FormRequest uses `slaughter_execution_id`. Mobile: list/show/update/delete plus `POST /api/v1/post-mortem-inspections` (see PostMortemCreateRequest for known mobile store drift)."
         },
         {
             "name": "Certificates",
@@ -7625,11 +8125,11 @@
         },
         {
             "name": "Transport Trips",
-            "description": "Movement of product. FK: `certificate_id`, `origin_facility_id`, `destination_facility_id` required; `batch_id` nullable."
+            "description": "Movement of certified product. Create requires `certificate_id`, `origin_facility_id`, and external `destination_name` (`destination_facility_id` prohibited on store). Optional ISO-2 `destination_country` / `destination_address`. Locked vehicle/driver/destination fields may be forced from the certificate."
         },
         {
             "name": "Delivery Confirmations",
-            "description": "Receiving confirmation for a transport trip. FK: `transport_trip_id`, etc."
+            "description": "Receiving confirmation for a transport trip (`transport_trip_id`). Receiver name/country/address are defaulted and locked from the trip destination when present. `receiving_facility_id` is prohibited on create."
         },
         {
             "name": "Compliance",

@@ -60,8 +60,8 @@ flowchart LR
 
 1. **Issue or access a certificate** for product that may leave the plant (`certificates.*`).
 2. **(Optional)** Store batch in cold room and **release** warehouse storage when stock is ready to move (`warehouse-storages`, status `released`).
-3. **Record transport trip** — certificate, origin/destination facilities, vehicle/driver, dates, trip status.
-4. **Confirm delivery** — pick the trip (only trips **without** an existing confirmation on create), receiving location, quantity, receiver, status.
+3. **Record transport trip** — certificate, origin facility, **external destination** (name + optional country/address), vehicle/driver, dates, trip status.
+4. **Confirm delivery** — pick the trip (only trips **without** an existing confirmation on create); receiver fields follow the trip destination; quantity and status.
 5. **(Optional)** On **Demand** edit, link `fulfilled_by_delivery_id` to mark a customer demand as fulfilled when client/facility matches.
 
 ---
@@ -131,15 +131,18 @@ Hub also links to: all trips, certificates hub, cold room hub, delivery confirma
 
 | Field | Type | Required | Validation / notes |
 |-------|------|----------|-------------------|
-| `certificate_id` | FK → `certificates` | Yes | Must be in user’s certificate scope |
+| `certificate_id` | FK → `certificates` | Yes | Must be in user’s certificate scope; active and not expired on store |
 | `warehouse_storage_id` | FK → `warehouse_storages`, nullable | No | If set: same certificate scope; storage **`status` must be `released`** |
-| `batch_id` | FK → `batches`, nullable | No | Optional explicit batch |
+| `batch_id` | FK → `batches`, nullable | No | Optional; often filled from certificate |
 | `origin_facility_id` | FK → `facilities` | Yes | In-scope facility |
-| `destination_facility_id` | FK → `facilities` | Yes | In-scope; **must differ** from origin |
-| `vehicle_plate_number` | string(50) | Yes | |
-| `driver_name` | string(255) | Yes | |
-| `driver_phone` | string(50) | No | |
-| `departure_date` | date | Yes | |
+| `destination_facility_id` | FK → `facilities`, nullable | **Prohibited on store** | Legacy rows may still have a facility destination; create/update use external destination instead |
+| `destination_name` | string(255) | Yes (on store) | External recipient / site name |
+| `destination_country` | string(2), nullable | No | ISO 3166-1 alpha-2 from `config('processor.destination_countries')`; stored uppercase |
+| `destination_address` | text, nullable | No | External address |
+| `vehicle_plate_number` | string(50) | Yes | May be locked from certificate PDF |
+| `driver_name` | string(255) | Yes | May be locked from certificate PDF |
+| `driver_phone` | string(50) | No | May be locked from certificate PDF |
+| `departure_date` | date | Yes | Aligned with certificate issue/expiry / PDF departure |
 | `arrival_date` | date | No | `after_or_equal:departure_date` |
 | `status` | string(50) | Yes | See statuses below |
 
@@ -215,14 +218,15 @@ Hub also links to: all trips, certificates hub, cold room hub, delivery confirma
 | Field | Type | Required | Validation / notes |
 |-------|------|----------|-------------------|
 | `transport_trip_id` | FK → `transport_trips` | Yes | **Unique** — one confirmation per trip; create form only lists trips **without** confirmation |
-| `receiving_facility_id` | FK → `facilities`, nullable | No | In-scope when set; **null = external / non-registered recipient** |
+| `receiving_facility_id` | FK → `facilities`, nullable | **Prohibited on store** | Legacy only; create uses trip destination → receiver fields |
 | `client_id` | FK → `clients`, nullable | No | Active client on accessible business |
-| `contract_id` | FK → `contracts`, nullable | No | Validated in API; **not exposed on web create/edit forms** (see gaps) |
+| `contract_id` | FK → `contracts`, nullable | No | Must belong to an accessible business |
 | `received_quantity` | unsigned int | Yes | min 0 |
+| `received_unit` | string | No | `units`, `kg`, `g`, `tonnes`, `carcasses`, `boxes` |
 | `received_date` | date | Yes | |
-| `receiver_name` | string(255) | Yes | |
-| `receiver_country` | string(100) | No | External deliveries |
-| `receiver_address` | text | No | External deliveries |
+| `receiver_name` | string(255) | Yes | Forced from trip `destination_name` when locked |
+| `receiver_country` | string(100) | No | Forced from trip `destination_country` when locked (usually ISO-2) |
+| `receiver_address` | text | No | Forced from trip `destination_address` when locked |
 | `confirmation_status` | string(50) | Yes | `pending`, `confirmed`, `disputed` |
 
 ### Confirmation statuses
@@ -313,14 +317,19 @@ Cold room hub is linked from transport hub as a prerequisite reminder (“releas
 ## 5. Mobile API (processor collection)
 
 **Controller:** `App\Http\Controllers\Api\MobileCollectionController`  
-**Routes:** `routes/api.php` (authenticated mobile collection group)
+**Routes:** `routes/api.php` (authenticated `mobile.auth` group)  
+**Narrative docs:** `docs/MOBILE_API_DOCUMENTATION.md` · Swagger: filter tag **Mobile API**
 
 | Endpoint | Request | Notes |
 |----------|---------|--------|
-| `POST transport-trips` | `StoreTransportTripRequest` | Same validation and scope as web |
-| `POST delivery-confirmations` | `StoreDeliveryConfirmationRequest` | Also validates `contract_id` against accessible business |
+| `GET transport-trips` | query filters | Paginated list for accessible certificates |
+| `GET transport-trips/{id}` | — | Show with certificate / facilities |
+| `GET transport-trips/export` | `ExportTransportTripsRequest` | Requires `export_records`; JSON array in `data` |
+| `POST transport-trips` | `StoreTransportTripRequest` | External destination; certificate alignment |
+| `GET delivery-confirmations/export` | `ExportDeliveryConfirmationsRequest` | Requires `export_records` |
+| `POST delivery-confirmations` | `StoreDeliveryConfirmationRequest` | Receiver locked from trip; `receiving_facility_id` prohibited |
 
-Swagger schemas: `DeliveryConfirmation`, `DeliveryConfirmationCreateRequest`.
+Swagger schemas: `TransportTrip`, `TransportTripCreateRequest`, `DeliveryConfirmation`, `DeliveryConfirmationCreateRequest`.
 
 ---
 
@@ -387,7 +396,7 @@ Swagger schemas: `DeliveryConfirmation`, `DeliveryConfirmationCreateRequest`.
 | **Contract on web UI** | `contract_id` is in the model, DB, validation, API, and show page — but **create/edit Blade forms do not include a contract picker**. |
 | **One confirmation per trip** | DB unique on `transport_trip_id`; create only offers trips without confirmation. |
 | **Quantity unit** | `received_quantity` is a plain integer (no unit field on confirmation). |
-| **Trip vs receiving facility** | Trip has `destination_facility_id`; confirmation has separate `receiving_facility_id` (may be external even if trip destination was internal). |
+| **Trip vs receiver** | Trip uses external `destination_name` / country / address (facility destination prohibited on store). Confirmation receiver fields are locked from that trip destination; `receiving_facility_id` is prohibited on create. |
 | **Org admin workflow** | Can monitor via list/show if `view_all_modules`; cannot register trips/confirmations without transport manager role or ownership. |
 | **Temperature / GPS** | Transport manager has `monitor_temperature_logs`; trips do not store temperature traces (cold room logs are on warehouse storage). |
 

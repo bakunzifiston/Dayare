@@ -62,6 +62,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('monthly-inspection-reports', [MobileCollectionController::class, 'monthlyInspectionReportsIndex']);
         Route::post('monthly-inspection-reports/{facility}/closure', [MobileCollectionController::class, 'monthlyInspectionReportsClosure']);
+        Route::get('monthly-inspection-reports/{facility}/pdf', [MobileCollectionController::class, 'monthlyInspectionReportsPdf']);
         Route::get('monthly-inspection-reports/{facility}', [MobileCollectionController::class, 'monthlyInspectionReportsShow']);
 
         Route::get('inspectors', [MobileCollectionController::class, 'inspectorsIndex']);
@@ -91,11 +92,11 @@ Route::prefix('v1')->group(function () {
         Route::put('certificates/{certificate}', [MobileCollectionController::class, 'certificatesUpdate']);
         Route::delete('certificates/{certificate}', [MobileCollectionController::class, 'certificatesDestroy']);
         Route::get('transport-trips', [MobileCollectionController::class, 'transportTripsIndex']);
+        Route::get('transport-trips/export', [MobileCollectionController::class, 'transportTripsExport']);
         Route::get('transport-trips/{transportTrip}', [MobileCollectionController::class, 'transportTripsShow']);
         Route::post('transport-trips', [MobileCollectionController::class, 'transportTripsStore']);
-        Route::get('transport-trips/export', [MobileCollectionController::class, 'transportTripsExport']);
-        Route::post('delivery-confirmations', [MobileCollectionController::class, 'deliveryConfirmationsStore']);
         Route::get('delivery-confirmations/export', [MobileCollectionController::class, 'deliveryConfirmationsExport']);
+        Route::post('delivery-confirmations', [MobileCollectionController::class, 'deliveryConfirmationsStore']);
         Route::post('warehouse-storages', [MobileCollectionController::class, 'warehouseStoragesStore']);
     });
 });

@@ -34,24 +34,17 @@ Errors:
 }
 ```
 
-Validation failures use Laravel’s field map in `errors` (HTTP `422`). Paginated lists put the **Laravel paginator array** inside `data` (so list rows are at `data.data`).
-
-## HTTP verbs in v1
-
-This API is **read/create only** for processor workflows: **GET** and **POST** are implemented. There are **no** `PUT`, `PATCH`, or `DELETE` routes under `/api/v1` yet—updates and deletes must be done in the web workspace, or added in a future API version.
+Validation failures use Laravel’s field map in `errors` (HTTP `422`). Paginated lists put the **Laravel paginator array** inside `data` (list rows at `data.data`, plus `data.meta` and `data.filters`).
 
 ## Authentication
 
-The mobile API uses Bearer token authentication.
+The mobile API uses **opaque Bearer tokens** stored hashed in `mobile_api_tokens` (not Sanctum / not JWT). Middleware: `mobile.auth`. Tokens expire **30 days** after issuance (`expires_at`). There is **no refresh endpoint**; on `401`, re-login.
 
 ### Login
 
-- `POST /api/v1/auth/login`
-- Public endpoint (no token required)
+- `POST /api/v1/auth/login` — public; throttle **5/min** per IP
 
 Request:
-
-Optional: `"business_id": 12` to resolve `userRole`, `business_type`, and effective `permissions` for that workspace (must be in your accessible businesses).
 
 ```json
 {
@@ -62,321 +55,264 @@ Optional: `"business_id": 12` to resolve `userRole`, `business_type`, and effect
 }
 ```
 
-Response `200` (payload under `data`):
+Optional `business_id` resolves `userRole`, `business_type`, and effective `permissions` for that workspace (must be accessible).
 
-```json
-{
-  "success": true,
-  "message": "Logged in successfully.",
-  "data": {
-    "token": "plain_token_string",
-    "token_type": "Bearer",
-    "expires_at": "2026-05-10T12:00:00+00:00",
-    "user": {
-      "id": 12,
-      "name": "Field User",
-      "email": "user@company.com",
-      "is_super_admin": false,
-      "userRole": "inspector",
-      "business_type": "processor",
-      "business_id": 3,
-      "permissions": [
-        "view_processor_dashboard",
-        "record_ante_mortem",
-        "record_post_mortem",
-        "view_assigned_batches",
-        "view_inspections",
-        "view_certificates"
-      ],
-      "accessible_businesses": [
-        { "id": 3, "name": "Acme Ltd", "type": "processor", "membership": "inspector" }
-      ],
-      "accessible_business_ids": [3]
-    }
-  }
-}
-```
+Response `200` payload under `data`: `token`, `token_type` (`Bearer`), `expires_at`, `user` (see **Get current user**).
 
-- **`userRole`**: assigned membership for the selected business — `org_admin`, `operations_manager`, `compliance_officer`, `inspector`, `transport_manager`, `accountant`, `super_admin`, or `user` (no business yet). This is the role name, not the final access list.
-- **`permissions`**: effective processor permission strings for the selected business after role defaults, per-business role customization, and per-user overrides. Empty for farmer/logistics workspaces. Super administrators and business owners receive the full processor catalog. Mobile clients should gate features on this list.
-- **`business_type`**: tenant type for the **active** workspace (`farmer` | `processor` | `logistics`).
-- Do **not** use web routes `POST /register` or `POST /businesses` from mobile JSON clients (they require CSRF). Use the API routes below instead.
+Wrong credentials → **`401`**. Validation errors → **`422`**.
 
 ### Register (stateless)
 
-- `POST /api/v1/auth/register` — public, **no CSRF**; rate limited (10/min per IP).
-- Body: `name`, `email`, `password`, `password_confirmation`, `business_type` (`farmer` | `processor` | `logistics`), optional `device_name`.
-- Returns **`201`** with the same token + `user` shape as login.
+- `POST /api/v1/auth/register` — public, **no CSRF**; throttle **10/min**
+- Body: `name`, `email`, `password`, `password_confirmation`, `business_type` (`farmer` | `processor` | `logistics`), optional `device_name`
+- Returns **`201`** with the same token + `user` shape as login
+
+Do **not** use web `POST /register` or `POST /businesses` from mobile (CSRF). Use API routes instead.
 
 ### Create business (authenticated)
 
-- `POST /api/v1/businesses` with `Authorization: Bearer <token>`.
-- JSON body matches server validation for creating a business (same fields as the web form / `StoreBusinessRequest`).
-
-Wrong email/password returns HTTP **`401`** with `success: false` and message `Invalid credentials.` Malformed requests (e.g. missing fields) return **`422`** with validation `errors`.
-
-`POST /api/v1/auth/login` is **rate limited** (5 attempts per minute per IP by default).
-
-### Auth header for protected endpoints
-
-`Authorization: Bearer <token>`
+- `POST /api/v1/businesses` with `Authorization: Bearer <token>`
+- Body matches `StoreBusinessRequest` (same fields as the web form)
 
 ### Get current user
 
-- `GET /api/v1/auth/me`
-
-Response `200` (user fields under `data`):
+- `GET /api/v1/auth/me` — optional query `business_id`
+- Response `200` `data`:
 
 ```json
 {
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": 12,
-    "name": "Field User",
-    "email": "user@company.com",
-    "is_super_admin": false,
-    "userRole": "inspector",
-    "business_type": "processor",
-    "business_id": 3,
-    "permissions": [
-      "view_processor_dashboard",
-      "record_ante_mortem",
-      "view_assigned_batches",
-      "view_inspections",
-      "view_certificates"
-    ],
-    "accessible_business_ids": [3]
-  }
+  "id": 12,
+  "name": "Field User",
+  "email": "user@company.com",
+  "is_super_admin": false,
+  "userRole": "inspector",
+  "business_type": "processor",
+  "business_id": 3,
+  "permissions": ["view_processor_dashboard", "record_ante_mortem", "view_certificates"],
+  "accessible_businesses": [
+    { "id": 3, "name": "Acme Ltd", "type": "processor", "membership": "inspector" }
+  ],
+  "accessible_business_ids": [3]
 }
 ```
+
+- **`userRole`**: membership for the selected business (`org_admin`, `operations_manager`, `compliance_officer`, `inspector`, `transport_manager`, `accountant`, `super_admin`, or `user`).
+- **`permissions`**: effective processor permission strings for the selected business. Gate mobile features on this list.
+- **`business_type`**: `farmer` | `processor` | `logistics`.
 
 ### Logout
 
-- `POST /api/v1/auth/logout`
-- Invalidates current token
+- `POST /api/v1/auth/logout` — invalidates **only the current** bearer token
+
+### Auth header
+
+`Authorization: Bearer <token>`
 
 ---
 
-## Common Response Notes
+## Common response notes
 
-- Validation errors return `422` with `errors` populated.
-- Unauthorized token returns `401`.
-- Out-of-scope resources return `404`.
-- Successful creates return `201` where applicable.
-- Paginated list endpoints: paginator fields are inside the top-level `data` object (see **Standard JSON envelope**).
-- API routes are **stateless** (no CSRF); use `Authorization: Bearer` on protected routes.
+| Code | Meaning |
+|------|---------|
+| `401` | Missing / invalid / expired token (or bad login credentials) |
+| `403` | Authenticated but forbidden (policy / permission, e.g. export) |
+| `404` | Missing **or** outside workspace scope (intentional; prevents tenant enumeration) |
+| `422` | Validation or business-rule failure (`errors` map) |
+| `429` | Throttled |
+
+Creates return **`201`** where applicable. Routes are **stateless** (no CSRF).
 
 ---
 
-## Endpoints
+## Public (unauthenticated)
 
-## 1) Lookup Data (for form dropdowns)
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET` | `/api/v1/` | API name, version, documentation URL |
+| `GET` | `/api/v1/verify/permit/{identifier}` | Public permit verification; throttle 60/min. Response shape may omit `message` |
 
-### Get lookups
+---
 
-- `GET /api/v1/lookups`
+## Endpoint inventory (authenticated)
 
-Response `200` (lookup payload under `data`):
+All paths below are under `/api/v1` and require Bearer auth unless noted.
+
+### Dashboard & lookups
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET` | `/dashboard` | Processor KPI shell from `ProcessorDashboardService` |
+| `GET` | `/lookups` | `facilities`, `inspectors`, `species`, `statuses`, ante/post-mortem checklists + meta |
+
+### Animal intakes
+
+| Method | Path |
+|--------|------|
+| `GET` | `/animal-intakes` |
+| `POST` | `/animal-intakes` |
+| `GET` | `/animal-intakes/{animalIntake}` |
+| `PUT` | `/animal-intakes/{animalIntake}` |
+| `POST` | `/animal-intakes/{animalIntake}/submit` |
+| `DELETE` | `/animal-intakes/{animalIntake}` |
+
+Create uses `StoreAnimalIntakeRequest` (client-sourced intake; `source_type` forced to client). List filters: `facility_id`, `species`, `status`, `intake_date_from/to`, `per_page`.
+
+### Slaughter plans & executions
+
+| Method | Path |
+|--------|------|
+| `GET`/`POST` | `/slaughter-plans` |
+| `GET`/`PUT`/`DELETE` | `/slaughter-plans/{slaughterPlan}` |
+| `GET`/`POST` | `/slaughter-executions` |
+| `GET`/`PUT`/`DELETE` | `/slaughter-executions/{slaughterExecution}` |
+
+### Monthly inspection reports
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET` | `/monthly-inspection-reports` | Paginated list |
+| `GET` | `/monthly-inspection-reports/{facility}` | Full report JSON; query `year`, `month` |
+| `GET` | `/monthly-inspection-reports/{facility}/pdf` | PDF download (`application/pdf`); query `year`+`month` or `month=YYYY-MM` (defaults to current month) |
+| `POST` | `/monthly-inspection-reports/{facility}/closure` | Save draft or submit to RICA |
+
+### Inspectors
+
+| Method | Path |
+|--------|------|
+| `GET`/`POST` | `/inspectors` |
+| `GET`/`PUT`/`DELETE` | `/inspectors/{inspector}` |
+
+### Batches (read-only)
+
+| Method | Path |
+|--------|------|
+| `GET` | `/batches` |
+| `GET` | `/batches/{batch}` |
+
+### Ante-mortem & post-mortem
+
+| Method | Path |
+|--------|------|
+| `GET`/`POST` | `/ante-mortem-inspections` |
+| `GET`/`PUT`/`DELETE` | `/ante-mortem-inspections/{anteMortemInspection}` |
+| `GET`/`POST` | `/post-mortem-inspections` |
+| `GET`/`PUT`/`DELETE` | `/post-mortem-inspections/{postMortemInspection}` |
+
+**Post-mortem create (`StorePostMortemInspectionRequest`):** requires `slaughter_execution_id`, inspector, species, counts, `inspection_date`, plus `observations` and/or `item_outcomes`.
+
+> **Known drift:** the mobile store action still scopes with `batch_id` after validation while the FormRequest requires `slaughter_execution_id`. Prefer the web flow until aligned. See Swagger `PostMortemCreateRequest`.
+
+### Certificates
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET`/`POST` | `/certificates` | Create: `StoreCertificateRequest` |
+| `GET`/`PUT`/`DELETE` | `/certificates/{certificate}` | |
+| `GET` | `/certificates/{certificate}/qr` | `slug`, `trace_url`, `qr_svg` |
+| `GET` | `/certificates/{certificate}/pdf` | PDF download (not ApiJson); eligibility errors → 422 |
+
+### Warehouse storage
+
+| Method | Path |
+|--------|------|
+| `POST` | `/warehouse-storages` |
+
+**FormRequest (`StoreWarehouseStorageRequest`):** `warehouse_facility_id`, `post_mortem_inspection_item_ids[]`, `entry_date`, `quantity_unit`, optional `cold_room_id` / `quantities` / `temperature_at_entry`.
+
+> **Known drift:** mobile store still expects certificate-centric fields after validation. Prefer the web cold-room flow until aligned. See Swagger `WarehouseStorageCreateRequest`.
+
+### Transport trips
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET` | `/transport-trips` | Filters: `per_page`, `certificate_id`, `status`, `origin_facility_id`, `destination_facility_id` (legacy), `departure_date_from/to` |
+| `GET` | `/transport-trips/export` | Requires `export_records`; query: `format`, `status`, `from`, `to`, facility filters |
+| `GET` | `/transport-trips/{transportTrip}` | Show |
+| `POST` | `/transport-trips` | Create — see below |
+
+#### Create transport trip
+
+`StoreTransportTripRequest` (+ certificate prepare/validate + destination rules):
+
+**Required:** `certificate_id`, `origin_facility_id`, `destination_name`, `vehicle_plate_number`, `driver_name`, `departure_date`, `status` (`pending` \| `in_transit` \| `arrived` \| `completed`)
+
+**Optional:** `batch_id`, `destination_country` (ISO-2 from `config('processor.destination_countries')`), `destination_address`, `driver_phone`, `arrival_date`
+
+**Prohibited:** `destination_facility_id`
+
+Certificate must be **active** and not expired. Locked vehicle/driver/destination/departure fields are **forced from the certificate** when present; mismatches → `422`.
+
+Example:
 
 ```json
 {
-  "success": true,
-  "message": "OK",
-  "data": {
-    "facilities": [
-      { "id": 1, "facility_name": "Main Slaughterhouse", "facility_type": "slaughterhouse" }
-    ],
-    "inspectors": [
-      { "id": 10, "facility_id": 1, "first_name": "John", "last_name": "Doe", "status": "active" }
-    ],
-    "species": [
-      { "id": 1, "name": "Cattle", "code": "CAT" }
-    ],
-    "statuses": {
-      "animal_intake": ["received", "approved", "rejected"],
-      "slaughter_plan": ["planned", "approved"],
-      "slaughter_execution": ["scheduled", "in_progress", "completed", "cancelled"]
-    }
-  }
+  "certificate_id": 101,
+  "origin_facility_id": 3,
+  "destination_name": "Nairobi Cold Store",
+  "destination_country": "KE",
+  "destination_address": "Industrial Area, Nairobi",
+  "vehicle_plate_number": "RAB123C",
+  "driver_name": "Jean Claude",
+  "driver_phone": "+250788000000",
+  "departure_date": "2026-04-22",
+  "status": "pending"
+}
+```
+
+### Delivery confirmations
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET` | `/delivery-confirmations/export` | Requires `export_records` |
+| `POST` | `/delivery-confirmations` | Create — see below |
+
+There is **no** mobile list/show/update/delete for deliveries yet (web workspace only).
+
+#### Create delivery confirmation
+
+`StoreDeliveryConfirmationRequest`:
+
+**Required:** `transport_trip_id`, `received_quantity`, `received_date`, `receiver_name`, `confirmation_status` (`pending` \| `confirmed` \| `disputed`)
+
+**Optional:** `received_unit` (`units` \| `kg` \| `g` \| `tonnes` \| `carcasses` \| `boxes`), `receiver_country`, `receiver_address`, `client_id`, `contract_id`
+
+**Prohibited:** `receiving_facility_id`
+
+When the trip has destination name/country/address, those values are **always written into** the receiver fields (locked). Optional `client_id` must be an **active** client on an accessible business.
+
+Example:
+
+```json
+{
+  "transport_trip_id": 44,
+  "received_quantity": 24,
+  "received_unit": "kg",
+  "received_date": "2026-04-23",
+  "receiver_name": "Nairobi Cold Store",
+  "receiver_country": "KE",
+  "confirmation_status": "confirmed"
 }
 ```
 
 ---
 
-## 2) Animal Intakes
+## Suggested mobile integration flow
 
-### List animal intakes
-
-- `GET /api/v1/animal-intakes?per_page=20`
-
-### Create animal intake
-
-- `POST /api/v1/animal-intakes`
-
-Request body:
-
-```json
-{
-  "facility_id": 1,
-  "intake_date": "2026-04-10",
-  "species": "Cattle",
-  "number_of_animals": 25,
-  "status": "received",
-  "supplier_firstname": "Alice",
-  "supplier_lastname": "N.",
-  "supplier_contact": "+2507xxxxxxx",
-  "farm_name": "Green Farm",
-  "animal_identification_numbers": "TAG-001,TAG-002"
-}
-```
-
-Required fields:
-
-- `facility_id`, `intake_date`, `species`, `number_of_animals`, `status`
-- `supplier_firstname`, `supplier_lastname`
+1. Login (`/auth/login`) and store the bearer token securely.
+2. Call `/lookups` (and optionally `/dashboard`) after login; refresh periodically.
+3. Gate screens on `permissions` from login / `/auth/me`.
+4. Operational order (processor):
+   - animal intake → slaughter plan → slaughter execution
+   - ante-mortem → post-mortem → certificate
+   - (optional) warehouse storage via **web** until mobile store is aligned
+   - transport trip → delivery confirmation
+5. On `401`, clear session and re-login.
+6. On `422`, show field-level messages from `errors`.
 
 ---
 
-## 3) Slaughter Plans
-
-### List slaughter plans
-
-- `GET /api/v1/slaughter-plans?per_page=20`
-
-### Create slaughter plan
-
-- `POST /api/v1/slaughter-plans`
-
-Request body:
-
-```json
-{
-  "slaughter_date": "2026-04-11",
-  "facility_id": 1,
-  "animal_intake_id": 100,
-  "inspector_id": 10,
-  "species": "Cattle",
-  "number_of_animals_scheduled": 20,
-  "status": "planned"
-}
-```
-
----
-
-## 4) Slaughter Executions
-
-### List slaughter executions
-
-- `GET /api/v1/slaughter-executions?per_page=20`
-
-### Create slaughter execution
-
-- `POST /api/v1/slaughter-executions`
-
-Request body:
-
-```json
-{
-  "slaughter_plan_id": 77,
-  "actual_animals_slaughtered": 19,
-  "slaughter_time": "2026-04-11 09:30:00",
-  "status": "completed"
-}
-```
-
----
-
-## 5) Ante-Mortem Inspections
-
-### Create ante-mortem inspection
-
-- `POST /api/v1/ante-mortem-inspections`
-
-Request body:
-
-```json
-{
-  "slaughter_plan_id": 77,
-  "inspector_id": 10,
-  "inspection_date": "2026-04-11",
-  "species": "Cattle",
-  "number_examined": 20,
-  "number_approved": 19,
-  "number_rejected": 1,
-  "notes": "One animal rejected",
-  "observations": {
-    "behavior": { "value": "normal", "notes": null },
-    "gait_posture": { "value": "normal", "notes": null }
-  }
-}
-```
-
-Validation rules:
-
-- `number_approved + number_rejected <= number_examined`
-- `observations` required and validated against species checklist
-- `inspector_id` must refer to an **active** inspector assigned to the **same facility** as the slaughter plan
-
----
-
-## 6) Post-Mortem Inspections
-
-### Create post-mortem inspection
-
-- `POST /api/v1/post-mortem-inspections`
-
-Request body:
-
-```json
-{
-  "batch_id": 301,
-  "inspector_id": 10,
-  "species": "Cattle",
-  "inspection_date": "2026-04-11",
-  "total_examined": 19,
-  "approved_quantity": 18,
-  "condemned_quantity": 1,
-  "notes": "Minor lesion",
-  "observations": {
-    "carcass_lesions": { "value": "yes", "notes": "Localized" },
-    "organ_liver": { "value": "normal", "notes": null }
-  }
-}
-```
-
-Validation rules:
-
-- `approved_quantity + condemned_quantity <= total_examined`
-- `observations` required and validated against species checklist
-- `inspector_id` must refer to an **active** inspector assigned to the **same facility** as the batch’s slaughter plan
-
-Computed result:
-
-- Server computes and stores one of:
-  - `approved`
-  - `partial`
-  - `rejected`
-
----
-
-## Suggested Mobile Integration Flow
-
-1. Login (`/auth/login`) and store bearer token securely.
-2. Call `/lookups` once after login (refresh periodically).
-3. Submit data in operational order:
-   - animal intake
-   - slaughter plan
-   - slaughter execution
-   - ante-mortem inspection
-   - post-mortem inspection
-4. On `401` (invalid token or failed login), redirect to login or show invalid credentials.
-5. On `422`, show field-level or form-level validation message from response.
-
----
-
-## Versioning Notes
+## Versioning notes
 
 - Current version: `v1`
-- Future changes should be additive or released under `v2` to avoid breaking mobile clients.
-
+- Prefer additive changes, or release breaking changes under `v2`
+- Source of truth for fields: FormRequests + `routes/api.php`; keep Swagger PHP attributes (`app/Swagger/*`) in sync and regenerate `storage/api-docs/api-docs.json`

@@ -55,6 +55,7 @@ use App\Support\PostMortemChecklist;
 use App\Support\PostMortemMeatTotals;
 use App\Services\Processor\CertificatePdfService;
 use App\Services\Processor\ProcessorDashboardService;
+use App\Services\SuperAdmin\RicaMonthlyInspectionReportPdfService;
 use App\Services\SuperAdmin\RicaMonthlyInspectionReportService;
 use App\Services\SuperAdmin\RicaMonthlyInspectionReportSubmissionService;
 use App\Models\RicaMonthlyInspectionReport;
@@ -1963,6 +1964,29 @@ class MobileCollectionController extends Controller
             'month'       => $month,
             'report'      => $report,
         ]);
+    }
+
+    public function monthlyInspectionReportsPdf(
+        Request $request,
+        Facility $facility,
+        RicaMonthlyInspectionReportService $reportService,
+        RicaMonthlyInspectionReportPdfService $pdfService,
+    ): JsonResponse|BaseResponse {
+        $denied = $this->denyIfMonthlyReportFacilityOutOfScope($request, $facility);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        $period = $reportService->resolvePeriod($request);
+        $pdf = $pdfService->generate(
+            $facility,
+            $period['periodStart'],
+            $period['periodEnd'],
+        );
+
+        return $pdf->download(
+            $pdfService->downloadFilename($facility, $period['periodStart'])
+        );
     }
 
     public function monthlyInspectionReportsClosure(

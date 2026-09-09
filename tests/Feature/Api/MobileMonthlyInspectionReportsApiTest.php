@@ -195,4 +195,39 @@ class MobileMonthlyInspectionReportsApiTest extends TestCase
 
         $response->assertStatus(404);
     }
+
+    public function test_monthly_inspection_reports_pdf_downloads(): void
+    {
+        $response = $this->withHeaders($this->mobileAuthHeaders())
+            ->get('/api/v1/monthly-inspection-reports/'.$this->facility->id.'/pdf?year=2026&month=6');
+
+        $response->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_monthly_inspection_reports_pdf_out_of_scope_returns_404(): void
+    {
+        $otherUser = User::factory()->create();
+        $otherBusiness = Business::create([
+            'user_id' => $otherUser->id,
+            'business_name' => 'PDF OOS Co',
+            'registration_number' => 'REG-PDF-OOS-'.uniqid(),
+            'contact_phone' => '+250788001200',
+            'email' => 'pdf-oos-'.uniqid().'@test.com',
+            'status' => 'active',
+        ]);
+        $outOfScopeFacility = Facility::create([
+            'business_id' => $otherBusiness->id,
+            'facility_name' => 'PDF Out of Scope Facility',
+            'facility_type' => Facility::TYPE_SLAUGHTERHOUSE,
+            'district' => 'Kigali',
+            'sector' => 'Gasabo',
+            'status' => 'active',
+        ]);
+
+        $response = $this->withHeaders($this->mobileAuthHeaders())
+            ->getJson('/api/v1/monthly-inspection-reports/'.$outOfScopeFacility->id.'/pdf');
+
+        $response->assertStatus(404);
+    }
 }

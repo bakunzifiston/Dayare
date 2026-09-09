@@ -21,6 +21,22 @@ use OpenApi\Attributes as OA;
         ),
     ],
 )]
+#[OA\Get(
+    path: '/api/v1/verify/permit/{identifier}',
+    operationId: 'apiV1VerifyPermit',
+    summary: 'Public permit verification',
+    description: 'Looks up a permit by number, verification code, or token. Throttled (60/min). Response may use `{ success, data }` without `message`.',
+    tags: ['Mobile API'],
+    security: [],
+    parameters: [
+        new OA\Parameter(name: 'identifier', in: 'path', required: true, schema: new OA\Schema(type: 'string')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Permit details in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 404, description: 'Permit not found.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 429, description: 'Throttled.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
 #[OA\Post(
     path: '/api/v1/auth/login',
     operationId: 'mobileAuthLogin',
@@ -544,6 +560,28 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 404, description: 'Facility not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
+#[OA\Get(
+    path: '/api/v1/monthly-inspection-reports/{facility}/pdf',
+    operationId: 'mobileMonthlyInspectionReportsPdf',
+    summary: 'Download monthly inspection report PDF',
+    description: 'Returns a PDF file download (not the ApiJson envelope). Period defaults to the current month; pass `year`+`month` or `month=YYYY-MM`.',
+    tags: ['Mobile API', 'Monthly Inspection Reports', 'Facilities'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'facility', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'year', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'month', in: 'query', required: false, schema: new OA\Schema(description: 'Month number 1–12 when used with year, or `YYYY-MM` string.', oneOf: [
+            new OA\Schema(type: 'integer', minimum: 1, maximum: 12),
+            new OA\Schema(type: 'string', example: '2026-06'),
+        ])),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'PDF download (`application/pdf`).'),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Facility not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
 #[OA\Post(
     path: '/api/v1/monthly-inspection-reports/{facility}/closure',
     operationId: 'mobileMonthlyInspectionReportsClosure',
@@ -1018,7 +1056,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/warehouse-storages',
     operationId: 'mobileWarehouseStoragesStore',
     summary: 'Create warehouse storage record',
-    description: 'Creates a cold-room storage entry. Certificate must be in workspace scope, active, and not already in storage.',
+    description: 'Creates cold-room storage from approved post-mortem items (`post_mortem_inspection_item_ids`). See WarehouseStorageCreateRequest. Note: mobile controller and FormRequest historically drifted; prefer web cold-room flow until mobile store is fully aligned.',
     tags: ['Mobile API', 'Warehouse Storage', 'Certificates', 'Batches'],
     security: [['bearerAuth' => []]],
     requestBody: new OA\RequestBody(
@@ -1029,7 +1067,7 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 201, description: 'Created storage record in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
         new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
-        new OA\Response(response: 404, description: 'Facility or certificate not found / outside workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 404, description: 'Facility or items not found / outside workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 422, description: 'Validation or business rule error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
@@ -1042,9 +1080,9 @@ use OpenApi\Attributes as OA;
     parameters: [
         new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20, minimum: 1, maximum: 100)),
         new OA\Parameter(name: 'certificate_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
-        new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['pending', 'in_transit', 'arrived', 'completed'])),
         new OA\Parameter(name: 'origin_facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
-        new OA\Parameter(name: 'destination_facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'destination_facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'), description: 'Legacy facility destinations only.'),
         new OA\Parameter(name: 'departure_date_from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
         new OA\Parameter(name: 'departure_date_to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
     ],
@@ -1053,6 +1091,28 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 404, description: 'Filter references resource outside workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/transport-trips/export',
+    operationId: 'mobileTransportTripsExport',
+    summary: 'Export transport trips (JSON array)',
+    description: 'Requires processor permission `export_records`. Returns all matching trips in `data` (not paginated).',
+    tags: ['Mobile API', 'Transport Trips'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'format', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['csv', 'excel', 'pdf', 'json'])),
+        new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['pending', 'in_transit', 'arrived', 'completed'])),
+        new OA\Parameter(name: 'from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'origin_facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'destination_facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Trip array in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Missing export_records permission.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
 #[OA\Get(
@@ -1075,7 +1135,7 @@ use OpenApi\Attributes as OA;
     path: '/api/v1/transport-trips',
     operationId: 'mobileTransportTripsStore',
     summary: 'Create transport trip',
-    description: 'Creates a transport trip. Certificate and facilities must be in workspace scope; optional warehouse storage must be released.',
+    description: 'Creates a transport trip with an external destination (`destination_name` required; `destination_facility_id` prohibited). Certificate must be active, non-expired, and in workspace scope. Locked certificate fields (vehicle/driver/destination/departure) are forced from the certificate.',
     tags: ['Mobile API', 'Transport Trips', 'Certificates', 'Warehouse Storage'],
     security: [['bearerAuth' => []]],
     requestBody: new OA\RequestBody(
@@ -1087,14 +1147,36 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 404, description: 'Referenced resource not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
-        new OA\Response(response: 422, description: 'Validation or business rule error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation or certificate alignment error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+    ],
+)]
+#[OA\Get(
+    path: '/api/v1/delivery-confirmations/export',
+    operationId: 'mobileDeliveryConfirmationsExport',
+    summary: 'Export delivery confirmations (JSON array)',
+    description: 'Requires processor permission `export_records`. Returns matching confirmations with relations in `data`.',
+    tags: ['Mobile API', 'Delivery Confirmations'],
+    security: [['bearerAuth' => []]],
+    parameters: [
+        new OA\Parameter(name: 'format', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['csv', 'excel', 'pdf', 'json'])),
+        new OA\Parameter(name: 'confirmation_status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['pending', 'confirmed', 'disputed'])),
+        new OA\Parameter(name: 'from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+        new OA\Parameter(name: 'receiving_facility_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        new OA\Parameter(name: 'client_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+    ],
+    responses: [
+        new OA\Response(response: 200, description: 'Confirmation array in `data`.', content: new OA\JsonContent(ref: '#/components/schemas/ApiSuccess')),
+        new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 403, description: 'Missing export_records permission.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
 #[OA\Post(
     path: '/api/v1/delivery-confirmations',
     operationId: 'mobileDeliveryConfirmationsStore',
     summary: 'Create delivery confirmation',
-    description: 'Creates a delivery confirmation for a transport trip in workspace scope. Client must be active if provided.',
+    description: 'Creates a delivery confirmation for a transport trip in workspace scope. Receiver fields locked from the trip destination are forced server-side. Do not send `receiving_facility_id`. Client must be active if provided.',
     tags: ['Mobile API', 'Delivery Confirmations', 'Transport Trips'],
     security: [['bearerAuth' => []]],
     requestBody: new OA\RequestBody(
@@ -1106,7 +1188,7 @@ use OpenApi\Attributes as OA;
         new OA\Response(response: 401, description: 'Unauthorized', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 403, description: 'Forbidden', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
         new OA\Response(response: 404, description: 'Referenced resource not found or outside current workspace scope.', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
-        new OA\Response(response: 422, description: 'Validation or business rule error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
+        new OA\Response(response: 422, description: 'Validation, inactive client, or receiver alignment error', content: new OA\JsonContent(ref: '#/components/schemas/ApiError')),
     ],
 )]
 final class ApiV1Operations {}
