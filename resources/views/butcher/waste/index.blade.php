@@ -26,7 +26,7 @@
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha space-y-4">
                     <h3 class="text-sm font-semibold text-slate-900">{{ __('Log waste') }}</h3>
-                    <form method="post" action="{{ route('butcher.waste.store') }}" class="space-y-4">
+                    <form method="post" action="{{ route('butcher.waste.store') }}" class="space-y-4" onsubmit="return confirm(@js(__('Record this waste disposal? Stock will be reduced.')))">
                         @csrf
                         <div>
                             <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Batch') }}</label>
@@ -61,7 +61,7 @@
 
                 <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha space-y-4">
                     <h3 class="text-sm font-semibold text-slate-900">{{ __('Log adjustment') }}</h3>
-                    <form method="post" action="{{ route('butcher.waste.adjustments.store') }}" class="space-y-4">
+                    <form method="post" action="{{ route('butcher.waste.adjustments.store') }}" class="space-y-4" onsubmit="return confirm(@js(__('Record this inventory adjustment? Stock weights will change immediately.')))">
                         @csrf
                         <div>
                             <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Batch') }}</label>

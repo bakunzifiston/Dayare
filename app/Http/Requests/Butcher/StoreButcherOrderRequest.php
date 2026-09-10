@@ -29,6 +29,11 @@ class StoreButcherOrderRequest extends FormRequest
                 'integer',
                 Rule::exists('butcher_customers', 'id')->where('business_id', $business->id),
             ],
+            'outlet_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('butcher_outlets', 'id')->where('business_id', $business->id),
+            ],
             'order_date' => ['nullable', 'date'],
             'delivery_date' => ['nullable', 'date', 'after_or_equal:order_date'],
             'deposit_paid' => ['nullable', 'numeric', 'min:0'],

@@ -7,31 +7,38 @@
     </x-slot>
 
     <div class="py-8">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="overflow-hidden rounded-bucha border border-slate-200/80 bg-white shadow-bucha">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
+            <form method="get" class="flex flex-wrap items-end gap-3">
+                <x-butcher.outlet-filter :outlets="$outlets" :selected="$filterOutletId" />
+            </form>
+
+            <div class="overflow-x-auto rounded-bucha border border-slate-200/80 bg-white shadow-bucha">
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
                     <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
                             <th class="px-4 py-3">{{ __('Batch') }}</th>
                             <th class="px-4 py-3">{{ __('Meat') }}</th>
                             <th class="px-4 py-3">{{ __('Remaining (kg)') }}</th>
-                            <th class="px-4 py-3">{{ __('Age') }}</th>
+                            <th class="hidden sm:table-cell px-4 py-3">{{ __('Age') }}</th>
                             <th class="px-4 py-3">{{ __('Best before') }}</th>
-                            <th class="px-4 py-3">{{ __('Location') }}</th>
+                            <th class="hidden md:table-cell px-4 py-3">{{ __('Location') }}</th>
                             <th class="px-4 py-3">{{ __('Status') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @forelse ($batches as $batch)
-                            <tr @class(['hover:bg-slate-50', 'bg-amber-50/50' => $batch->isExpiringSoon(), 'bg-red-50/40' => $batch->status === 'expired'])>
+                            <tr @class(['hover:bg-slate-50', 'bg-amber-50/50' => $batch->isExpiringSoon(), 'bg-red-50/40' => $batch->status === 'expired' || $batch->hasTemperatureBreach()])>
                                 <td class="px-4 py-3 font-medium">
                                     <a href="{{ route('butcher.inventory.batches.show', $batch) }}" class="text-bucha-primary hover:underline">{{ $batch->batch_number }}</a>
+                                    @if ($batch->hasTemperatureBreach())
+                                        <span class="ml-2 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-800">{{ __('Temperature Breach') }}</span>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3 capitalize">{{ $batch->meat_type }}</td>
                                 <td class="px-4 py-3">{{ number_format((float) $batch->remaining_weight_kg, 2) }}</td>
-                                <td class="px-4 py-3">{{ $batch->ageInDays() }}d</td>
+                                <td class="hidden sm:table-cell px-4 py-3">{{ $batch->ageInDays() }}d</td>
                                 <td class="px-4 py-3">{{ $batch->best_before_date?->format('Y-m-d') }}</td>
-                                <td class="px-4 py-3">{{ $batch->storage_location ?: '—' }}</td>
+                                <td class="hidden md:table-cell px-4 py-3">{{ $batch->storage_location ?: '—' }}</td>
                                 <td class="px-4 py-3"><x-butcher.status-badge :status="$batch->status" /></td>
                             </tr>
                         @empty

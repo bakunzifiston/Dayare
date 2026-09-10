@@ -27,6 +27,7 @@ Reference for the **Processor** tenant workspace in DayareMeat (BuchaPro). Gener
 | [SYSTEM_ANALYSIS.md](./SYSTEM_ANALYSIS.md) | Cross-workspace actors and module relationships |
 | [MOBILE_API_DOCUMENTATION.md](./MOBILE_API_DOCUMENTATION.md) | Processor mobile collection API |
 | [FARMER_WORKSPACE.md](./FARMER_WORKSPACE.md) | Farmer workspace (parallel tenant type) |
+| [BUTCHER_WORKSPACE.md](./BUTCHER_WORKSPACE.md) | Butcher retail/wholesale workspace (parallel tenant type) |
 
 ### Configuration
 

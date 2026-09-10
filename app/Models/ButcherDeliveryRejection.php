@@ -13,6 +13,7 @@ class ButcherDeliveryRejection extends Model
     protected $fillable = [
         'business_id',
         'delivery_id',
+        'delivery_line_id',
         'supplier_id',
         'meat_type',
         'rejected_weight_kg',
@@ -39,6 +40,11 @@ class ButcherDeliveryRejection extends Model
     public function delivery(): BelongsTo
     {
         return $this->belongsTo(ButcherDelivery::class, 'delivery_id');
+    }
+
+    public function deliveryLine(): BelongsTo
+    {
+        return $this->belongsTo(ButcherDeliveryLine::class, 'delivery_line_id');
     }
 
     public function supplier(): BelongsTo

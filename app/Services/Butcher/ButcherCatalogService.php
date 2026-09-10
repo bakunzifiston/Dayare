@@ -9,50 +9,72 @@ use App\Models\ButcherPriceRule;
 use App\Models\ButcherProduct;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ButcherCatalogService
 {
     public function createProduct(Business $business, array $data): ButcherProduct
     {
-        $product = $business->butcherProducts()->create([
-            'cut_type_id' => $data['cut_type_id'] ?? null,
-            'name' => (string) $data['name'],
-            'meat_type' => (string) $data['meat_type'],
-            'unit' => (string) ($data['unit'] ?? ButcherProduct::UNIT_PER_KG),
-            'default_price' => (float) $data['default_price'],
-            'avg_cost_per_kg' => (float) ($data['avg_cost_per_kg'] ?? 0),
-            'is_active' => (bool) ($data['is_active'] ?? true),
-        ]);
+        $wantsActive = (bool) ($data['is_active'] ?? false);
 
-        if ($product->cut_type_id) {
-            $this->recalculateAvgCost($product);
-        } else {
-            $this->recalculateMargin($product);
-        }
+        return DB::transaction(function () use ($business, $data, $wantsActive) {
+            $product = $business->butcherProducts()->create([
+                'cut_type_id' => $data['cut_type_id'] ?? null,
+                'name' => (string) $data['name'],
+                'meat_type' => (string) $data['meat_type'],
+                'unit' => (string) ($data['unit'] ?? ButcherProduct::UNIT_PER_KG),
+                'default_price' => (float) $data['default_price'],
+                'avg_cost_per_kg' => (float) ($data['avg_cost_per_kg'] ?? 0),
+                'is_active' => false,
+            ]);
 
-        return $product->fresh();
+            if ($product->cut_type_id) {
+                $this->recalculateAvgCost($product);
+            } else {
+                $this->recalculateMargin($product);
+            }
+
+            if ($wantsActive) {
+                $this->assertCanActivate($product->fresh());
+                $product->update(['is_active' => true]);
+            }
+
+            return $product->fresh(['cutType', 'priceRules']);
+        });
     }
 
     public function updateProduct(ButcherProduct $product, array $data): void
     {
-        $cutTypeChanged = array_key_exists('cut_type_id', $data)
-            && (int) ($data['cut_type_id'] ?? 0) !== (int) $product->cut_type_id;
+        DB::transaction(function () use ($product, $data) {
+            $cutTypeChanged = array_key_exists('cut_type_id', $data)
+                && (int) ($data['cut_type_id'] ?? 0) !== (int) $product->cut_type_id;
 
-        $product->fill([
-            'cut_type_id' => $data['cut_type_id'] ?? $product->cut_type_id,
-            'name' => $data['name'] ?? $product->name,
-            'meat_type' => $data['meat_type'] ?? $product->meat_type,
-            'unit' => $data['unit'] ?? $product->unit,
-            'default_price' => $data['default_price'] ?? $product->default_price,
-            'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $product->is_active,
-        ]);
-        $product->save();
+            $wantsActive = array_key_exists('is_active', $data)
+                ? (bool) $data['is_active']
+                : (bool) $product->is_active;
 
-        if ($cutTypeChanged && $product->cut_type_id) {
-            $this->recalculateAvgCost($product);
-        } else {
-            $this->recalculateMargin($product);
-        }
+            $product->fill([
+                'cut_type_id' => array_key_exists('cut_type_id', $data) ? $data['cut_type_id'] : $product->cut_type_id,
+                'name' => $data['name'] ?? $product->name,
+                'meat_type' => $data['meat_type'] ?? $product->meat_type,
+                'unit' => $data['unit'] ?? $product->unit,
+                'default_price' => $data['default_price'] ?? $product->default_price,
+                'is_active' => false,
+            ]);
+            $product->save();
+
+            if ($cutTypeChanged && $product->cut_type_id) {
+                $this->recalculateAvgCost($product);
+            } else {
+                $this->recalculateMargin($product);
+            }
+
+            if ($wantsActive) {
+                $this->assertCanActivate($product->fresh());
+                $product->update(['is_active' => true]);
+            }
+        });
     }
 
     public function recalculateAvgCost(ButcherProduct $product): void
@@ -99,17 +121,86 @@ class ButcherCatalogService
 
     public function setPriceRule(Business $business, array $data): ButcherPriceRule
     {
-        return $business->butcherPriceRules()->create([
-            'product_id' => (int) $data['product_id'],
-            'outlet_id' => $data['outlet_id'] ?? null,
-            'customer_tier' => $data['customer_tier'] ?? null,
-            'price' => (float) $data['price'],
-            'valid_from' => Carbon::parse($data['valid_from'])->toDateString(),
-            'valid_until' => isset($data['valid_until']) && $data['valid_until'] !== ''
-                ? Carbon::parse($data['valid_until'])->toDateString()
-                : null,
-            'is_active' => (bool) ($data['is_active'] ?? true),
-        ]);
+        return DB::transaction(function () use ($business, $data) {
+            $rule = $business->butcherPriceRules()->create([
+                'product_id' => (int) $data['product_id'],
+                'outlet_id' => $data['outlet_id'] ?? null,
+                'customer_tier' => $data['customer_tier'] ?? null,
+                'price' => (float) $data['price'],
+                'valid_from' => Carbon::parse($data['valid_from'])->toDateString(),
+                'valid_until' => isset($data['valid_until']) && $data['valid_until'] !== ''
+                    ? Carbon::parse($data['valid_until'])->toDateString()
+                    : null,
+                'is_active' => (bool) ($data['is_active'] ?? true),
+            ]);
+
+            $this->syncDefaultPriceFromRetailRule($rule);
+
+            return $rule->fresh(['product', 'outlet']);
+        });
+    }
+
+    public function updatePriceRule(ButcherPriceRule $rule, array $data): ButcherPriceRule
+    {
+        return DB::transaction(function () use ($rule, $data) {
+            $product = $rule->product;
+            $becomingInactive = array_key_exists('is_active', $data)
+                && ! (bool) $data['is_active']
+                && $rule->is_active;
+
+            $rule->fill([
+                'outlet_id' => array_key_exists('outlet_id', $data) ? $data['outlet_id'] : $rule->outlet_id,
+                'customer_tier' => array_key_exists('customer_tier', $data) ? $data['customer_tier'] : $rule->customer_tier,
+                'price' => $data['price'] ?? $rule->price,
+                'valid_from' => isset($data['valid_from'])
+                    ? Carbon::parse($data['valid_from'])->toDateString()
+                    : $rule->valid_from,
+                'valid_until' => array_key_exists('valid_until', $data)
+                    ? (isset($data['valid_until']) && $data['valid_until'] !== ''
+                        ? Carbon::parse($data['valid_until'])->toDateString()
+                        : null)
+                    : $rule->valid_until,
+                'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $rule->is_active,
+            ]);
+            $rule->save();
+
+            if ($becomingInactive
+                && $product
+                && $product->is_active
+                && ! $this->hasActiveRetailPriceRule($product->fresh())) {
+                throw ValidationException::withMessages([
+                    'is_active' => [__('Cannot deactivate the last retail price rule while the product is active.')],
+                ]);
+            }
+
+            $this->syncDefaultPriceFromRetailRule($rule->fresh());
+
+            return $rule->fresh(['product', 'outlet']);
+        });
+    }
+
+    public function hasActiveRetailPriceRule(ButcherProduct $product): bool
+    {
+        $today = now()->toDateString();
+
+        return $product->priceRules()
+            ->where('is_active', true)
+            ->where('customer_tier', ButcherPriceRule::TIER_RETAIL)
+            ->whereDate('valid_from', '<=', $today)
+            ->where(function ($query) use ($today) {
+                $query->whereNull('valid_until')
+                    ->orWhereDate('valid_until', '>=', $today);
+            })
+            ->exists();
+    }
+
+    public function assertCanActivate(ButcherProduct $product): void
+    {
+        if (! $this->hasActiveRetailPriceRule($product)) {
+            throw ValidationException::withMessages([
+                'is_active' => [__('Add an active retail price rule before activating this product for POS.')],
+            ]);
+        }
     }
 
     public function resolvePrice(ButcherProduct $product, ?int $outletId = null, ?string $tier = null, ?Carbon $on = null): float
@@ -176,6 +267,21 @@ class ButcherCatalogService
             'products' => $products,
             'recent_price_rules' => $activeRules,
         ];
+    }
+
+    private function syncDefaultPriceFromRetailRule(ButcherPriceRule $rule): void
+    {
+        if ($rule->customer_tier !== ButcherPriceRule::TIER_RETAIL || ! $rule->is_active) {
+            return;
+        }
+
+        $product = $rule->product;
+        if ($product === null || $rule->outlet_id !== null) {
+            return;
+        }
+
+        $product->update(['default_price' => $rule->price]);
+        $this->recalculateMargin($product->fresh());
     }
 
     private function recalculateMargin(ButcherProduct $product): void

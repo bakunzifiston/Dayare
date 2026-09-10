@@ -49,6 +49,7 @@ class StoreButcherSaleRequest extends FormRequest
             'items.*.cut_output_id' => ['nullable', 'integer'],
             'items.*.quantity_kg' => ['nullable', 'numeric', 'min:0'],
             'items.*.quantity_units' => ['nullable', 'integer', 'min:1'],
+            'safety_override_reason' => ['nullable', 'string', 'max:1000'],
             'split_payments' => ['nullable', 'array'],
             'split_payments.*.payment_method' => ['string', Rule::in(ButcherSalePayment::SPLIT_METHODS)],
             'split_payments.*.amount' => ['numeric', 'min:0'],

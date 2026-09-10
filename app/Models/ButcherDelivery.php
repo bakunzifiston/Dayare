@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\DefinesButcherMeatTypes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ButcherDelivery extends Model
@@ -33,6 +34,7 @@ class ButcherDelivery extends Model
         'received_weight_kg',
         'unit_cost_per_kg',
         'total_cost',
+        // Deprecated: prefer line outcomes. Kept for historical reads / summary queries.
         'condition',
         'received_at',
         'received_by',
@@ -79,16 +81,35 @@ class ButcherDelivery extends Model
 
     public function inventoryBatch(): HasOne
     {
-        return $this->hasOne(ButcherInventoryBatch::class, 'delivery_id');
+        return $this->hasOne(ButcherInventoryBatch::class, 'delivery_id')->latestOfMany();
+    }
+
+    public function inventoryBatches(): HasMany
+    {
+        return $this->hasMany(ButcherInventoryBatch::class, 'delivery_id');
     }
 
     public function rejection(): HasOne
     {
-        return $this->hasOne(ButcherDeliveryRejection::class, 'delivery_id');
+        return $this->hasOne(ButcherDeliveryRejection::class, 'delivery_id')->latestOfMany();
+    }
+
+    public function rejections(): HasMany
+    {
+        return $this->hasMany(ButcherDeliveryRejection::class, 'delivery_id');
+    }
+
+    public function lines(): HasMany
+    {
+        return $this->hasMany(ButcherDeliveryLine::class, 'delivery_id');
     }
 
     public function createsInventory(): bool
     {
+        if ($this->relationLoaded('lines') && $this->lines->isNotEmpty()) {
+            return $this->lines->contains(fn (ButcherDeliveryLine $line) => $line->createsInventory());
+        }
+
         return in_array($this->condition, [self::CONDITION_GOOD, self::CONDITION_FAIR], true);
     }
 }

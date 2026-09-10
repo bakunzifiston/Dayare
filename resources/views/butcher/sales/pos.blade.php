@@ -11,6 +11,7 @@
 
     <div class="py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <x-butcher.hygiene-advisory-banner :banner="$hygieneBanner" />
 <div
     x-data="butcherPos({
         products: @js($products),
@@ -30,6 +31,9 @@
         <input type="hidden" name="payment_method" :value="paymentMethod">
         <input type="hidden" name="amount_paid" :value="amountPaid">
         <input type="hidden" name="discount_amount" :value="discount">
+        @if ($canOverrideSafety)
+            <input type="hidden" name="safety_override_reason" :value="safetyOverrideReason">
+        @endif
         <template x-for="(item, index) in cart" :key="index">
             <input type="hidden" :name="'items[' + index + '][product_id]'" :value="item.product_id">
             <input type="hidden" :name="'items[' + index + '][quantity_kg]'" :value="item.quantity_kg">
@@ -41,7 +45,7 @@
         </template>
 
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div class="lg:col-span-2 space-y-4">
+            <div class="lg:col-span-2 space-y-4 order-2 lg:order-1">
                 <div class="flex flex-wrap gap-3">
                     <div class="flex-1 min-w-[140px]">
                         <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Outlet') }}</label>
@@ -78,7 +82,7 @@
                 </div>
             </div>
 
-            <div class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha space-y-4">
+            <div class="rounded-bucha border border-slate-200/80 bg-white p-4 sm:p-5 shadow-bucha space-y-4 order-1 lg:order-2 lg:sticky lg:top-4 self-start">
                 <h3 class="text-sm font-semibold text-slate-900">{{ __('Cart') }}</h3>
                 <div class="space-y-2 max-h-64 overflow-y-auto">
                     <template x-if="cart.length === 0">
@@ -144,6 +148,13 @@
                     <button type="button" @click="addSplitRow()" class="text-xs font-semibold text-bucha-primary">{{ __('Add split line') }}</button>
                 </div>
 
+                @if ($canOverrideSafety)
+                    <div>
+                        <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Safety override reason') }}</label>
+                        <textarea x-model="safetyOverrideReason" rows="2" class="mt-1 block w-full rounded-lg border-gray-300 text-sm" placeholder="{{ __('Only if selling from breached/expired stock') }}"></textarea>
+                    </div>
+                @endif
+
                 <button type="submit" :disabled="cart.length === 0" class="w-full rounded-bucha bg-bucha-primary px-4 py-3 text-sm font-semibold text-white hover:bg-bucha-burgundy disabled:opacity-50">
                     {{ __('Complete sale') }}
                 </button>
@@ -165,6 +176,7 @@ function butcherPos(config) {
         paymentMethod: 'cash',
         amountPaid: 0,
         discount: 0,
+        safetyOverrideReason: '',
         splitPayments: [{ payment_method: 'cash', amount: 0 }, { payment_method: 'momo', amount: 0 }],
         storeUrl: config.storeUrl,
         filteredProducts() {
@@ -219,6 +231,11 @@ function butcherPos(config) {
             if (this.paymentMethod === 'credit' && !this.customerId) {
                 alert(@json(__('Select a customer for credit sales.')));
                 return;
+            }
+            if (this.safetyOverrideReason && this.safetyOverrideReason.trim() !== '') {
+                if (!confirm(@json(__('Complete this sale with a logged safety override?')))) {
+                    return;
+                }
             }
             event.target.submit();
         },

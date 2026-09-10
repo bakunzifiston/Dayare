@@ -6,6 +6,7 @@ use App\Http\Controllers\Butcher\Concerns\InteractsWithAccessibleButcherBusiness
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Butcher\StoreButcherCutOutputRequest;
 use App\Http\Requests\Butcher\StoreButcherCuttingSessionRequest;
+use App\Http\Requests\Butcher\StoreButcherCuttingSessionSourceRequest;
 use App\Http\Requests\Butcher\StoreButcherCutTypeRequest;
 use App\Models\ButcherCutOutput;
 use App\Models\ButcherCuttingSession;
@@ -17,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Validation\ValidationException;
 
 class ButcherProcessingController extends Controller
 {
@@ -103,18 +105,30 @@ class ButcherProcessingController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
+        $canOverride = (bool) $request->user()?->canButcherPermission(
+            \App\Models\BusinessUser::PERMISSION_OVERRIDE_BUTCHER_BATCH_SAFETY,
+            $business->id
+        );
+
         $batches = $business->butcherInventoryBatches()
             ->whereIn('status', ButcherInventoryBatch::ACTIVE_STATUSES)
             ->where('remaining_weight_kg', '>', 0)
             ->with('outlet')
             ->orderBy('received_at')
             ->get()
-            ->filter(fn (ButcherInventoryBatch $batch) => ! $batch->isExpired());
+            ->filter(function (ButcherInventoryBatch $batch) use ($canOverride) {
+                if ($canOverride) {
+                    return true;
+                }
+
+                return ! $batch->isSafetyBlocked();
+            });
 
         return view('butcher.processing.sessions.create', [
             'business' => $business,
             'outlets' => $business->butcherOutlets()->where('status', ButcherOutlet::STATUS_ACTIVE)->orderBy('name')->get(),
             'batches' => $batches,
+            'canOverride' => $canOverride,
         ]);
     }
 
@@ -125,11 +139,15 @@ class ButcherProcessingController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
-        $session = $this->cutting->openSession($business, $request->validated());
+        try {
+            $session = $this->cutting->openSession($business, $request->validated(), $request->user());
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withInput()->withErrors($e->errors());
+        }
 
         return redirect()
             ->route('butcher.processing.sessions.show', $session)
-            ->with('status', __('Processing session opened. Record cut outputs below.'));
+            ->with('status', __('Processing session opened. Inventory will be deducted only when you close the session.'));
     }
 
     public function sessionsShow(Request $request, ButcherCuttingSession $session): View|RedirectResponse
@@ -140,7 +158,7 @@ class ButcherProcessingController extends Controller
         }
         abort_unless((int) $session->business_id === (int) $business->id, 404);
 
-        $session->load(['batch', 'outlet', 'cutOutputs.cutType']);
+        $session->load(['batch', 'outlet', 'cutOutputs.cutType', 'sources.batch']);
 
         $cutTypes = $business->butcherCutTypes()
             ->where('is_active', true)
@@ -156,12 +174,39 @@ class ButcherProcessingController extends Controller
                 'source_weight_kg' => (float) $session->source_weight_kg,
             ];
 
+        $availableBatches = collect();
+        if ($session->isOpen()) {
+            $availableBatches = $business->butcherInventoryBatches()
+                ->whereIn('status', ButcherInventoryBatch::ACTIVE_STATUSES)
+                ->where('remaining_weight_kg', '>', 0)
+                ->with('outlet')
+                ->orderBy('received_at')
+                ->get()
+                ->filter(fn (ButcherInventoryBatch $batch) => ! $batch->isExpired());
+        }
+
         return view('butcher.processing.sessions.show', [
             'business' => $business,
             'session' => $session,
             'cutTypes' => $cutTypes,
             'wastage' => $wastage,
+            'availableBatches' => $availableBatches,
         ]);
+    }
+
+    public function sourcesStore(StoreButcherCuttingSessionSourceRequest $request, ButcherCuttingSession $session): RedirectResponse
+    {
+        $business = $this->primaryBusiness($request);
+        if ($business === null) {
+            return redirect()->route('butcher.dashboard');
+        }
+        abort_unless((int) $session->business_id === (int) $business->id, 404);
+
+        $this->cutting->addSource($session, $request->validated());
+
+        return redirect()
+            ->route('butcher.processing.sessions.show', $session)
+            ->with('status', __('Source batch added. Inventory is still unchanged until close.'));
     }
 
     public function outputsStore(StoreButcherCutOutputRequest $request, ButcherCuttingSession $session): RedirectResponse
@@ -187,11 +232,21 @@ class ButcherProcessingController extends Controller
         }
         abort_unless((int) $session->business_id === (int) $business->id, 404);
 
-        $this->cutting->closeSession($session);
+        try {
+            $this->cutting->closeSession(
+                $session,
+                $request->user(),
+                $request->input('safety_override_reason')
+            );
+        } catch (ValidationException $e) {
+            return redirect()
+                ->route('butcher.processing.sessions.show', $session)
+                ->withErrors($e->errors());
+        }
 
         return redirect()
             ->route('butcher.processing.sessions.show', $session)
-            ->with('status', __('Session closed. Wastage calculated.'));
+            ->with('status', __('Session closed. Inventory deducted and wastage calculated.'));
     }
 
     public function generateLabel(Request $request, ButcherCuttingSession $session, ButcherCutOutput $cutOutput): StreamedResponse|RedirectResponse

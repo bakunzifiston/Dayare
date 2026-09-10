@@ -18,10 +18,22 @@
             @if (session('status'))
                 <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{ session('status') }}</div>
             @endif
+            @if ($errors->any())
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <ul class="list-disc pl-4">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('butcher.sales.receipt', $sale) }}" class="inline-flex items-center rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">{{ __('Download receipt') }}</a>
                 <a href="{{ route('butcher.sales.invoice', $sale) }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Download invoice') }}</a>
+                @if ($sale->order)
+                    <a href="{{ route('butcher.sales.orders.show', $sale->order) }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('View order') }}</a>
+                @endif
                 @if ($sale->isCancellable())
                     <form method="post" action="{{ route('butcher.sales.cancel', $sale) }}" onsubmit="return confirm(@json(__('Cancel this sale and restore stock?')))">
                         @csrf
@@ -43,12 +55,25 @@
                         <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
                             <th class="py-2">{{ __('Item') }}</th>
                             <th class="py-2">{{ __('Qty') }}</th>
+                            <th class="py-2">{{ __('Cut output / batch') }}</th>
                             <th class="py-2 text-right">{{ __('Subtotal') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($sale->items as $item)
-                            <tr class="border-b border-slate-100">
+                            @php
+                                $output = $item->cutOutput;
+                                $session = $output?->session;
+                                $batches = collect();
+                                if ($session) {
+                                    if ($session->relationLoaded('sources') && $session->sources->isNotEmpty()) {
+                                        $batches = $session->sources->pluck('batch')->filter();
+                                    } elseif ($session->batch) {
+                                        $batches = collect([$session->batch]);
+                                    }
+                                }
+                            @endphp
+                            <tr class="border-b border-slate-100 align-top">
                                 <td class="py-2">{{ $item->product?->name }}</td>
                                 <td class="py-2">
                                     @if ((float) $item->quantity_kg > 0)
@@ -56,6 +81,19 @@
                                     @endif
                                     @if ($item->quantity_units)
                                         {{ $item->quantity_units }} {{ __('units') }}
+                                    @endif
+                                    @if ($item->returns->isNotEmpty())
+                                        <div class="text-xs text-slate-500">{{ __('Returned') }}: {{ number_format($item->returnedQuantityKg(), 2) }} kg</div>
+                                    @endif
+                                </td>
+                                <td class="py-2 text-xs text-slate-600">
+                                    @if ($output)
+                                        <div>{{ __('Output #:id', ['id' => $output->id]) }} · {{ number_format((float) $output->remaining_weight_kg, 2) }} kg {{ __('left') }}</div>
+                                        @foreach ($batches as $batch)
+                                            <div>{{ __('Batch') }} {{ $batch->batch_number ?? ('#'.$batch->id) }}</div>
+                                        @endforeach
+                                    @else
+                                        —
                                     @endif
                                 </td>
                                 <td class="py-2 text-right font-medium">{{ $fmtMoney($item->subtotal) }}</td>
@@ -86,6 +124,38 @@
                     </div>
                 @endif
             </section>
+
+            @if ($sale->status === \App\Models\ButcherSale::STATUS_COMPLETED)
+                <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha space-y-4">
+                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Process return') }}</h3>
+                    <form method="post" action="{{ route('butcher.sales.returns.store', $sale) }}" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        @csrf
+                        <div>
+                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Sale item') }}</label>
+                            <select name="sale_item_id" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
+                                @foreach ($sale->items as $item)
+                                    @if ($item->returnableQuantityKg() > 0 && $item->cut_output_id)
+                                        <option value="{{ $item->id }}">
+                                            {{ $item->product?->name }} — {{ number_format($item->returnableQuantityKg(), 2) }} kg {{ __('returnable') }}
+                                        </option>
+                                    @endif
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Quantity (kg)') }}</label>
+                            <input type="number" step="0.001" min="0.001" name="quantity_kg" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm" value="{{ old('quantity_kg') }}">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Reason') }}</label>
+                            <input type="text" name="reason" class="mt-1 block w-full rounded-lg border-gray-300 text-sm" value="{{ old('reason') }}" placeholder="{{ __('Optional') }}">
+                        </div>
+                        <div class="sm:col-span-3">
+                            <button type="submit" class="rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">{{ __('Record return') }}</button>
+                        </div>
+                    </form>
+                </section>
+            @endif
         </div>
     </div>
 </x-app-layout>

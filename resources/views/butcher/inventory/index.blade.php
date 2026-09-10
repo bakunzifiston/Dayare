@@ -18,10 +18,14 @@
 
     <div class="py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <form method="get" class="flex flex-wrap items-end gap-3">
+                <x-butcher.outlet-filter :outlets="$outlets" :selected="$filterOutletId" />
+            </form>
+
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <x-kpi-card stat :title="__('Batches in storage')" :value="$summary['batches_in_storage']" :href="route('butcher.inventory.batches.index')" />
-                <x-kpi-card stat :title="__('Kg in storage')" :value="$fmtKg($summary['kg_in_storage'])" :href="route('butcher.inventory.batches.index')" />
-                <x-kpi-card stat :title="__('Expiring soon')" :value="$summary['expiring_soon']" :href="route('butcher.inventory.batches.index')" />
+                <x-kpi-card stat :title="__('Batches in storage')" :value="$summary['batches_in_storage']" :href="route('butcher.inventory.batches.index', array_filter(['outlet_id' => $filterOutletId]))" />
+                <x-kpi-card stat :title="__('Kg in storage')" :value="$fmtKg($summary['kg_in_storage'])" :href="route('butcher.inventory.batches.index', array_filter(['outlet_id' => $filterOutletId]))" />
+                <x-kpi-card stat :title="__('Expiring soon')" :value="$summary['expiring_soon']" :href="route('butcher.inventory.batches.index', array_filter(['outlet_id' => $filterOutletId]))" />
                 <x-kpi-card stat :title="__('Temp breaches today')" :value="$summary['temp_breaches_today']" :href="route('butcher.inventory.temperatures.index')" />
             </div>
 

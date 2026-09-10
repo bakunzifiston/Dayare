@@ -16,12 +16,13 @@
             <form method="get" class="flex flex-wrap items-end gap-3">
                 <div>
                     <label for="from" class="text-xs font-semibold uppercase text-slate-500">{{ __('From') }}</label>
-                    <input id="from" type="date" name="from" value="{{ $from }}" class="mt-1 block rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+                    <input id="from" type="date" name="from" value="{{ $from }}" class="mt-1 block w-full min-w-[10rem] rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
                 </div>
                 <div>
                     <label for="to" class="text-xs font-semibold uppercase text-slate-500">{{ __('To') }}</label>
-                    <input id="to" type="date" name="to" value="{{ $to }}" class="mt-1 block rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+                    <input id="to" type="date" name="to" value="{{ $to }}" class="mt-1 block w-full min-w-[10rem] rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
                 </div>
+                <x-butcher.outlet-filter :outlets="$outlets" :selected="$filterOutletId" />
             </form>
 
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">

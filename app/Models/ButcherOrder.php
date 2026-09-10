@@ -30,6 +30,8 @@ class ButcherOrder extends Model
     protected $fillable = [
         'business_id',
         'customer_id',
+        'sale_id',
+        'outlet_id',
         'order_number',
         'order_date',
         'delivery_date',
@@ -58,8 +60,23 @@ class ButcherOrder extends Model
         return $this->belongsTo(ButcherCustomer::class, 'customer_id');
     }
 
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(ButcherSale::class, 'sale_id');
+    }
+
+    public function outlet(): BelongsTo
+    {
+        return $this->belongsTo(ButcherOutlet::class, 'outlet_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(ButcherOrderItem::class, 'order_id');
+    }
+
+    public function isFulfillable(): bool
+    {
+        return $this->status === self::STATUS_READY && $this->sale_id === null;
     }
 }

@@ -6,6 +6,8 @@ use App\Http\Controllers\Butcher\Concerns\InteractsWithAccessibleButcherBusiness
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Butcher\StoreButcherDeliveryRequest;
 use App\Models\ButcherDelivery;
+use App\Models\ButcherDeliveryLine;
+use App\Models\ButcherPurchaseOrder;
 use App\Services\Butcher\ButcherOnboardingService;
 use App\Services\Butcher\ButcherProcurementService;
 use Illuminate\Http\RedirectResponse;
@@ -31,7 +33,7 @@ class ButcherReceivingController extends Controller
         $period = (string) $request->query('period', '30d');
 
         $deliveries = $business->butcherDeliveries()
-            ->with(['supplier', 'outlet'])
+            ->with(['supplier', 'outlet', 'lines'])
             ->latest('received_at')
             ->paginate(15)
             ->withQueryString();
@@ -62,14 +64,38 @@ class ButcherReceivingController extends Controller
 
         if ($outlets->isEmpty()) {
             return redirect()
-                ->route('butcher.dashboard')
+                ->route('butcher.outlets.index')
                 ->with('status', __('Configure an outlet before receiving stock.'));
+        }
+
+        $openOrders = $business->butcherPurchaseOrders()
+            ->with('supplier')
+            ->whereIn('status', [
+                ButcherPurchaseOrder::STATUS_DRAFT,
+                ButcherPurchaseOrder::STATUS_SENT,
+                ButcherPurchaseOrder::STATUS_CONFIRMED,
+            ])
+            ->latest()
+            ->get();
+
+        $selectedPo = null;
+        if ($request->filled('purchase_order_id')) {
+            $selectedPo = $openOrders->firstWhere('id', (int) $request->integer('purchase_order_id'));
         }
 
         return view('butcher.receiving.create', [
             'business' => $business,
             'suppliers' => $suppliers,
             'outlets' => $outlets,
+            'openOrders' => $openOrders,
+            'selectedPo' => $selectedPo,
+            'meatTypes' => ButcherDelivery::MEAT_TYPES,
+            'outcomes' => ButcherDeliveryLine::OUTCOMES,
+            'hygieneBanner' => app(\App\Services\Butcher\ButcherComplianceService::class)
+                ->hygieneMissingBanner(
+                    $business,
+                    (int) ($selectedPo?->outlet_id ?? $outlets->first()?->id)
+                ),
         ]);
     }
 
@@ -95,8 +121,10 @@ class ButcherReceivingController extends Controller
             'supplier',
             'outlet',
             'purchaseOrder',
-            'inventoryBatch',
-            'rejection',
+            'lines.inventoryBatch',
+            'lines.rejection',
+            'inventoryBatches',
+            'rejections',
             'receivedByUser',
         ]);
 

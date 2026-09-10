@@ -160,7 +160,7 @@ class ButcherWorkspaceDemoSeeder extends Seeder
             $this->business = $existingBusiness;
             BusinessUser::query()->updateOrCreate(
                 ['business_id' => $this->business->id, 'user_id' => $this->owner->id],
-                ['role' => BusinessUser::ROLE_ORG_ADMIN]
+                ['role' => BusinessUser::ROLE_BUTCHER_OWNER]
             );
 
             return true;
@@ -210,7 +210,7 @@ class ButcherWorkspaceDemoSeeder extends Seeder
 
         BusinessUser::query()->updateOrCreate(
             ['business_id' => $this->business->id, 'user_id' => $this->owner->id],
-            ['role' => BusinessUser::ROLE_ORG_ADMIN]
+            ['role' => BusinessUser::ROLE_BUTCHER_OWNER]
         );
 
         return true;
@@ -458,7 +458,24 @@ class ButcherWorkspaceDemoSeeder extends Seeder
                     'default_price' => 5500 + ($index * 250),
                 ]);
 
-            $this->products->push($product);
+            $catalog->setPriceRule($this->business, [
+                'product_id' => $product->id,
+                'customer_tier' => \App\Models\ButcherPriceRule::TIER_RETAIL,
+                'price' => (float) $product->default_price,
+                'valid_from' => $this->rangeStart->toDateString(),
+                'is_active' => true,
+            ]);
+
+            $catalog->updateProduct($product->fresh(), [
+                'name' => $product->name,
+                'cut_type_id' => $product->cut_type_id,
+                'meat_type' => $product->meat_type,
+                'unit' => $product->unit,
+                'default_price' => $product->default_price,
+                'is_active' => true,
+            ]);
+
+            $this->products->push($product->fresh());
         }
 
         for ($i = 0; $i < self::MIN_ROWS; $i++) {
@@ -651,7 +668,7 @@ class ButcherWorkspaceDemoSeeder extends Seeder
             );
             BusinessUser::query()->updateOrCreate(
                 ['business_id' => $this->business->id, 'user_id' => $user->id],
-                ['role' => BusinessUser::ROLE_OPERATIONS_MANAGER]
+                ['role' => BusinessUser::ROLE_BUTCHER_MANAGER]
             );
             $this->staffUsers->push($user);
         }

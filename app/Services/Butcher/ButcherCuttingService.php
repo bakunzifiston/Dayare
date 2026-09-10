@@ -2,11 +2,15 @@
 
 namespace App\Services\Butcher;
 
+use App\Exceptions\Butcher\InsufficientButcherStockException;
 use App\Models\Business;
 use App\Models\ButcherCutOutput;
 use App\Models\ButcherCuttingSession;
+use App\Models\ButcherCuttingSessionSource;
 use App\Models\ButcherCutType;
 use App\Models\ButcherInventoryBatch;
+use App\Models\ButcherInventoryMovement;
+use App\Models\User;
 use App\Support\DomPdf;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,47 +19,24 @@ use Illuminate\Validation\ValidationException;
 
 class ButcherCuttingService
 {
-    public function openSession(Business $business, array $data): ButcherCuttingSession
+    public function __construct(
+        private readonly InventoryConsumptionService $consumption,
+        private readonly BatchSafetyGate $safetyGate,
+    ) {}
+
+    public function openSession(Business $business, array $data, ?User $actor = null): ButcherCuttingSession
     {
-        return DB::transaction(function () use ($business, $data) {
-            /** @var ButcherInventoryBatch $batch */
-            $batch = ButcherInventoryBatch::query()
-                ->where('business_id', $business->id)
-                ->lockForUpdate()
-                ->findOrFail((int) $data['batch_id']);
-
-            if (! in_array($batch->status, ButcherInventoryBatch::ACTIVE_STATUSES, true)) {
-                throw ValidationException::withMessages([
-                    'batch_id' => [__('This batch cannot be used for cutting (status: :status).', ['status' => $batch->status])],
-                ]);
-            }
-
-            if ($batch->isExpired()) {
-                throw ValidationException::withMessages([
-                    'batch_id' => [__('This batch has expired and cannot be used for cutting.')],
-                ]);
-            }
-
+        return DB::transaction(function () use ($business, $data, $actor) {
+            $batch = $this->assertActiveBatch($business, (int) $data['batch_id']);
             $sourceWeight = (float) $data['source_weight_kg'];
-            $remaining = (float) $batch->remaining_weight_kg;
-
-            if ($sourceWeight <= 0 || $sourceWeight > $remaining) {
-                throw ValidationException::withMessages([
-                    'source_weight_kg' => [__('Source weight must be between 0.1 and :max kg.', ['max' => number_format($remaining, 3)])],
-                ]);
-            }
-
-            $batch->remaining_weight_kg = round($remaining - $sourceWeight, 3);
-            $batch->status = $batch->remaining_weight_kg <= 0
-                ? ButcherInventoryBatch::STATUS_FULLY_USED
-                : ButcherInventoryBatch::STATUS_PARTIALLY_USED;
-            $batch->save();
+            $this->assertSourceWeightFits($batch, $sourceWeight);
 
             $sessionDate = isset($data['session_date'])
                 ? Carbon::parse($data['session_date'])->toDateString()
                 : now()->toDateString();
 
-            return ButcherCuttingSession::query()->create([
+            // Intent only — inventory is not mutated until close.
+            $session = ButcherCuttingSession::query()->create([
                 'business_id' => $business->id,
                 'outlet_id' => (int) $data['outlet_id'],
                 'batch_id' => $batch->id,
@@ -64,6 +45,66 @@ class ButcherCuttingService
                 'session_date' => $sessionDate,
                 'status' => ButcherCuttingSession::STATUS_OPEN,
             ]);
+
+            ButcherCuttingSessionSource::query()->create([
+                'session_id' => $session->id,
+                'batch_id' => $batch->id,
+                'source_weight_kg' => $sourceWeight,
+            ]);
+
+            $this->safetyGate->assertBatchSafe(
+                $batch,
+                $actor,
+                isset($data['safety_override_reason']) ? (string) $data['safety_override_reason'] : null,
+                \App\Models\ButcherComplianceOverride::CONTEXT_CUTTING_SESSION,
+                (int) $session->id,
+                true,
+            );
+
+            return $session->fresh(['batch', 'outlet', 'sources.batch']);
+        });
+    }
+
+    public function addSource(ButcherCuttingSession $session, array $data, ?User $actor = null): ButcherCuttingSessionSource
+    {
+        if (! $session->isOpen()) {
+            throw ValidationException::withMessages([
+                'session' => [__('Cannot add sources to a closed session.')],
+            ]);
+        }
+
+        return DB::transaction(function () use ($session, $data, $actor) {
+            $business = $session->business ?? Business::query()->findOrFail($session->business_id);
+            $batch = $this->assertActiveBatch($business, (int) $data['batch_id']);
+            $sourceWeight = (float) $data['source_weight_kg'];
+            $this->assertSourceWeightFits($batch, $sourceWeight);
+
+            $existing = $session->sources()->where('batch_id', $batch->id)->first();
+            if ($existing !== null) {
+                $existing->update([
+                    'source_weight_kg' => round((float) $existing->source_weight_kg + $sourceWeight, 3),
+                ]);
+                $source = $existing->fresh(['batch']);
+            } else {
+                $source = ButcherCuttingSessionSource::query()->create([
+                    'session_id' => $session->id,
+                    'batch_id' => $batch->id,
+                    'source_weight_kg' => $sourceWeight,
+                ]);
+            }
+
+            $this->safetyGate->assertBatchSafe(
+                $batch,
+                $actor,
+                isset($data['safety_override_reason']) ? (string) $data['safety_override_reason'] : null,
+                \App\Models\ButcherComplianceOverride::CONTEXT_CUTTING_SOURCE,
+                (int) $session->id,
+                true,
+            );
+
+            $this->syncSessionSourceTotal($session);
+
+            return $source->load('batch');
         });
     }
 
@@ -87,10 +128,9 @@ class ButcherCuttingService
             ->where('is_active', true)
             ->findOrFail((int) $data['cut_type_id']);
 
-        $session->loadMissing('batch');
-        $batchCost = (float) ($session->batch?->unit_cost_per_kg ?? 0);
+        $avgSourceCost = $this->weightedAverageSourceCost($session);
         $yieldRatio = max((float) $cutType->expected_yield_pct / 100, 0.01);
-        $unitCost = round($batchCost / $yieldRatio, 2);
+        $unitCost = round($avgSourceCost / $yieldRatio, 2);
 
         return DB::transaction(function () use ($session, $cutType, $weight, $unitCost) {
             $output = ButcherCutOutput::query()->create([
@@ -110,7 +150,7 @@ class ButcherCuttingService
         });
     }
 
-    public function closeSession(ButcherCuttingSession $session): void
+    public function closeSession(ButcherCuttingSession $session, ?User $actor = null, ?string $safetyOverrideReason = null): void
     {
         if (! $session->isOpen()) {
             throw ValidationException::withMessages([
@@ -118,24 +158,139 @@ class ButcherCuttingService
             ]);
         }
 
-        $outputCount = $session->cutOutputs()->count();
-        if ($outputCount === 0) {
+        $session->load(['sources.batch', 'cutOutputs.cutType']);
+
+        if ($session->cutOutputs->isEmpty()) {
             throw ValidationException::withMessages([
                 'session' => [__('Record at least one cut output before closing the session.')],
             ]);
         }
 
-        $wastage = $this->calculateWastage($session);
+        if ($session->sources->isEmpty()) {
+            throw ValidationException::withMessages([
+                'session' => [__('Add at least one source batch before closing the session.')],
+            ]);
+        }
 
-        $session->update([
-            'total_cuts_weight_kg' => $wastage['total_cuts_weight_kg'],
-            'wastage_kg' => $wastage['wastage_kg'],
-            'wastage_pct' => $wastage['wastage_pct'],
-            'status' => ButcherCuttingSession::STATUS_CLOSED,
-            'closed_at' => now(),
-        ]);
+        try {
+            DB::transaction(function () use ($session, $actor, $safetyOverrideReason) {
+                $batchIds = $session->sources->pluck('batch_id')->map(fn ($id) => (int) $id)->sort()->values();
 
-        app(ButcherCatalogService::class)->recalculateProductsAfterSessionClose($session->fresh());
+                // Lock all source batches in ascending ID order to avoid deadlocks.
+                $locked = ButcherInventoryBatch::query()
+                    ->whereIn('id', $batchIds)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                foreach ($session->sources as $source) {
+                    $batch = $locked->get((int) $source->batch_id);
+                    if ($batch === null) {
+                        throw ValidationException::withMessages([
+                            'sources' => [__('A source batch is missing and the session cannot be closed.')],
+                        ]);
+                    }
+
+                    if (! in_array($batch->status, ButcherInventoryBatch::ACTIVE_STATUSES, true)) {
+                        throw ValidationException::withMessages([
+                            'sources' => [__('Batch :batch is no longer available for cutting.', [
+                                'batch' => $batch->batch_number,
+                            ])],
+                        ]);
+                    }
+
+                    // Pre-commit re-check: expiry + temperature breach under the same locks.
+                    $hasPriorOverride = \App\Models\ButcherComplianceOverride::query()
+                        ->where('business_id', $session->business_id)
+                        ->where('batch_id', $batch->id)
+                        ->where('context_id', $session->id)
+                        ->whereIn('context_type', [
+                            \App\Models\ButcherComplianceOverride::CONTEXT_CUTTING_SESSION,
+                            \App\Models\ButcherComplianceOverride::CONTEXT_CUTTING_SOURCE,
+                        ])
+                        ->exists();
+
+                    $this->safetyGate->assertBatchSafe(
+                        $batch,
+                        $actor,
+                        $hasPriorOverride ? ($safetyOverrideReason ?: __('Prior override on session open')) : $safetyOverrideReason,
+                        \App\Models\ButcherComplianceOverride::CONTEXT_CUTTING_SESSION,
+                        (int) $session->id,
+                        false,
+                    );
+
+                    $needed = (float) $source->source_weight_kg;
+                    $available = (float) $batch->remaining_weight_kg;
+                    if ($needed > $available + 0.0005) {
+                        throw ValidationException::withMessages([
+                            'sources' => [__('Batch :batch only has :available kg available, but this session needs :needed kg. Adjust the source weight and retry.', [
+                                'batch' => $batch->batch_number,
+                                'available' => number_format($available, 3),
+                                'needed' => number_format($needed, 3),
+                            ])],
+                        ]);
+                    }
+                }
+
+                $closedAt = now();
+
+                foreach ($session->sources->sortBy('batch_id') as $source) {
+                    $this->consumption->consumeFromBatch(
+                        (int) $session->business_id,
+                        (int) $source->batch_id,
+                        (float) $source->source_weight_kg,
+                        $actor,
+                        ButcherCuttingSession::class,
+                        (int) $session->id,
+                        ButcherInventoryMovement::TYPE_CUTTING_CONSUMPTION,
+                        $closedAt,
+                    );
+                }
+
+                $avgSourceCost = $this->weightedAverageSourceCost($session);
+
+                foreach ($session->cutOutputs as $output) {
+                    $yieldRatio = max((float) ($output->cutType?->expected_yield_pct ?? 100) / 100, 0.01);
+                    $unitCost = round($avgSourceCost / $yieldRatio, 2);
+                    $weight = (float) $output->weight_kg;
+
+                    $output->update(['unit_cost_per_kg' => $unitCost]);
+
+                    ButcherInventoryMovement::record([
+                        'business_id' => $session->business_id,
+                        'outlet_id' => $session->outlet_id,
+                        'batch_id' => null,
+                        'cut_output_id' => $output->id,
+                        'type' => ButcherInventoryMovement::TYPE_CUTTING_OUTPUT_IN,
+                        'quantity_kg' => $weight,
+                        'before_qty' => 0,
+                        'after_qty' => $weight,
+                        'reference_type' => ButcherCuttingSession::class,
+                        'reference_id' => $session->id,
+                        'actor_id' => $actor?->id,
+                        'occurred_at' => $closedAt,
+                    ]);
+                }
+
+                $wastage = $this->calculateWastage($session->fresh(['cutOutputs', 'sources']));
+
+                $session->update([
+                    'source_weight_kg' => $wastage['source_weight_kg'],
+                    'total_cuts_weight_kg' => $wastage['total_cuts_weight_kg'],
+                    'wastage_kg' => $wastage['wastage_kg'],
+                    'wastage_pct' => $wastage['wastage_pct'],
+                    'status' => ButcherCuttingSession::STATUS_CLOSED,
+                    'closed_at' => $closedAt,
+                ]);
+
+                app(ButcherCatalogService::class)->recalculateProductsAfterSessionClose($session->fresh());
+            });
+        } catch (InsufficientButcherStockException $e) {
+            throw ValidationException::withMessages([
+                'sources' => [$e->getMessage()],
+            ]);
+        }
     }
 
     /**
@@ -143,7 +298,12 @@ class ButcherCuttingService
      */
     public function calculateWastage(ButcherCuttingSession $session): array
     {
-        $sourceWeight = (float) $session->source_weight_kg;
+        $session->loadMissing('sources');
+
+        $sourceWeight = $session->sources->isNotEmpty()
+            ? round((float) $session->sources->sum('source_weight_kg'), 3)
+            : (float) $session->source_weight_kg;
+
         $totalCuts = round((float) $session->cutOutputs()->sum('weight_kg'), 3);
         $wastageKg = round(max($sourceWeight - $totalCuts, 0), 3);
         $wastagePct = $sourceWeight > 0
@@ -160,7 +320,7 @@ class ButcherCuttingService
 
     public function generateLabel(ButcherCutOutput $output): string
     {
-        $output->loadMissing(['session.batch', 'session.outlet', 'cutType', 'business']);
+        $output->loadMissing(['session.batch', 'session.sources.batch', 'session.outlet', 'cutType', 'business']);
 
         $filename = sprintf(
             'butcher-labels/%d/%s-cut-%d.pdf',
@@ -169,10 +329,13 @@ class ButcherCuttingService
             $output->id
         );
 
+        $batch = $output->session->batch
+            ?? $output->session->sources->first()?->batch;
+
         $pdf = DomPdf::loadView('butcher.processing.labels.shelf', [
             'output' => $output,
             'session' => $output->session,
-            'batch' => $output->session->batch,
+            'batch' => $batch,
             'cutType' => $output->cutType,
             'business' => $output->business,
         ])->setPaper([0, 0, 226.77, 113.39], 'portrait');
@@ -244,14 +407,14 @@ class ButcherCuttingService
             : null;
 
         $openSessions = $business->butcherCuttingSessions()
-            ->with(['batch', 'outlet'])
+            ->with(['batch', 'outlet', 'sources'])
             ->where('status', ButcherCuttingSession::STATUS_OPEN)
             ->latest('id')
             ->limit(5)
             ->get();
 
         $recentClosed = $business->butcherCuttingSessions()
-            ->with(['batch', 'outlet'])
+            ->with(['batch', 'outlet', 'sources'])
             ->where('status', ButcherCuttingSession::STATUS_CLOSED)
             ->latest('closed_at')
             ->limit(5)
@@ -267,6 +430,67 @@ class ButcherCuttingService
             'recent_closed_sessions' => $recentClosed,
             'yield_report' => $report,
         ];
+    }
+
+    private function assertActiveBatch(Business $business, int $batchId): ButcherInventoryBatch
+    {
+        /** @var ButcherInventoryBatch $batch */
+        $batch = ButcherInventoryBatch::query()
+            ->where('business_id', $business->id)
+            ->findOrFail($batchId);
+
+        if (! in_array($batch->status, ButcherInventoryBatch::ACTIVE_STATUSES, true)) {
+            throw ValidationException::withMessages([
+                'batch_id' => [__('This batch cannot be used for cutting (status: :status).', ['status' => $batch->status])],
+            ]);
+        }
+
+        return $batch;
+    }
+
+    private function assertSourceWeightFits(ButcherInventoryBatch $batch, float $sourceWeight): void
+    {
+        $remaining = (float) $batch->remaining_weight_kg;
+
+        if ($sourceWeight <= 0 || $sourceWeight > $remaining + 0.0005) {
+            throw ValidationException::withMessages([
+                'source_weight_kg' => [__('Source weight must be between 0.1 and :max kg.', ['max' => number_format($remaining, 3)])],
+            ]);
+        }
+    }
+
+    private function syncSessionSourceTotal(ButcherCuttingSession $session): void
+    {
+        $total = round((float) $session->sources()->sum('source_weight_kg'), 3);
+        $primaryBatchId = $session->sources()->orderBy('id')->value('batch_id') ?? $session->batch_id;
+
+        $session->update([
+            'source_weight_kg' => $total,
+            'batch_id' => $primaryBatchId,
+        ]);
+    }
+
+    private function weightedAverageSourceCost(ButcherCuttingSession $session): float
+    {
+        $session->loadMissing('sources.batch');
+
+        if ($session->sources->isEmpty()) {
+            $session->loadMissing('batch');
+
+            return (float) ($session->batch?->unit_cost_per_kg ?? 0);
+        }
+
+        $weightTotal = 0.0;
+        $costTotal = 0.0;
+
+        foreach ($session->sources as $source) {
+            $w = (float) $source->source_weight_kg;
+            $c = (float) ($source->batch?->unit_cost_per_kg ?? 0);
+            $weightTotal += $w;
+            $costTotal += $w * $c;
+        }
+
+        return $weightTotal > 0 ? round($costTotal / $weightTotal, 4) : 0.0;
     }
 
     private function generateSessionNumber(int $businessId): string

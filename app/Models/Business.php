@@ -661,6 +661,11 @@ class Business extends Model
         return $this->hasMany(ButcherInventoryBatch::class);
     }
 
+    public function butcherStockTransfers(): HasMany
+    {
+        return $this->hasMany(ButcherStockTransfer::class);
+    }
+
     public function butcherTemperatureLogs(): HasMany
     {
         return $this->hasMany(ButcherTemperatureLog::class);
@@ -714,6 +719,11 @@ class Business extends Model
     public function butcherOrders(): HasMany
     {
         return $this->hasMany(ButcherOrder::class);
+    }
+
+    public function butcherReturns(): HasMany
+    {
+        return $this->hasMany(ButcherReturn::class);
     }
 
     public function butcherHygieneLogs(): HasMany

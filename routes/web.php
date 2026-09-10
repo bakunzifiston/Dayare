@@ -6,16 +6,22 @@ use App\Http\Controllers\AnteMortemInspectionController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\Butcher\ButcherBusinessController;
+use App\Http\Controllers\Butcher\ButcherCatalogController;
 use App\Http\Controllers\Butcher\ButcherComplianceController;
 use App\Http\Controllers\Butcher\ButcherCustomerController;
 use App\Http\Controllers\Butcher\ButcherFinanceController;
 use App\Http\Controllers\Butcher\ButcherInventoryController;
+use App\Http\Controllers\Butcher\ButcherOutletController;
+use App\Http\Controllers\Butcher\ButcherPermitController;
 use App\Http\Controllers\Butcher\ButcherProcessingController;
+use App\Http\Controllers\Butcher\ButcherPurchaseOrderController;
 use App\Http\Controllers\Butcher\ButcherReceivingController;
 use App\Http\Controllers\Butcher\ButcherReportController;
 use App\Http\Controllers\Butcher\ButcherSalesController;
 use App\Http\Controllers\Butcher\ButcherStockCountController;
+use App\Http\Controllers\Butcher\ButcherStockTransferController;
 use App\Http\Controllers\Butcher\ButcherSupplierController;
+use App\Http\Controllers\Butcher\ButcherTeamController;
 use App\Http\Controllers\Butcher\ButcherWasteController;
 use App\Http\Controllers\ButcherDashboardController;
 use App\Http\Controllers\CertificateController;
@@ -497,6 +503,45 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
         Route::get('business', [ButcherBusinessController::class, 'edit'])->name('business.edit');
         Route::put('business', [ButcherBusinessController::class, 'update'])->name('business.update');
 
+        Route::prefix('outlets')->name('outlets.')->group(function () {
+            Route::get('/', [ButcherOutletController::class, 'index'])->name('index');
+            Route::post('/', [ButcherOutletController::class, 'store'])->name('store');
+            Route::put('{outlet}', [ButcherOutletController::class, 'update'])->name('update');
+        });
+
+        Route::prefix('permits')->name('permits.')->group(function () {
+            Route::get('/', [ButcherPermitController::class, 'index'])->name('index');
+            Route::post('/', [ButcherPermitController::class, 'store'])->name('store');
+            Route::put('{permit}', [ButcherPermitController::class, 'update'])->name('update');
+        });
+
+        Route::prefix('team')->name('team.')->group(function () {
+            Route::get('/', [ButcherTeamController::class, 'index'])->name('index');
+            Route::put('/', [ButcherTeamController::class, 'update'])->name('update');
+        });
+
+        Route::prefix('catalog')->name('catalog.')->group(function () {
+            Route::get('/', [ButcherCatalogController::class, 'index'])->name('index');
+            Route::get('products/create', [ButcherCatalogController::class, 'create'])->name('products.create');
+            Route::post('products', [ButcherCatalogController::class, 'store'])->name('products.store');
+            Route::get('products/{product}', [ButcherCatalogController::class, 'show'])->name('products.show');
+            Route::get('products/{product}/edit', [ButcherCatalogController::class, 'edit'])->name('products.edit');
+            Route::put('products/{product}', [ButcherCatalogController::class, 'update'])->name('products.update');
+            Route::get('products/{product}/price-rules/create', [ButcherCatalogController::class, 'priceRulesCreate'])->name('price-rules.create');
+            Route::post('products/{product}/price-rules', [ButcherCatalogController::class, 'priceRulesStore'])->name('price-rules.store');
+            Route::get('products/{product}/price-rules/{priceRule}/edit', [ButcherCatalogController::class, 'priceRulesEdit'])->name('price-rules.edit');
+            Route::put('products/{product}/price-rules/{priceRule}', [ButcherCatalogController::class, 'priceRulesUpdate'])->name('price-rules.update');
+        });
+
+        Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
+            Route::get('/', [ButcherPurchaseOrderController::class, 'index'])->name('index');
+            Route::get('create', [ButcherPurchaseOrderController::class, 'create'])->name('create');
+            Route::post('/', [ButcherPurchaseOrderController::class, 'store'])->name('store');
+            Route::get('{purchaseOrder}', [ButcherPurchaseOrderController::class, 'show'])->name('show');
+            Route::patch('{purchaseOrder}/status', [ButcherPurchaseOrderController::class, 'updateStatus'])->name('status');
+            Route::post('{purchaseOrder}/link-delivery', [ButcherPurchaseOrderController::class, 'linkDelivery'])->name('link-delivery');
+        });
+
         Route::prefix('suppliers')->name('suppliers.')->group(function () {
             Route::get('/', [ButcherSupplierController::class, 'index'])->name('index');
             Route::post('/', [ButcherSupplierController::class, 'store'])->name('store');
@@ -524,6 +569,7 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
             Route::get('sessions/create', [ButcherProcessingController::class, 'sessionsCreate'])->name('sessions.create');
             Route::post('sessions', [ButcherProcessingController::class, 'sessionsStore'])->name('sessions.store');
             Route::get('sessions/{session}', [ButcherProcessingController::class, 'sessionsShow'])->name('sessions.show');
+            Route::post('sessions/{session}/sources', [ButcherProcessingController::class, 'sourcesStore'])->name('sessions.sources.store');
             Route::post('sessions/{session}/outputs', [ButcherProcessingController::class, 'outputsStore'])->name('sessions.outputs.store');
             Route::post('sessions/{session}/close', [ButcherProcessingController::class, 'sessionsClose'])->name('sessions.close');
             Route::post('sessions/{session}/label/{cutOutput}', [ButcherProcessingController::class, 'generateLabel'])->name('sessions.label');
@@ -545,6 +591,12 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
             Route::post('adjustments', [ButcherWasteController::class, 'storeAdjustment'])->name('adjustments.store');
         });
 
+        Route::prefix('transfers')->name('transfers.')->group(function () {
+            Route::get('/', [ButcherStockTransferController::class, 'index'])->name('index');
+            Route::get('create', [ButcherStockTransferController::class, 'create'])->name('create');
+            Route::post('/', [ButcherStockTransferController::class, 'store'])->name('store');
+        });
+
         Route::prefix('stock-counts')->name('stock-counts.')->group(function () {
             Route::get('/', [ButcherStockCountController::class, 'index'])->name('index');
             Route::get('create', [ButcherStockCountController::class, 'create'])->name('create');
@@ -556,6 +608,8 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
 
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('/', [ButcherReportController::class, 'index'])->name('index');
+            Route::get('traceability', [ButcherReportController::class, 'traceability'])->name('traceability');
+            Route::get('compliance-overrides', [ButcherReportController::class, 'complianceOverrides'])->name('compliance-overrides');
         });
 
         Route::prefix('sales')->name('sales.')->group(function () {
@@ -564,9 +618,12 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
             Route::post('/', [ButcherSalesController::class, 'store'])->name('store');
             Route::get('orders', [ButcherSalesController::class, 'ordersIndex'])->name('orders.index');
             Route::post('orders', [ButcherSalesController::class, 'ordersStore'])->name('orders.store');
+            Route::get('orders/{order}', [ButcherSalesController::class, 'ordersShow'])->name('orders.show');
             Route::patch('orders/{order}/status', [ButcherSalesController::class, 'ordersStatus'])->name('orders.status');
+            Route::post('orders/{order}/fulfill', [ButcherSalesController::class, 'ordersFulfill'])->name('orders.fulfill');
             Route::get('{sale}', [ButcherSalesController::class, 'show'])->name('show');
             Route::post('{sale}/cancel', [ButcherSalesController::class, 'cancel'])->name('cancel');
+            Route::post('{sale}/returns', [ButcherSalesController::class, 'storeReturn'])->name('returns.store');
             Route::get('{sale}/receipt', [ButcherSalesController::class, 'downloadReceipt'])->name('receipt');
             Route::get('{sale}/invoice', [ButcherSalesController::class, 'downloadInvoice'])->name('invoice');
         });
@@ -592,6 +649,8 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
             Route::get('expenses/{expense}/edit', [ButcherFinanceController::class, 'expensesEdit'])->name('expenses.edit');
             Route::put('expenses/{expense}', [ButcherFinanceController::class, 'expensesUpdate'])->name('expenses.update');
             Route::delete('expenses/{expense}', [ButcherFinanceController::class, 'expensesDestroy'])->name('expenses.destroy');
+            Route::get('receivables', [ButcherFinanceController::class, 'receivablesIndex'])->name('receivables.index');
+            Route::get('receivables/{customer}', [ButcherFinanceController::class, 'receivablesShow'])->name('receivables.show');
             Route::get('reports/sales', [ButcherFinanceController::class, 'reportsSales'])->name('reports.sales');
             Route::get('reports/pl', [ButcherFinanceController::class, 'reportsPl'])->name('reports.pl');
             Route::get('reports/cashflow', [ButcherFinanceController::class, 'reportsCashflow'])->name('reports.cashflow');

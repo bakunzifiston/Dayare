@@ -4,12 +4,10 @@ namespace App\Services\Butcher;
 
 use App\Models\Business;
 use App\Models\ButcherCustomer;
-use App\Models\ButcherCutOutput;
 use App\Models\ButcherOrder;
 use App\Models\ButcherProduct;
 use App\Models\ButcherSale;
 use App\Models\ButcherSaleItem;
-use App\Models\ButcherSalePayment;
 use App\Models\User;
 use App\Support\DomPdf;
 use Carbon\Carbon;
@@ -21,6 +19,7 @@ class ButcherSalesService
 {
     public function __construct(
         private readonly ButcherCatalogService $catalog,
+        private readonly InventoryConsumptionService $consumption,
     ) {}
 
     public function createSale(Business $business, array $data, User $user): ButcherSale
@@ -43,7 +42,10 @@ class ButcherSalesService
             ]);
 
             foreach ($data['items'] ?? [] as $itemData) {
-                $this->addSaleItem($sale, $itemData, $customer);
+                if (! empty($data['safety_override_reason'])) {
+                    $itemData['_sale_safety_override_reason'] = (string) $data['safety_override_reason'];
+                }
+                $this->addSaleItem($sale, $itemData, $customer, $user);
             }
 
             $sale->refresh();
@@ -69,8 +71,15 @@ class ButcherSalesService
         });
     }
 
-    public function addSaleItem(ButcherSale $sale, array $data, ?ButcherCustomer $customer = null): ButcherSaleItem
-    {
+    /**
+     * @return list<ButcherSaleItem>
+     */
+    public function addSaleItem(
+        ButcherSale $sale,
+        array $data,
+        ?ButcherCustomer $customer = null,
+        ?User $actor = null,
+    ): array {
         if ($sale->status !== ButcherSale::STATUS_PENDING) {
             throw ValidationException::withMessages([
                 'sale' => [__('Cannot add items to this sale.')],
@@ -90,36 +99,96 @@ class ButcherSalesService
         $quantityKg = (float) ($data['quantity_kg'] ?? 0);
         $quantityUnits = isset($data['quantity_units']) ? (int) $data['quantity_units'] : null;
 
-        $subtotal = $this->calculateLineSubtotal($product, $unitPrice, $quantityKg, $quantityUnits);
-
-        $cutOutputId = isset($data['cut_output_id']) ? (int) $data['cut_output_id'] : null;
-
         if ($product->unit === ButcherProduct::UNIT_PER_KG) {
             if ($quantityKg <= 0) {
                 throw ValidationException::withMessages([
                     'items' => [__('Enter weight in kg for :product.', ['product' => $product->name])],
                 ]);
             }
-            $cutOutputId = $this->deductStock($sale->business_id, $cutOutputId, $product->cut_type_id, $quantityKg);
-        } elseif ($quantityKg > 0) {
-            $cutOutputId = $this->deductStock($sale->business_id, $cutOutputId, $product->cut_type_id, $quantityKg);
-        }
-
-        if ($product->unit !== ButcherProduct::UNIT_PER_KG && ($quantityUnits === null || $quantityUnits <= 0)) {
+        } elseif ($quantityUnits === null || $quantityUnits <= 0) {
             throw ValidationException::withMessages([
                 'items' => [__('Enter quantity for :product.', ['product' => $product->name])],
             ]);
         }
 
-        return ButcherSaleItem::query()->create([
-            'sale_id' => $sale->id,
-            'cut_output_id' => $cutOutputId,
-            'product_id' => $product->id,
-            'quantity_kg' => $quantityKg,
-            'quantity_units' => $quantityUnits,
-            'unit_price' => $unitPrice,
-            'subtotal' => $subtotal,
-        ]);
+        $preferredCutOutputId = isset($data['cut_output_id']) ? (int) $data['cut_output_id'] : null;
+        $needsStock = $quantityKg > 0 && $product->cut_type_id !== null;
+
+        if (! $needsStock) {
+            $subtotal = $this->calculateLineSubtotal($product, $unitPrice, $quantityKg, $quantityUnits);
+
+            return [
+                ButcherSaleItem::query()->create([
+                    'sale_id' => $sale->id,
+                    'cut_output_id' => null,
+                    'product_id' => $product->id,
+                    'quantity_kg' => $quantityKg,
+                    'quantity_units' => $quantityUnits,
+                    'unit_price' => $unitPrice,
+                    'subtotal' => $subtotal,
+                ]),
+            ];
+        }
+
+        $allocations = $this->consumption->consumeCutOutputs(
+            businessId: (int) $sale->business_id,
+            cutTypeId: (int) $product->cut_type_id,
+            quantityKg: $quantityKg,
+            outletId: (int) $sale->outlet_id,
+            preferredCutOutputId: $preferredCutOutputId,
+            actor: $actor,
+            referenceType: ButcherSale::class,
+            referenceId: (int) $sale->id,
+            safetyOverrideReason: isset($data['safety_override_reason'])
+                ? (string) $data['safety_override_reason']
+                : ($data['_sale_safety_override_reason'] ?? null),
+        );
+
+        $items = [];
+        $remainingKg = $quantityKg;
+        $remainingSubtotal = $this->calculateLineSubtotal($product, $unitPrice, $quantityKg, $quantityUnits);
+        $unitsAssigned = false;
+
+        foreach ($allocations as $index => $allocation) {
+            $allocKg = (float) $allocation['quantity_kg'];
+            $isLast = $index === count($allocations) - 1;
+
+            if ($product->unit === ButcherProduct::UNIT_PER_KG) {
+                $lineSubtotal = $isLast
+                    ? round($remainingSubtotal, 2)
+                    : round($unitPrice * $allocKg, 2);
+                $remainingSubtotal = round($remainingSubtotal - $lineSubtotal, 2);
+            } else {
+                $lineSubtotal = $isLast ? round($remainingSubtotal, 2) : 0.0;
+                if ($isLast) {
+                    $remainingSubtotal = 0.0;
+                }
+            }
+
+            $lineUnits = null;
+            if ($product->unit !== ButcherProduct::UNIT_PER_KG && ! $unitsAssigned) {
+                $lineUnits = $quantityUnits;
+                $unitsAssigned = true;
+                if (! $isLast) {
+                    $lineSubtotal = $this->calculateLineSubtotal($product, $unitPrice, 0, $quantityUnits);
+                    $remainingSubtotal = 0.0;
+                }
+            }
+
+            $items[] = ButcherSaleItem::query()->create([
+                'sale_id' => $sale->id,
+                'cut_output_id' => $allocation['cut_output']->id,
+                'product_id' => $product->id,
+                'quantity_kg' => $allocKg,
+                'quantity_units' => $lineUnits,
+                'unit_price' => $unitPrice,
+                'subtotal' => $lineSubtotal,
+            ]);
+
+            $remainingKg = round($remainingKg - $allocKg, 3);
+        }
+
+        return $items;
     }
 
     public function processPayment(ButcherSale $sale, array $paymentData, ?ButcherCustomer $customer = null): void
@@ -163,13 +232,10 @@ class ButcherSalesService
 
             $creditAmount = round($total - $amountPaid, 2);
             if ($creditAmount > 0) {
-                $newBalance = round((float) $customer->outstanding_balance + $creditAmount, 2);
-                if ($newBalance > (float) $customer->credit_limit) {
-                    throw ValidationException::withMessages([
-                        'payment_method' => [__('Credit limit exceeded for this customer.')],
-                    ]);
-                }
-                $customer->update(['outstanding_balance' => $newBalance]);
+                $this->assertCustomerCredit($customer, $creditAmount);
+                $customer->update([
+                    'outstanding_balance' => round((float) $customer->outstanding_balance + $creditAmount, 2),
+                ]);
             }
             $changeGiven = 0;
         } else {
@@ -189,7 +255,29 @@ class ButcherSalesService
         ]);
     }
 
-    public function cancelSale(ButcherSale $sale): void
+    public function assertCustomerCredit(ButcherCustomer $customer, float $additionalCredit): void
+    {
+        $newBalance = round((float) $customer->outstanding_balance + $additionalCredit, 2);
+        if ($newBalance > (float) $customer->credit_limit) {
+            throw ValidationException::withMessages([
+                'payment_method' => [__('Credit limit exceeded for this customer.')],
+            ]);
+        }
+    }
+
+    public function reverseCustomerCredit(ButcherCustomer $customer, float $amount): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+
+        $customer = ButcherCustomer::query()->lockForUpdate()->findOrFail($customer->id);
+        $customer->update([
+            'outstanding_balance' => round(max((float) $customer->outstanding_balance - $amount, 0), 2),
+        ]);
+    }
+
+    public function cancelSale(ButcherSale $sale, ?User $actor = null): void
     {
         if (! $sale->isCancellable()) {
             throw ValidationException::withMessages([
@@ -197,25 +285,28 @@ class ButcherSalesService
             ]);
         }
 
-        DB::transaction(function () use ($sale) {
+        DB::transaction(function () use ($sale, $actor) {
             $sale->load('items');
 
             foreach ($sale->items as $item) {
                 if ($item->cut_output_id && (float) $item->quantity_kg > 0) {
-                    ButcherCutOutput::query()
-                        ->where('id', $item->cut_output_id)
-                        ->increment('remaining_weight_kg', (float) $item->quantity_kg);
+                    $this->consumption->restoreCutOutput(
+                        businessId: (int) $sale->business_id,
+                        cutOutputId: (int) $item->cut_output_id,
+                        quantityKg: (float) $item->quantity_kg,
+                        actor: $actor,
+                        referenceType: ButcherSale::class,
+                        referenceId: (int) $sale->id,
+                    );
                 }
             }
 
             if ($sale->payment_method === ButcherSale::PAYMENT_CREDIT && $sale->customer_id) {
-                $customer = ButcherCustomer::query()->lockForUpdate()->find($sale->customer_id);
-                if ($customer) {
-                    $creditAmount = round((float) $sale->total_amount - (float) $sale->amount_paid, 2);
-                    if ($creditAmount > 0) {
-                        $customer->update([
-                            'outstanding_balance' => round(max((float) $customer->outstanding_balance - $creditAmount, 0), 2),
-                        ]);
+                $creditAmount = round((float) $sale->total_amount - (float) $sale->amount_paid, 2);
+                if ($creditAmount > 0) {
+                    $customer = ButcherCustomer::query()->find($sale->customer_id);
+                    if ($customer) {
+                        $this->reverseCustomerCredit($customer, $creditAmount);
                     }
                 }
             }
@@ -262,13 +353,14 @@ class ButcherSalesService
     /**
      * @return array<string, mixed>
      */
-    public function getDailySalesSummary(Business $business, Carbon $date): array
+    public function getDailySalesSummary(Business $business, Carbon $date, ?int $outletId = null): array
     {
         $dateString = $date->toDateString();
 
         $sales = $business->butcherSales()
             ->where('status', ButcherSale::STATUS_COMPLETED)
             ->whereDate('sale_date', $dateString)
+            ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
             ->get();
 
         $byMethod = $sales->groupBy('payment_method')->map(fn ($group) => [
@@ -285,6 +377,7 @@ class ButcherSalesService
             'cancelled_count' => $business->butcherSales()
                 ->where('status', ButcherSale::STATUS_CANCELLED)
                 ->whereDate('sale_date', $dateString)
+                ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
                 ->count(),
         ];
     }
@@ -310,6 +403,7 @@ class ButcherSalesService
             $order = ButcherOrder::query()->create([
                 'business_id' => $business->id,
                 'customer_id' => $customer->id,
+                'outlet_id' => isset($data['outlet_id']) ? (int) $data['outlet_id'] : null,
                 'order_number' => $this->generateOrderNumber($business->id),
                 'order_date' => isset($data['order_date']) ? Carbon::parse($data['order_date'])->toDateString() : now()->toDateString(),
                 'delivery_date' => isset($data['delivery_date']) ? Carbon::parse($data['delivery_date'])->toDateString() : null,
@@ -353,70 +447,46 @@ class ButcherSalesService
             ]);
         }
 
+        if ($status === ButcherOrder::STATUS_FULFILLED) {
+            throw ValidationException::withMessages([
+                'status' => [__('Use the fulfill action to complete this order and create a sale.')],
+            ]);
+        }
+
+        if ($order->status === ButcherOrder::STATUS_FULFILLED || $order->sale_id !== null) {
+            throw ValidationException::withMessages([
+                'status' => [__('This order has already been fulfilled.')],
+            ]);
+        }
+
+        if ($order->status === ButcherOrder::STATUS_CANCELLED) {
+            throw ValidationException::withMessages([
+                'status' => [__('Cancelled orders cannot change status.')],
+            ]);
+        }
+
+        if ($status === ButcherOrder::STATUS_CONFIRMED) {
+            $this->assertOrderCreditOnConfirm($order);
+        }
+
         $order->update(['status' => $status]);
     }
 
-    private function deductStock(int $businessId, ?int $cutOutputId, ?int $cutTypeId, float $quantityKg): ?int
+    public function assertOrderCreditOnConfirm(ButcherOrder $order): void
     {
-        if ($quantityKg <= 0) {
-            return $cutOutputId;
+        $order->loadMissing('customer');
+        $customer = $order->customer;
+        if ($customer === null) {
+            return;
         }
 
-        if ($cutOutputId) {
-            $output = ButcherCutOutput::query()
-                ->where('business_id', $businessId)
-                ->lockForUpdate()
-                ->findOrFail($cutOutputId);
-
-            if ((float) $output->remaining_weight_kg < $quantityKg) {
-                throw ValidationException::withMessages([
-                    'items' => [__('Insufficient stock for selected cut batch.')],
-                ]);
-            }
-
-            $output->update([
-                'remaining_weight_kg' => round((float) $output->remaining_weight_kg - $quantityKg, 3),
-            ]);
-
-            return $output->id;
+        $creditNeeded = round(max((float) $order->total_amount - (float) $order->deposit_paid, 0), 2);
+        if ($creditNeeded <= 0) {
+            return;
         }
 
-        if ($cutTypeId === null) {
-            return null;
-        }
-
-        $remaining = $quantityKg;
-        $lastOutputId = null;
-
-        $outputs = ButcherCutOutput::query()
-            ->where('business_id', $businessId)
-            ->where('cut_type_id', $cutTypeId)
-            ->where('remaining_weight_kg', '>', 0)
-            ->orderBy('id')
-            ->lockForUpdate()
-            ->get();
-
-        foreach ($outputs as $output) {
-            if ($remaining <= 0) {
-                break;
-            }
-
-            $available = (float) $output->remaining_weight_kg;
-            $deduct = min($available, $remaining);
-            $output->update([
-                'remaining_weight_kg' => round($available - $deduct, 3),
-            ]);
-            $remaining -= $deduct;
-            $lastOutputId = $output->id;
-        }
-
-        if ($remaining > 0.001) {
-            throw ValidationException::withMessages([
-                'items' => [__('Insufficient cut stock available.')],
-            ]);
-        }
-
-        return $lastOutputId;
+        // Confirmation reserves against available credit (balance + this order).
+        $this->assertCustomerCredit($customer, $creditNeeded);
     }
 
     private function calculateLineSubtotal(ButcherProduct $product, float $unitPrice, float $quantityKg, ?int $quantityUnits): float

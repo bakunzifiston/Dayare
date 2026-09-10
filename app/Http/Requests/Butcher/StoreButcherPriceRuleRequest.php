@@ -4,6 +4,7 @@ namespace App\Http\Requests\Butcher;
 
 use App\Http\Requests\Butcher\Concerns\ResolvesButcherBusiness;
 use App\Models\ButcherPriceRule;
+use App\Models\ButcherProduct;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,7 +14,16 @@ class StoreButcherPriceRuleRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        if ($this->user() === null) {
+            return false;
+        }
+
+        $product = $this->route('product');
+        if ($product instanceof ButcherProduct) {
+            abort_unless((int) $product->business_id === (int) $this->butcherBusiness()->id, 404);
+        }
+
+        return true;
     }
 
     /**
@@ -40,5 +50,25 @@ class StoreButcherPriceRuleRequest extends FormRequest
             'valid_until' => ['nullable', 'date', 'after_or_equal:valid_from'],
             'is_active' => ['nullable', 'boolean'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $product = $this->route('product');
+        if ($product instanceof ButcherProduct) {
+            $this->merge(['product_id' => $product->id]);
+        }
+
+        if ($this->has('is_active')) {
+            $this->merge(['is_active' => $this->boolean('is_active')]);
+        }
+
+        if ($this->input('outlet_id') === '') {
+            $this->merge(['outlet_id' => null]);
+        }
+
+        if ($this->input('customer_tier') === '') {
+            $this->merge(['customer_tier' => null]);
+        }
     }
 }

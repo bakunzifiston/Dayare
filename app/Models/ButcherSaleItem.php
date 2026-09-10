@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ButcherSaleItem extends Model
 {
@@ -40,5 +41,20 @@ class ButcherSaleItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(ButcherProduct::class, 'product_id');
+    }
+
+    public function returns(): HasMany
+    {
+        return $this->hasMany(ButcherReturn::class, 'sale_item_id');
+    }
+
+    public function returnedQuantityKg(): float
+    {
+        return round((float) $this->returns()->sum('quantity_kg'), 3);
+    }
+
+    public function returnableQuantityKg(): float
+    {
+        return round(max((float) $this->quantity_kg - $this->returnedQuantityKg(), 0), 3);
     }
 }

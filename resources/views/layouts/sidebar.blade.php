@@ -151,20 +151,86 @@
             ];
         } else {
             $tenantNav = [
-                ['label' => __('Dashboard'), 'route' => 'butcher.dashboard', 'icon' => 'dashboard', 'permission' => null, 'routeIs' => ['butcher.dashboard']],
-                ['label' => __('Suppliers'), 'route' => 'butcher.suppliers.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['butcher.suppliers.*']],
-                ['label' => __('Customers'), 'route' => 'butcher.customers.index', 'icon' => 'user', 'permission' => null, 'routeIs' => ['butcher.customers.*']],
-                ['label' => __('Receiving'), 'route' => 'butcher.receiving.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.receiving.*']],
-                ['label' => __('Processing'), 'route' => 'butcher.processing.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.processing.*']],
-                ['label' => __('Inventory'), 'route' => 'butcher.inventory.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.inventory.*']],
-                ['label' => __('Waste & Adjustments'), 'route' => 'butcher.waste.index', 'icon' => 'alert', 'permission' => null, 'routeIs' => ['butcher.waste.*']],
-                ['label' => __('Stock Counts'), 'route' => 'butcher.stock-counts.index', 'icon' => 'clipboard-list', 'permission' => null, 'routeIs' => ['butcher.stock-counts.*']],
-                ['label' => __('Sales & POS'), 'route' => 'butcher.sales.index', 'icon' => 'box', 'permission' => null, 'routeIs' => ['butcher.sales.*']],
-                ['label' => __('Compliance'), 'route' => 'butcher.compliance.index', 'icon' => 'shield', 'permission' => null, 'routeIs' => ['butcher.compliance.*']],
-                ['label' => __('Finance'), 'route' => 'butcher.finance.index', 'icon' => 'clipboard', 'permission' => null, 'routeIs' => ['butcher.finance.*']],
-                ['label' => __('Reports'), 'route' => 'butcher.reports.index', 'icon' => 'chart', 'permission' => null, 'routeIs' => ['butcher.reports.*']],
+                ['label' => __('Dashboard'), 'route' => 'butcher.dashboard', 'icon' => 'dashboard', 'permission' => 'view_butcher_dashboard', 'routeIs' => ['butcher.dashboard']],
+                [
+                    'group' => __('Procurement'),
+                    'icon' => 'clipboard-list',
+                    'children' => [
+                        ['label' => __('Suppliers'), 'route' => 'butcher.suppliers.index', 'icon' => 'clipboard-list', 'permission' => 'manage_butcher_procurement', 'routeIs' => ['butcher.suppliers.*']],
+                        ['label' => __('Purchase orders'), 'route' => 'butcher.purchase-orders.index', 'icon' => 'clipboard', 'permission' => 'manage_butcher_procurement', 'routeIs' => ['butcher.purchase-orders.*']],
+                        ['label' => __('Receiving'), 'route' => 'butcher.receiving.index', 'icon' => 'box', 'permission' => 'manage_butcher_procurement', 'routeIs' => ['butcher.receiving.*']],
+                    ],
+                ],
+                [
+                    'group' => __('Inventory'),
+                    'icon' => 'clipboard',
+                    'children' => [
+                        ['label' => __('Inventory'), 'route' => 'butcher.inventory.index', 'icon' => 'clipboard', 'permission' => 'manage_butcher_inventory', 'routeIs' => ['butcher.inventory.*']],
+                        ['label' => __('Transfers'), 'route' => 'butcher.transfers.index', 'icon' => 'box', 'permission' => 'manage_butcher_inventory', 'routeIs' => ['butcher.transfers.*']],
+                        ['label' => __('Waste & Adjustments'), 'route' => 'butcher.waste.index', 'icon' => 'alert', 'permission' => 'manage_butcher_inventory', 'routeIs' => ['butcher.waste.*']],
+                        ['label' => __('Stock Counts'), 'route' => 'butcher.stock-counts.index', 'icon' => 'clipboard-list', 'permission' => 'manage_butcher_inventory', 'routeIs' => ['butcher.stock-counts.*']],
+                    ],
+                ],
+                ['label' => __('Processing'), 'route' => 'butcher.processing.index', 'icon' => 'clipboard', 'permission' => 'manage_butcher_processing', 'routeIs' => ['butcher.processing.*']],
+                ['label' => __('Catalog'), 'route' => 'butcher.catalog.index', 'icon' => 'box', 'permission' => 'view_butcher_catalog', 'permissions' => ['view_butcher_catalog', 'manage_butcher_catalog'], 'routeIs' => ['butcher.catalog.*']],
+                [
+                    'group' => __('Sales'),
+                    'icon' => 'box',
+                    'children' => [
+                        ['label' => __('Sales & POS'), 'route' => 'butcher.sales.index', 'icon' => 'box', 'permission' => 'manage_butcher_sales', 'routeIs' => ['butcher.sales.*']],
+                        ['label' => __('Customers'), 'route' => 'butcher.customers.index', 'icon' => 'user', 'permission' => 'manage_butcher_sales', 'routeIs' => ['butcher.customers.*']],
+                    ],
+                ],
+                ['label' => __('Compliance'), 'route' => 'butcher.compliance.index', 'icon' => 'shield', 'permission' => 'manage_butcher_compliance', 'routeIs' => ['butcher.compliance.*']],
+                ['label' => __('Finance'), 'route' => 'butcher.finance.index', 'icon' => 'clipboard', 'permission' => 'manage_butcher_finance', 'routeIs' => ['butcher.finance.*']],
+                ['label' => __('Reports'), 'route' => 'butcher.reports.index', 'icon' => 'chart', 'permission' => 'view_butcher_reports', 'routeIs' => ['butcher.reports.*']],
+                [
+                    'group' => __('Administration'),
+                    'icon' => 'building',
+                    'children' => [
+                        ['label' => __('Business profile'), 'route' => 'butcher.business.edit', 'icon' => 'building', 'permission' => 'manage_butcher_administration', 'routeIs' => ['butcher.business.*']],
+                        ['label' => __('Outlets'), 'route' => 'butcher.outlets.index', 'icon' => 'building', 'permission' => 'manage_butcher_administration', 'routeIs' => ['butcher.outlets.*']],
+                        ['label' => __('Permits'), 'route' => 'butcher.permits.index', 'icon' => 'certificate', 'permission' => 'manage_butcher_administration', 'routeIs' => ['butcher.permits.*']],
+                        ['label' => __('Team & roles'), 'route' => 'butcher.team.index', 'icon' => 'users', 'permission' => 'assign_butcher_roles', 'routeIs' => ['butcher.team.*']],
+                    ],
+                ],
                 ['label' => __('System Settings'), 'route' => 'settings.edit', 'icon' => 'settings', 'permission' => null, 'routeIs' => ['settings.edit']],
             ];
+
+            $canAccessButcherNavItem = function (array $item) use ($user): bool {
+                $permission = $item['permission'] ?? null;
+                $permissions = $item['permissions'] ?? null;
+
+                if ($permission === null && empty($permissions)) {
+                    return true;
+                }
+
+                if (is_array($permissions)) {
+                    foreach ($permissions as $perm) {
+                        if ($user->canButcherPermission($perm)) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+
+                return $permission === null || $user->canButcherPermission($permission);
+            };
+
+            $filteredButcherNav = [];
+            foreach ($tenantNav as $item) {
+                if (isset($item['group'])) {
+                    $children = array_values(array_filter($item['children'] ?? [], fn ($c) => $canAccessButcherNavItem($c)));
+                    if (count($children) > 0) {
+                        $item['children'] = $children;
+                        $filteredButcherNav[] = $item;
+                    }
+                } elseif ($canAccessButcherNavItem($item)) {
+                    $filteredButcherNav[] = $item;
+                }
+            }
+            $tenantNav = $filteredButcherNav;
         }
     }
 

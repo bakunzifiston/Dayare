@@ -19,7 +19,16 @@ class UpdateButcherOrderStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', Rule::in(ButcherOrder::STATUSES)],
+            'status' => [
+                'required',
+                'string',
+                Rule::in([
+                    ButcherOrder::STATUS_PENDING,
+                    ButcherOrder::STATUS_CONFIRMED,
+                    ButcherOrder::STATUS_READY,
+                    ButcherOrder::STATUS_CANCELLED,
+                ]),
+            ],
         ];
     }
 }

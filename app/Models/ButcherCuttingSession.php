@@ -59,6 +59,11 @@ class ButcherCuttingSession extends Model
         return $this->belongsTo(ButcherInventoryBatch::class, 'batch_id');
     }
 
+    public function sources(): HasMany
+    {
+        return $this->hasMany(ButcherCuttingSessionSource::class, 'session_id');
+    }
+
     public function cutOutputs(): HasMany
     {
         return $this->hasMany(ButcherCutOutput::class, 'session_id');
@@ -67,5 +72,14 @@ class ButcherCuttingSession extends Model
     public function isOpen(): bool
     {
         return $this->status === self::STATUS_OPEN;
+    }
+
+    public function totalSourceWeightKg(): float
+    {
+        if ($this->relationLoaded('sources') && $this->sources->isNotEmpty()) {
+            return round((float) $this->sources->sum('source_weight_kg'), 3);
+        }
+
+        return (float) $this->source_weight_kg;
     }
 }

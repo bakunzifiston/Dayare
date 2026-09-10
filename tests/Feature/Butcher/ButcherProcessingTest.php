@@ -5,12 +5,15 @@ namespace Tests\Feature\Butcher;
 use App\Models\Business;
 use App\Models\ButcherCutType;
 use App\Models\ButcherDelivery;
+use App\Models\ButcherDisposalLog;
 use App\Models\ButcherInventoryBatch;
+use App\Models\ButcherInventoryMovement;
 use App\Models\ButcherOutlet;
 use App\Models\ButcherSupplier;
 use App\Models\User;
 use App\Services\Butcher\ButcherCuttingService;
 use App\Services\Butcher\ButcherProcurementService;
+use App\Services\Butcher\ButcherStorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -83,9 +86,9 @@ class ButcherProcessingTest extends TestCase
         ]);
     }
 
-    public function test_opening_session_deducts_batch_weight(): void
+    public function test_opening_session_does_not_change_batch_weight(): void
     {
-        $batch = $this->createBatch();
+        $batch = $this->createBatch(48.25);
         $cutting = app(ButcherCuttingService::class);
 
         $session = $cutting->openSession($this->business, [
@@ -95,16 +98,22 @@ class ButcherProcessingTest extends TestCase
         ]);
 
         $batch->refresh();
-        $this->assertEqualsWithDelta(28.25, (float) $batch->remaining_weight_kg, 0.001);
-        $this->assertSame(ButcherInventoryBatch::STATUS_PARTIALLY_USED, $batch->status);
+        $this->assertEqualsWithDelta(48.25, (float) $batch->remaining_weight_kg, 0.001);
+        $this->assertSame(ButcherInventoryBatch::STATUS_IN_STORAGE, $batch->status);
         $this->assertSame('open', $session->status);
         $this->assertStringStartsWith('CUT-', $session->session_number);
+        $this->assertSame(1, $session->sources()->count());
     }
 
     public function test_close_session_calculates_wastage_via_http(): void
     {
         $cutType = $this->createCutType();
-        $session = $this->openSession(20);
+        $batch = $this->createBatch(48.25);
+        $session = app(ButcherCuttingService::class)->openSession($this->business, [
+            'outlet_id' => $this->outlet->id,
+            'batch_id' => $batch->id,
+            'source_weight_kg' => 20,
+        ]);
 
         $this->actingAs($this->user)
             ->post(route('butcher.processing.sessions.outputs.store', $session), [
@@ -118,8 +127,10 @@ class ButcherProcessingTest extends TestCase
             ->assertRedirect(route('butcher.processing.sessions.show', $session));
 
         $session->refresh();
+        $batch->refresh();
         $this->assertSame('closed', $session->status);
         $this->assertEqualsWithDelta(3.5, (float) $session->wastage_kg, 0.001);
+        $this->assertEqualsWithDelta(28.25, (float) $batch->remaining_weight_kg, 0.001);
     }
 
     public function test_cannot_close_session_without_outputs(): void
@@ -128,16 +139,201 @@ class ButcherProcessingTest extends TestCase
 
         $this->expectException(ValidationException::class);
 
-        app(ButcherCuttingService::class)->closeSession($session);
+        app(ButcherCuttingService::class)->closeSession($session, $this->user);
     }
 
-    private function createBatch(): ButcherInventoryBatch
+    public function test_close_writes_consumption_and_output_ledger_rows(): void
+    {
+        $cutType = $this->createCutType();
+        $batch = $this->createBatch(50);
+        $cutting = app(ButcherCuttingService::class);
+
+        $session = $cutting->openSession($this->business, [
+            'outlet_id' => $this->outlet->id,
+            'batch_id' => $batch->id,
+            'source_weight_kg' => 20,
+        ]);
+
+        $output = $cutting->addCutOutput($session, [
+            'cut_type_id' => $cutType->id,
+            'weight_kg' => 18,
+        ]);
+
+        $cutting->closeSession($session, $this->user);
+
+        $this->assertDatabaseHas('butcher_inventory_movements', [
+            'batch_id' => $batch->id,
+            'type' => ButcherInventoryMovement::TYPE_CUTTING_CONSUMPTION,
+            'quantity_kg' => -20,
+            'reference_id' => $session->id,
+        ]);
+
+        $this->assertDatabaseHas('butcher_inventory_movements', [
+            'cut_output_id' => $output->id,
+            'type' => ButcherInventoryMovement::TYPE_CUTTING_OUTPUT_IN,
+            'quantity_kg' => 18,
+        ]);
+
+        $this->assertEqualsWithDelta(30.0, (float) $batch->fresh()->remaining_weight_kg, 0.001);
+    }
+
+    public function test_multi_source_session_reconciles_on_close(): void
+    {
+        $steak = $this->createCutType('Steak', 90);
+        $batchA = $this->createBatch(40);
+        $batchB = $this->createBatch(30);
+        $cutting = app(ButcherCuttingService::class);
+
+        $session = $cutting->openSession($this->business, [
+            'outlet_id' => $this->outlet->id,
+            'batch_id' => $batchA->id,
+            'source_weight_kg' => 25,
+        ]);
+
+        $cutting->addSource($session, [
+            'batch_id' => $batchB->id,
+            'source_weight_kg' => 15,
+        ]);
+
+        $this->assertEqualsWithDelta(40.0, (float) $batchA->fresh()->remaining_weight_kg, 0.001);
+        $this->assertEqualsWithDelta(30.0, (float) $batchB->fresh()->remaining_weight_kg, 0.001);
+
+        $cutting->addCutOutput($session, ['cut_type_id' => $steak->id, 'weight_kg' => 35]);
+        $cutting->closeSession($session->fresh(), $this->user);
+
+        $session->refresh();
+        $this->assertEqualsWithDelta(40.0, (float) $session->source_weight_kg, 0.001);
+        $this->assertEqualsWithDelta(35.0, (float) $session->total_cuts_weight_kg, 0.001);
+        $this->assertEqualsWithDelta(5.0, (float) $session->wastage_kg, 0.001);
+
+        $consumption = (float) ButcherInventoryMovement::query()
+            ->where('reference_type', \App\Models\ButcherCuttingSession::class)
+            ->where('reference_id', $session->id)
+            ->where('type', ButcherInventoryMovement::TYPE_CUTTING_CONSUMPTION)
+            ->sum('quantity_kg');
+        $outputs = (float) ButcherInventoryMovement::query()
+            ->where('reference_type', \App\Models\ButcherCuttingSession::class)
+            ->where('reference_id', $session->id)
+            ->where('type', ButcherInventoryMovement::TYPE_CUTTING_OUTPUT_IN)
+            ->sum('quantity_kg');
+
+        $this->assertEqualsWithDelta(-40.0, $consumption, 0.001);
+        $this->assertEqualsWithDelta(35.0, $outputs, 0.001);
+        $this->assertEqualsWithDelta(abs($consumption), $outputs + (float) $session->wastage_kg, 0.001);
+
+        $this->assertEqualsWithDelta(15.0, (float) $batchA->fresh()->remaining_weight_kg, 0.001);
+        $this->assertEqualsWithDelta(15.0, (float) $batchB->fresh()->remaining_weight_kg, 0.001);
+    }
+
+    public function test_abandoned_open_session_leaves_inventory_untouched(): void
+    {
+        $batch = $this->createBatch(48.25);
+        app(ButcherCuttingService::class)->openSession($this->business, [
+            'outlet_id' => $this->outlet->id,
+            'batch_id' => $batch->id,
+            'source_weight_kg' => 20,
+        ]);
+
+        $this->assertEqualsWithDelta(48.25, (float) $batch->fresh()->remaining_weight_kg, 0.001);
+        $this->assertSame(
+            0,
+            ButcherInventoryMovement::query()
+                ->where('type', ButcherInventoryMovement::TYPE_CUTTING_CONSUMPTION)
+                ->count()
+        );
+    }
+
+    public function test_close_fails_when_stock_dropped_below_declared_source(): void
+    {
+        $cutType = $this->createCutType();
+        $batch = $this->createBatch(30);
+        $cutting = app(ButcherCuttingService::class);
+
+        $session = $cutting->openSession($this->business, [
+            'outlet_id' => $this->outlet->id,
+            'batch_id' => $batch->id,
+            'source_weight_kg' => 25,
+        ]);
+
+        $cutting->addCutOutput($session, [
+            'cut_type_id' => $cutType->id,
+            'weight_kg' => 20,
+        ]);
+
+        // Concurrent disposal reduces available stock below declared source.
+        app(ButcherStorageService::class)->logDisposal($batch, [
+            'weight_disposed_kg' => 10,
+            'reason' => ButcherDisposalLog::REASON_DAMAGED,
+        ], $this->user);
+
+        try {
+            $cutting->closeSession($session->fresh(), $this->user);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('sources', $e->errors());
+        }
+
+        $this->assertSame('open', $session->fresh()->status);
+        $this->assertEqualsWithDelta(20.0, (float) $batch->fresh()->remaining_weight_kg, 0.001);
+        $this->assertSame(
+            0,
+            ButcherInventoryMovement::query()
+                ->where('type', ButcherInventoryMovement::TYPE_CUTTING_CONSUMPTION)
+                ->count()
+        );
+    }
+
+    public function test_worked_traceability_example_100kg_beef(): void
+    {
+        $batch = $this->createBatch(100);
+        $steak = $this->createCutType('Steak', 90);
+        $ribs = $this->createCutType('Ribs', 85);
+        $trim = $this->createCutType('Trim', 80);
+        $cutting = app(ButcherCuttingService::class);
+
+        $session = $cutting->openSession($this->business, [
+            'outlet_id' => $this->outlet->id,
+            'batch_id' => $batch->id,
+            'source_weight_kg' => 60,
+        ]);
+
+        $this->assertEqualsWithDelta(100.0, (float) $batch->fresh()->remaining_weight_kg, 0.001);
+
+        $cutting->addCutOutput($session, ['cut_type_id' => $steak->id, 'weight_kg' => 40]);
+        $cutting->addCutOutput($session, ['cut_type_id' => $ribs->id, 'weight_kg' => 10]);
+        $cutting->addCutOutput($session, ['cut_type_id' => $trim->id, 'weight_kg' => 5]);
+
+        $cutting->closeSession($session->fresh(), $this->user);
+
+        $session->refresh();
+        $batch->refresh();
+
+        $this->assertEqualsWithDelta(5.0, (float) $session->wastage_kg, 0.001);
+        $this->assertEqualsWithDelta(55.0, (float) $session->total_cuts_weight_kg, 0.001);
+        $this->assertEqualsWithDelta(40.0, (float) $batch->remaining_weight_kg, 0.001);
+
+        $consumption = abs((float) ButcherInventoryMovement::query()
+            ->where('batch_id', $batch->id)
+            ->where('type', ButcherInventoryMovement::TYPE_CUTTING_CONSUMPTION)
+            ->sum('quantity_kg'));
+        $outputIn = (float) ButcherInventoryMovement::query()
+            ->where('reference_id', $session->id)
+            ->where('type', ButcherInventoryMovement::TYPE_CUTTING_OUTPUT_IN)
+            ->sum('quantity_kg');
+
+        $this->assertEqualsWithDelta(60.0, $consumption, 0.001);
+        $this->assertEqualsWithDelta(55.0, $outputIn, 0.001);
+        $this->assertEqualsWithDelta($consumption, $outputIn + (float) $session->wastage_kg, 0.001);
+        $this->assertSame(3, $session->cutOutputs()->count());
+    }
+
+    private function createBatch(float $weight = 48.25): ButcherInventoryBatch
     {
         $delivery = app(ButcherProcurementService::class)->receiveDelivery($this->business, [
             'supplier_id' => $this->supplier->id,
             'outlet_id' => $this->outlet->id,
             'meat_type' => ButcherDelivery::MEAT_BEEF,
-            'received_weight_kg' => 48.25,
+            'received_weight_kg' => $weight,
             'unit_cost_per_kg' => 3500,
             'condition' => ButcherDelivery::CONDITION_GOOD,
         ], $this->user);
@@ -145,12 +341,12 @@ class ButcherProcessingTest extends TestCase
         return ButcherInventoryBatch::query()->where('delivery_id', $delivery->id)->firstOrFail();
     }
 
-    private function createCutType(): ButcherCutType
+    private function createCutType(string $name = 'Sirloin', float $yield = 85): ButcherCutType
     {
         return $this->business->butcherCutTypes()->create([
-            'name' => 'Sirloin',
+            'name' => $name,
             'meat_type' => ButcherCutType::MEAT_BEEF,
-            'expected_yield_pct' => 85,
+            'expected_yield_pct' => $yield,
             'is_active' => true,
         ]);
     }

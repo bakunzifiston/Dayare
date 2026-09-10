@@ -38,7 +38,7 @@
                 <x-kpi-card stat :title="__('Net margin')" :value="number_format((float) $summary['net_margin_pct'], 1).'%'" />
             </div>
 
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
                 <a href="{{ route('butcher.finance.reports.sales', ['from' => $from, 'to' => $to]) }}" class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha hover:border-bucha-primary">
                     <h3 class="text-sm font-semibold text-slate-900">{{ __('Sales report') }}</h3>
                     <p class="mt-1 text-xs text-slate-500">{{ __('Breakdown by day, product, outlet, or customer.') }}</p>
@@ -50,6 +50,10 @@
                 <a href="{{ route('butcher.finance.reports.cashflow', ['from' => $from, 'to' => $to]) }}" class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha hover:border-bucha-primary">
                     <h3 class="text-sm font-semibold text-slate-900">{{ __('Cash flow') }}</h3>
                     <p class="mt-1 text-xs text-slate-500">{{ __('Daily cash in from sales vs operating expenses.') }}</p>
+                </a>
+                <a href="{{ route('butcher.finance.receivables.index') }}" class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha hover:border-bucha-primary">
+                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Receivables') }}</h3>
+                    <p class="mt-1 text-xs text-slate-500">{{ __('Customer aging and statements from credit sales.') }}</p>
                 </a>
             </div>
 

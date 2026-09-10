@@ -28,40 +28,40 @@
             <form method="post" action="{{ route('butcher.stock-counts.lines.update', $count) }}">
                 @csrf
                 @method('PUT')
-                <section class="overflow-hidden rounded-bucha border border-slate-200/80 bg-white shadow-bucha">
-                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <section class="overflow-x-auto rounded-bucha border border-slate-200/80 bg-white shadow-bucha">
+                    <table class="min-w-[40rem] w-full divide-y divide-slate-200 text-sm">
                         <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                             <tr>
-                                <th class="px-4 py-3">{{ __('Batch') }}</th>
-                                <th class="px-4 py-3">{{ __('Meat') }}</th>
-                                <th class="px-4 py-3">{{ __('System (kg)') }}</th>
-                                <th class="px-4 py-3">{{ __('Counted (kg)') }}</th>
-                                <th class="px-4 py-3">{{ __('Variance') }}</th>
-                                <th class="px-4 py-3">{{ __('Notes') }}</th>
+                                <th class="px-3 py-3 sm:px-4">{{ __('Batch') }}</th>
+                                <th class="hidden sm:table-cell px-3 py-3 sm:px-4">{{ __('Meat') }}</th>
+                                <th class="px-3 py-3 sm:px-4">{{ __('System (kg)') }}</th>
+                                <th class="px-3 py-3 sm:px-4">{{ __('Counted (kg)') }}</th>
+                                <th class="hidden md:table-cell px-3 py-3 sm:px-4">{{ __('Variance') }}</th>
+                                <th class="px-3 py-3 sm:px-4">{{ __('Notes') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @foreach ($count->lines as $index => $line)
                                 <tr>
-                                    <td class="px-4 py-3 font-medium">
+                                    <td class="px-3 py-3 sm:px-4 font-medium">
                                         {{ $line->batch?->batch_number }}
                                         <input type="hidden" name="lines[{{ $index }}][id]" value="{{ $line->id }}">
                                     </td>
-                                    <td class="px-4 py-3 capitalize">{{ $line->batch?->meat_type }}</td>
-                                    <td class="px-4 py-3">{{ $fmtKg($line->system_weight_kg) }}</td>
-                                    <td class="px-4 py-3">
+                                    <td class="hidden sm:table-cell px-3 py-3 sm:px-4 capitalize">{{ $line->batch?->meat_type }}</td>
+                                    <td class="px-3 py-3 sm:px-4">{{ $fmtKg($line->system_weight_kg) }}</td>
+                                    <td class="px-3 py-3 sm:px-4">
                                         @if ($count->isDraft())
-                                            <input type="number" step="0.001" min="0" name="lines[{{ $index }}][counted_weight_kg]" value="{{ old('lines.'.$index.'.counted_weight_kg', $line->counted_weight_kg) }}" class="w-28 rounded-lg border-gray-300 text-sm">
+                                            <input type="number" step="0.001" min="0" name="lines[{{ $index }}][counted_weight_kg]" value="{{ old('lines.'.$index.'.counted_weight_kg', $line->counted_weight_kg) }}" class="w-full min-w-[5rem] max-w-[8rem] rounded-lg border-gray-300 text-sm">
                                         @else
                                             {{ $fmtKg($line->counted_weight_kg) }}
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 @if($line->variance_kg !== null && abs((float)$line->variance_kg) > 0.001) font-semibold text-amber-800 @endif">
+                                    <td class="hidden md:table-cell px-3 py-3 sm:px-4 @if($line->variance_kg !== null && abs((float)$line->variance_kg) > 0.001) font-semibold text-amber-800 @endif">
                                         {{ $line->variance_kg === null ? '—' : (((float)$line->variance_kg > 0 ? '+' : '').$fmtKg($line->variance_kg)) }}
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-3 py-3 sm:px-4">
                                         @if ($count->isDraft())
-                                            <input type="text" name="lines[{{ $index }}][notes]" value="{{ old('lines.'.$index.'.notes', $line->notes) }}" class="w-full rounded-lg border-gray-300 text-sm">
+                                            <input type="text" name="lines[{{ $index }}][notes]" value="{{ old('lines.'.$index.'.notes', $line->notes) }}" class="w-full min-w-[6rem] rounded-lg border-gray-300 text-sm">
                                         @else
                                             {{ $line->notes ?: '—' }}
                                         @endif

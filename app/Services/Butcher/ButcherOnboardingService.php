@@ -41,6 +41,38 @@ class ButcherOnboardingService
         return $business->fresh();
     }
 
+    public function updateBusinessProfile(Business $business, array $data): Business
+    {
+        $businessName = trim((string) ($data['business_name'] ?? $business->business_name));
+
+        $business->fill([
+            'business_name' => $businessName,
+            'business_name_normalized' => Business::normalizeDisplayName($businessName),
+            'registration_number' => (string) ($data['rdb_registration_number'] ?? $data['registration_number'] ?? $business->registration_number),
+            'tax_id' => (string) ($data['tin_number'] ?? $data['tax_id'] ?? $business->tax_id),
+            'contact_phone' => (string) ($data['phone'] ?? $data['contact_phone'] ?? $business->contact_phone),
+            'email' => $data['email'] ?? $business->email,
+            'address_line_1' => $data['address_line_1'] ?? $business->address_line_1,
+            'city' => $data['city'] ?? $business->city,
+            'butchery_type' => (string) ($data['butchery_type'] ?? $business->butchery_type),
+            'rfa_permit_number' => $data['rfa_permit_number'] ?? $business->rfa_permit_number,
+            'rfa_permit_expiry' => $data['rfa_permit_expiry'] ?? $business->rfa_permit_expiry,
+            'butcher_district' => (string) ($data['district'] ?? $data['butcher_district'] ?? $business->butcher_district),
+            'butcher_sector' => $data['butcher_sector'] ?? $data['sector'] ?? $business->butcher_sector,
+            'butcher_cell' => $data['butcher_cell'] ?? $data['cell'] ?? $business->butcher_cell,
+            'gps_lat' => $data['gps_lat'] ?? $business->gps_lat,
+            'gps_lng' => $data['gps_lng'] ?? $business->gps_lng,
+            'butcher_fresh_max_temp_c' => $data['butcher_fresh_max_temp_c'] ?? $business->butcher_fresh_max_temp_c,
+            'butcher_frozen_max_temp_c' => $data['butcher_frozen_max_temp_c'] ?? $business->butcher_frozen_max_temp_c,
+            'butcher_batch_shelf_life_days' => $data['butcher_batch_shelf_life_days'] ?? $business->butcher_batch_shelf_life_days,
+            'status' => Business::STATUS_ACTIVE,
+        ]);
+
+        $business->save();
+
+        return $business->fresh();
+    }
+
     public function addOutlet(Business $business, array $data): ButcherOutlet
     {
         return DB::transaction(function () use ($business, $data) {
@@ -63,6 +95,38 @@ class ButcherOnboardingService
         });
     }
 
+    public function updateOutlet(ButcherOutlet $outlet, array $data): ButcherOutlet
+    {
+        return DB::transaction(function () use ($outlet, $data) {
+            $isPrimary = (bool) ($data['is_primary'] ?? $outlet->is_primary);
+
+            if ($isPrimary) {
+                ButcherOutlet::query()
+                    ->where('business_id', $outlet->business_id)
+                    ->whereKeyNot($outlet->id)
+                    ->update(['is_primary' => false]);
+            }
+
+            $payload = [
+                'name' => (string) $data['name'],
+                'district' => (string) $data['district'],
+                'sector' => $data['sector'] ?? null,
+                'phone' => (string) $data['phone'],
+                'gps_lat' => $data['gps_lat'] ?? null,
+                'gps_lng' => $data['gps_lng'] ?? null,
+                'is_primary' => $isPrimary,
+            ];
+
+            if (isset($data['status']) && in_array($data['status'], ButcherOutlet::STATUSES, true)) {
+                $payload['status'] = $data['status'];
+            }
+
+            $outlet->update($payload);
+
+            return $outlet->fresh();
+        });
+    }
+
     public function uploadPermit(Business $business, array $data, ?UploadedFile $file): ButcherPermit
     {
         $documentPath = null;
@@ -79,6 +143,31 @@ class ButcherOnboardingService
             'document_path' => $documentPath,
             'status' => ButcherPermit::STATUS_VALID,
         ]);
+    }
+
+    public function updatePermit(ButcherPermit $permit, array $data, ?UploadedFile $file = null): ButcherPermit
+    {
+        $payload = [
+            'permit_type' => (string) $data['permit_type'],
+            'permit_number' => (string) $data['permit_number'],
+            'issued_by' => (string) $data['issued_by'],
+            'issue_date' => $data['issue_date'],
+            'expiry_date' => $data['expiry_date'],
+        ];
+
+        if ($file instanceof UploadedFile) {
+            $newPath = ButcherPermitDocumentStorage::store($file, (int) $permit->business_id);
+            ButcherPermitDocumentStorage::delete($permit->document_path);
+            $payload['document_path'] = $newPath;
+        }
+
+        if (isset($data['status']) && in_array($data['status'], ButcherPermit::STATUSES, true)) {
+            $payload['status'] = $data['status'];
+        }
+
+        $permit->update($payload);
+
+        return $permit->fresh();
     }
 
     public function createSupplier(Business $business, array $data): ButcherSupplier

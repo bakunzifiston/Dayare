@@ -7,6 +7,7 @@ use App\Models\ButcherDelivery;
 use App\Models\ButcherDisposalLog;
 use App\Models\ButcherInventoryAdjustment;
 use App\Models\ButcherInventoryBatch;
+use App\Models\ButcherInventoryMovement;
 use App\Models\ButcherTemperatureLog;
 use App\Models\User;
 use Carbon\Carbon;
@@ -16,21 +17,29 @@ use Illuminate\Validation\ValidationException;
 
 class ButcherStorageService
 {
-    public function createBatchFromDelivery(ButcherDelivery $delivery, ?string $storageLocation = null): ButcherInventoryBatch
-    {
+    public function createBatchFromDelivery(
+        ButcherDelivery $delivery,
+        ?string $storageLocation = null,
+        ?float $weightKg = null,
+        ?float $unitCost = null,
+        ?string $meatType = null,
+        ?int $deliveryLineId = null,
+    ): ButcherInventoryBatch {
         $business = $delivery->business ?? Business::query()->findOrFail($delivery->business_id);
         $shelfLifeDays = (int) ($business->butcher_batch_shelf_life_days ?? 3);
         $receivedAt = Carbon::parse($delivery->received_at);
+        $weight = $weightKg ?? (float) $delivery->received_weight_kg;
 
         return ButcherInventoryBatch::query()->create([
             'business_id' => $delivery->business_id,
             'delivery_id' => $delivery->id,
+            'delivery_line_id' => $deliveryLineId,
             'outlet_id' => $delivery->outlet_id,
             'batch_number' => $this->generateBatchNumber((int) $delivery->business_id),
-            'meat_type' => $delivery->meat_type,
-            'initial_weight_kg' => $delivery->received_weight_kg,
-            'remaining_weight_kg' => $delivery->received_weight_kg,
-            'unit_cost_per_kg' => $delivery->unit_cost_per_kg,
+            'meat_type' => $meatType ?? $delivery->meat_type,
+            'initial_weight_kg' => $weight,
+            'remaining_weight_kg' => $weight,
+            'unit_cost_per_kg' => $unitCost ?? $delivery->unit_cost_per_kg,
             'status' => ButcherInventoryBatch::STATUS_IN_STORAGE,
             'received_at' => $receivedAt,
             'best_before_date' => $receivedAt->copy()->addDays($shelfLifeDays)->toDateString(),
@@ -40,29 +49,75 @@ class ButcherStorageService
 
     public function logTemperature(Business $business, array $data, User $user): ButcherTemperatureLog
     {
-        $storageType = (string) ($data['storage_type'] ?? ButcherTemperatureLog::TYPE_FRESH);
-        $temperature = (float) $data['temperature_celsius'];
-        $threshold = $this->temperatureThreshold($business, $storageType);
-        $isBreach = $temperature > $threshold;
+        return DB::transaction(function () use ($business, $data, $user) {
+            $storageType = (string) ($data['storage_type'] ?? ButcherTemperatureLog::TYPE_FRESH);
+            $temperature = (float) $data['temperature_celsius'];
+            $threshold = $this->temperatureThreshold($business, $storageType);
+            $isBreach = $temperature > $threshold;
+            $outletId = (int) $data['outlet_id'];
+            $location = (string) $data['storage_location'];
 
-        return $business->butcherTemperatureLogs()->create([
-            'outlet_id' => (int) $data['outlet_id'],
-            'storage_location' => (string) $data['storage_location'],
-            'storage_type' => $storageType,
-            'temperature_celsius' => $temperature,
-            'logged_at' => isset($data['logged_at']) ? Carbon::parse($data['logged_at']) : now(),
-            'logged_by' => $user->id,
-            'is_breach' => $isBreach,
-            'breach_note' => $isBreach ? ($data['breach_note'] ?? __('Temperature :temp°C exceeds :max°C limit.', [
-                'temp' => $temperature,
-                'max' => $threshold,
-            ])) : null,
-        ]);
+            $log = $business->butcherTemperatureLogs()->create([
+                'outlet_id' => $outletId,
+                'storage_location' => $location,
+                'storage_type' => $storageType,
+                'temperature_celsius' => $temperature,
+                'logged_at' => isset($data['logged_at']) ? Carbon::parse($data['logged_at']) : now(),
+                'logged_by' => $user->id,
+                'is_breach' => $isBreach,
+                'breach_note' => $isBreach ? ($data['breach_note'] ?? __('Temperature :temp°C exceeds :max°C limit.', [
+                    'temp' => $temperature,
+                    'max' => $threshold,
+                ])) : null,
+            ]);
+
+            if ($isBreach) {
+                $this->flagBatchesForTemperatureBreach($business->id, $outletId, $location);
+            }
+
+            return $log;
+        });
+    }
+
+    /**
+     * Flag active batches at the outlet whose storage_location matches the breached reading.
+     * Batches with null/empty storage_location at the same outlet are also flagged (conservative).
+     */
+    public function flagBatchesForTemperatureBreach(int $businessId, int $outletId, string $storageLocation): int
+    {
+        $normalized = mb_strtolower(trim($storageLocation));
+        $now = now();
+
+        $batches = ButcherInventoryBatch::query()
+            ->where('business_id', $businessId)
+            ->where('outlet_id', $outletId)
+            ->whereIn('status', ButcherInventoryBatch::ACTIVE_STATUSES)
+            ->where('temperature_breach', false)
+            ->lockForUpdate()
+            ->get()
+            ->filter(function (ButcherInventoryBatch $batch) use ($normalized) {
+                $batchLocation = trim((string) ($batch->storage_location ?? ''));
+                if ($batchLocation === '') {
+                    return true;
+                }
+
+                return mb_strtolower($batchLocation) === $normalized;
+            });
+
+        foreach ($batches as $batch) {
+            $batch->update([
+                'temperature_breach' => true,
+                'temperature_breach_at' => $now,
+            ]);
+        }
+
+        return $batches->count();
     }
 
     public function logDisposal(ButcherInventoryBatch $batch, array $data, User $user): ButcherDisposalLog
     {
         return DB::transaction(function () use ($batch, $data, $user) {
+            $batch = ButcherInventoryBatch::query()->lockForUpdate()->findOrFail($batch->id);
             $weight = (float) $data['weight_disposed_kg'];
             $remaining = (float) $batch->remaining_weight_kg;
 
@@ -92,6 +147,20 @@ class ButcherStorageService
             $batch->update([
                 'remaining_weight_kg' => max(0, $newRemaining),
                 'status' => $status,
+            ]);
+
+            ButcherInventoryMovement::record([
+                'business_id' => $batch->business_id,
+                'outlet_id' => $batch->outlet_id,
+                'batch_id' => $batch->id,
+                'type' => ButcherInventoryMovement::TYPE_DISPOSAL,
+                'quantity_kg' => -1 * $weight,
+                'before_qty' => $remaining,
+                'after_qty' => max(0, $newRemaining),
+                'reference_type' => ButcherDisposalLog::class,
+                'reference_id' => $log->id,
+                'actor_id' => $user->id,
+                'occurred_at' => $disposedAt,
             ]);
 
             return $log->fresh(['batch', 'disposedByUser']);
@@ -141,6 +210,24 @@ class ButcherStorageService
             $batch->update([
                 'remaining_weight_kg' => $newWeight,
                 'status' => $status,
+            ]);
+
+            $movementType = ! empty($data['stock_count_line_id'])
+                ? ButcherInventoryMovement::TYPE_STOCK_COUNT_VARIANCE
+                : ButcherInventoryMovement::TYPE_ADJUSTMENT;
+
+            ButcherInventoryMovement::record([
+                'business_id' => $batch->business_id,
+                'outlet_id' => $batch->outlet_id,
+                'batch_id' => $batch->id,
+                'type' => $movementType,
+                'quantity_kg' => $change,
+                'before_qty' => $previous,
+                'after_qty' => $newWeight,
+                'reference_type' => ButcherInventoryAdjustment::class,
+                'reference_id' => $adjustment->id,
+                'actor_id' => $user->id,
+                'occurred_at' => $adjustment->adjusted_at,
             ]);
 
             return $adjustment->fresh(['batch', 'adjustedByUser']);
@@ -213,12 +300,13 @@ class ButcherStorageService
      *   recent_disposals: \Illuminate\Support\Collection
      * }
      */
-    public function getStorageSummary(Business $business): array
+    public function getStorageSummary(Business $business, ?int $outletId = null): array
     {
         $this->checkExpiringBatches($business);
 
         $activeQuery = $business->butcherInventoryBatches()
-            ->whereIn('status', ButcherInventoryBatch::ACTIVE_STATUSES);
+            ->whereIn('status', ButcherInventoryBatch::ACTIVE_STATUSES)
+            ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId));
 
         $fifoBatches = (clone $activeQuery)
             ->with(['outlet', 'delivery.supplier'])
@@ -231,24 +319,31 @@ class ButcherStorageService
             'kg_in_storage' => (float) (clone $activeQuery)->sum('remaining_weight_kg'),
             'expiring_soon' => (int) $business->butcherInventoryBatches()
                 ->whereIn('status', ButcherInventoryBatch::ACTIVE_STATUSES)
+                ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
                 ->whereDate('best_before_date', '>=', now()->toDateString())
                 ->whereDate('best_before_date', '<=', now()->addDay()->toDateString())
                 ->count(),
             'expired_batches' => (int) $business->butcherInventoryBatches()
                 ->where('status', ButcherInventoryBatch::STATUS_EXPIRED)
+                ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
                 ->count(),
             'temp_breaches_today' => (int) $business->butcherTemperatureLogs()
                 ->where('is_breach', true)
+                ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
                 ->whereDate('logged_at', now()->toDateString())
                 ->count(),
             'fifo_batches' => $fifoBatches,
             'recent_temperature_logs' => $business->butcherTemperatureLogs()
                 ->with(['outlet', 'loggedByUser'])
+                ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
                 ->latest('logged_at')
                 ->limit(5)
                 ->get(),
             'recent_disposals' => $business->butcherDisposalLogs()
                 ->with(['batch', 'disposedByUser'])
+                ->when($outletId, function ($q) use ($outletId) {
+                    $q->whereHas('batch', fn ($b) => $b->where('outlet_id', $outletId));
+                })
                 ->latest('disposed_at')
                 ->limit(5)
                 ->get(),

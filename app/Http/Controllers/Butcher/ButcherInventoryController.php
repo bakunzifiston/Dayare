@@ -29,9 +29,13 @@ class ButcherInventoryController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
+        $outletId = $this->requestedOutletId($request, $business);
+
         return view('butcher.inventory.index', [
             'business' => $business,
-            'summary' => $this->storage->getStorageSummary($business),
+            'outlets' => $business->butcherOutlets()->orderBy('name')->get(),
+            'filterOutletId' => $outletId,
+            'summary' => $this->storage->getStorageSummary($business, $outletId),
         ]);
     }
 
@@ -43,15 +47,20 @@ class ButcherInventoryController extends Controller
         }
 
         $this->storage->checkExpiringBatches($business);
+        $outletId = $this->requestedOutletId($request, $business);
 
         $batches = $business->butcherInventoryBatches()
             ->with(['outlet', 'delivery.supplier'])
+            ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
             ->orderBy('received_at')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         return view('butcher.inventory.batches.index', [
             'business' => $business,
             'batches' => $batches,
+            'outlets' => $business->butcherOutlets()->orderBy('name')->get(),
+            'filterOutletId' => $outletId,
         ]);
     }
 
@@ -63,7 +72,7 @@ class ButcherInventoryController extends Controller
         }
         abort_unless((int) $batch->business_id === (int) $business->id, 404);
 
-        $batch->load(['outlet', 'delivery.supplier', 'disposalLogs.disposedByUser']);
+        $batch->load(['outlet', 'delivery.supplier', 'disposalLogs.disposedByUser', 'movements.actor']);
 
         $temperatureLogs = $business->butcherTemperatureLogs()
             ->with('loggedByUser')
@@ -73,10 +82,17 @@ class ButcherInventoryController extends Controller
             ->limit(20)
             ->get();
 
+        $movements = $batch->movements()
+            ->with('actor')
+            ->orderBy('occurred_at')
+            ->orderBy('id')
+            ->get();
+
         return view('butcher.inventory.batches.show', [
             'business' => $business,
             'batch' => $batch,
             'temperatureLogs' => $temperatureLogs,
+            'movements' => $movements,
         ]);
     }
 

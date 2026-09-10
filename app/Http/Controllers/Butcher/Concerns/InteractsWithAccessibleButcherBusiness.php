@@ -23,4 +23,19 @@ trait InteractsWithAccessibleButcherBusiness
             ->orderBy('id')
             ->first();
     }
+
+    /**
+     * Optional outlet filter from query string. Null means all outlets.
+     */
+    protected function requestedOutletId(Request $request, Business $business): ?int
+    {
+        if (! $request->filled('outlet_id')) {
+            return null;
+        }
+
+        $outletId = (int) $request->query('outlet_id');
+        $exists = $business->butcherOutlets()->whereKey($outletId)->exists();
+
+        return $exists ? $outletId : null;
+    }
 }

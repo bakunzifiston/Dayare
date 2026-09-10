@@ -249,9 +249,177 @@ class BusinessUser extends Pivot
         ],
     ];
 
+    // --- Butcher workspace roles & permissions ---
+
+    public const ROLE_BUTCHER_OWNER = 'butcher_owner';
+
+    public const ROLE_BUTCHER_MANAGER = 'butcher_manager';
+
+    public const ROLE_BUTCHER_PROCUREMENT_OFFICER = 'butcher_procurement_officer';
+
+    public const ROLE_BUTCHER_STOREKEEPER = 'butcher_storekeeper';
+
+    public const ROLE_BUTCHER_PROCESSOR = 'butcher_processor';
+
+    public const ROLE_BUTCHER_CASHIER = 'butcher_cashier';
+
+    public const ROLE_BUTCHER_SALES_OFFICER = 'butcher_sales_officer';
+
+    public const ROLE_BUTCHER_ACCOUNTANT = 'butcher_accountant';
+
+    public const ROLE_BUTCHER_COMPLIANCE_OFFICER = 'butcher_compliance_officer';
+
+    public const ROLE_BUTCHER_OUTLET_MANAGER = 'butcher_outlet_manager';
+
+    public const BUTCHER_ROLES = [
+        self::ROLE_BUTCHER_OWNER,
+        self::ROLE_BUTCHER_MANAGER,
+        self::ROLE_BUTCHER_PROCUREMENT_OFFICER,
+        self::ROLE_BUTCHER_STOREKEEPER,
+        self::ROLE_BUTCHER_PROCESSOR,
+        self::ROLE_BUTCHER_CASHIER,
+        self::ROLE_BUTCHER_SALES_OFFICER,
+        self::ROLE_BUTCHER_ACCOUNTANT,
+        self::ROLE_BUTCHER_COMPLIANCE_OFFICER,
+        self::ROLE_BUTCHER_OUTLET_MANAGER,
+    ];
+
+    public const BUTCHER_ROLE_LABELS = [
+        self::ROLE_BUTCHER_OWNER => 'Owner',
+        self::ROLE_BUTCHER_MANAGER => 'Manager',
+        self::ROLE_BUTCHER_PROCUREMENT_OFFICER => 'Procurement Officer',
+        self::ROLE_BUTCHER_STOREKEEPER => 'Storekeeper',
+        self::ROLE_BUTCHER_PROCESSOR => 'Processor',
+        self::ROLE_BUTCHER_CASHIER => 'Cashier',
+        self::ROLE_BUTCHER_SALES_OFFICER => 'Sales Officer',
+        self::ROLE_BUTCHER_ACCOUNTANT => 'Accountant',
+        self::ROLE_BUTCHER_COMPLIANCE_OFFICER => 'Compliance Officer',
+        self::ROLE_BUTCHER_OUTLET_MANAGER => 'Outlet Manager',
+    ];
+
+    public const PERMISSION_VIEW_BUTCHER_DASHBOARD = 'view_butcher_dashboard';
+
+    public const PERMISSION_MANAGE_BUTCHER_PROCUREMENT = 'manage_butcher_procurement';
+
+    public const PERMISSION_MANAGE_BUTCHER_INVENTORY = 'manage_butcher_inventory';
+
+    public const PERMISSION_MANAGE_BUTCHER_PROCESSING = 'manage_butcher_processing';
+
+    public const PERMISSION_MANAGE_BUTCHER_CATALOG = 'manage_butcher_catalog';
+
+    public const PERMISSION_VIEW_BUTCHER_CATALOG = 'view_butcher_catalog';
+
+    public const PERMISSION_MANAGE_BUTCHER_SALES = 'manage_butcher_sales';
+
+    public const PERMISSION_MANAGE_BUTCHER_COMPLIANCE = 'manage_butcher_compliance';
+
+    public const PERMISSION_OVERRIDE_BUTCHER_BATCH_SAFETY = 'override_butcher_batch_safety';
+
+    public const PERMISSION_MANAGE_BUTCHER_STAFF_HEALTH = 'manage_butcher_staff_health';
+
+    public const PERMISSION_MANAGE_BUTCHER_FINANCE = 'manage_butcher_finance';
+
+    public const PERMISSION_VIEW_BUTCHER_REPORTS = 'view_butcher_reports';
+
+    public const PERMISSION_MANAGE_BUTCHER_ADMINISTRATION = 'manage_butcher_administration';
+
+    public const PERMISSION_ASSIGN_BUTCHER_ROLES = 'assign_butcher_roles';
+
+    public const PERMISSION_VIEW_ALL_BUTCHER_MODULES = 'view_all_butcher_modules';
+
+    public const BUTCHER_PERMISSIONS = [
+        self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+        self::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+        self::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+        self::PERMISSION_MANAGE_BUTCHER_PROCESSING,
+        self::PERMISSION_VIEW_BUTCHER_CATALOG,
+        self::PERMISSION_MANAGE_BUTCHER_CATALOG,
+        self::PERMISSION_MANAGE_BUTCHER_SALES,
+        self::PERMISSION_MANAGE_BUTCHER_COMPLIANCE,
+        self::PERMISSION_OVERRIDE_BUTCHER_BATCH_SAFETY,
+        self::PERMISSION_MANAGE_BUTCHER_STAFF_HEALTH,
+        self::PERMISSION_MANAGE_BUTCHER_FINANCE,
+        self::PERMISSION_VIEW_BUTCHER_REPORTS,
+        self::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+        self::PERMISSION_ASSIGN_BUTCHER_ROLES,
+        self::PERMISSION_VIEW_ALL_BUTCHER_MODULES,
+    ];
+
+    public const BUTCHER_ROLE_PERMISSION_MAP = [
+        self::ROLE_BUTCHER_OWNER => self::BUTCHER_PERMISSIONS,
+        self::ROLE_BUTCHER_MANAGER => self::BUTCHER_PERMISSIONS,
+        self::ROLE_BUTCHER_PROCUREMENT_OFFICER => [
+            self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+            self::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+        ],
+        self::ROLE_BUTCHER_STOREKEEPER => [
+            self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+            self::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+        ],
+        self::ROLE_BUTCHER_PROCESSOR => [
+            self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+            self::PERMISSION_MANAGE_BUTCHER_PROCESSING,
+        ],
+        self::ROLE_BUTCHER_CASHIER => [
+            self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+            self::PERMISSION_VIEW_BUTCHER_CATALOG,
+            self::PERMISSION_MANAGE_BUTCHER_SALES,
+        ],
+        self::ROLE_BUTCHER_SALES_OFFICER => [
+            self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+            self::PERMISSION_VIEW_BUTCHER_CATALOG,
+            self::PERMISSION_MANAGE_BUTCHER_SALES,
+        ],
+        self::ROLE_BUTCHER_ACCOUNTANT => [
+            self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+            self::PERMISSION_MANAGE_BUTCHER_FINANCE,
+            self::PERMISSION_VIEW_BUTCHER_REPORTS,
+        ],
+        self::ROLE_BUTCHER_COMPLIANCE_OFFICER => [
+            self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+            self::PERMISSION_MANAGE_BUTCHER_COMPLIANCE,
+            self::PERMISSION_MANAGE_BUTCHER_STAFF_HEALTH,
+        ],
+        self::ROLE_BUTCHER_OUTLET_MANAGER => [
+            self::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+            self::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            self::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            self::PERMISSION_MANAGE_BUTCHER_PROCESSING,
+            self::PERMISSION_VIEW_BUTCHER_CATALOG,
+            self::PERMISSION_MANAGE_BUTCHER_SALES,
+            self::PERMISSION_MANAGE_BUTCHER_COMPLIANCE,
+            self::PERMISSION_MANAGE_BUTCHER_STAFF_HEALTH,
+            self::PERMISSION_VIEW_BUTCHER_REPORTS,
+        ],
+    ];
+
     public static function defaultPermissionsForRole(?string $role): array
     {
         return self::ROLE_PERMISSION_MAP[$role ?? ''] ?? [];
+    }
+
+    /**
+     * Default butcher-module permissions for a butcher (or legacy org_admin) role.
+     *
+     * @return list<string>
+     */
+    public static function defaultButcherPermissionsForRole(?string $role): array
+    {
+        if ($role === self::ROLE_ORG_ADMIN) {
+            return self::BUTCHER_PERMISSIONS;
+        }
+
+        return self::BUTCHER_ROLE_PERMISSION_MAP[$role ?? ''] ?? [];
+    }
+
+    public static function isButcherRole(?string $role): bool
+    {
+        if ($role === null) {
+            return false;
+        }
+
+        return in_array($role, self::BUTCHER_ROLES, true)
+            || $role === self::ROLE_ORG_ADMIN;
     }
 
     public static function permissionsForRole(?string $role, ?int $businessId = null): array

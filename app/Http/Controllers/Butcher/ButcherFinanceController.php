@@ -6,9 +6,11 @@ use App\Http\Controllers\Butcher\Concerns\InteractsWithAccessibleButcherBusiness
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Butcher\StoreButcherExpenseRequest;
 use App\Http\Requests\Butcher\UpdateButcherExpenseRequest;
+use App\Models\ButcherCustomer;
 use App\Models\ButcherExpense;
 use App\Models\ButcherOutlet;
 use App\Services\Butcher\ButcherFinanceService;
+use App\Services\Butcher\ButcherReceivablesService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +24,7 @@ class ButcherFinanceController extends Controller
 
     public function __construct(
         private readonly ButcherFinanceService $finance,
+        private readonly ButcherReceivablesService $receivables,
     ) {}
 
     public function index(Request $request): View|RedirectResponse
@@ -166,6 +169,35 @@ class ButcherFinanceController extends Controller
         return redirect()
             ->route('butcher.finance.expenses.index')
             ->with('status', __('Expense deleted.'));
+    }
+
+    public function receivablesIndex(Request $request): View|RedirectResponse
+    {
+        $business = $this->primaryBusiness($request);
+        if ($business === null) {
+            return redirect()->route('butcher.dashboard');
+        }
+
+        $report = $this->receivables->agingReport($business);
+
+        return view('butcher.finance.receivables.index', [
+            'business' => $business,
+            'report' => $report,
+        ]);
+    }
+
+    public function receivablesShow(Request $request, ButcherCustomer $customer): View|RedirectResponse
+    {
+        $business = $this->primaryBusiness($request);
+        if ($business === null) {
+            return redirect()->route('butcher.dashboard');
+        }
+        abort_unless((int) $customer->business_id === (int) $business->id, 404);
+
+        return view('butcher.finance.receivables.show', [
+            'business' => $business,
+            'statement' => $this->receivables->statement($customer),
+        ]);
     }
 
     public function reportsSales(Request $request): View|RedirectResponse

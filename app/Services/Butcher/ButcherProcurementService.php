@@ -4,7 +4,10 @@ namespace App\Services\Butcher;
 
 use App\Models\Business;
 use App\Models\ButcherDelivery;
+use App\Models\ButcherDeliveryLine;
 use App\Models\ButcherDeliveryRejection;
+use App\Models\ButcherInventoryBatch;
+use App\Models\ButcherInventoryMovement;
 use App\Models\ButcherPurchaseOrder;
 use App\Models\User;
 use Carbon\Carbon;
@@ -16,6 +19,7 @@ class ButcherProcurementService
     public function __construct(
         private readonly ButcherStorageService $storage,
     ) {}
+
     public function createPurchaseOrder(Business $business, array $data): ButcherPurchaseOrder
     {
         return $business->butcherPurchaseOrders()->create([
@@ -44,28 +48,72 @@ class ButcherProcurementService
             ]);
         }
 
+        $allowed = match ($order->status) {
+            ButcherPurchaseOrder::STATUS_DRAFT => [
+                ButcherPurchaseOrder::STATUS_SENT,
+                ButcherPurchaseOrder::STATUS_CANCELLED,
+                ButcherPurchaseOrder::STATUS_DRAFT,
+            ],
+            ButcherPurchaseOrder::STATUS_SENT => [
+                ButcherPurchaseOrder::STATUS_CONFIRMED,
+                ButcherPurchaseOrder::STATUS_CANCELLED,
+                ButcherPurchaseOrder::STATUS_SENT,
+            ],
+            ButcherPurchaseOrder::STATUS_CONFIRMED => [
+                ButcherPurchaseOrder::STATUS_DELIVERED,
+                ButcherPurchaseOrder::STATUS_CANCELLED,
+                ButcherPurchaseOrder::STATUS_CONFIRMED,
+            ],
+            ButcherPurchaseOrder::STATUS_CANCELLED => [ButcherPurchaseOrder::STATUS_CANCELLED],
+            ButcherPurchaseOrder::STATUS_DELIVERED => [ButcherPurchaseOrder::STATUS_DELIVERED],
+            default => ButcherPurchaseOrder::STATUSES,
+        };
+
+        if (! in_array($status, $allowed, true)) {
+            throw ValidationException::withMessages([
+                'status' => [__('This purchase order cannot move to :status from :current.', [
+                    'status' => $status,
+                    'current' => $order->status,
+                ])],
+            ]);
+        }
+
         $order->update(['status' => $status]);
     }
 
+    /**
+     * Create and post a delivery with per-line outcomes in one atomic transaction.
+     *
+     * @param  array<string, mixed>  $data
+     */
     public function receiveDelivery(Business $business, array $data, User $user): ButcherDelivery
     {
         return DB::transaction(function () use ($business, $data, $user) {
-            $weight = (float) $data['received_weight_kg'];
-            $unitCost = (float) $data['unit_cost_per_kg'];
-            $condition = (string) $data['condition'];
+            $lines = $this->normalizeDeliveryLines($data);
+            if ($lines === []) {
+                throw ValidationException::withMessages([
+                    'lines' => [__('Add at least one delivery line with an outcome.')],
+                ]);
+            }
+
+            $this->assertLineWeights($lines);
+
             $receivedAt = isset($data['received_at'])
                 ? Carbon::parse($data['received_at'])
                 : now();
 
+            $totals = $this->aggregateLineTotals($lines);
+
+            // Deprecated delivery-level fields kept for backward-compatible reads.
             $delivery = $business->butcherDeliveries()->create([
                 'purchase_order_id' => $data['purchase_order_id'] ?? null,
                 'supplier_id' => (int) $data['supplier_id'],
                 'delivery_number' => $this->generateDeliveryNumber($business),
-                'meat_type' => (string) $data['meat_type'],
-                'received_weight_kg' => $weight,
-                'unit_cost_per_kg' => $unitCost,
-                'total_cost' => round($weight * $unitCost, 2),
-                'condition' => $condition,
+                'meat_type' => (string) $lines[0]['meat_type'],
+                'received_weight_kg' => $totals['received_weight_kg'],
+                'unit_cost_per_kg' => $totals['avg_unit_cost'],
+                'total_cost' => $totals['accepted_cost'],
+                'condition' => $totals['derived_condition'],
                 'received_at' => $receivedAt,
                 'received_by' => $user->id,
                 'outlet_id' => (int) $data['outlet_id'],
@@ -74,25 +122,61 @@ class ButcherProcurementService
                 'notes' => $data['notes'] ?? null,
             ]);
 
-            if ($delivery->createsInventory()) {
-                $this->storage->createBatchFromDelivery($delivery, $data['storage_location'] ?? null);
-            } else {
-                $this->createRejectionLog($delivery, $user);
+            foreach ($lines as $index => $lineData) {
+                $line = $delivery->lines()->create([
+                    'meat_type' => (string) $lineData['meat_type'],
+                    'expected_weight_kg' => $lineData['expected_weight_kg'] ?? null,
+                    'received_weight_kg' => $lineData['received_weight_kg'],
+                    'temperature_c' => $lineData['temperature_c'] ?? null,
+                    'condition_notes' => $lineData['condition_notes'] ?? null,
+                    'outcome' => (string) $lineData['outcome'],
+                    'accepted_weight_kg' => $lineData['accepted_weight_kg'],
+                    'rejected_weight_kg' => $lineData['rejected_weight_kg'],
+                    'unit_cost' => $lineData['unit_cost'],
+                ]);
+
+                if ($line->createsInventory()) {
+                    $batch = $this->storage->createBatchFromDelivery(
+                        $delivery,
+                        $data['storage_location'] ?? null,
+                        (float) $line->accepted_weight_kg,
+                        (float) $line->unit_cost,
+                        (string) $line->meat_type,
+                        (int) $line->id,
+                    );
+
+                    ButcherInventoryMovement::record([
+                        'business_id' => $business->id,
+                        'outlet_id' => $delivery->outlet_id,
+                        'batch_id' => $batch->id,
+                        'type' => ButcherInventoryMovement::TYPE_RECEIPT,
+                        'quantity_kg' => (float) $line->accepted_weight_kg,
+                        'before_qty' => 0,
+                        'after_qty' => (float) $line->accepted_weight_kg,
+                        'reference_type' => ButcherDelivery::class,
+                        'reference_id' => $delivery->id,
+                        'actor_id' => $user->id,
+                        'occurred_at' => $receivedAt,
+                    ]);
+                }
+
+                if ($line->createsRejection()) {
+                    $this->createRejectionLog($delivery, $user, $line);
+                }
             }
 
             if ($delivery->purchase_order_id !== null) {
-                ButcherPurchaseOrder::query()
-                    ->whereKey($delivery->purchase_order_id)
-                    ->where('business_id', $business->id)
-                    ->update(['status' => ButcherPurchaseOrder::STATUS_DELIVERED]);
+                $this->markPurchaseOrderDelivered($business, $delivery, $totals['received_weight_kg']);
             }
 
             return $delivery->fresh([
                 'supplier',
                 'outlet',
                 'purchaseOrder',
-                'inventoryBatch',
-                'rejection',
+                'lines.inventoryBatch',
+                'lines.rejection',
+                'inventoryBatches',
+                'rejections',
                 'receivedByUser',
             ]);
         });
@@ -191,17 +275,199 @@ class ButcherProcurementService
         ];
     }
 
-    private function createRejectionLog(ButcherDelivery $delivery, User $user): ButcherDeliveryRejection
+    /**
+     * @param  list<array<string, mixed>>  $lines
+     */
+    private function assertLineWeights(array $lines): void
     {
+        foreach ($lines as $index => $line) {
+            $received = round((float) $line['received_weight_kg'], 3);
+            $accepted = round((float) $line['accepted_weight_kg'], 3);
+            $rejected = round((float) $line['rejected_weight_kg'], 3);
+            $outcome = (string) $line['outcome'];
+
+            if (abs(($accepted + $rejected) - $received) > 0.001) {
+                throw ValidationException::withMessages([
+                    "lines.$index.accepted_weight_kg" => [
+                        __('Accepted + rejected weight must equal received weight for each line.'),
+                    ],
+                ]);
+            }
+
+            if ($outcome === ButcherDeliveryLine::OUTCOME_ACCEPTED && $rejected > 0.001) {
+                throw ValidationException::withMessages([
+                    "lines.$index.outcome" => [__('Accepted lines cannot include rejected weight.')],
+                ]);
+            }
+
+            if ($outcome === ButcherDeliveryLine::OUTCOME_REJECTED && $accepted > 0.001) {
+                throw ValidationException::withMessages([
+                    "lines.$index.outcome" => [__('Rejected lines cannot include accepted weight.')],
+                ]);
+            }
+
+            if ($outcome === ButcherDeliveryLine::OUTCOME_PARTIALLY_ACCEPTED
+                && ($accepted <= 0 || $rejected <= 0)) {
+                throw ValidationException::withMessages([
+                    "lines.$index.outcome" => [__('Partially accepted lines need both accepted and rejected weight.')],
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeDeliveryLines(array $data): array
+    {
+        if (! empty($data['lines']) && is_array($data['lines'])) {
+            return array_values(array_map(function (array $line): array {
+                $outcome = (string) $line['outcome'];
+                $received = (float) $line['received_weight_kg'];
+                $accepted = array_key_exists('accepted_weight_kg', $line)
+                    ? (float) $line['accepted_weight_kg']
+                    : match ($outcome) {
+                        ButcherDeliveryLine::OUTCOME_ACCEPTED => $received,
+                        ButcherDeliveryLine::OUTCOME_REJECTED => 0.0,
+                        default => (float) ($line['accepted_weight_kg'] ?? 0),
+                    };
+                $rejected = array_key_exists('rejected_weight_kg', $line)
+                    ? (float) $line['rejected_weight_kg']
+                    : match ($outcome) {
+                        ButcherDeliveryLine::OUTCOME_REJECTED => $received,
+                        ButcherDeliveryLine::OUTCOME_ACCEPTED => 0.0,
+                        default => (float) ($line['rejected_weight_kg'] ?? 0),
+                    };
+
+                return [
+                    'meat_type' => $line['meat_type'],
+                    'expected_weight_kg' => $line['expected_weight_kg'] ?? null,
+                    'received_weight_kg' => $received,
+                    'temperature_c' => $line['temperature_c'] ?? null,
+                    'condition_notes' => $line['condition_notes'] ?? null,
+                    'outcome' => $outcome,
+                    'accepted_weight_kg' => $accepted,
+                    'rejected_weight_kg' => $rejected,
+                    'unit_cost' => (float) ($line['unit_cost'] ?? $line['unit_cost_per_kg'] ?? 0),
+                ];
+            }, $data['lines']));
+        }
+
+        // Legacy single-condition payload → one synthetic line.
+        if (! empty($data['meat_type']) && isset($data['received_weight_kg'], $data['condition'])) {
+            $weight = (float) $data['received_weight_kg'];
+            $condition = (string) $data['condition'];
+            $rejected = $condition === ButcherDelivery::CONDITION_REJECTED;
+            $outcome = $rejected
+                ? ButcherDeliveryLine::OUTCOME_REJECTED
+                : ButcherDeliveryLine::OUTCOME_ACCEPTED;
+
+            return [[
+                'meat_type' => $data['meat_type'],
+                'expected_weight_kg' => null,
+                'received_weight_kg' => $weight,
+                'temperature_c' => null,
+                'condition_notes' => null,
+                'outcome' => $outcome,
+                'accepted_weight_kg' => $rejected ? 0.0 : $weight,
+                'rejected_weight_kg' => $rejected ? $weight : 0.0,
+                'unit_cost' => (float) ($data['unit_cost_per_kg'] ?? 0),
+            ]];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $lines
+     * @return array{received_weight_kg: float, accepted_cost: float, avg_unit_cost: float, derived_condition: string}
+     */
+    private function aggregateLineTotals(array $lines): array
+    {
+        $received = 0.0;
+        $acceptedWeight = 0.0;
+        $acceptedCost = 0.0;
+        $anyAccepted = false;
+        $anyRejected = false;
+
+        foreach ($lines as $line) {
+            $received += (float) $line['received_weight_kg'];
+            $accepted = (float) $line['accepted_weight_kg'];
+            $rejected = (float) $line['rejected_weight_kg'];
+            $acceptedWeight += $accepted;
+            $acceptedCost += $accepted * (float) $line['unit_cost'];
+            if ($accepted > 0) {
+                $anyAccepted = true;
+            }
+            if ($rejected > 0) {
+                $anyRejected = true;
+            }
+        }
+
+        $derived = match (true) {
+            $anyAccepted && ! $anyRejected => ButcherDelivery::CONDITION_GOOD,
+            $anyAccepted && $anyRejected => ButcherDelivery::CONDITION_FAIR,
+            default => ButcherDelivery::CONDITION_REJECTED,
+        };
+
+        return [
+            'received_weight_kg' => round($received, 3),
+            'accepted_cost' => round($acceptedCost, 2),
+            'avg_unit_cost' => $acceptedWeight > 0 ? round($acceptedCost / $acceptedWeight, 2) : 0.0,
+            'derived_condition' => $derived,
+        ];
+    }
+
+    private function markPurchaseOrderDelivered(
+        Business $business,
+        ButcherDelivery $delivery,
+        float $receivedWeightKg,
+    ): void {
+        $order = ButcherPurchaseOrder::query()
+            ->whereKey($delivery->purchase_order_id)
+            ->where('business_id', $business->id)
+            ->first();
+
+        if ($order === null) {
+            return;
+        }
+
+        $ordered = (float) $order->requested_weight_kg;
+        $delta = round($receivedWeightKg - $ordered, 3);
+        $note = null;
+        if (abs($delta) > 0.001) {
+            $note = $delta > 0
+                ? __('Over-delivery vs PO: +:kg kg.', ['kg' => number_format($delta, 3)])
+                : __('Under-delivery vs PO: :kg kg.', ['kg' => number_format(abs($delta), 3)]);
+        }
+
+        $notes = trim((string) $order->notes);
+        if ($note !== null) {
+            $notes = trim($notes === '' ? $note : $notes."\n".$note);
+        }
+
+        $order->update([
+            'status' => ButcherPurchaseOrder::STATUS_DELIVERED,
+            'notes' => $notes !== '' ? $notes : null,
+        ]);
+    }
+
+    private function createRejectionLog(
+        ButcherDelivery $delivery,
+        User $user,
+        ?ButcherDeliveryLine $line = null,
+    ): ButcherDeliveryRejection {
         return ButcherDeliveryRejection::query()->create([
             'business_id' => $delivery->business_id,
             'delivery_id' => $delivery->id,
+            'delivery_line_id' => $line?->id,
             'supplier_id' => $delivery->supplier_id,
-            'meat_type' => $delivery->meat_type,
-            'rejected_weight_kg' => $delivery->received_weight_kg,
+            'meat_type' => $line?->meat_type ?? $delivery->meat_type,
+            'rejected_weight_kg' => $line?->rejected_weight_kg ?? $delivery->received_weight_kg,
             'certificate_ref' => $delivery->certificate_ref,
             'certificate_issuer' => $delivery->certificate_issuer,
-            'notes' => $delivery->notes,
+            'notes' => $line?->condition_notes ?? $delivery->notes,
             'rejected_by' => $user->id,
             'rejected_at' => $delivery->received_at,
         ]);

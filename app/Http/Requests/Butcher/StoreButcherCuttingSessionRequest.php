@@ -39,6 +39,7 @@ class StoreButcherCuttingSessionRequest extends FormRequest
             ],
             'source_weight_kg' => ['required', 'numeric', 'min:0.1'],
             'session_date' => ['nullable', 'date'],
+            'safety_override_reason' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

@@ -178,6 +178,118 @@ class EnsureTenantPermission
         'processor.business-context' => ['view' => null],
     ];
 
+    /** Butcher route prefix => {view, create, update, delete} permission. */
+    private const BUTCHER_MODULE_PERMISSION_MAP = [
+        'butcher.dashboard' => [
+            'view' => BusinessUser::PERMISSION_VIEW_BUTCHER_DASHBOARD,
+        ],
+        'butcher.suppliers' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+        ],
+        'butcher.purchase-orders' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+        ],
+        'butcher.receiving' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCUREMENT,
+        ],
+        'butcher.inventory' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+        ],
+        'butcher.transfers' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+        ],
+        'butcher.waste' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+        ],
+        'butcher.stock-counts' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_INVENTORY,
+        ],
+        'butcher.processing' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCESSING,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCESSING,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCESSING,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_PROCESSING,
+        ],
+        'butcher.catalog' => [
+            'view' => BusinessUser::PERMISSION_VIEW_BUTCHER_CATALOG,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_CATALOG,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_CATALOG,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_CATALOG,
+        ],
+        'butcher.customers' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_SALES,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_SALES,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_SALES,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_SALES,
+        ],
+        'butcher.sales' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_SALES,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_SALES,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_SALES,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_SALES,
+        ],
+        'butcher.compliance' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_COMPLIANCE,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_COMPLIANCE,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_COMPLIANCE,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_COMPLIANCE,
+        ],
+        'butcher.finance' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_FINANCE,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_FINANCE,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_FINANCE,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_FINANCE,
+        ],
+        'butcher.reports' => [
+            'view' => BusinessUser::PERMISSION_VIEW_BUTCHER_REPORTS,
+        ],
+        'butcher.business' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+        ],
+        'butcher.outlets' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+        ],
+        'butcher.permits' => [
+            'view' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'create' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'update' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+            'delete' => BusinessUser::PERMISSION_MANAGE_BUTCHER_ADMINISTRATION,
+        ],
+        'butcher.team' => [
+            'view' => BusinessUser::PERMISSION_ASSIGN_BUTCHER_ROLES,
+            'create' => BusinessUser::PERMISSION_ASSIGN_BUTCHER_ROLES,
+            'update' => BusinessUser::PERMISSION_ASSIGN_BUTCHER_ROLES,
+            'delete' => BusinessUser::PERMISSION_ASSIGN_BUTCHER_ROLES,
+        ],
+    ];
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -187,11 +299,16 @@ class EnsureTenantPermission
         if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
             return $next($request);
         }
+
+        $routeName = $request->route()?->getName();
+        if ($routeName !== null && str_starts_with($routeName, 'butcher.')) {
+            return $this->handleButcherPermission($user, $request, $next, $routeName);
+        }
+
         if ($this->isExcludedRoute($request)) {
             return $next($request);
         }
 
-        $routeName = $request->route()?->getName();
         if (! $routeName) {
             return $next($request);
         }
@@ -219,6 +336,39 @@ class EnsureTenantPermission
         }
         if ($this->allowsViewAllModulesBypass($routeName, $action)
             && $user->canProcessorPermission(BusinessUser::PERMISSION_VIEW_ALL_MODULES, $activeBusinessId)) {
+            return $next($request);
+        }
+
+        abort(403, __('You do not have permission to access this section.'));
+    }
+
+    private function handleButcherPermission($user, Request $request, Closure $next, string $routeName): Response
+    {
+        $activeBusinessId = $user->activeButcherBusinessId();
+        if ($activeBusinessId === null) {
+            $accessibleIds = $user->accessibleButcherBusinessIds();
+            if ($accessibleIds->isEmpty()) {
+                abort(403, __('You do not have access to a butcher business.'));
+            }
+            $activeBusinessId = (int) $accessibleIds->first();
+        }
+        $user->setActiveButcherBusinessId($activeBusinessId);
+
+        $action = $this->actionForRoute($routeName);
+        $requiredPermission = $this->butcherPermissionForRoute($routeName, $action);
+        if ($requiredPermission === null) {
+            return $next($request);
+        }
+        if ($user->canButcherPermission($requiredPermission, $activeBusinessId)) {
+            return $next($request);
+        }
+        if ($action === 'view'
+            && $requiredPermission === BusinessUser::PERMISSION_VIEW_BUTCHER_CATALOG
+            && $user->canButcherPermission(BusinessUser::PERMISSION_MANAGE_BUTCHER_CATALOG, $activeBusinessId)) {
+            return $next($request);
+        }
+        if ($action === 'view'
+            && $user->canButcherPermission(BusinessUser::PERMISSION_VIEW_ALL_BUTCHER_MODULES, $activeBusinessId)) {
             return $next($request);
         }
 
@@ -278,6 +428,27 @@ class EnsureTenantPermission
         return null;
     }
 
+    private function butcherPermissionForRoute(string $routeName, string $action): ?string
+    {
+        if (str_starts_with($routeName, 'butcher.compliance.health.')
+            || $routeName === 'butcher.compliance.health') {
+            return BusinessUser::PERMISSION_MANAGE_BUTCHER_STAFF_HEALTH;
+        }
+
+        if (str_starts_with($routeName, 'butcher.team.')
+            || $routeName === 'butcher.team') {
+            return BusinessUser::PERMISSION_ASSIGN_BUTCHER_ROLES;
+        }
+
+        foreach (self::BUTCHER_MODULE_PERMISSION_MAP as $prefix => $policies) {
+            if ($routeName === $prefix || str_starts_with($routeName, $prefix.'.')) {
+                return $policies[$action] ?? $policies['view'] ?? null;
+            }
+        }
+
+        return null;
+    }
+
     private function actionForRoute(string $routeName): string
     {
         if (preg_match('/\.(create|store)$/', $routeName) === 1) {
@@ -313,7 +484,6 @@ class EnsureTenantPermission
         return $routeName === null
             || str_starts_with($routeName, 'farmer.')
             || str_starts_with($routeName, 'logistics.')
-            || str_starts_with($routeName, 'butcher.')
             || str_starts_with($routeName, 'super-admin.')
             || str_starts_with($routeName, 'profile.');
     }

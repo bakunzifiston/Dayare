@@ -9,10 +9,15 @@
             <div>
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $session->session_number }}</h2>
                 <p class="mt-1 text-sm text-gray-500">
-                    {{ $session->batch?->batch_number }} · {{ $session->outlet?->name }} · {{ $session->session_date?->toDateString() }}
+                    {{ $session->outlet?->name }} · {{ $session->session_date?->toDateString() }}
                 </p>
             </div>
-            <x-butcher.status-badge :status="$session->status" />
+            <div class="flex flex-wrap items-center gap-2">
+                @if ($session->isOpen())
+                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">{{ __('Draft — not yet deducted') }}</span>
+                @endif
+                <x-butcher.status-badge :status="$session->status" />
+            </div>
         </div>
     </x-slot>
 
@@ -21,13 +26,63 @@
             @if (session('status'))
                 <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{ session('status') }}</div>
             @endif
+            @if ($errors->any())
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <ul class="list-disc pl-4 space-y-1">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            @if ($session->isOpen())
+                <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                    {{ __('This open session has not changed inventory. Source weight is deducted only when you close the session.') }}
+                </div>
+            @endif
 
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <x-kpi-card stat :title="__('Source (kg)')" :value="$fmtKg($session->source_weight_kg)" />
+                <x-kpi-card stat :title="__('Source (kg)')" :value="$fmtKg($wastage['source_weight_kg'] ?? $session->source_weight_kg)" />
                 <x-kpi-card stat :title="__('Cuts (kg)')" :value="$fmtKg($wastage['total_cuts_weight_kg'])" />
                 <x-kpi-card stat :title="__('Wastage (kg)')" :value="$fmtKg($wastage['wastage_kg'] ?? 0)" />
                 <x-kpi-card stat :title="__('Wastage %')" :value="number_format((float) ($wastage['wastage_pct'] ?? 0), 1).'%'" />
             </div>
+
+            <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha">
+                <h3 class="text-sm font-semibold text-slate-900">{{ __('Source batches') }}</h3>
+                <div class="mt-3 space-y-2 text-sm">
+                    @forelse ($session->sources as $source)
+                        <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2">
+                            <span class="font-medium">{{ $source->batch?->batch_number }} · {{ ucfirst($source->batch?->meat_type) }}</span>
+                            <span>{{ $fmtKg($source->source_weight_kg) }} kg</span>
+                        </div>
+                    @empty
+                        <p class="text-slate-500">{{ $session->batch?->batch_number }} · {{ $fmtKg($session->source_weight_kg) }} kg</p>
+                    @endforelse
+                </div>
+
+                @if ($session->isOpen() && $availableBatches->isNotEmpty())
+                    <form method="post" action="{{ route('butcher.processing.sessions.sources.store', $session) }}" class="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 md:grid-cols-3">
+                        @csrf
+                        <div>
+                            <label for="batch_id" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Add source batch') }}</label>
+                            <select id="batch_id" name="batch_id" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
+                                @foreach ($availableBatches as $batch)
+                                    <option value="{{ $batch->id }}">{{ $batch->batch_number }} — {{ $fmtKg($batch->remaining_weight_kg) }} kg left</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="source_weight_kg" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Weight (kg)') }}</label>
+                            <input id="source_weight_kg" name="source_weight_kg" type="number" step="0.001" min="0.1" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full rounded-bucha border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Top up source') }}</button>
+                        </div>
+                    </form>
+                @endif
+            </section>
 
             @if ($session->isOpen())
                 <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha">
@@ -66,7 +121,7 @@
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-slate-900">{{ __('Cut outputs') }}</h3>
                     @if ($session->isOpen() && $session->cutOutputs->isNotEmpty())
-                        <form method="post" action="{{ route('butcher.processing.sessions.close', $session) }}" onsubmit="return confirm(@json(__('Close this session? Wastage will be calculated.')))">
+                        <form method="post" action="{{ route('butcher.processing.sessions.close', $session) }}" onsubmit="return confirm(@json(__('Close this session? Inventory will be deducted and wastage calculated.')))">
                             @csrf
                             <button type="submit" class="rounded-bucha border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Close session') }}</button>
                         </form>
@@ -76,6 +131,7 @@
                     <thead>
                         <tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
                             <th class="py-2 pr-4">{{ __('Cut') }}</th>
+                            <th class="py-2 pr-4">{{ __('ID') }}</th>
                             <th class="py-2 pr-4">{{ __('Weight (kg)') }}</th>
                             <th class="py-2 pr-4">{{ __('Unit cost/kg') }}</th>
                             <th class="py-2 pr-4">{{ __('Line value') }}</th>
@@ -86,6 +142,7 @@
                         @forelse ($session->cutOutputs as $output)
                             <tr class="border-b border-slate-100">
                                 <td class="py-3 pr-4 font-medium">{{ $output->cutType?->name }}</td>
+                                <td class="py-3 pr-4 text-slate-500">#{{ $output->id }}</td>
                                 <td class="py-3 pr-4">{{ $fmtKg($output->weight_kg) }}</td>
                                 <td class="py-3 pr-4">{{ $fmtMoney($output->unit_cost_per_kg) }}</td>
                                 <td class="py-3 pr-4">{{ $fmtMoney((float) $output->weight_kg * (float) $output->unit_cost_per_kg) }}</td>
@@ -99,7 +156,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="py-6 text-center text-slate-500">{{ __('No cuts recorded yet.') }}</td></tr>
+                            <tr><td colspan="6" class="py-6 text-center text-slate-500">{{ __('No cuts recorded yet.') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

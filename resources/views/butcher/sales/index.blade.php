@@ -22,17 +22,18 @@
             <form method="get" class="flex flex-wrap items-end gap-3">
                 <div>
                     <label for="date" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Date') }}</label>
-                    <input id="date" type="date" name="date" value="{{ $filterDate }}" class="mt-1 block rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+                    <input id="date" type="date" name="date" value="{{ $filterDate }}" class="mt-1 block w-full min-w-[10rem] rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
                 </div>
                 <div>
                     <label for="status" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Status') }}</label>
-                    <select id="status" name="status" class="mt-1 block rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+                    <select id="status" name="status" class="mt-1 block w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
                         <option value="">{{ __('All') }}</option>
                         @foreach (\App\Models\ButcherSale::STATUSES as $st)
                             <option value="{{ $st }}" @selected($filterStatus === $st)>{{ ucfirst($st) }}</option>
                         @endforeach
                     </select>
                 </div>
+                <x-butcher.outlet-filter :outlets="$outlets" :selected="$filterOutletId" />
             </form>
 
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">

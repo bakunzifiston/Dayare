@@ -36,4 +36,15 @@ class UpdateButcherProductRequest extends FormRequest
             'is_active' => ['nullable', 'boolean'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('is_active')) {
+            $this->merge(['is_active' => $this->boolean('is_active')]);
+        }
+
+        if ($this->input('cut_type_id') === '') {
+            $this->merge(['cut_type_id' => null]);
+        }
+    }
 }

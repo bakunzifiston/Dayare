@@ -40,6 +40,7 @@ class ButcherInventoryBatch extends Model
     protected $fillable = [
         'business_id',
         'delivery_id',
+        'delivery_line_id',
         'outlet_id',
         'batch_number',
         'meat_type',
@@ -50,6 +51,8 @@ class ButcherInventoryBatch extends Model
         'received_at',
         'best_before_date',
         'storage_location',
+        'temperature_breach',
+        'temperature_breach_at',
     ];
 
     protected function casts(): array
@@ -60,6 +63,8 @@ class ButcherInventoryBatch extends Model
             'unit_cost_per_kg' => 'decimal:2',
             'received_at' => 'datetime',
             'best_before_date' => 'date',
+            'temperature_breach' => 'boolean',
+            'temperature_breach_at' => 'datetime',
         ];
     }
 
@@ -71,6 +76,11 @@ class ButcherInventoryBatch extends Model
     public function delivery(): BelongsTo
     {
         return $this->belongsTo(ButcherDelivery::class, 'delivery_id');
+    }
+
+    public function deliveryLine(): BelongsTo
+    {
+        return $this->belongsTo(ButcherDeliveryLine::class, 'delivery_line_id');
     }
 
     public function outlet(): BelongsTo
@@ -91,6 +101,16 @@ class ButcherInventoryBatch extends Model
     public function cuttingSessions(): HasMany
     {
         return $this->hasMany(ButcherCuttingSession::class, 'batch_id');
+    }
+
+    public function movements(): HasMany
+    {
+        return $this->hasMany(ButcherInventoryMovement::class, 'batch_id');
+    }
+
+    public function stockTransfersOut(): HasMany
+    {
+        return $this->hasMany(ButcherStockTransfer::class, 'batch_id');
     }
 
     public function ageInDays(): int
@@ -116,6 +136,20 @@ class ButcherInventoryBatch extends Model
 
     public function isExpired(): bool
     {
+        if ($this->status === self::STATUS_EXPIRED) {
+            return true;
+        }
+
         return $this->best_before_date !== null && $this->best_before_date->isPast();
+    }
+
+    public function hasTemperatureBreach(): bool
+    {
+        return (bool) $this->temperature_breach;
+    }
+
+    public function isSafetyBlocked(): bool
+    {
+        return $this->isExpired() || $this->hasTemperatureBreach();
     }
 }

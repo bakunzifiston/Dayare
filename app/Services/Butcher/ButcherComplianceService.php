@@ -146,6 +146,61 @@ class ButcherComplianceService
     }
 
     /**
+     * Advisory-only: whether an outlet is missing today's hygiene log past the cutoff.
+     * Never used as a hard transaction block.
+     *
+     * @return array{show: bool, cutoff: string, message: string|null}
+     */
+    public function hygieneMissingBanner(Business $business, ?int $outletId, ?Carbon $now = null): array
+    {
+        $now = $now ?? now();
+        $cutoff = (string) config('butcher.hygiene_log_cutoff', '10:00');
+
+        $result = [
+            'show' => false,
+            'cutoff' => $cutoff,
+            'message' => null,
+        ];
+
+        if ($outletId === null) {
+            return $result;
+        }
+
+        try {
+            [$hour, $minute] = array_map('intval', explode(':', $cutoff));
+        } catch (\Throwable) {
+            $hour = 10;
+            $minute = 0;
+        }
+
+        $cutoffAt = $now->copy()->startOfDay()->setTime($hour, $minute);
+        if ($now->lt($cutoffAt)) {
+            return $result;
+        }
+
+        $hasLog = ButcherHygieneLog::query()
+            ->where('business_id', $business->id)
+            ->where('outlet_id', $outletId)
+            ->whereDate('log_date', $now->toDateString())
+            ->exists();
+
+        if ($hasLog) {
+            return $result;
+        }
+
+        $outlet = $business->butcherOutlets()->find($outletId);
+
+        return [
+            'show' => true,
+            'cutoff' => $cutoff,
+            'message' => __('No hygiene log recorded today for :outlet (expected by :cutoff). This is advisory only and does not block sales or receiving.', [
+                'outlet' => $outlet?->name ?? __('this outlet'),
+                'cutoff' => $cutoff,
+            ]),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function getAuditReport(Business $business, Carbon $from, Carbon $to): array

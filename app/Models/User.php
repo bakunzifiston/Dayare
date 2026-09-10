@@ -323,6 +323,74 @@ class User extends Authenticatable
         session(['active_processor_business_id' => $businessId]);
     }
 
+    public function activeButcherBusinessId(): ?int
+    {
+        $butcherIds = $this->accessibleButcherBusinessIds()
+            ->map(fn ($id) => (int) $id)
+            ->values();
+        if ($butcherIds->isEmpty()) {
+            return null;
+        }
+
+        $sessionBusinessId = session('active_butcher_business_id');
+        if ($sessionBusinessId !== null && $butcherIds->contains((int) $sessionBusinessId)) {
+            return (int) $sessionBusinessId;
+        }
+
+        return (int) $butcherIds->first();
+    }
+
+    public function setActiveButcherBusinessId(int $businessId): void
+    {
+        session(['active_butcher_business_id' => $businessId]);
+    }
+
+    public function butcherRoleForBusiness(?int $businessId = null): ?string
+    {
+        $targetBusinessId = $businessId ?? $this->activeButcherBusinessId();
+        if ($targetBusinessId === null) {
+            return null;
+        }
+
+        $membershipRole = BusinessUser::query()
+            ->where('user_id', $this->id)
+            ->where('business_id', $targetBusinessId)
+            ->value('role');
+        if ($membershipRole !== null) {
+            return $membershipRole;
+        }
+
+        $ownsBusiness = Business::query()
+            ->whereKey($targetBusinessId)
+            ->where('user_id', $this->id)
+            ->exists();
+
+        return $ownsBusiness ? BusinessUser::ROLE_BUTCHER_OWNER : null;
+    }
+
+    public function canButcherPermission(string $permission, ?int $businessId = null): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $targetBusinessId = $businessId ?? $this->activeButcherBusinessId();
+        if ($targetBusinessId !== null && $this->ownsBusiness($targetBusinessId)) {
+            return true;
+        }
+
+        $role = $this->butcherRoleForBusiness($targetBusinessId);
+        if ($role === null) {
+            return false;
+        }
+
+        return in_array(
+            $permission,
+            BusinessUser::defaultButcherPermissionsForRole($role),
+            true
+        );
+    }
+
     public function processorRoleForBusiness(?int $businessId = null): ?string
     {
         $targetBusinessId = $businessId ?? $this->activeProcessorBusinessId();

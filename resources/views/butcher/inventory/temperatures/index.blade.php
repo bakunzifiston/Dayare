@@ -13,7 +13,7 @@
                 <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
 
-            <form method="post" action="{{ route('butcher.inventory.temperatures.store') }}" class="rounded-bucha border border-slate-200/80 bg-white p-6 shadow-bucha space-y-4">
+            <form method="post" action="{{ route('butcher.inventory.temperatures.store') }}" class="rounded-bucha border border-slate-200/80 bg-white p-4 sm:p-6 shadow-bucha space-y-4">
                 @csrf
                 <h3 class="text-sm font-semibold text-slate-900">{{ __('Quick temperature log') }}</h3>
 
@@ -55,7 +55,7 @@
                 </div>
             </form>
 
-            <div class="overflow-hidden rounded-bucha border border-slate-200/80 bg-white shadow-bucha">
+            <div class="overflow-x-auto rounded-bucha border border-slate-200/80 bg-white shadow-bucha">
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
                     <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
