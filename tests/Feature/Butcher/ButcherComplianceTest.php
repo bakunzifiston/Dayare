@@ -54,7 +54,7 @@ class ButcherComplianceTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.compliance.index'))
             ->assertOk()
-            ->assertSee(__('Compliance & hygiene'));
+            ->assertSee(__('Log hygiene'));
     }
 
     public function test_hygiene_log_enforces_one_per_outlet_per_day(): void

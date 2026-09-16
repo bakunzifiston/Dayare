@@ -16,6 +16,16 @@ php artisan db:seed
 
 **Butcher workspace demo:** `owner.butcher@demo.rw` — password: `password` (business `SEED-MT-BU-001`)
 
+```bash
+# Idempotent (skips when already populated)
+php artisan db:seed --class=ButcherWorkspaceDemoSeeder
+
+# Rebuild from scratch
+FORCE_BUTCHER_RESEED=1 php artisan db:seed --class=ButcherWorkspaceDemoSeeder --force
+```
+
+Demo covers 20+ rows per module (outlets, suppliers, POs, deliveries, batches, **stock transfers**, **stock counts**, cutting, catalog, sales/orders, compliance, expenses) with Rwanda names, `+250` phones, and RWF amounts for Remera Prime Butchery.
+
 ---
 
 ## Seeding order and dependencies

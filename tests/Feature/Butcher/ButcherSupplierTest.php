@@ -44,11 +44,59 @@ class ButcherSupplierTest extends TestCase
 
     public function test_suppliers_index_is_accessible(): void
     {
+        ButcherSupplier::query()->create([
+            'business_id' => $this->business->id,
+            'name' => 'Nyagatare Farm Co-op',
+            'supplier_type' => ButcherSupplier::TYPE_FARM,
+            'phone' => '+250788444444',
+            'is_active' => true,
+        ]);
+
         $this->actingAs($this->user)
             ->get(route('butcher.suppliers.index'))
             ->assertOk()
-            ->assertSee(__('Suppliers'))
-            ->assertSee(__('Add supplier'));
+            ->assertSee(__('Add supplier'))
+            ->assertSee(__('Total suppliers'))
+            ->assertSee(__('Supplier directory'))
+            ->assertSee('Nyagatare Farm Co-op');
+    }
+
+    public function test_suppliers_index_supports_search_and_status_filter(): void
+    {
+        ButcherSupplier::query()->create([
+            'business_id' => $this->business->id,
+            'name' => 'Kigali Abattoir Ltd',
+            'supplier_type' => ButcherSupplier::TYPE_ABATTOIR,
+            'is_active' => true,
+        ]);
+        ButcherSupplier::query()->create([
+            'business_id' => $this->business->id,
+            'name' => 'Kimironko Market Stall',
+            'supplier_type' => ButcherSupplier::TYPE_MARKET,
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('butcher.suppliers.index', ['q' => 'Abattoir']))
+            ->assertOk()
+            ->assertSee('Kigali Abattoir Ltd')
+            ->assertDontSee('Kimironko Market Stall');
+
+        $this->actingAs($this->user)
+            ->get(route('butcher.suppliers.index', ['status' => 'inactive']))
+            ->assertOk()
+            ->assertSee('Kimironko Market Stall')
+            ->assertDontSee('Kigali Abattoir Ltd');
+    }
+
+    public function test_create_page_shows_supplier_fields(): void
+    {
+        $this->actingAs($this->user)
+            ->get(route('butcher.suppliers.create'))
+            ->assertOk()
+            ->assertSee(__('Add supplier'))
+            ->assertSee(__('Supplier / company name'))
+            ->assertSee(__('Supplier type'));
     }
 
     public function test_can_create_supplier(): void
@@ -126,6 +174,10 @@ class ButcherSupplierTest extends TestCase
             'supplier_type' => ButcherSupplier::TYPE_OTHER,
             'is_active' => true,
         ]);
+
+        $this->actingAs($this->user)
+            ->get(route('butcher.suppliers.edit', $supplier))
+            ->assertNotFound();
 
         $this->actingAs($this->user)
             ->put(route('butcher.suppliers.update', $supplier), [

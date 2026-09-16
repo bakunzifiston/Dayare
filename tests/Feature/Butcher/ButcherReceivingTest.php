@@ -71,8 +71,51 @@ class ButcherReceivingTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.receiving.index'))
             ->assertOk()
-            ->assertSee(__('Receiving'))
-            ->assertSee(__('Receive delivery'));
+            ->assertSee(__('Receive delivery'))
+            ->assertSee(__('Deliveries'))
+            ->assertSee(__('Delivery history'));
+    }
+
+    public function test_receiving_index_supports_search_and_condition_filter(): void
+    {
+        ButcherDelivery::query()->create([
+            'business_id' => $this->business->id,
+            'supplier_id' => $this->supplier->id,
+            'outlet_id' => $this->outlet->id,
+            'delivery_number' => 'DEL-GOOD-001',
+            'meat_type' => ButcherDelivery::MEAT_BEEF,
+            'received_weight_kg' => 40,
+            'unit_cost_per_kg' => 3000,
+            'total_cost' => 120000,
+            'condition' => ButcherDelivery::CONDITION_GOOD,
+            'received_at' => now(),
+            'received_by' => $this->user->id,
+        ]);
+        ButcherDelivery::query()->create([
+            'business_id' => $this->business->id,
+            'supplier_id' => $this->supplier->id,
+            'outlet_id' => $this->outlet->id,
+            'delivery_number' => 'DEL-REJ-002',
+            'meat_type' => ButcherDelivery::MEAT_GOAT,
+            'received_weight_kg' => 10,
+            'unit_cost_per_kg' => 0,
+            'total_cost' => 0,
+            'condition' => ButcherDelivery::CONDITION_REJECTED,
+            'received_at' => now(),
+            'received_by' => $this->user->id,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('butcher.receiving.index', ['q' => 'GOOD']))
+            ->assertOk()
+            ->assertSee('DEL-GOOD-001')
+            ->assertDontSee('DEL-REJ-002');
+
+        $this->actingAs($this->user)
+            ->get(route('butcher.receiving.index', ['condition' => ButcherDelivery::CONDITION_REJECTED]))
+            ->assertOk()
+            ->assertSee('DEL-REJ-002')
+            ->assertDontSee('DEL-GOOD-001');
     }
 
     public function test_good_delivery_creates_inventory_batch(): void

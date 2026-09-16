@@ -23,15 +23,62 @@ class ButcherOutletController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
-        $editingId = $request->integer('edit');
-        $editing = $editingId > 0
-            ? $business->butcherOutlets()->whereKey($editingId)->first()
-            : null;
+        $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', 'all');
+        if (! in_array($status, ['all', 'active', 'inactive'], true)) {
+            $status = 'all';
+        }
+
+        $baseQuery = $business->butcherOutlets();
+        $kpis = [
+            'total' => (int) (clone $baseQuery)->count(),
+            'active' => (int) (clone $baseQuery)->where('status', ButcherOutlet::STATUS_ACTIVE)->count(),
+            'inactive' => (int) (clone $baseQuery)->where('status', ButcherOutlet::STATUS_INACTIVE)->count(),
+            'primary' => (int) (clone $baseQuery)->where('is_primary', true)->count(),
+        ];
+
+        $outletsQuery = $business->butcherOutlets()
+            ->orderByDesc('is_primary')
+            ->orderBy('name');
+
+        if ($search !== '') {
+            $outletsQuery->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('phone', 'like', '%'.$search.'%')
+                    ->orWhere('district', 'like', '%'.$search.'%')
+                    ->orWhere('sector', 'like', '%'.$search.'%');
+            });
+        }
+
+        if ($status === 'active') {
+            $outletsQuery->where('status', ButcherOutlet::STATUS_ACTIVE);
+        } elseif ($status === 'inactive') {
+            $outletsQuery->where('status', ButcherOutlet::STATUS_INACTIVE);
+        }
+
+        $outlets = $outletsQuery->get();
 
         return view('butcher.outlets.index', [
             'business' => $business,
-            'outlets' => $business->butcherOutlets()->orderByDesc('is_primary')->orderBy('name')->get(),
-            'editing' => $editing,
+            'outlets' => $outlets,
+            'kpis' => $kpis,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+            ],
+        ]);
+    }
+
+    public function create(Request $request, ButcherOnboardingService $onboarding): View|RedirectResponse
+    {
+        $business = $this->primaryBusiness($request);
+        if ($business === null) {
+            return redirect()->route('butcher.dashboard');
+        }
+
+        return view('butcher.outlets.form', [
+            'business' => $business,
+            'outlet' => null,
             'districts' => $onboarding->rwandaDistrictNames(),
         ]);
     }
@@ -46,6 +93,25 @@ class ButcherOutletController extends Controller
         return redirect()
             ->route('butcher.outlets.index')
             ->with('status', __('Outlet created.'));
+    }
+
+    public function edit(
+        Request $request,
+        ButcherOutlet $outlet,
+        ButcherOnboardingService $onboarding,
+    ): View|RedirectResponse {
+        $business = $this->primaryBusiness($request);
+        if ($business === null) {
+            return redirect()->route('butcher.dashboard');
+        }
+
+        abort_unless((int) $outlet->business_id === (int) $business->id, 404);
+
+        return view('butcher.outlets.form', [
+            'business' => $business,
+            'outlet' => $outlet,
+            'districts' => $onboarding->rwandaDistrictNames(),
+        ]);
     }
 
     public function update(

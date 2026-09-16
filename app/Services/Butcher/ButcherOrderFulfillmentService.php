@@ -88,6 +88,7 @@ class ButcherOrderFulfillmentService
                 'split_payments' => $data['split_payments'] ?? [],
                 'discount_amount' => 0,
                 'safety_override_reason' => $data['safety_override_reason'] ?? null,
+                'skip_documents' => (bool) ($data['skip_documents'] ?? false),
                 'items' => $saleItems,
             ], $user);
 

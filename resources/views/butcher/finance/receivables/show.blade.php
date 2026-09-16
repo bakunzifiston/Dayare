@@ -4,40 +4,27 @@
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <a href="{{ route('butcher.finance.receivables.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Receivables') }}</a>
-                <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">{{ $customer->name }}</h2>
-                <p class="mt-1 text-sm text-gray-500">{{ __('Customer statement as of :date', ['date' => $statement['as_of']]) }}</p>
-            </div>
-            <div class="text-right">
-                <p class="text-xs uppercase text-slate-500">{{ __('Outstanding') }}</p>
-                <p class="text-xl font-bold text-slate-900">{{ $fmtMoney($statement['outstanding_balance']) }}</p>
-            </div>
-        </div>
-    </x-slot>
-
-    <div class="py-8">
+    <div class="py-6 sm:py-8">
         <div class="max-w-5xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            <dl class="grid grid-cols-2 gap-4 rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha text-sm sm:grid-cols-4">
-                <div>
-                    <dt class="text-slate-500">{{ __('Phone') }}</dt>
-                    <dd class="mt-1 font-medium">{{ $customer->phone }}</dd>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <a href="{{ route('butcher.finance.receivables.index') }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">
+                    <i class="ti ti-arrow-left text-base leading-none" aria-hidden="true"></i>
+                    {{ __('Receivables') }}
+                </a>
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-bucha-burgundy ring-1 ring-inset ring-red-100">
+                        <i class="ti ti-user text-base leading-none" aria-hidden="true"></i>
+                    </span>
+                    <p class="text-sm font-semibold text-slate-900">{{ $customer->name }}</p>
                 </div>
-                <div>
-                    <dt class="text-slate-500">{{ __('Tier') }}</dt>
-                    <dd class="mt-1 font-medium capitalize">{{ $customer->tier }}</dd>
-                </div>
-                <div>
-                    <dt class="text-slate-500">{{ __('Credit limit') }}</dt>
-                    <dd class="mt-1 font-medium">{{ $fmtMoney($customer->credit_limit) }}</dd>
-                </div>
-                <div>
-                    <dt class="text-slate-500">{{ __('Statement balance') }}</dt>
-                    <dd class="mt-1 font-medium">{{ $fmtMoney($statement['computed_balance']) }}</dd>
-                </div>
-            </dl>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <x-butcher.kpi-card :label="__('Phone')" :value="$customer->phone ?: '—'" tone="sky" icon="ti ti-phone" />
+                <x-butcher.kpi-card :label="__('Tier')" :value="ucfirst((string) $customer->tier)" tone="bucha" icon="ti ti-users" />
+                <x-butcher.kpi-card :label="__('Credit limit')" :value="$fmtMoney($customer->credit_limit)" tone="amber" icon="ti ti-credit-card" />
+                <x-butcher.kpi-card :label="__('Statement balance')" :value="$fmtMoney($statement['computed_balance'])" tone="rose" icon="ti ti-cash" />
+            </div>
 
             @if (abs($statement['computed_balance'] - $statement['outstanding_balance']) > 0.05)
                 <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -45,36 +32,41 @@
                 </div>
             @endif
 
-            <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha overflow-x-auto">
-                <table class="min-w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
-                            <th class="py-2 pr-3">{{ __('Date') }}</th>
-                            <th class="py-2 pr-3">{{ __('Description') }}</th>
-                            <th class="py-2 pr-3 text-right">{{ __('Debit') }}</th>
-                            <th class="py-2 pr-3 text-right">{{ __('Credit') }}</th>
-                            <th class="py-2 text-right">{{ __('Balance') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($statement['lines'] as $line)
-                            <tr class="border-b border-slate-100">
-                                <td class="py-2 pr-3 whitespace-nowrap">{{ $line['occurred_on'] }}</td>
-                                <td class="py-2 pr-3">
-                                    <div>{{ $line['description'] }}</div>
-                                    <div class="text-xs capitalize text-slate-500">{{ $line['type'] }}</div>
-                                </td>
-                                <td class="py-2 pr-3 text-right">{{ (float) $line['debit'] > 0 ? $fmtMoney($line['debit']) : '—' }}</td>
-                                <td class="py-2 pr-3 text-right">{{ (float) $line['credit'] > 0 ? $fmtMoney($line['credit']) : '—' }}</td>
-                                <td class="py-2 text-right font-medium">{{ $fmtMoney($line['balance']) }}</td>
+            <section class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+                <div class="border-b border-slate-100 px-4 py-4 sm:px-5">
+                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Statement') }}</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+                                <th class="px-4 py-3 sm:px-5">{{ __('Date') }}</th>
+                                <th class="px-4 py-3 sm:px-5">{{ __('Description') }}</th>
+                                <th class="px-4 py-3 text-right sm:px-5">{{ __('Debit') }}</th>
+                                <th class="px-4 py-3 text-right sm:px-5">{{ __('Credit') }}</th>
+                                <th class="px-4 py-3 text-right sm:px-5">{{ __('Balance') }}</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="py-8 text-center text-slate-500">{{ __('No credit activity for this customer.') }}</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse ($statement['lines'] as $line)
+                                <tr class="border-b border-slate-50">
+                                    <td class="px-4 py-3 whitespace-nowrap text-slate-700 sm:px-5">{{ $line['occurred_on'] }}</td>
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <div class="font-medium text-slate-900">{{ $line['description'] }}</div>
+                                        <div class="text-xs capitalize text-slate-500">{{ $line['type'] }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right tabular-nums text-slate-700 sm:px-5">{{ (float) $line['debit'] > 0 ? $fmtMoney($line['debit']) : '—' }}</td>
+                                    <td class="px-4 py-3 text-right tabular-nums text-slate-700 sm:px-5">{{ (float) $line['credit'] > 0 ? $fmtMoney($line['credit']) : '—' }}</td>
+                                    <td class="px-4 py-3 text-right font-medium tabular-nums text-slate-900 sm:px-5">{{ $fmtMoney($line['balance']) }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-4 py-10 text-center text-slate-500 sm:px-5">{{ __('No credit activity for this customer.') }}</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </section>
         </div>
     </div>

@@ -8,6 +8,7 @@ use App\Models\BusinessUser;
 use App\Models\ButcherCutType;
 use App\Models\ButcherCustomer;
 use App\Models\ButcherDelivery;
+use App\Models\ButcherDeliveryLine;
 use App\Models\ButcherExpense;
 use App\Models\ButcherHygieneLog;
 use App\Models\ButcherInventoryBatch;
@@ -28,6 +29,8 @@ use App\Services\Butcher\ButcherFinanceService;
 use App\Services\Butcher\ButcherOnboardingService;
 use App\Services\Butcher\ButcherProcurementService;
 use App\Services\Butcher\ButcherSalesService;
+use App\Services\Butcher\ButcherStockCountService;
+use App\Services\Butcher\ButcherStockTransferService;
 use App\Services\Butcher\ButcherStorageService;
 use Carbon\Carbon;
 use Database\Seeders\Support\RwandaSeederHelper;
@@ -105,14 +108,15 @@ class ButcherWorkspaceDemoSeeder extends Seeder
             return;
         }
 
-        if ($this->workspaceAlreadyPopulated()) {
+        if ($this->workspaceAlreadyPopulated() && ! filter_var(env('FORCE_BUTCHER_RESEED', false), FILTER_VALIDATE_BOOLEAN)) {
             $this->command?->warn('Butcher workspace demo already populated for '.self::BUSINESS_REG.'. Skipping.');
+            $this->command?->warn('Re-run with FORCE_BUTCHER_RESEED=1 to rebuild demo data.');
 
             return;
         }
 
-        if ($this->business->butcherSales()->exists()) {
-            $this->command?->info('Upgrading partial butcher demo data…');
+        if ($this->business->butcherSales()->exists() || $this->workspaceAlreadyPopulated()) {
+            $this->command?->info('Refreshing butcher demo data…');
             $this->purgeButcherModuleData();
             $this->outlets = collect();
             $this->suppliers = collect();
@@ -125,14 +129,19 @@ class ButcherWorkspaceDemoSeeder extends Seeder
 
         $this->command?->info('Seeding butcher workspace demo ('.self::MIN_ROWS.'+ rows per module) for '.self::OWNER_EMAIL.'…');
 
+        // Dompdf receipt/label generation is skipped via skip_documents; still raise ceiling for safety.
+        ini_set('memory_limit', '512M');
+
         DB::transaction(function (): void {
             $this->seedOnboarding();
             $this->seedProcurement();
             $this->seedStorage();
+            $this->seedTransfers();
             $this->seedCutting();
             $this->seedCatalog();
             $this->ensureSalesStock();
             $this->seedSales();
+            $this->seedStockCounts();
             $this->seedCompliance();
             $this->seedFinance();
         });
@@ -317,7 +326,8 @@ class ButcherWorkspaceDemoSeeder extends Seeder
     {
         $procurement = app(ButcherProcurementService::class);
         $meatTypes = [ButcherDelivery::MEAT_BEEF, ButcherDelivery::MEAT_GOAT, ButcherDelivery::MEAT_PORK];
-        $poStatuses = [
+        // Target end-states; transitions must follow draft → sent → confirmed (→ delivered via receiving).
+        $poTargets = [
             ButcherPurchaseOrder::STATUS_DRAFT,
             ButcherPurchaseOrder::STATUS_SENT,
             ButcherPurchaseOrder::STATUS_CONFIRMED,
@@ -326,9 +336,11 @@ class ButcherWorkspaceDemoSeeder extends Seeder
         ];
 
         $purchaseOrders = collect();
+        $deliverablePoIds = collect();
+
         for ($i = 1; $i <= self::MIN_ROWS; $i++) {
             $supplier = $this->suppliers[($i - 1) % $this->suppliers->count()];
-            $status = $poStatuses[($i - 1) % count($poStatuses)];
+            $target = $poTargets[($i - 1) % count($poTargets)];
 
             $po = $procurement->createPurchaseOrder($this->business, [
                 'supplier_id' => $supplier->id,
@@ -338,30 +350,56 @@ class ButcherWorkspaceDemoSeeder extends Seeder
                 'notes' => sprintf('Demo PO #%02d', $i),
             ]);
 
-            if ($status !== ButcherPurchaseOrder::STATUS_DRAFT) {
-                $procurement->updateOrderStatus($po, $status);
-            }
+            $this->advancePurchaseOrderToward($procurement, $po, $target);
 
-            $purchaseOrders->push($po->fresh());
+            $po = $po->fresh();
+            $purchaseOrders->push($po);
+
+            if (in_array($po->status, [
+                ButcherPurchaseOrder::STATUS_CONFIRMED,
+                ButcherPurchaseOrder::STATUS_SENT,
+            ], true) || $target === ButcherPurchaseOrder::STATUS_DELIVERED) {
+                $deliverablePoIds->push($po->id);
+            }
         }
 
         for ($i = 1; $i <= self::MIN_ROWS; $i++) {
             $supplier = $this->suppliers[($i - 1) % $this->suppliers->count()];
             $outlet = $this->outlets[($i - 1) % $this->outlets->count()];
-            $linkedPo = $purchaseOrders[($i - 1) % $purchaseOrders->count()];
-            $poId = $linkedPo->status !== ButcherPurchaseOrder::STATUS_CANCELLED
-                ? $linkedPo->id
+            $poId = $deliverablePoIds->isNotEmpty()
+                ? $deliverablePoIds[($i - 1) % $deliverablePoIds->count()]
                 : null;
+
+            // Each PO should only be linked once so receiving can mark it delivered cleanly.
+            if ($poId !== null && $i > $deliverablePoIds->count()) {
+                $poId = null;
+            }
+
+            $weight = 35 + ($i * 1.5);
+            $unitCost = 3200 + ($i * 50);
+            $isPartial = $i % 7 === 0;
+            $accepted = $isPartial ? round($weight * 0.85, 3) : $weight;
+            $rejected = $isPartial ? round($weight - $accepted, 3) : 0.0;
 
             $delivery = $procurement->receiveDelivery($this->business, [
                 'purchase_order_id' => $poId,
                 'supplier_id' => $supplier->id,
                 'outlet_id' => $outlet->id,
-                'meat_type' => $meatTypes[($i - 1) % count($meatTypes)],
-                'received_weight_kg' => 35 + ($i * 1.5),
-                'unit_cost_per_kg' => 3200 + ($i * 50),
-                'condition' => $i % 7 === 0 ? ButcherDelivery::CONDITION_FAIR : ButcherDelivery::CONDITION_GOOD,
                 'received_at' => Carbon::now()->subHours(self::MIN_ROWS - $i)->toDateTimeString(),
+                'lines' => [[
+                    'meat_type' => $meatTypes[($i - 1) % count($meatTypes)],
+                    'expected_weight_kg' => $poId
+                        ? (float) ButcherPurchaseOrder::query()->find($poId)?->requested_weight_kg
+                        : $weight,
+                    'received_weight_kg' => $weight,
+                    'unit_cost' => $unitCost,
+                    'outcome' => $isPartial
+                        ? ButcherDeliveryLine::OUTCOME_PARTIALLY_ACCEPTED
+                        : ButcherDeliveryLine::OUTCOME_ACCEPTED,
+                    'accepted_weight_kg' => $accepted,
+                    'rejected_weight_kg' => $rejected,
+                    'temperature_c' => 2 + ($i % 4),
+                ]],
             ], $this->owner);
 
             if ($delivery->createsInventory()) {
@@ -370,6 +408,35 @@ class ButcherWorkspaceDemoSeeder extends Seeder
                     $this->batches->push($batch);
                 }
             }
+        }
+    }
+
+    /**
+     * Walk legal PO transitions toward a target end-state.
+     * "delivered" stops at confirmed — receiving marks delivered.
+     */
+    private function advancePurchaseOrderToward(
+        ButcherProcurementService $procurement,
+        ButcherPurchaseOrder $po,
+        string $target,
+    ): void {
+        $steps = match ($target) {
+            ButcherPurchaseOrder::STATUS_SENT => [
+                ButcherPurchaseOrder::STATUS_SENT,
+            ],
+            ButcherPurchaseOrder::STATUS_CONFIRMED,
+            ButcherPurchaseOrder::STATUS_DELIVERED => [
+                ButcherPurchaseOrder::STATUS_SENT,
+                ButcherPurchaseOrder::STATUS_CONFIRMED,
+            ],
+            ButcherPurchaseOrder::STATUS_CANCELLED => [
+                ButcherPurchaseOrder::STATUS_CANCELLED,
+            ],
+            default => [],
+        };
+
+        foreach ($steps as $status) {
+            $procurement->updateOrderStatus($po->fresh(), $status);
         }
     }
 
@@ -386,7 +453,9 @@ class ButcherWorkspaceDemoSeeder extends Seeder
                 'storage_type' => $i % 4 === 0
                     ? \App\Models\ButcherTemperatureLog::TYPE_FROZEN
                     : \App\Models\ButcherTemperatureLog::TYPE_FRESH,
-                'temperature_celsius' => $i % 5 === 0 ? 8.5 : 2.0 + ($i % 3),
+                'temperature_celsius' => $i % 5 === 0
+                    ? ($i % 4 === 0 ? -16.0 : 3.5) // stay within thresholds; no auto-breach of active batches
+                    : ($i % 4 === 0 ? -17.5 : 2.0 + ($i % 3) * 0.4),
                 'logged_at' => Carbon::now()->subHours($i * 3)->toDateTimeString(),
             ], $this->owner);
         }
@@ -403,6 +472,138 @@ class ButcherWorkspaceDemoSeeder extends Seeder
                 'disposed_at' => Carbon::now()->subDays($index + 1)->toDateTimeString(),
                 'notes' => 'Demo disposal record',
             ], $this->owner);
+        }
+    }
+
+    private function seedTransfers(): void
+    {
+        if ($this->outlets->count() < 2 || $this->batches->isEmpty()) {
+            return;
+        }
+
+        $transfers = app(ButcherStockTransferService::class);
+        $primary = $this->outlets->first();
+        $destinations = $this->outlets->slice(1)->values();
+
+        $sourceBatches = ButcherInventoryBatch::query()
+            ->where('business_id', $this->business->id)
+            ->whereIn('status', [
+                ButcherInventoryBatch::STATUS_IN_STORAGE,
+                ButcherInventoryBatch::STATUS_PARTIALLY_USED,
+            ])
+            ->where('remaining_weight_kg', '>=', 5)
+            ->orderBy('received_at')
+            ->get();
+
+        if ($sourceBatches->isEmpty()) {
+            return;
+        }
+
+        for ($i = 1; $i <= self::MIN_ROWS; $i++) {
+            $batch = $sourceBatches[($i - 1) % $sourceBatches->count()]->fresh();
+            $available = (float) $batch->remaining_weight_kg;
+            if ($available < 3) {
+                continue;
+            }
+
+            $fromOutletId = (int) $batch->outlet_id;
+            $toOutlet = $destinations[($i - 1) % $destinations->count()];
+            if ((int) $toOutlet->id === $fromOutletId) {
+                $toOutlet = $destinations->first(fn ($o) => (int) $o->id !== $fromOutletId) ?? $primary;
+                if ((int) $toOutlet->id === $fromOutletId) {
+                    continue;
+                }
+            }
+
+            $qty = min(2.5 + ($i % 4) * 0.5, round($available * 0.25, 3));
+            if ($qty < 1) {
+                continue;
+            }
+
+            try {
+                $transfer = $transfers->transfer($this->business, [
+                    'from_outlet_id' => $fromOutletId,
+                    'to_outlet_id' => $toOutlet->id,
+                    'batch_id' => $batch->id,
+                    'quantity_kg' => $qty,
+                    'transferred_at' => Carbon::now()->subDays(self::MIN_ROWS - $i)->setTime(9 + ($i % 6), 15)->toDateTimeString(),
+                    'storage_location' => 'Transfer staging — '.($toOutlet->name ?? 'outlet'),
+                    'notes' => sprintf('Demo transfer #%02d Remera → %s', $i, $toOutlet->name),
+                ], $this->owner);
+
+                if ($transfer->destinationBatch) {
+                    $this->batches->push($transfer->destinationBatch);
+                }
+            } catch (\Throwable $e) {
+                $this->command?->warn('Skipped demo transfer #'.$i.': '.$e->getMessage());
+            }
+        }
+    }
+
+    private function seedStockCounts(): void
+    {
+        $counts = app(ButcherStockCountService::class);
+        $outletsWithStock = $this->outlets->filter(function ($outlet) {
+            return ButcherInventoryBatch::query()
+                ->where('business_id', $this->business->id)
+                ->where('outlet_id', $outlet->id)
+                ->where('remaining_weight_kg', '>', 0)
+                ->whereIn('status', [
+                    ButcherInventoryBatch::STATUS_IN_STORAGE,
+                    ButcherInventoryBatch::STATUS_PARTIALLY_USED,
+                    ButcherInventoryBatch::STATUS_EXPIRED,
+                ])
+                ->exists();
+        })->values();
+
+        if ($outletsWithStock->isEmpty()) {
+            return;
+        }
+
+        for ($i = 1; $i <= self::MIN_ROWS; $i++) {
+            $outlet = $outletsWithStock[($i - 1) % $outletsWithStock->count()];
+
+            try {
+                $count = $counts->startCount($this->business, [
+                    'outlet_id' => $outlet->id,
+                    'count_date' => Carbon::now()->subDays(self::MIN_ROWS - $i)->toDateString(),
+                    'notes' => sprintf('Demo stock count #%02d — %s', $i, $outlet->name),
+                ], $this->owner);
+
+                $count->load('lines');
+                if ($count->lines->isEmpty()) {
+                    continue;
+                }
+
+                $path = $i % 4;
+                // 0 = leave draft uncounted; 1 = draft with counts; 2 = complete exact; 3 = complete with variance
+                if ($path === 0) {
+                    continue;
+                }
+
+                $linesPayload = $count->lines->map(function ($line) use ($path, $i) {
+                    $system = (float) $line->system_weight_kg;
+                    $counted = match ($path) {
+                        1, 2 => $system,
+                        3 => max(0, round($system + (($i % 2 === 0) ? -0.5 : 0.75), 3)),
+                        default => $system,
+                    };
+
+                    return [
+                        'id' => $line->id,
+                        'counted_weight_kg' => $counted,
+                        'notes' => $path === 3 ? 'Scale variance noted' : null,
+                    ];
+                })->all();
+
+                $counts->updateLines($count, $linesPayload);
+
+                if ($path >= 2) {
+                    $counts->completeCount($count->fresh(['lines']), $this->owner, applyVariances: $path === 3);
+                }
+            } catch (\Throwable $e) {
+                $this->command?->warn('Skipped demo stock count #'.$i.': '.$e->getMessage());
+            }
         }
     }
 
@@ -507,10 +708,15 @@ class ButcherWorkspaceDemoSeeder extends Seeder
         $delivery = $procurement->receiveDelivery($this->business, [
             'supplier_id' => $supplier->id,
             'outlet_id' => $outlet->id,
-            'meat_type' => ButcherDelivery::MEAT_BEEF,
-            'received_weight_kg' => 500,
-            'unit_cost_per_kg' => 3400,
-            'condition' => ButcherDelivery::CONDITION_GOOD,
+            'lines' => [[
+                'meat_type' => ButcherDelivery::MEAT_BEEF,
+                'received_weight_kg' => 500,
+                'unit_cost' => 3400,
+                'outcome' => ButcherDeliveryLine::OUTCOME_ACCEPTED,
+                'accepted_weight_kg' => 500,
+                'rejected_weight_kg' => 0,
+                'temperature_c' => 3,
+            ]],
         ], $this->owner);
 
         if (! $delivery->createsInventory()) {
@@ -549,7 +755,8 @@ class ButcherWorkspaceDemoSeeder extends Seeder
                 [
                     'name' => sprintf('Customer %02d — %s', $i, RwandaSeederHelper::fullName(300 + $i)),
                     'tier' => $tiers[($i - 1) % count($tiers)],
-                    'credit_limit' => $i % 3 === 0 ? 250000 + ($i * 10000) : 0,
+                    // Enough headroom for demo sales + order confirmations (RWF).
+                    'credit_limit' => $i % 3 === 0 ? 1_500_000 + ($i * 50_000) : 750_000,
                 ]
             );
             $this->customers->push($customer);
@@ -564,7 +771,8 @@ class ButcherWorkspaceDemoSeeder extends Seeder
 
         for ($i = 1; $i <= self::MIN_ROWS; $i++) {
             $product = $this->products[($i - 1) % $this->products->count()];
-            $outlet = $this->outlets[($i - 1) % $this->outlets->count()];
+            // Stock is seeded on the primary outlet via ensureSalesStock().
+            $outlet = $this->outlets->first();
             $qty = 1.0 + ($i % 3) * 0.5;
             $saleDate = Carbon::now()->subDays(self::MIN_ROWS - $i)->toDateString();
             $isCredit = $i % 5 === 0;
@@ -573,43 +781,70 @@ class ButcherWorkspaceDemoSeeder extends Seeder
             $unitPrice = $catalog->resolvePrice($product, $outlet->id, $customer?->tier);
             $total = round($unitPrice * $qty, 2);
 
-            $sales->createSale($this->business, [
-                'outlet_id' => $outlet->id,
-                'customer_id' => $customer?->id,
-                'sale_date' => $saleDate,
-                'payment_method' => $isCredit ? ButcherSale::PAYMENT_CREDIT : $paymentMethods[($i - 1) % 3],
-                'amount_paid' => $isCredit ? 0 : $total,
-                'items' => [
-                    ['product_id' => $product->id, 'quantity_kg' => $qty],
-                ],
-            ], $this->owner);
+            try {
+                $sales->createSale($this->business, [
+                    'outlet_id' => $outlet->id,
+                    'customer_id' => $customer?->id,
+                    'sale_date' => $saleDate,
+                    'payment_method' => $isCredit ? ButcherSale::PAYMENT_CREDIT : $paymentMethods[($i - 1) % 3],
+                    'amount_paid' => $isCredit ? 0 : $total,
+                    'skip_documents' => true,
+                    'items' => [
+                        ['product_id' => $product->id, 'quantity_kg' => $qty],
+                    ],
+                ], $this->owner);
+            } catch (\Throwable $e) {
+                $this->command?->warn('Skipped demo sale #'.$i.': '.$e->getMessage());
+            }
         }
 
-        $orderStatuses = [
-            ButcherOrder::STATUS_PENDING,
-            ButcherOrder::STATUS_CONFIRMED,
-            ButcherOrder::STATUS_READY,
-            ButcherOrder::STATUS_FULFILLED,
-            ButcherOrder::STATUS_CANCELLED,
-        ];
+        $fulfillment = app(\App\Services\Butcher\ButcherOrderFulfillmentService::class);
 
         for ($i = 1; $i <= self::MIN_ROWS; $i++) {
             $customer = $this->customers[($i - 1) % $this->customers->count()];
             $product = $this->products[($i - 1) % $this->products->count()];
+            $primaryOutlet = $this->outlets->first();
+
+            // Prefer higher-limit wholesale customers for confirmed+ paths.
+            if ($i % 5 !== 4) {
+                $customer = $this->customers->first(fn (ButcherCustomer $c) => (float) $c->credit_limit >= 1_000_000)
+                    ?? $customer;
+            }
 
             $order = $sales->createOrder($this->business, [
                 'customer_id' => $customer->id,
+                'outlet_id' => $primaryOutlet->id,
                 'order_date' => Carbon::now()->subDays($i)->toDateString(),
                 'delivery_date' => Carbon::now()->addDays($i % 7)->toDateString(),
                 'deposit_paid' => $i % 2 === 0 ? 5000 : 0,
                 'items' => [
-                    ['product_id' => $product->id, 'quantity_kg' => 2 + ($i % 5)],
+                    ['product_id' => $product->id, 'quantity_kg' => 2 + ($i % 3)],
                 ],
             ]);
 
-            $targetStatus = $orderStatuses[($i - 1) % count($orderStatuses)];
-            if ($targetStatus !== ButcherOrder::STATUS_PENDING) {
-                $sales->updateOrderStatus($order, $targetStatus);
+            $path = $i % 5;
+            try {
+                if ($path === 0) {
+                    // leave pending
+                } elseif ($path === 1) {
+                    $sales->updateOrderStatus($order, ButcherOrder::STATUS_CONFIRMED);
+                } elseif ($path === 2) {
+                    $sales->updateOrderStatus($order, ButcherOrder::STATUS_CONFIRMED);
+                    $sales->updateOrderStatus($order->fresh(), ButcherOrder::STATUS_READY);
+                } elseif ($path === 3) {
+                    $sales->updateOrderStatus($order, ButcherOrder::STATUS_CONFIRMED);
+                    $sales->updateOrderStatus($order->fresh(), ButcherOrder::STATUS_READY);
+                    $fulfillment->fulfill($order->fresh(), [
+                        'outlet_id' => $primaryOutlet->id,
+                        'payment_method' => ButcherSale::PAYMENT_CASH,
+                        'amount_paid' => (float) $order->fresh()->total_amount,
+                        'skip_documents' => true,
+                    ], $this->owner);
+                } else {
+                    $sales->updateOrderStatus($order, ButcherOrder::STATUS_CANCELLED);
+                }
+            } catch (\Throwable $e) {
+                $this->command?->warn('Skipped demo order #'.$i.': '.$e->getMessage());
             }
         }
     }
@@ -711,6 +946,46 @@ class ButcherWorkspaceDemoSeeder extends Seeder
     {
         $businessId = $this->business->id;
 
+        $deleteIfExists = static function (string $table, \Closure $callback): void {
+            if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
+                return;
+            }
+            $callback(DB::table($table));
+        };
+
+        $deleteIfExists('butcher_returns', function ($q) use ($businessId) {
+            $q->whereIn('sale_item_id', function ($sub) use ($businessId) {
+                $sub->select('butcher_sale_items.id')
+                    ->from('butcher_sale_items')
+                    ->join('butcher_sales', 'butcher_sales.id', '=', 'butcher_sale_items.sale_id')
+                    ->where('butcher_sales.business_id', $businessId);
+            })->delete();
+        });
+
+        $deleteIfExists('butcher_compliance_overrides', fn ($q) => $q->where('business_id', $businessId)->delete());
+        $deleteIfExists('butcher_inventory_movements', fn ($q) => $q->where('business_id', $businessId)->delete());
+
+        $deleteIfExists('butcher_stock_count_lines', function ($q) use ($businessId) {
+            $q->whereIn('stock_count_id', function ($sub) use ($businessId) {
+                $sub->select('id')->from('butcher_stock_counts')->where('business_id', $businessId);
+            })->delete();
+        });
+        if (method_exists($this->business, 'butcherStockCounts')) {
+            $this->business->butcherStockCounts()->delete();
+        }
+        if (method_exists($this->business, 'butcherStockTransfers')) {
+            $this->business->butcherStockTransfers()->delete();
+        }
+        if (method_exists($this->business, 'butcherInventoryAdjustments')) {
+            $this->business->butcherInventoryAdjustments()->delete();
+        }
+
+        $deleteIfExists('butcher_cutting_session_sources', function ($q) use ($businessId) {
+            $q->whereIn('session_id', function ($sub) use ($businessId) {
+                $sub->select('id')->from('butcher_cutting_sessions')->where('business_id', $businessId);
+            })->delete();
+        });
+
         DB::table('butcher_sale_items')->whereIn('sale_id', function ($q) use ($businessId) {
             $q->select('id')->from('butcher_sales')->where('business_id', $businessId);
         })->delete();
@@ -730,6 +1005,11 @@ class ButcherWorkspaceDemoSeeder extends Seeder
         $this->business->butcherDisposalLogs()->delete();
         $this->business->butcherTemperatureLogs()->delete();
         $this->business->butcherInventoryBatches()->delete();
+        $deleteIfExists('butcher_delivery_lines', function ($q) use ($businessId) {
+            $q->whereIn('delivery_id', function ($sub) use ($businessId) {
+                $sub->select('id')->from('butcher_deliveries')->where('business_id', $businessId);
+            })->delete();
+        });
         DB::table('butcher_delivery_rejections')->whereIn('delivery_id', function ($q) use ($businessId) {
             $q->select('id')->from('butcher_deliveries')->where('business_id', $businessId);
         })->delete();
@@ -754,6 +1034,8 @@ class ButcherWorkspaceDemoSeeder extends Seeder
             'purchase_orders' => $this->business->butcherPurchaseOrders()->count(),
             'deliveries' => $this->business->butcherDeliveries()->count(),
             'batches' => $this->business->butcherInventoryBatches()->count(),
+            'stock_transfers' => $this->business->butcherStockTransfers()->count(),
+            'stock_counts' => $this->business->butcherStockCounts()->count(),
             'temperature_logs' => $this->business->butcherTemperatureLogs()->count(),
             'cutting_sessions' => $this->business->butcherCuttingSessions()->count(),
             'cut_outputs' => \App\Models\ButcherCutOutput::query()->where('business_id', $this->business->id)->count(),

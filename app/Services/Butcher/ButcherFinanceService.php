@@ -179,11 +179,11 @@ class ButcherFinanceService
                     ->whereDate('sale_date', '>=', $from->toDateString())
                     ->whereDate('sale_date', '<=', $to->toDateString());
             })
-            ->with('cutOutput')
+            ->with(['cutOutput', 'returns'])
             ->get();
 
         $total = $items->sum(function (ButcherSaleItem $item) {
-            $qtyKg = (float) $item->quantity_kg;
+            $qtyKg = $item->returnableQuantityKg();
             if ($qtyKg <= 0) {
                 return 0;
             }

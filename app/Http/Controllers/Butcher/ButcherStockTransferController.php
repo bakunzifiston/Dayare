@@ -28,14 +28,41 @@ class ButcherStockTransferController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
-        $transfers = $business->butcherStockTransfers()
+        $search = trim((string) $request->query('q', ''));
+
+        $baseQuery = $business->butcherStockTransfers();
+        $kpis = [
+            'total' => (int) (clone $baseQuery)->count(),
+            'quantity_kg' => (float) (clone $baseQuery)->sum('quantity_kg'),
+            'today' => (int) (clone $baseQuery)->whereDate('transferred_at', now()->toDateString())->count(),
+            'outlets' => (int) $business->butcherOutlets()->where('status', 'active')->count(),
+        ];
+
+        $transfersQuery = $business->butcherStockTransfers()
             ->with(['fromOutlet', 'toOutlet', 'batch', 'destinationBatch', 'transferredByUser'])
-            ->latest('transferred_at')
-            ->paginate(20);
+            ->latest('transferred_at');
+
+        if ($search !== '') {
+            $transfersQuery->where(function ($query) use ($search) {
+                $query->where('notes', 'like', '%'.$search.'%')
+                    ->orWhereHas('fromOutlet', fn ($q) => $q->where('name', 'like', '%'.$search.'%'))
+                    ->orWhereHas('toOutlet', fn ($q) => $q->where('name', 'like', '%'.$search.'%'))
+                    ->orWhereHas('batch', fn ($q) => $q->where('batch_number', 'like', '%'.$search.'%'))
+                    ->orWhereHas('destinationBatch', fn ($q) => $q->where('batch_number', 'like', '%'.$search.'%'));
+            });
+        }
+
+        $transfers = $transfersQuery
+            ->paginate(20)
+            ->withQueryString();
 
         return view('butcher.transfers.index', [
             'business' => $business,
             'transfers' => $transfers,
+            'kpis' => $kpis,
+            'filters' => [
+                'q' => $search,
+            ],
         ]);
     }
 

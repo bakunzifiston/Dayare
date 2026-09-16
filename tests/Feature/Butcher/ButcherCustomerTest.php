@@ -44,7 +44,6 @@ class ButcherCustomerTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.customers.index'))
             ->assertOk()
-            ->assertSee(__('Customers'))
             ->assertSee(__('Add customer'));
     }
 
@@ -66,6 +65,31 @@ class ButcherCustomerTest extends TestCase
             'tier' => ButcherCustomer::TIER_WHOLESALE,
             'credit_limit' => 500000,
         ]);
+    }
+
+    public function test_can_update_customer(): void
+    {
+        $customer = ButcherCustomer::query()->create([
+            'business_id' => $this->business->id,
+            'name' => 'Old Name',
+            'phone' => '+250788000222',
+            'tier' => ButcherCustomer::TIER_RETAIL,
+            'credit_limit' => 0,
+        ]);
+
+        $this->actingAs($this->user)
+            ->put(route('butcher.customers.update', $customer), [
+                'name' => 'Kigali Hotel Supply',
+                'phone' => '+250788000333',
+                'tier' => ButcherCustomer::TIER_WHOLESALE,
+                'credit_limit' => 150000,
+            ])
+            ->assertRedirect(route('butcher.customers.index'));
+
+        $customer->refresh();
+        $this->assertSame('Kigali Hotel Supply', $customer->name);
+        $this->assertSame(ButcherCustomer::TIER_WHOLESALE, $customer->tier);
+        $this->assertEqualsWithDelta(150000, (float) $customer->credit_limit, 0.01);
     }
 
     public function test_customers_list_scoped_to_business(): void

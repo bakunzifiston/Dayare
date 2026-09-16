@@ -4,23 +4,6 @@
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $session->session_number }}</h2>
-                <p class="mt-1 text-sm text-gray-500">
-                    {{ $session->outlet?->name }} · {{ $session->session_date?->toDateString() }}
-                </p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                @if ($session->isOpen())
-                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">{{ __('Draft — not yet deducted') }}</span>
-                @endif
-                <x-butcher.status-badge :status="$session->status" />
-            </div>
-        </div>
-    </x-slot>
-
     <div class="py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             @if (session('status'))
@@ -43,10 +26,10 @@
             @endif
 
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <x-kpi-card stat :title="__('Source (kg)')" :value="$fmtKg($wastage['source_weight_kg'] ?? $session->source_weight_kg)" />
-                <x-kpi-card stat :title="__('Cuts (kg)')" :value="$fmtKg($wastage['total_cuts_weight_kg'])" />
-                <x-kpi-card stat :title="__('Wastage (kg)')" :value="$fmtKg($wastage['wastage_kg'] ?? 0)" />
-                <x-kpi-card stat :title="__('Wastage %')" :value="number_format((float) ($wastage['wastage_pct'] ?? 0), 1).'%'" />
+                <x-butcher.kpi-card :label="__('Source (kg)')" :value="$fmtKg($wastage['source_weight_kg'] ?? $session->source_weight_kg)" tone="bucha" icon="ti ti-package" />
+                <x-butcher.kpi-card :label="__('Cuts (kg)')" :value="$fmtKg($wastage['total_cuts_weight_kg'])" tone="emerald" icon="ti ti-cut" />
+                <x-butcher.kpi-card :label="__('Wastage (kg)')" :value="$fmtKg($wastage['wastage_kg'] ?? 0)" tone="rose" icon="ti ti-trash" />
+                <x-butcher.kpi-card :label="__('Wastage %')" :value="number_format((float) ($wastage['wastage_pct'] ?? 0), 1).'%'" tone="amber" icon="ti ti-percentage" />
             </div>
 
             <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha">
@@ -121,9 +104,21 @@
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-slate-900">{{ __('Cut outputs') }}</h3>
                     @if ($session->isOpen() && $session->cutOutputs->isNotEmpty())
-                        <form method="post" action="{{ route('butcher.processing.sessions.close', $session) }}" onsubmit="return confirm(@json(__('Close this session? Inventory will be deducted and wastage calculated.')))">
+                        <form method="post" action="{{ route('butcher.processing.sessions.close', $session) }}" class="space-y-2" onsubmit="return confirm(@json(__('Close this session? Inventory will be deducted and wastage calculated.')))">
                             @csrf
-                            <button type="submit" class="rounded-bucha border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Close session') }}</button>
+                            @if (! empty($needsSafetyOverride))
+                                <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-left space-y-2">
+                                    <p class="text-xs text-amber-900">{{ __('A source batch is expired or temperature-breached. A Manager/Owner override reason is required to close.') }}</p>
+                                    @if (! empty($canOverride))
+                                        <label for="safety_override_reason" class="text-xs font-semibold uppercase tracking-wide text-amber-800">{{ __('Override reason') }}</label>
+                                        <textarea id="safety_override_reason" name="safety_override_reason" rows="2" required class="mt-1 block w-full rounded-lg border-amber-300 text-sm" placeholder="{{ __('Required for Manager/Owner override') }}">{{ old('safety_override_reason') }}</textarea>
+                                        <x-input-error :messages="$errors->get('safety_override_reason')" class="mt-1" />
+                                    @else
+                                        <p class="text-xs font-semibold text-red-700">{{ __('Escalate to a Manager to close this session.') }}</p>
+                                    @endif
+                                </div>
+                            @endif
+                            <button type="submit" @disabled(! empty($needsSafetyOverride) && empty($canOverride)) class="rounded-bucha border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{{ __('Close session') }}</button>
                         </form>
                     @endif
                 </div>

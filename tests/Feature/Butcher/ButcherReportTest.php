@@ -49,7 +49,6 @@ class ButcherReportTest extends TestCase
         $this->actingAs($user)
             ->get(route('butcher.reports.index'))
             ->assertOk()
-            ->assertSee(__('Reports'))
             ->assertSee(__('Receiving'))
             ->assertSee(__('Waste & adjustments'))
             ->assertSee(__('Stock counts'))
@@ -186,12 +185,12 @@ class ButcherReportTest extends TestCase
         $this->actingAs($user)
             ->get(route('butcher.finance.receivables.index'))
             ->assertOk()
-            ->assertSee(__('Receivables'));
+            ->assertSee(__('Total outstanding'));
 
         $this->actingAs($user)
             ->get(route('butcher.reports.compliance-overrides'))
             ->assertOk()
-            ->assertSee(__('Compliance overrides'))
+            ->assertSee(__('Overrides shown'))
             ->assertSee('Test override for report')
             ->assertSee($user->name);
     }

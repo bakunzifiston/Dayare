@@ -45,26 +45,40 @@ class ButcherSalesController extends Controller
         }
 
         $date = $request->query('date', now()->toDateString());
-        $status = $request->query('status');
+        $status = (string) $request->query('status', 'all');
+        $search = trim((string) $request->query('q', ''));
         $outletId = $this->requestedOutletId($request, $business);
 
-        $sales = $business->butcherSales()
+        if ($status !== 'all' && ! in_array($status, ButcherSale::STATUSES, true)) {
+            $status = 'all';
+        }
+
+        $salesQuery = $business->butcherSales()
             ->with(['customer', 'outlet', 'soldByUser'])
-            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
             ->when($date, fn ($q) => $q->whereDate('sale_date', $date))
             ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
-            ->latest('id')
-            ->paginate(20)
-            ->withQueryString();
+            ->latest('id');
+
+        if ($search !== '') {
+            $salesQuery->where(function ($query) use ($search) {
+                $query->where('sale_number', 'like', '%'.$search.'%')
+                    ->orWhereHas('customer', fn ($q) => $q->where('name', 'like', '%'.$search.'%'));
+            });
+        }
 
         return view('butcher.sales.index', [
             'business' => $business,
-            'sales' => $sales,
+            'sales' => $salesQuery->paginate(20)->withQueryString(),
             'summary' => $this->sales->getDailySalesSummary($business, Carbon::parse($date), $outletId),
-            'filterDate' => $date,
-            'filterStatus' => $status,
+            'filters' => [
+                'q' => $search,
+                'date' => $date,
+                'status' => $status,
+            ],
             'filterOutletId' => $outletId,
             'outlets' => $business->butcherOutlets()->orderBy('name')->get(),
+            'statuses' => ButcherSale::STATUSES,
         ]);
     }
 
@@ -234,24 +248,73 @@ class ButcherSalesController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
-        $orders = $business->butcherOrders()
+        $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', 'all');
+        $orderStatuses = [
+            ButcherOrder::STATUS_PENDING,
+            ButcherOrder::STATUS_CONFIRMED,
+            ButcherOrder::STATUS_READY,
+            ButcherOrder::STATUS_CANCELLED,
+        ];
+        if ($status !== 'all' && ! in_array($status, $orderStatuses, true)) {
+            $status = 'all';
+        }
+
+        $baseQuery = $business->butcherOrders();
+        $kpis = [
+            'total' => (int) (clone $baseQuery)->count(),
+            'pending' => (int) (clone $baseQuery)->where('status', ButcherOrder::STATUS_PENDING)->count(),
+            'ready' => (int) (clone $baseQuery)->where('status', ButcherOrder::STATUS_READY)->count(),
+            'confirmed' => (int) (clone $baseQuery)->where('status', ButcherOrder::STATUS_CONFIRMED)->count(),
+        ];
+
+        $ordersQuery = $business->butcherOrders()
             ->with(['customer', 'items.product', 'sale', 'outlet'])
             ->latest('order_date')
-            ->latest('id')
-            ->paginate(20);
+            ->latest('id');
+
+        if ($search !== '') {
+            $ordersQuery->where(function ($query) use ($search) {
+                $query->where('order_number', 'like', '%'.$search.'%')
+                    ->orWhereHas('customer', fn ($q) => $q->where('name', 'like', '%'.$search.'%'));
+            });
+        }
+
+        if ($status !== 'all') {
+            $ordersQuery->where('status', $status);
+        }
 
         return view('butcher.sales.orders.index', [
             'business' => $business,
-            'orders' => $orders,
-            'customers' => $business->butcherCustomers()->orderBy('name')->get(),
+            'orders' => $ordersQuery->paginate(20)->withQueryString(),
+            'kpis' => $kpis,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+            ],
+            'statuses' => $orderStatuses,
+        ]);
+    }
+
+    public function ordersCreate(Request $request): View|RedirectResponse
+    {
+        $business = $this->primaryBusiness($request);
+        if ($business === null) {
+            return redirect()->route('butcher.dashboard');
+        }
+
+        $customers = $business->butcherCustomers()->orderBy('name')->get();
+        if ($customers->isEmpty()) {
+            return redirect()
+                ->route('butcher.customers.create')
+                ->with('status', __('Add a customer before creating an order.'));
+        }
+
+        return view('butcher.sales.orders.create', [
+            'business' => $business,
+            'customers' => $customers,
             'products' => $business->butcherProducts()->where('is_active', true)->orderBy('name')->get(),
             'outlets' => $business->butcherOutlets()->where('status', ButcherOutlet::STATUS_ACTIVE)->orderBy('name')->get(),
-            'statuses' => [
-                ButcherOrder::STATUS_PENDING,
-                ButcherOrder::STATUS_CONFIRMED,
-                ButcherOrder::STATUS_READY,
-                ButcherOrder::STATUS_CANCELLED,
-            ],
         ]);
     }
 
@@ -304,12 +367,11 @@ class ButcherSalesController extends Controller
             'outlets' => $business->butcherOutlets()->where('status', ButcherOutlet::STATUS_ACTIVE)->orderBy('name')->get(),
             'paymentMethods' => ButcherSale::PAYMENT_METHODS,
             'stockPreview' => $stockPreview,
-            'statuses' => [
-                ButcherOrder::STATUS_PENDING,
-                ButcherOrder::STATUS_CONFIRMED,
-                ButcherOrder::STATUS_READY,
-                ButcherOrder::STATUS_CANCELLED,
-            ],
+            'statuses' => $this->sales->nextOrderStatuses($order),
+            'canOverrideSafety' => (bool) $request->user()?->canButcherPermission(
+                \App\Models\BusinessUser::PERMISSION_OVERRIDE_BUTCHER_BATCH_SAFETY,
+                (int) $business->id
+            ),
         ]);
     }
 

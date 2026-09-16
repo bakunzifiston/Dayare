@@ -34,6 +34,12 @@ class ButcherPhase10UxTest extends TestCase
 
         $this->assertNotNull($payload['today']);
         $this->assertNotNull($payload['overview']);
+        $this->assertArrayHasKey('charts', $payload);
+        $this->assertNotEmpty($payload['charts']['today']);
+        $this->assertSame([], $payload['charts']['overview']);
+        $this->assertSame('chart-butcher-revenue-trend', $payload['charts']['today'][0]['id']);
+        $this->assertSame('line', $payload['charts']['today'][0]['type']);
+        $this->assertContains($payload['charts']['today'][1]['type'], ['pie', 'donut']);
 
         // Legacy keys still present and match relocated values
         $this->assertSame(
@@ -80,15 +86,18 @@ class ButcherPhase10UxTest extends TestCase
         $this->actingAs($user)
             ->get(route('butcher.dashboard'))
             ->assertOk()
-            ->assertSee(__('Today'))
+            ->assertSee(__('Performance'))
             ->assertSee(__('Open orders'))
-            ->assertSee(__('Expiring soon'));
+            ->assertSee(__('Expiring soon'))
+            ->assertSee(__('Analytics'))
+            ->assertSee(__('Revenue trend'))
+            ->assertSee(__('Apply'))
+            ->assertSee(__('7 days'));
 
         $this->actingAs($user)
-            ->get(route('butcher.dashboard', ['section' => 'overview']))
+            ->get(route('butcher.dashboard', ['period' => '30d']))
             ->assertOk()
-            ->assertSee(__('Finance (month to date)'))
-            ->assertSee(__('Yield & waste (30 days)'));
+            ->assertSee(__('30 days'));
     }
 
     public function test_outlet_filter_scopes_inventory_sales_and_reports(): void

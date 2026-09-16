@@ -31,20 +31,42 @@ class ButcherCatalogController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
+        $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', 'all');
+        $meatType = (string) $request->query('meat_type', 'all');
+
+        if (! in_array($status, ['all', 'active', 'inactive'], true)) {
+            $status = 'all';
+        }
+        if ($meatType !== 'all' && ! in_array($meatType, ButcherProduct::MEAT_TYPES, true)) {
+            $meatType = 'all';
+        }
+
+        $baseQuery = $business->butcherProducts();
+        $kpis = [
+            'total' => (int) (clone $baseQuery)->count(),
+            'active' => (int) (clone $baseQuery)->where('is_active', true)->count(),
+            'inactive' => (int) (clone $baseQuery)->where('is_active', false)->count(),
+            'with_rules' => (int) (clone $baseQuery)->whereHas('priceRules', fn ($q) => $q->where('is_active', true))->count(),
+        ];
+
         $query = $business->butcherProducts()->with(['cutType', 'priceRules']);
 
-        $status = (string) $request->query('status', 'all');
         if ($status === 'active') {
             $query->where('is_active', true);
         } elseif ($status === 'inactive') {
             $query->where('is_active', false);
         }
 
-        $search = trim((string) $request->query('q', ''));
+        if ($meatType !== 'all') {
+            $query->where('meat_type', $meatType);
+        }
+
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%'.$search.'%')
-                    ->orWhere('meat_type', 'like', '%'.$search.'%');
+                    ->orWhere('meat_type', 'like', '%'.$search.'%')
+                    ->orWhereHas('cutType', fn ($cutQuery) => $cutQuery->where('name', 'like', '%'.$search.'%'));
             });
         }
 
@@ -53,8 +75,13 @@ class ButcherCatalogController extends Controller
         return view('butcher.catalog.index', [
             'business' => $business,
             'products' => $products,
-            'status' => $status,
-            'search' => $search,
+            'kpis' => $kpis,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+                'meat_type' => $meatType,
+            ],
+            'meatTypes' => ButcherProduct::MEAT_TYPES,
             'canManage' => $request->user()?->canButcherPermission(
                 \App\Models\BusinessUser::PERMISSION_MANAGE_BUTCHER_CATALOG,
                 $business->id

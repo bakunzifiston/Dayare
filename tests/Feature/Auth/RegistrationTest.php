@@ -30,7 +30,7 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('businesses.create', absolute: false));
     }
 
     public function test_registration_rejects_email_duplicates_case_insensitively(): void
@@ -55,7 +55,7 @@ class RegistrationTest extends TestCase
         ]);
     }
 
-    public function test_registration_rejects_business_name_duplicates_after_normalization(): void
+    public function test_non_processor_registration_creates_unique_workspace_and_redirects(): void
     {
         $user = User::factory()->create([
             'email_normalized' => 'owner@example.com',
@@ -74,18 +74,23 @@ class RegistrationTest extends TestCase
             'owner_last_name' => 'Name',
         ]);
 
-        $response = $this->from('/register')->post('/register', [
+        $response = $this->post('/register', [
             'name' => 'New Owner',
             'email' => 'new@example.com',
-            'business_name' => '  my   FARM  ',
             'password' => 'password',
             'password_confirmation' => 'password',
             'business_type' => 'logistics',
         ]);
 
-        $response->assertRedirect('/register');
-        $response->assertSessionHasErrors([
-            'business_name' => 'This business name is already taken',
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('logistics.dashboard.index', absolute: false));
+        $this->assertDatabaseHas('businesses', [
+            'type' => Business::TYPE_LOGISTICS,
+            'email' => 'new@example.com',
+        ]);
+        $this->assertDatabaseMissing('businesses', [
+            'email' => 'new@example.com',
+            'business_name_normalized' => 'my farm',
         ]);
     }
 }

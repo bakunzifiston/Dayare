@@ -33,10 +33,14 @@ class MovementPermitAnalyticsService
     {
         $start = now()->subMonths(5)->startOfMonth();
 
+        $periodExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', COALESCE(departure_date, issue_date))"
+            : "DATE_FORMAT(COALESCE(departure_date, issue_date), '%Y-%m')";
+
         $movementTrend = MovementPermit::query()
             ->whereIn('farmer_id', $farmerIds)
             ->where('departure_date', '>=', $start)
-            ->selectRaw("DATE_FORMAT(COALESCE(departure_date, issue_date), '%Y-%m') as period, COUNT(*) as total")
+            ->selectRaw("{$periodExpression} as period, COUNT(*) as total")
             ->groupBy('period')
             ->orderBy('period')
             ->pluck('total', 'period');
@@ -45,7 +49,7 @@ class MovementPermitAnalyticsService
             ->whereIn('farmer_id', $farmerIds)
             ->where('permit_status', MovementPermit::STATUS_APPROVED)
             ->where('departure_date', '>=', $start)
-            ->selectRaw("DATE_FORMAT(COALESCE(departure_date, issue_date), '%Y-%m') as period, COUNT(*) as total")
+            ->selectRaw("{$periodExpression} as period, COUNT(*) as total")
             ->groupBy('period')
             ->orderBy('period')
             ->pluck('total', 'period');

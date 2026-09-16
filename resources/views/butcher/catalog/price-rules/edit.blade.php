@@ -3,15 +3,13 @@
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div>
-            <a href="{{ route('butcher.catalog.products.show', $product) }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← :name', ['name' => $product->name]) }}</a>
-            <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">{{ __('Edit price rule') }}</h2>
-        </div>
-    </x-slot>
-
     <div class="py-8">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+            <!-- butcher-toolbar -->
+            <div class="mb-2">
+                <a href="{{ route('butcher.catalog.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Catalog') }}</a>
+            </div>
+
             <form method="post" action="{{ route('butcher.catalog.price-rules.update', [$product, $priceRule]) }}" class="rounded-bucha border border-slate-200/80 bg-white p-6 shadow-bucha space-y-4">
                 @csrf
                 @method('PUT')

@@ -41,6 +41,8 @@ class TransportTripExternalDestinationTest extends TestCase
     public function test_external_destination_requires_name(): void
     {
         $fixture = $this->createProcessorTransportFixture(BusinessUser::ROLE_TRANSPORT_MANAGER);
+        // Prior trip destination is used as a certificate default; remove it so name stays required.
+        $fixture['trip']->delete();
 
         $this->actingAs($fixture['user'])
             ->post(route('transport-trips.store'), [

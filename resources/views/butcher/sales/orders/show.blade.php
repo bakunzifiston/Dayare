@@ -3,19 +3,13 @@
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <a href="{{ route('butcher.sales.orders.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Orders') }}</a>
-                <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">{{ $order->order_number }}</h2>
-                <p class="mt-1 text-sm text-gray-500">{{ $order->customer?->name }} · {{ $order->order_date?->toDateString() }}</p>
-            </div>
-            <x-butcher.status-badge :status="$order->status" />
-        </div>
-    </x-slot>
-
     <div class="py-8">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <!-- butcher-toolbar -->
+            <div class="mb-2">
+                <a href="{{ route('butcher.sales.orders.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Orders') }}</a>
+            </div>
+
             @if (session('status'))
                 <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{ session('status') }}</div>
             @endif
@@ -72,7 +66,7 @@
                     </tbody>
                 </table>
 
-                @if (! in_array($order->status, [\App\Models\ButcherOrder::STATUS_FULFILLED, \App\Models\ButcherOrder::STATUS_CANCELLED], true))
+                @if (! empty($statuses))
                     <form method="post" action="{{ route('butcher.sales.orders.status', $order) }}" class="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
                         @csrf
                         @method('PATCH')
@@ -80,9 +74,10 @@
                             <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Update status') }}</label>
                             <select name="status" class="mt-1 block rounded-lg border-gray-300 text-sm">
                                 @foreach ($statuses as $status)
-                                    <option value="{{ $status }}" @selected($order->status === $status)>{{ ucfirst($status) }}</option>
+                                    <option value="{{ $status }}">{{ ucfirst($status) }}</option>
                                 @endforeach
                             </select>
+                            <x-input-error :messages="$errors->get('status')" class="mt-1" />
                         </div>
                         <button type="submit" class="rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Save status') }}</button>
                     </form>

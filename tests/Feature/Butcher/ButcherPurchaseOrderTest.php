@@ -60,6 +60,48 @@ class ButcherPurchaseOrderTest extends TestCase
         ]);
     }
 
+    public function test_purchase_orders_index_supports_search_and_status_filter(): void
+    {
+        ButcherPurchaseOrder::query()->create([
+            'business_id' => $this->business->id,
+            'supplier_id' => $this->supplier->id,
+            'po_number' => 'PO-BEEF-001',
+            'meat_type' => ButcherPurchaseOrder::MEAT_BEEF,
+            'requested_weight_kg' => 40,
+            'requested_date' => now()->toDateString(),
+            'status' => ButcherPurchaseOrder::STATUS_DRAFT,
+        ]);
+        ButcherPurchaseOrder::query()->create([
+            'business_id' => $this->business->id,
+            'supplier_id' => $this->supplier->id,
+            'po_number' => 'PO-GOAT-002',
+            'meat_type' => ButcherPurchaseOrder::MEAT_GOAT,
+            'requested_weight_kg' => 20,
+            'requested_date' => now()->toDateString(),
+            'status' => ButcherPurchaseOrder::STATUS_DELIVERED,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('butcher.purchase-orders.index'))
+            ->assertOk()
+            ->assertSee(__('Total orders'))
+            ->assertSee(__('New purchase order'))
+            ->assertSee('PO-BEEF-001')
+            ->assertSee('PO-GOAT-002');
+
+        $this->actingAs($this->user)
+            ->get(route('butcher.purchase-orders.index', ['q' => 'BEEF']))
+            ->assertOk()
+            ->assertSee('PO-BEEF-001')
+            ->assertDontSee('PO-GOAT-002');
+
+        $this->actingAs($this->user)
+            ->get(route('butcher.purchase-orders.index', ['status' => ButcherPurchaseOrder::STATUS_DELIVERED]))
+            ->assertOk()
+            ->assertSee('PO-GOAT-002')
+            ->assertDontSee('PO-BEEF-001');
+    }
+
     public function test_po_create_send_confirm_and_receive_marks_delivered(): void
     {
         $this->actingAs($this->user)

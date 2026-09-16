@@ -75,7 +75,7 @@ class ButcherSalesTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.sales.index'))
             ->assertOk()
-            ->assertSee(__('Sales'));
+            ->assertSee(__('Open POS'));
     }
 
     public function test_pos_sale_deducts_cut_stock_and_generates_receipt(): void
@@ -470,6 +470,70 @@ class ButcherSalesTest extends TestCase
             ->where('cut_output_id', $output->id)
             ->where('type', ButcherInventoryMovement::TYPE_RETURN_IN)
             ->sum('quantity_kg'), 0.001);
+    }
+
+    public function test_cannot_cancel_sale_after_return(): void
+    {
+        [$product, $output] = $this->seedProductWithStock(20);
+
+        $customer = ButcherCustomer::query()->create([
+            'business_id' => $this->business->id,
+            'name' => 'Return Hotel',
+            'phone' => '+250788444444',
+            'tier' => ButcherCustomer::TIER_WHOLESALE,
+            'credit_limit' => 500000,
+        ]);
+
+        $sales = app(ButcherSalesService::class);
+        $sale = $sales->createSale($this->business, [
+            'outlet_id' => $this->outlet->id,
+            'customer_id' => $customer->id,
+            'payment_method' => ButcherSale::PAYMENT_CREDIT,
+            'amount_paid' => 0,
+            'items' => [['product_id' => $product->id, 'quantity_kg' => 5]],
+        ], $this->user);
+
+        app(ButcherReturnService::class)->processReturn($sale, [
+            'sale_item_id' => $sale->items->first()->id,
+            'quantity_kg' => 1,
+            'reason' => 'Quality',
+        ], $this->user);
+
+        $stockAfterReturn = (float) $output->fresh()->remaining_weight_kg;
+        $balanceAfterReturn = (float) $customer->fresh()->outstanding_balance;
+
+        try {
+            $sales->cancelSale($sale->fresh());
+            $this->fail('Expected cancel after return to be rejected.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('sale', $e->errors());
+        }
+
+        $this->assertEqualsWithDelta($stockAfterReturn, (float) $output->fresh()->remaining_weight_kg, 0.001);
+        $this->assertEqualsWithDelta($balanceAfterReturn, (float) $customer->fresh()->outstanding_balance, 0.01);
+        $this->assertSame(ButcherSale::STATUS_COMPLETED, $sale->fresh()->status);
+    }
+
+    public function test_order_status_rejects_invalid_jumps(): void
+    {
+        [$product] = $this->seedProductWithStock(10);
+        $customer = ButcherCustomer::query()->create([
+            'business_id' => $this->business->id,
+            'name' => 'Jump Hotel',
+            'phone' => '+250788555555',
+            'tier' => ButcherCustomer::TIER_WHOLESALE,
+            'credit_limit' => 500000,
+        ]);
+
+        $sales = app(ButcherSalesService::class);
+        $order = $sales->createOrder($this->business, [
+            'customer_id' => $customer->id,
+            'outlet_id' => $this->outlet->id,
+            'items' => [['product_id' => $product->id, 'quantity_kg' => 2]],
+        ]);
+
+        $this->expectException(ValidationException::class);
+        $sales->updateOrderStatus($order, ButcherOrder::STATUS_READY);
     }
 
     public function test_fulfill_and_return_via_http(): void

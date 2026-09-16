@@ -3,18 +3,13 @@
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $sale->sale_number }}</h2>
-                <p class="mt-1 text-sm text-gray-500">{{ $sale->sale_date?->toDateString() }} · {{ $sale->outlet?->name }}</p>
-            </div>
-            <x-butcher.status-badge :status="$sale->status" />
-        </div>
-    </x-slot>
-
     <div class="py-8">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <!-- butcher-toolbar -->
+            <div class="mb-2">
+                <a href="{{ route('butcher.sales.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Sales') }}</a>
+            </div>
+
             @if (session('status'))
                 <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{ session('status') }}</div>
             @endif

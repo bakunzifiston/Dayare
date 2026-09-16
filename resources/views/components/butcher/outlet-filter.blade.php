@@ -15,7 +15,7 @@
     <select
         id="{{ $name }}"
         name="{{ $name }}"
-        class="mt-1 block w-full rounded-lg border-gray-300 text-sm"
+        class="mt-1 block w-full rounded-lg border-slate-200 text-sm shadow-sm focus:border-bucha-primary focus:ring-bucha-primary"
         onchange="this.form.submit()"
     >
         <option value="">{{ __('All outlets') }}</option>

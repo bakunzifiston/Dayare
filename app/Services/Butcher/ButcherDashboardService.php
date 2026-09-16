@@ -24,9 +24,10 @@ class ButcherDashboardService
     ) {}
 
     /**
+     * @param  array{period?: string, from_input?: string, to_input?: string, range_label?: string, all_time?: bool}|null  $filters
      * @return array<string, mixed>
      */
-    public function build(User $user): array
+    public function build(User $user, ?Carbon $rangeFrom = null, ?Carbon $rangeTo = null, ?array $filters = null): array
     {
         $businesses = Business::query()
             ->whereIn('id', $user->accessibleButcherBusinessIds())
@@ -34,6 +35,31 @@ class ButcherDashboardService
             ->get();
 
         $business = $businesses->first();
+        $today = $this->today()->startOfDay();
+        $allTime = (bool) ($filters['all_time'] ?? ($rangeFrom === null && $rangeTo === null && (($filters['period'] ?? 'all') === 'all')));
+
+        if (! $allTime) {
+            $rangeFrom = ($rangeFrom ?? $today->copy())->copy()->startOfDay();
+            $rangeTo = ($rangeTo ?? $today->copy())->copy()->startOfDay();
+            if ($rangeFrom->gt($rangeTo)) {
+                [$rangeFrom, $rangeTo] = [$rangeTo->copy(), $rangeFrom->copy()];
+            }
+        } else {
+            $rangeFrom = null;
+            $rangeTo = null;
+        }
+
+        $filters = array_merge([
+            'period' => $allTime ? 'all' : ($rangeFrom?->equalTo($rangeTo) ? 'today' : 'custom'),
+            'from_input' => $rangeFrom?->toDateString() ?? '',
+            'to_input' => $rangeTo?->toDateString() ?? '',
+            'range_label' => $allTime
+                ? __('All time')
+                : ($rangeFrom->equalTo($rangeTo)
+                    ? $rangeFrom->isoFormat('D MMM YYYY')
+                    : $rangeFrom->isoFormat('D MMM YYYY').' – '.$rangeTo->isoFormat('D MMM YYYY')),
+            'all_time' => $allTime,
+        ], $filters ?? []);
 
         if ($business === null) {
             return [
@@ -43,25 +69,46 @@ class ButcherDashboardService
                 'today_date' => $this->today()->isoFormat('dddd, D MMMM YYYY'),
                 'today' => null,
                 'overview' => null,
+                'filters' => $filters,
+                'charts' => [
+                    'today' => [],
+                    'overview' => [],
+                ],
             ];
         }
 
-        $today = $this->today();
-        $yesterday = $today->copy()->subDay();
-        $monthStart = $today->copy()->startOfMonth();
+        if ($allTime) {
+            $periodSales = $this->completedSalesQuery($business, null, null);
+            $periodMetrics = $this->salesMetrics($periodSales);
+            $priorMetrics = [
+                'sales_count' => 0,
+                'revenue' => 0.0,
+                'kg_sold' => 0.0,
+                'avg_sale_value' => 0.0,
+            ];
+            $compareLabel = '';
+            $financeFrom = Carbon::parse('2000-01-01', self::TIMEZONE)->startOfDay();
+            $financeTo = $today->copy()->endOfDay();
+        } else {
+            $dayCount = $rangeFrom->diffInDays($rangeTo) + 1;
+            $prevTo = $rangeFrom->copy()->subDay();
+            $prevFrom = $prevTo->copy()->subDays($dayCount - 1);
+            $compareLabel = $dayCount === 1 ? __('vs yesterday') : __('vs prior period');
 
-        $todaySales = $this->completedSalesQuery($business, $today, $today);
-        $yesterdaySales = $this->completedSalesQuery($business, $yesterday, $yesterday);
+            $periodSales = $this->completedSalesQuery($business, $rangeFrom, $rangeTo);
+            $priorSales = $this->completedSalesQuery($business, $prevFrom, $prevTo);
+            $periodMetrics = $this->salesMetrics($periodSales);
+            $priorMetrics = $this->salesMetrics($priorSales);
+            $financeFrom = $rangeFrom->copy()->startOfDay();
+            $financeTo = $rangeTo->copy()->endOfDay();
+        }
 
-        $todayMetrics = $this->salesMetrics($todaySales);
-        $yesterdayMetrics = $this->salesMetrics($yesterdaySales);
-
-        $monthPl = $this->finance->getProfitAndLoss($business, $monthStart, $today->copy()->endOfDay());
-        $cashflow = $this->finance->getCashFlow($business, $monthStart, $today->copy()->endOfDay());
+        $periodPl = $this->finance->getProfitAndLoss($business, $financeFrom, $financeTo);
+        $cashflow = $this->finance->getCashFlow($business, $financeFrom, $financeTo);
         $complianceAlerts = $this->compliance->getComplianceAlerts($business);
         $storage = $this->storage->getStorageSummary($business);
-        $yield = $this->cutting->getYieldReport($business, '30d');
-        $waste = $this->storage->getWasteSummary($business, '30d');
+        $yield = $this->yieldForRange($business, $rangeFrom, $rangeTo);
+        $waste = $this->wasteForRange($business, $rangeFrom, $rangeTo);
 
         $openOrders = (int) $business->butcherOrders()
             ->whereIn('status', [
@@ -73,12 +120,15 @@ class ButcherDashboardService
 
         $creditOutstanding = (float) $business->butcherCustomers()->sum('outstanding_balance');
 
-        $receivingTodayKg = (float) $business->butcherDeliveries()
-            ->whereDate('received_at', $today->toDateString())
-            ->sum('received_weight_kg');
-        $receivingTodayCount = (int) $business->butcherDeliveries()
-            ->whereDate('received_at', $today->toDateString())
-            ->count();
+        $receivingQuery = $business->butcherDeliveries();
+        if ($rangeFrom !== null) {
+            $receivingQuery->whereDate('received_at', '>=', $rangeFrom->toDateString());
+        }
+        if ($rangeTo !== null) {
+            $receivingQuery->whereDate('received_at', '<=', $rangeTo->toDateString());
+        }
+        $receivingKg = (float) (clone $receivingQuery)->sum('received_weight_kg');
+        $receivingCount = (int) (clone $receivingQuery)->count();
 
         $breachedBatches = (int) $business->butcherInventoryBatches()
             ->where('temperature_breach', true)
@@ -91,43 +141,47 @@ class ButcherDashboardService
 
         $todayAtGlance = [
             'sales_count' => $this->metricWithTrend(
-                $todayMetrics['sales_count'],
-                $yesterdayMetrics['sales_count'],
+                $periodMetrics['sales_count'],
+                $priorMetrics['sales_count'],
                 fn (int $v) => (string) $v,
+                $compareLabel,
             ),
             'revenue' => $this->metricWithTrend(
-                $todayMetrics['revenue'],
-                $yesterdayMetrics['revenue'],
+                $periodMetrics['revenue'],
+                $priorMetrics['revenue'],
                 fn (float $v) => 'RWF '.number_format($v, 0),
+                $compareLabel,
             ),
             'kg_sold' => $this->metricWithTrend(
-                $todayMetrics['kg_sold'],
-                $yesterdayMetrics['kg_sold'],
+                $periodMetrics['kg_sold'],
+                $priorMetrics['kg_sold'],
                 fn (float $v) => number_format($v, 1).' kg',
+                $compareLabel,
             ),
             'avg_sale_value' => $this->metricWithTrend(
-                $todayMetrics['avg_sale_value'],
-                $yesterdayMetrics['avg_sale_value'],
+                $periodMetrics['avg_sale_value'],
+                $priorMetrics['avg_sale_value'],
                 fn (float $v) => 'RWF '.number_format($v, 0),
+                $compareLabel,
             ),
         ];
 
         $financeBlock = [
             'revenue_mtd' => [
-                'value' => 'RWF '.number_format((float) $monthPl['revenue'], 0),
-                'subtext' => $monthStart->isoFormat('MMM D').' – '.$today->isoFormat('MMM D'),
-                'raw' => (float) $monthPl['revenue'],
+                'value' => 'RWF '.number_format((float) $periodPl['revenue'], 0),
+                'subtext' => $filters['range_label'],
+                'raw' => (float) $periodPl['revenue'],
             ],
             'cogs' => [
-                'value' => 'RWF '.number_format((float) $monthPl['cogs'], 0),
-                'subtext' => __('Month to date'),
-                'raw' => (float) $monthPl['cogs'],
+                'value' => 'RWF '.number_format((float) $periodPl['cogs'], 0),
+                'subtext' => $filters['range_label'],
+                'raw' => (float) $periodPl['cogs'],
             ],
             'gross_margin_pct' => [
-                'value' => number_format((float) $monthPl['gross_margin_pct'], 1).'%',
-                'color' => $monthPl['gross_margin_pct'] >= 20 ? 'success' : ($monthPl['gross_margin_pct'] >= 10 ? 'warning' : 'danger'),
+                'value' => number_format((float) $periodPl['gross_margin_pct'], 1).'%',
+                'color' => $periodPl['gross_margin_pct'] >= 20 ? 'success' : ($periodPl['gross_margin_pct'] >= 10 ? 'warning' : 'danger'),
                 'subtext' => __('Gross margin'),
-                'raw' => (float) $monthPl['gross_margin_pct'],
+                'raw' => (float) $periodPl['gross_margin_pct'],
             ],
             'credit_outstanding' => [
                 'value' => 'RWF '.number_format($creditOutstanding, 0),
@@ -137,12 +191,12 @@ class ButcherDashboardService
             ],
             'cash_in' => [
                 'value' => 'RWF '.number_format((float) ($cashflow['total_cash_in'] ?? 0), 0),
-                'subtext' => __('Cash in (MTD)'),
+                'subtext' => __('Cash in'),
                 'raw' => (float) ($cashflow['total_cash_in'] ?? 0),
             ],
             'cash_out' => [
                 'value' => 'RWF '.number_format((float) ($cashflow['total_cash_out'] ?? 0), 0),
-                'subtext' => __('Cash out (MTD)'),
+                'subtext' => __('Cash out'),
                 'raw' => (float) ($cashflow['total_cash_out'] ?? 0),
             ],
         ];
@@ -178,10 +232,10 @@ class ButcherDashboardService
             'kg_sold' => $todayAtGlance['kg_sold'],
             'avg_sale_value' => $todayAtGlance['avg_sale_value'],
             'receiving' => [
-                'value' => number_format($receivingTodayKg, 1).' kg',
-                'subtext' => __(':count delivery(ies)', ['count' => $receivingTodayCount]),
-                'raw_kg' => $receivingTodayKg,
-                'raw_count' => $receivingTodayCount,
+                'value' => number_format($receivingKg, 1).' kg',
+                'subtext' => __(':count delivery(ies)', ['count' => $receivingCount]),
+                'raw_kg' => $receivingKg,
+                'raw_count' => $receivingCount,
             ],
             'open_orders' => $salesBlock['open_orders'],
             'expiring_soon' => [
@@ -216,12 +270,12 @@ class ButcherDashboardService
             'operations' => [
                 'yield_kg' => [
                     'value' => number_format((float) $yield['total_yield_kg'], 1).' kg',
-                    'subtext' => __('Cut yield (30d)'),
+                    'subtext' => __('Cut yield'),
                     'raw' => (float) $yield['total_yield_kg'],
                 ],
                 'waste_kg' => [
                     'value' => number_format((float) $waste['waste_kg'], 1).' kg',
-                    'subtext' => __('Waste (30d)'),
+                    'subtext' => __('Waste'),
                     'raw' => (float) $waste['waste_kg'],
                 ],
                 'avg_wastage_pct' => [
@@ -241,17 +295,19 @@ class ButcherDashboardService
             'businesses' => $businesses,
             'business' => $business,
             'greeting' => $this->greeting(),
-            'today_date' => $today->isoFormat('dddd, D MMMM YYYY'),
+            'today_date' => $this->today()->isoFormat('dddd, D MMMM YYYY'),
+            'filters' => $filters,
             // Relocated primary payload (Phase 10)
             'today' => $todaySection,
             'overview' => $overviewSection,
+            'charts' => $this->buildCharts($business, $rangeFrom, $rangeTo, $filters['range_label']),
             // Backward-compatible aliases for regression / any legacy reads
             'today_at_glance' => $todayAtGlance,
             'finance' => $financeBlock,
             'sales' => $salesBlock,
             'compliance_kpis' => $complianceKpis,
             'alerts' => $this->buildAlerts($business, $complianceAlerts, $creditOutstanding, $breachedBatches),
-            'recent_sales' => $this->recentSales($business),
+            'recent_sales' => $this->recentSales($business, $rangeFrom, $rangeTo),
         ];
     }
 
@@ -274,12 +330,19 @@ class ButcherDashboardService
     /**
      * @return \Illuminate\Database\Eloquent\Builder<ButcherSale>
      */
-    private function completedSalesQuery(Business $business, Carbon $from, Carbon $to)
+    private function completedSalesQuery(Business $business, ?Carbon $from, ?Carbon $to)
     {
-        return $business->butcherSales()
-            ->where('status', ButcherSale::STATUS_COMPLETED)
-            ->whereDate('sale_date', '>=', $from->toDateString())
-            ->whereDate('sale_date', '<=', $to->toDateString());
+        $query = $business->butcherSales()
+            ->where('status', ButcherSale::STATUS_COMPLETED);
+
+        if ($from !== null) {
+            $query->whereDate('sale_date', '>=', $from->toDateString());
+        }
+        if ($to !== null) {
+            $query->whereDate('sale_date', '<=', $to->toDateString());
+        }
+
+        return $query;
     }
 
     /**
@@ -307,15 +370,15 @@ class ButcherDashboardService
     /**
      * @return array{value: string, trend: ?string, trend_text: ?string, color: ?string, subtext: ?string}
      */
-    private function metricWithTrend(float|int $current, float|int $previous, callable $formatter): array
+    private function metricWithTrend(float|int $current, float|int $previous, callable $formatter, string $compareLabel = ''): array
     {
         $diff = $current - $previous;
         $trend = null;
         $trendText = null;
 
-        if ($diff !== 0.0) {
+        if ($diff !== 0.0 && $compareLabel !== '') {
             $trend = $diff > 0 ? 'up' : 'down';
-            $trendText = ($diff > 0 ? '↑ ' : '↓ ').$this->formatTrendDelta($diff, $current, $previous).' '.__('vs yesterday');
+            $trendText = ($diff > 0 ? '↑ ' : '↓ ').$this->formatTrendDelta($diff, $current, $previous).' '.$compareLabel;
         }
 
         return [
@@ -481,11 +544,20 @@ class ButcherDashboardService
     /**
      * @return Collection<int, array{number: string, customer: string, item: string, amount: float, payment: string, time: string}>
      */
-    private function recentSales(Business $business): Collection
+    private function recentSales(Business $business, ?Carbon $from = null, ?Carbon $to = null): Collection
     {
-        return $business->butcherSales()
+        $query = $business->butcherSales()
             ->with(['customer', 'items.product'])
-            ->where('status', ButcherSale::STATUS_COMPLETED)
+            ->where('status', ButcherSale::STATUS_COMPLETED);
+
+        if ($from !== null) {
+            $query->whereDate('sale_date', '>=', $from->toDateString());
+        }
+        if ($to !== null) {
+            $query->whereDate('sale_date', '<=', $to->toDateString());
+        }
+
+        return $query
             ->latest('created_at')
             ->limit(10)
             ->get()
@@ -506,5 +578,200 @@ class ButcherDashboardService
                         : '—',
                 ];
             });
+    }
+
+    /**
+     * @return array{total_yield_kg: float, total_wastage_kg: float, avg_wastage_pct: float}
+     */
+    private function yieldForRange(Business $business, ?Carbon $from, ?Carbon $to): array
+    {
+        $query = $business->butcherCuttingSessions()
+            ->where('status', \App\Models\ButcherCuttingSession::STATUS_CLOSED);
+
+        if ($from !== null) {
+            $query->whereDate('session_date', '>=', $from->toDateString());
+        }
+        if ($to !== null) {
+            $query->whereDate('session_date', '<=', $to->toDateString());
+        }
+
+        $sessions = $query->get();
+
+        return [
+            'total_yield_kg' => (float) $sessions->sum('total_cuts_weight_kg'),
+            'total_wastage_kg' => (float) $sessions->sum('wastage_kg'),
+            'avg_wastage_pct' => $sessions->isNotEmpty()
+                ? round((float) $sessions->avg('wastage_pct'), 2)
+                : 0.0,
+        ];
+    }
+
+    /**
+     * @return array{waste_kg: float}
+     */
+    private function wasteForRange(Business $business, ?Carbon $from, ?Carbon $to): array
+    {
+        $query = $business->butcherDisposalLogs();
+        if ($from !== null) {
+            $query->whereDate('disposed_at', '>=', $from->toDateString());
+        }
+        if ($to !== null) {
+            $query->whereDate('disposed_at', '<=', $to->toDateString());
+        }
+
+        return ['waste_kg' => (float) $query->sum('weight_disposed_kg')];
+    }
+
+    /**
+     * Chart specs for Chart.js via x-workspace.chart-grid + processor-dashboard-charts.
+     *
+     * @return array{today: list<array<string, mixed>>, overview: list<array<string, mixed>>}
+     */
+    private function buildCharts(
+        Business $business,
+        ?Carbon $from,
+        ?Carbon $to,
+        string $rangeLabel,
+    ): array {
+        $series = config('bucha.chart.series', ['#A11D1E', '#7A1516', '#3C3C3B', '#718096', '#D69E2E', '#38A169']);
+
+        return [
+            'today' => [
+                $this->revenueTrendChart($business, $from, $to, $series, $rangeLabel),
+                $this->stockByMeatChart($business, $series),
+            ],
+            'overview' => [],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $series
+     * @return array<string, mixed>
+     */
+    private function revenueTrendChart(Business $business, ?Carbon $from, ?Carbon $to, array $series, string $rangeLabel): array
+    {
+        $today = $this->today()->startOfDay();
+        $chartTo = ($to ?? $today)->copy()->startOfDay();
+        // Keep the line chart readable: at most 30 days, ending at range end (or today for all-time).
+        $chartFrom = ($from ?? $chartTo->copy()->subDays(29))->copy()->startOfDay();
+        if ($from === null) {
+            $chartFrom = $chartTo->copy()->subDays(29);
+            $rangeLabel = __('Last 30 days');
+        }
+
+        $days = min(62, max(1, $chartFrom->diffInDays($chartTo) + 1));
+        if ($days > 30 && $from === null) {
+            $days = 30;
+            $chartFrom = $chartTo->copy()->subDays(29);
+        }
+
+        $rows = $business->butcherSales()
+            ->where('status', ButcherSale::STATUS_COMPLETED)
+            ->whereDate('sale_date', '>=', $chartFrom->toDateString())
+            ->whereDate('sale_date', '<=', $chartTo->toDateString())
+            ->selectRaw('sale_date, SUM(total_amount) as revenue')
+            ->groupBy('sale_date')
+            ->pluck('revenue', 'sale_date');
+
+        $labels = [];
+        $data = [];
+        for ($i = 0; $i < $days; $i++) {
+            $day = $chartFrom->copy()->addDays($i);
+            $key = $day->toDateString();
+            $labels[] = $day->isoFormat('MMM D');
+            $data[] = round((float) ($rows[$key] ?? 0), 0);
+        }
+
+        $color = $series[0] ?? '#A11D1E';
+
+        return [
+            'id' => 'chart-butcher-revenue-trend',
+            'title' => __('Revenue trend'),
+            'subtitle' => $rangeLabel,
+            'height' => 220,
+            'ariaLabel' => __('Daily revenue'),
+            'type' => 'line',
+            'yCallback' => 'compact',
+            'labels' => $labels,
+            'datasets' => [[
+                'label' => __('Revenue (RWF)'),
+                'data' => $data,
+                'borderColor' => $color,
+                'backgroundColor' => $color,
+            ]],
+            'legend' => [
+                ['color' => $color, 'label' => __('Revenue (RWF)')],
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $series
+     * @return array<string, mixed>
+     */
+    private function stockByMeatChart(Business $business, array $series): array
+    {
+        $rows = $business->butcherInventoryBatches()
+            ->whereIn('status', ButcherInventoryBatch::ACTIVE_STATUSES)
+            ->where('remaining_weight_kg', '>', 0)
+            ->selectRaw('meat_type, SUM(remaining_weight_kg) as kg')
+            ->groupBy('meat_type')
+            ->pluck('kg', 'meat_type');
+
+        $labels = [];
+        $data = [];
+        $colors = [];
+        $i = 0;
+        foreach ($rows as $meat => $kg) {
+            $labels[] = __(ucfirst((string) $meat));
+            $data[] = round((float) $kg, 1);
+            $colors[] = $series[$i % count($series)];
+            $i++;
+        }
+
+        return $this->pieSpec(
+            'butcher-stock-meat',
+            __('Stock by meat type'),
+            __('Active inventory (kg)'),
+            __('Remaining stock by meat type'),
+            $labels,
+            $data,
+            $colors,
+            'pie',
+        );
+    }
+
+    /**
+     * @param  list<string>  $labels
+     * @param  list<float|int>  $data
+     * @param  list<string>  $colors
+     * @return array<string, mixed>
+     */
+    private function pieSpec(
+        string $slug,
+        string $title,
+        string $subtitle,
+        string $ariaLabel,
+        array $labels,
+        array $data,
+        array $colors,
+        string $type = 'pie',
+    ): array {
+        return [
+            'id' => 'chart-'.$slug,
+            'title' => $title,
+            'subtitle' => $subtitle,
+            'height' => 220,
+            'ariaLabel' => $ariaLabel,
+            'type' => $type,
+            'labels' => $labels,
+            'data' => $data,
+            'colors' => $colors,
+            'legend' => collect($labels)->map(fn (string $label, int $i) => [
+                'color' => $colors[$i] ?? '#A11D1E',
+                'label' => $label,
+            ])->all(),
+            'emptyMessage' => __('No data for this period.'),
+        ];
     }
 }

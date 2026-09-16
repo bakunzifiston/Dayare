@@ -65,7 +65,9 @@ class ButcherSalesService
             ], $customer);
 
             $sale = $sale->fresh(['items.product', 'customer', 'outlet', 'payments']);
-            $this->generateReceipt($sale);
+            if (! ($data['skip_documents'] ?? false)) {
+                $this->generateReceipt($sale);
+            }
 
             return $sale->fresh();
         });
@@ -286,14 +288,21 @@ class ButcherSalesService
         }
 
         DB::transaction(function () use ($sale, $actor) {
-            $sale->load('items');
+            $sale->load(['items.returns']);
+
+            if (! $sale->isCancellable()) {
+                throw ValidationException::withMessages([
+                    'sale' => [__('This sale cannot be cancelled because returns have already been processed.')],
+                ]);
+            }
 
             foreach ($sale->items as $item) {
-                if ($item->cut_output_id && (float) $item->quantity_kg > 0) {
+                $restoreKg = $item->returnableQuantityKg();
+                if ($item->cut_output_id && $restoreKg > 0) {
                     $this->consumption->restoreCutOutput(
                         businessId: (int) $sale->business_id,
                         cutOutputId: (int) $item->cut_output_id,
-                        quantityKg: (float) $item->quantity_kg,
+                        quantityKg: $restoreKg,
                         actor: $actor,
                         referenceType: ButcherSale::class,
                         referenceId: (int) $sale->id,
@@ -302,7 +311,9 @@ class ButcherSalesService
             }
 
             if ($sale->payment_method === ButcherSale::PAYMENT_CREDIT && $sale->customer_id) {
-                $creditAmount = round((float) $sale->total_amount - (float) $sale->amount_paid, 2);
+                $originalCredit = round((float) $sale->total_amount - (float) $sale->amount_paid, 2);
+                $alreadyReversed = (float) $sale->items->flatMap->returns->sum('credit_reversed');
+                $creditAmount = round(max($originalCredit - $alreadyReversed, 0), 2);
                 if ($creditAmount > 0) {
                     $customer = ButcherCustomer::query()->find($sale->customer_id);
                     if ($customer) {
@@ -393,6 +404,19 @@ class ButcherSalesService
         ]);
     }
 
+    public function updateCustomer(ButcherCustomer $customer, array $data): ButcherCustomer
+    {
+        $customer->update([
+            'name' => (string) $data['name'],
+            'phone' => (string) $data['phone'],
+            'email' => $data['email'] ?? null,
+            'tier' => (string) ($data['tier'] ?? ButcherCustomer::TIER_RETAIL),
+            'credit_limit' => (float) ($data['credit_limit'] ?? 0),
+        ]);
+
+        return $customer->fresh();
+    }
+
     public function createOrder(Business $business, array $data): ButcherOrder
     {
         return DB::transaction(function () use ($business, $data) {
@@ -465,11 +489,57 @@ class ButcherSalesService
             ]);
         }
 
+        if ($status === $order->status) {
+            return;
+        }
+
+        $allowed = $this->allowedOrderTransitions((string) $order->status);
+        if (! in_array($status, $allowed, true)) {
+            throw ValidationException::withMessages([
+                'status' => [__('Orders can only move pending → confirmed → ready, or be cancelled before fulfillment.')],
+            ]);
+        }
+
         if ($status === ButcherOrder::STATUS_CONFIRMED) {
             $this->assertOrderCreditOnConfirm($order);
         }
 
         $order->update(['status' => $status]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function nextOrderStatuses(ButcherOrder $order): array
+    {
+        if ($order->status === ButcherOrder::STATUS_FULFILLED
+            || $order->status === ButcherOrder::STATUS_CANCELLED
+            || $order->sale_id !== null) {
+            return [];
+        }
+
+        return $this->allowedOrderTransitions((string) $order->status);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedOrderTransitions(string $from): array
+    {
+        return match ($from) {
+            ButcherOrder::STATUS_PENDING => [
+                ButcherOrder::STATUS_CONFIRMED,
+                ButcherOrder::STATUS_CANCELLED,
+            ],
+            ButcherOrder::STATUS_CONFIRMED => [
+                ButcherOrder::STATUS_READY,
+                ButcherOrder::STATUS_CANCELLED,
+            ],
+            ButcherOrder::STATUS_READY => [
+                ButcherOrder::STATUS_CANCELLED,
+            ],
+            default => [],
+        };
     }
 
     public function assertOrderCreditOnConfirm(ButcherOrder $order): void

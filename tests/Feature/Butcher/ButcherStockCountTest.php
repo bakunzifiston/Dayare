@@ -59,7 +59,7 @@ class ButcherStockCountTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.stock-counts.index'))
             ->assertOk()
-            ->assertSee(__('Stock counts'));
+            ->assertSee(__('Start count'));
     }
 
     public function test_can_start_count_save_lines_and_complete_with_adjustments(): void

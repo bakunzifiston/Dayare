@@ -50,6 +50,10 @@ class ButcherSaleItem extends Model
 
     public function returnedQuantityKg(): float
     {
+        if ($this->relationLoaded('returns')) {
+            return round((float) $this->returns->sum('quantity_kg'), 3);
+        }
+
         return round((float) $this->returns()->sum('quantity_kg'), 3);
     }
 

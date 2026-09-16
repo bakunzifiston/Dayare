@@ -1,131 +1,147 @@
 @php
+    $filters = $filters ?? ['q' => '', 'type' => 'all'];
+    $kpis = $kpis ?? ['waste_kg' => 0, 'waste_events' => 0, 'adjustment_kg' => 0, 'adjustment_events' => 0];
     $fmtKg = static fn ($v): string => number_format((float) $v, 2).' kg';
+    $showWaste = $filters['type'] !== 'adjustment';
+    $showAdjustments = $filters['type'] !== 'waste';
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Waste & adjustments') }}</h2>
-            <p class="mt-1 text-sm text-gray-500">{{ __('Record disposals and correct inventory weights.') }}</p>
-        </div>
-    </x-slot>
-
-    <div class="py-8">
+    <div class="py-6 sm:py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             @if (session('status'))
-                <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{ session('status') }}</div>
             @endif
 
+            <section class="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm">
+                <form method="get" action="{{ route('butcher.waste.index') }}" class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label for="waste_q" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Search') }}</label>
+                            <input id="waste_q" type="search" name="q" value="{{ $filters['q'] }}" placeholder="{{ __('Batch #, reason…') }}" class="mt-1 block w-full rounded-lg border-slate-200 text-sm shadow-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                        </div>
+                        <div>
+                            <label for="waste_type" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Type') }}</label>
+                            <select id="waste_type" name="type" class="mt-1 block w-full rounded-lg border-slate-200 text-sm shadow-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                                <option value="all" @selected($filters['type'] === 'all')>{{ __('All') }}</option>
+                                <option value="waste" @selected($filters['type'] === 'waste')>{{ __('Waste') }}</option>
+                                <option value="adjustment" @selected($filters['type'] === 'adjustment')>{{ __('Adjustments') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="submit" class="inline-flex items-center rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">{{ __('Apply') }}</button>
+                        <a href="{{ route('butcher.waste.index') }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Reset') }}</a>
+                        <a href="{{ route('butcher.waste.create') }}" class="inline-flex items-center gap-1.5 rounded-bucha border border-bucha-primary/30 bg-bucha-primary/5 px-4 py-2 text-sm font-semibold text-bucha-burgundy hover:bg-bucha-primary/10">
+                            <i class="ti ti-plus text-base leading-none" aria-hidden="true"></i>
+                            {{ __('Log waste') }}
+                        </a>
+                        <a href="{{ route('butcher.waste.adjustments.create') }}" class="inline-flex items-center gap-1.5 rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                            <i class="ti ti-adjustments text-base leading-none" aria-hidden="true"></i>
+                            {{ __('Log adjustment') }}
+                        </a>
+                    </div>
+                </form>
+            </section>
+
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <x-kpi-card stat :title="__('Waste (30d)')" :value="$fmtKg($summary['waste_kg'])" />
-                <x-kpi-card stat :title="__('Waste events')" :value="$summary['waste_events']" />
-                <x-kpi-card stat :title="__('Net adjustments')" :value="$fmtKg($summary['adjustment_kg'])" />
-                <x-kpi-card stat :title="__('Adjustment events')" :value="$summary['adjustment_events']" />
+                <x-butcher.kpi-card :label="__('Waste')" :value="$fmtKg($kpis['waste_kg'])" tone="rose" icon="ti ti-trash" />
+                <x-butcher.kpi-card :label="__('Waste events')" :value="(string) $kpis['waste_events']" tone="amber" icon="ti ti-list-details" />
+                <x-butcher.kpi-card :label="__('Net adjustments')" :value="((float) $kpis['adjustment_kg'] > 0 ? '+' : '').$fmtKg($kpis['adjustment_kg'])" tone="sky" icon="ti ti-adjustments" />
+                <x-butcher.kpi-card :label="__('Adjustment events')" :value="(string) $kpis['adjustment_events']" tone="bucha" icon="ti ti-clipboard-list" />
             </div>
 
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha space-y-4">
-                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Log waste') }}</h3>
-                    <form method="post" action="{{ route('butcher.waste.store') }}" class="space-y-4" onsubmit="return confirm(@js(__('Record this waste disposal? Stock will be reduced.')))">
-                        @csrf
-                        <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Batch') }}</label>
-                            <select name="batch_id" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                                @foreach ($activeBatches->where('remaining_weight_kg', '>', 0) as $batch)
-                                    <option value="{{ $batch->id }}">{{ $batch->batch_number }} — {{ $fmtKg($batch->remaining_weight_kg) }}</option>
-                                @endforeach
-                            </select>
-                            <x-input-error :messages="$errors->get('batch_id')" class="mt-1" />
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Weight (kg)') }}</label>
-                                <input name="weight_disposed_kg" type="number" step="0.001" min="0.1" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Reason') }}</label>
-                                <select name="reason" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                                    @foreach (\App\Models\ButcherDisposalLog::REASONS as $reason)
-                                        <option value="{{ $reason }}">{{ str_replace('_', ' ', ucfirst($reason)) }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Notes') }}</label>
-                            <textarea name="notes" rows="2" class="mt-1 block w-full rounded-lg border-gray-300 text-sm"></textarea>
-                        </div>
-                        <button type="submit" class="rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">{{ __('Record waste') }}</button>
-                    </form>
-                </section>
-
-                <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha space-y-4">
-                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Log adjustment') }}</h3>
-                    <form method="post" action="{{ route('butcher.waste.adjustments.store') }}" class="space-y-4" onsubmit="return confirm(@js(__('Record this inventory adjustment? Stock weights will change immediately.')))">
-                        @csrf
-                        <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Batch') }}</label>
-                            <select name="batch_id" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                                @foreach ($activeBatches as $batch)
-                                    <option value="{{ $batch->id }}">{{ $batch->batch_number }} — {{ $fmtKg($batch->remaining_weight_kg) }}</option>
-                                @endforeach
-                            </select>
-                            <x-input-error :messages="$errors->get('batch_id')" class="mt-1" />
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Weight change (kg)') }}</label>
-                                <input name="weight_change_kg" type="number" step="0.001" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm" placeholder="+2 or -1.5">
-                                <p class="mt-1 text-xs text-slate-500">{{ __('Use negative values to reduce stock.') }}</p>
-                                <x-input-error :messages="$errors->get('weight_change_kg')" class="mt-1" />
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Reason') }}</label>
-                                <select name="reason" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                                    @foreach (\App\Models\ButcherInventoryAdjustment::REASONS as $reason)
-                                        <option value="{{ $reason }}">{{ str_replace('_', ' ', ucfirst($reason)) }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Notes') }}</label>
-                            <textarea name="notes" rows="2" class="mt-1 block w-full rounded-lg border-gray-300 text-sm"></textarea>
-                        </div>
-                        <button type="submit" class="rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">{{ __('Record adjustment') }}</button>
-                    </form>
-                </section>
-            </div>
-
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha">
-                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Recent waste') }}</h3>
-                    <div class="mt-4 space-y-2 text-sm">
-                        @forelse ($summary['recent_waste'] as $item)
-                            <div class="rounded-lg border border-slate-200 px-3 py-2">
-                                <p class="font-medium">{{ $item->batch?->batch_number }} · {{ $fmtKg($item->weight_disposed_kg) }}</p>
-                                <p class="text-xs text-slate-500">{{ ucfirst($item->reason) }} · {{ $item->disposed_at?->format('Y-m-d H:i') }}</p>
-                            </div>
-                        @empty
-                            <p class="text-slate-500">{{ __('No waste recorded yet.') }}</p>
-                        @endforelse
+            @if ($showWaste)
+                <section class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+                    <div class="border-b border-slate-100 px-4 py-4 sm:px-5 flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold text-slate-900">{{ __('Waste') }}</h3>
+                        <span class="text-xs text-slate-500">{{ trans_choice(':count event|:count events', $waste->total(), ['count' => $waste->total()]) }}</span>
                     </div>
-                </section>
-
-                <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha">
-                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Recent adjustments') }}</h3>
-                    <div class="mt-4 space-y-2 text-sm">
-                        @forelse ($summary['recent_adjustments'] as $item)
-                            <div class="rounded-lg border border-slate-200 px-3 py-2">
-                                <p class="font-medium">{{ $item->batch?->batch_number }} · {{ ((float) $item->weight_change_kg > 0 ? '+' : '').$fmtKg($item->weight_change_kg) }}</p>
-                                <p class="text-xs text-slate-500">{{ str_replace('_', ' ', ucfirst($item->reason)) }} · {{ $item->adjusted_at?->format('Y-m-d H:i') }}</p>
-                            </div>
-                        @empty
-                            <p class="text-slate-500">{{ __('No adjustments recorded yet.') }}</p>
-                        @endforelse
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100 text-sm">
+                            <thead class="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="px-4 py-3 sm:px-5">{{ __('Batch') }}</th>
+                                    <th class="px-4 py-3 sm:px-5 text-right">{{ __('Weight') }}</th>
+                                    <th class="px-4 py-3 sm:px-5">{{ __('Reason') }}</th>
+                                    <th class="hidden sm:table-cell px-4 py-3 sm:px-5">{{ __('When') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white">
+                                @forelse ($waste as $item)
+                                    <tr class="hover:bg-slate-50/80">
+                                        <td class="px-4 py-3 sm:px-5">
+                                            <div class="flex items-start gap-3">
+                                                <span class="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-bucha-burgundy ring-1 ring-inset ring-red-100" aria-hidden="true">
+                                                    <i class="ti ti-trash text-[1.15rem] leading-none"></i>
+                                                </span>
+                                                <div>
+                                                    <p class="font-medium text-slate-900">{{ $item->batch?->batch_number ?: '—' }}</p>
+                                                    <p class="mt-0.5 text-xs text-slate-500 sm:hidden">{{ $item->disposed_at?->format('Y-m-d H:i') }}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 sm:px-5 text-right tabular-nums text-slate-700">{{ $fmtKg($item->weight_disposed_kg) }}</td>
+                                        <td class="px-4 py-3 sm:px-5 text-slate-700">{{ str_replace('_', ' ', ucfirst($item->reason)) }}</td>
+                                        <td class="hidden sm:table-cell px-4 py-3 sm:px-5 text-slate-700">{{ $item->disposed_at?->format('Y-m-d H:i') ?: '—' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="px-5 py-10 text-center text-slate-500">{{ __('No waste recorded yet.') }}</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
+                    @if ($waste->hasPages())
+                        <div class="border-t border-slate-100 px-4 py-4 sm:px-5">{{ $waste->links() }}</div>
+                    @endif
                 </section>
-            </div>
+            @endif
+
+            @if ($showAdjustments)
+                <section class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+                    <div class="border-b border-slate-100 px-4 py-4 sm:px-5 flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold text-slate-900">{{ __('Adjustments') }}</h3>
+                        <span class="text-xs text-slate-500">{{ trans_choice(':count event|:count events', $adjustments->total(), ['count' => $adjustments->total()]) }}</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100 text-sm">
+                            <thead class="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="px-4 py-3 sm:px-5">{{ __('Batch') }}</th>
+                                    <th class="px-4 py-3 sm:px-5 text-right">{{ __('Change') }}</th>
+                                    <th class="px-4 py-3 sm:px-5">{{ __('Reason') }}</th>
+                                    <th class="hidden sm:table-cell px-4 py-3 sm:px-5">{{ __('When') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white">
+                                @forelse ($adjustments as $item)
+                                    <tr class="hover:bg-slate-50/80">
+                                        <td class="px-4 py-3 sm:px-5">
+                                            <div class="flex items-start gap-3">
+                                                <span class="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-bucha-burgundy ring-1 ring-inset ring-red-100" aria-hidden="true">
+                                                    <i class="ti ti-adjustments text-[1.15rem] leading-none"></i>
+                                                </span>
+                                                <div>
+                                                    <p class="font-medium text-slate-900">{{ $item->batch?->batch_number ?: '—' }}</p>
+                                                    <p class="mt-0.5 text-xs text-slate-500 sm:hidden">{{ $item->adjusted_at?->format('Y-m-d H:i') }}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 sm:px-5 text-right tabular-nums text-slate-700">{{ ((float) $item->weight_change_kg > 0 ? '+' : '').$fmtKg($item->weight_change_kg) }}</td>
+                                        <td class="px-4 py-3 sm:px-5 text-slate-700">{{ str_replace('_', ' ', ucfirst($item->reason)) }}</td>
+                                        <td class="hidden sm:table-cell px-4 py-3 sm:px-5 text-slate-700">{{ $item->adjusted_at?->format('Y-m-d H:i') ?: '—' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="px-5 py-10 text-center text-slate-500">{{ __('No adjustments recorded yet.') }}</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if ($adjustments->hasPages())
+                        <div class="border-t border-slate-100 px-4 py-4 sm:px-5">{{ $adjustments->links() }}</div>
+                    @endif
+                </section>
+            @endif
         </div>
     </div>
 </x-app-layout>

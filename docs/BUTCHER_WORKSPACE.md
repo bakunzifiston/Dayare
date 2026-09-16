@@ -563,15 +563,20 @@ Seeder: `database/seeders/ButcherWorkspaceDemoSeeder.php` (full demo chain, incl
 
 ## Known gaps / incomplete UI
 
-1. **No fine-grained butcher RBAC** — all workspace members see all modules.
-2. **Purchase orders** — models/services/FormRequests/seeder exist; **no routes/UI**.
-3. **Products & price rules** — needed for POS; **no manage UI** (demo/service only).
-4. **Outlets & permits** — service + FormRequests; registration creates one outlet; **no manage UI**.
-5. **Business settings** (temp thresholds, shelf life, RFA, district) largely not editable in the current business form.
-6. **Customers** — create only (no edit/delete).
-7. **Orders** — status workflow only; no fulfillment→sale / stock-deduct conversion.
-8. **No mobile API** for butcher modules.
-9. **Business profile** route exists but is omitted from the sidebar.
+1. ~~No fine-grained butcher RBAC~~ — **Resolved** (roles + `EnsureTenantPermission`).
+2. ~~Purchase orders — no routes/UI~~ — **Resolved**.
+3. ~~Products & price rules — no manage UI~~ — **Resolved** (Catalog).
+4. ~~Outlets & permits — no manage UI~~ — **Resolved**.
+5. ~~Business settings not editable~~ — **Resolved** (`butcher.business.edit`).
+6. ~~Customers — create only~~ — **Resolved** (create + edit; no delete by design while balance may exist).
+7. ~~Orders — no fulfill→sale~~ — **Resolved** (`orders.fulfill`).
+8. **No mobile API** for butcher modules — still web-only.
+9. ~~Business profile omitted from sidebar~~ — **Resolved** (Administration group).
+
+### Remaining polish / out of scope
+- Product/price-rule soft-delete not exposed in UI.
+- Stock transfers have index/create but no dedicated show page.
+- No butcher mobile/API endpoints (intentional for current phase).
 
 ---
 

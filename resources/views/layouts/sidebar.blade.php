@@ -181,7 +181,7 @@
                         ['label' => __('Customers'), 'route' => 'butcher.customers.index', 'icon' => 'user', 'permission' => 'manage_butcher_sales', 'routeIs' => ['butcher.customers.*']],
                     ],
                 ],
-                ['label' => __('Compliance'), 'route' => 'butcher.compliance.index', 'icon' => 'shield', 'permission' => 'manage_butcher_compliance', 'routeIs' => ['butcher.compliance.*']],
+                ['label' => __('Compliance'), 'route' => 'butcher.compliance.index', 'icon' => 'shield', 'permission' => 'manage_butcher_compliance', 'permissions' => ['manage_butcher_compliance', 'manage_butcher_staff_health'], 'routeIs' => ['butcher.compliance.*']],
                 ['label' => __('Finance'), 'route' => 'butcher.finance.index', 'icon' => 'clipboard', 'permission' => 'manage_butcher_finance', 'routeIs' => ['butcher.finance.*']],
                 ['label' => __('Reports'), 'route' => 'butcher.reports.index', 'icon' => 'chart', 'permission' => 'view_butcher_reports', 'routeIs' => ['butcher.reports.*']],
                 [

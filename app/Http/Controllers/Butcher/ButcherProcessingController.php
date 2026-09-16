@@ -48,13 +48,48 @@ class ButcherProcessingController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
-        $cutTypes = $business->butcherCutTypes()
-            ->orderBy('name')
-            ->paginate(20);
+        $search = trim((string) $request->query('q', ''));
+        $meatType = (string) $request->query('meat_type', 'all');
+        if ($meatType !== 'all' && ! in_array($meatType, \App\Models\ButcherCutType::MEAT_TYPES, true)) {
+            $meatType = 'all';
+        }
+
+        $baseQuery = $business->butcherCutTypes();
+        $kpis = [
+            'total' => (int) (clone $baseQuery)->count(),
+            'active' => (int) (clone $baseQuery)->where('is_active', true)->count(),
+            'inactive' => (int) (clone $baseQuery)->where('is_active', false)->count(),
+        ];
+
+        $cutTypesQuery = $business->butcherCutTypes()->orderBy('name');
+        if ($search !== '') {
+            $cutTypesQuery->where('name', 'like', '%'.$search.'%');
+        }
+        if ($meatType !== 'all') {
+            $cutTypesQuery->where('meat_type', $meatType);
+        }
 
         return view('butcher.processing.types.index', [
             'business' => $business,
-            'cutTypes' => $cutTypes,
+            'cutTypes' => $cutTypesQuery->paginate(20)->withQueryString(),
+            'kpis' => $kpis,
+            'filters' => [
+                'q' => $search,
+                'meat_type' => $meatType,
+            ],
+            'meatTypes' => \App\Models\ButcherCutType::MEAT_TYPES,
+        ]);
+    }
+
+    public function typesCreate(Request $request): View|RedirectResponse
+    {
+        $business = $this->primaryBusiness($request);
+        if ($business === null) {
+            return redirect()->route('butcher.dashboard');
+        }
+
+        return view('butcher.processing.types.create', [
+            'business' => $business,
             'meatTypes' => \App\Models\ButcherCutType::MEAT_TYPES,
         ]);
     }
@@ -86,15 +121,45 @@ class ButcherProcessingController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
-        $sessions = $business->butcherCuttingSessions()
+        $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', 'all');
+        if ($status !== 'all' && ! in_array($status, ButcherCuttingSession::STATUSES, true)) {
+            $status = 'all';
+        }
+
+        $baseQuery = $business->butcherCuttingSessions();
+        $kpis = [
+            'total' => (int) (clone $baseQuery)->count(),
+            'open' => (int) (clone $baseQuery)->where('status', ButcherCuttingSession::STATUS_OPEN)->count(),
+            'closed' => (int) (clone $baseQuery)->where('status', ButcherCuttingSession::STATUS_CLOSED)->count(),
+            'yield_kg' => (float) (clone $baseQuery)->where('status', ButcherCuttingSession::STATUS_CLOSED)->sum('total_cuts_weight_kg'),
+        ];
+
+        $sessionsQuery = $business->butcherCuttingSessions()
             ->with(['batch', 'outlet'])
             ->latest('session_date')
-            ->latest('id')
-            ->paginate(20);
+            ->latest('id');
+
+        if ($search !== '') {
+            $sessionsQuery->where(function ($query) use ($search) {
+                $query->where('session_number', 'like', '%'.$search.'%')
+                    ->orWhereHas('batch', fn ($q) => $q->where('batch_number', 'like', '%'.$search.'%'));
+            });
+        }
+
+        if ($status !== 'all') {
+            $sessionsQuery->where('status', $status);
+        }
 
         return view('butcher.processing.sessions.index', [
             'business' => $business,
-            'sessions' => $sessions,
+            'sessions' => $sessionsQuery->paginate(20)->withQueryString(),
+            'kpis' => $kpis,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+            ],
+            'statuses' => ButcherCuttingSession::STATUSES,
         ]);
     }
 
@@ -191,6 +256,13 @@ class ButcherProcessingController extends Controller
             'cutTypes' => $cutTypes,
             'wastage' => $wastage,
             'availableBatches' => $availableBatches,
+            'canOverride' => (bool) $request->user()?->canButcherPermission(
+                \App\Models\BusinessUser::PERMISSION_OVERRIDE_BUTCHER_BATCH_SAFETY,
+                (int) $business->id
+            ),
+            'needsSafetyOverride' => $session->isOpen() && $session->sources->contains(
+                fn ($source) => $source->batch?->isSafetyBlocked()
+            ),
         ]);
     }
 

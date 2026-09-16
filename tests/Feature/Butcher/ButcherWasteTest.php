@@ -60,7 +60,7 @@ class ButcherWasteTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.waste.index'))
             ->assertOk()
-            ->assertSee(__('Waste & adjustments'));
+            ->assertSee(__('Log waste'));
     }
 
     public function test_can_log_waste(): void

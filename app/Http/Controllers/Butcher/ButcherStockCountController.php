@@ -31,16 +31,51 @@ class ButcherStockCountController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
-        $counts = $business->butcherStockCounts()
+        $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', 'all');
+        if ($status !== 'all' && ! in_array($status, ButcherStockCount::STATUSES, true)) {
+            $status = 'all';
+        }
+
+        $baseQuery = $business->butcherStockCounts();
+        $kpis = [
+            'total' => (int) (clone $baseQuery)->count(),
+            'draft' => (int) (clone $baseQuery)->where('status', ButcherStockCount::STATUS_DRAFT)->count(),
+            'completed' => (int) (clone $baseQuery)->where('status', ButcherStockCount::STATUS_COMPLETED)->count(),
+            'this_month' => (int) (clone $baseQuery)->whereMonth('count_date', now()->month)->whereYear('count_date', now()->year)->count(),
+        ];
+
+        $countsQuery = $business->butcherStockCounts()
             ->with(['outlet', 'countedByUser'])
             ->withCount('lines')
             ->latest('count_date')
-            ->latest('id')
-            ->paginate(15);
+            ->latest('id');
+
+        if ($search !== '') {
+            $countsQuery->where(function ($query) use ($search) {
+                $query->where('count_number', 'like', '%'.$search.'%')
+                    ->orWhere('notes', 'like', '%'.$search.'%')
+                    ->orWhereHas('outlet', fn ($q) => $q->where('name', 'like', '%'.$search.'%'));
+            });
+        }
+
+        if ($status !== 'all') {
+            $countsQuery->where('status', $status);
+        }
+
+        $counts = $countsQuery
+            ->paginate(15)
+            ->withQueryString();
 
         return view('butcher.stock-counts.index', [
             'business' => $business,
             'counts' => $counts,
+            'kpis' => $kpis,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+            ],
+            'statuses' => ButcherStockCount::STATUSES,
         ]);
     }
 

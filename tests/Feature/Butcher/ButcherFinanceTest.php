@@ -74,7 +74,7 @@ class ButcherFinanceTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.finance.index'))
             ->assertOk()
-            ->assertSee(__('Finance & reporting'));
+            ->assertSee(__('P&L report'));
     }
 
     public function test_profit_and_loss_calculates_correctly(): void
@@ -301,7 +301,7 @@ class ButcherFinanceTest extends TestCase
             ->get(route('butcher.finance.receivables.show', $customer))
             ->assertOk()
             ->assertSee('HTTP Receivable')
-            ->assertSee(__('Customer statement'));
+            ->assertSee(__('Statement balance'));
     }
 
     private function seedActiveProductWithStock(float $stockKg): ButcherProduct

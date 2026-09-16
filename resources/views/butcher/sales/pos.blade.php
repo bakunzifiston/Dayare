@@ -1,16 +1,22 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Point of sale') }}</h2>
-                <p class="mt-1 text-sm text-gray-500">{{ __('Record sales and deduct cut stock in real time.') }}</p>
+    <div class="py-6 sm:py-8">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <a href="{{ route('butcher.sales.index') }}" class="inline-flex items-center gap-1 text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">
+                    <i class="ti ti-arrow-left text-base leading-none" aria-hidden="true"></i>
+                    {{ __('Sales') }}
+                </a>
+                <div class="flex items-start gap-3">
+                    <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-bucha-burgundy ring-1 ring-inset ring-red-100" aria-hidden="true">
+                        <i class="ti ti-cash-register text-lg leading-none"></i>
+                    </span>
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-900">{{ __('Point of sale') }}</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">{{ __('Ring up sales and print receipts.') }}</p>
+                    </div>
+                </div>
             </div>
-            <a href="{{ route('butcher.sales.index') }}" class="text-sm font-semibold text-bucha-primary hover:underline">{{ __('Sales list') }}</a>
-        </div>
-    </x-slot>
 
-    <div class="py-8">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <x-butcher.hygiene-advisory-banner :banner="$hygieneBanner" />
 <div
     x-data="butcherPos({
@@ -49,7 +55,7 @@
                 <div class="flex flex-wrap gap-3">
                     <div class="flex-1 min-w-[140px]">
                         <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Outlet') }}</label>
-                        <select x-model.number="outletId" class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
+                        <select x-model.number="outletId" @change="reloadForOutlet()" class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
                             <template x-for="outlet in outlets" :key="outlet.id">
                                 <option :value="outlet.id" x-text="outlet.name"></option>
                             </template>
@@ -186,6 +192,12 @@ function butcherPos(config) {
         },
         formatMoney(amount) {
             return 'RWF ' + Math.round(Number(amount) || 0).toLocaleString();
+        },
+        reloadForOutlet() {
+            const params = new URLSearchParams();
+            if (this.outletId) params.set('outlet_id', this.outletId);
+            if (this.customerId) params.set('customer_id', this.customerId);
+            window.location = `{{ route('butcher.sales.pos') }}?${params.toString()}`;
         },
         addToCart(product) {
             const existing = this.cart.find(i => i.product_id === product.id);

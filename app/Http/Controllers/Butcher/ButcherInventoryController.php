@@ -48,11 +48,39 @@ class ButcherInventoryController extends Controller
 
         $this->storage->checkExpiringBatches($business);
         $outletId = $this->requestedOutletId($request, $business);
+        $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', 'all');
+        $meatType = (string) $request->query('meat_type', 'all');
 
-        $batches = $business->butcherInventoryBatches()
+        if ($status !== 'all' && ! in_array($status, ButcherInventoryBatch::STATUSES, true)) {
+            $status = 'all';
+        }
+        if ($meatType !== 'all' && ! in_array($meatType, ButcherInventoryBatch::MEAT_TYPES, true)) {
+            $meatType = 'all';
+        }
+
+        $batchesQuery = $business->butcherInventoryBatches()
             ->with(['outlet', 'delivery.supplier'])
             ->when($outletId, fn ($q) => $q->where('outlet_id', $outletId))
-            ->orderBy('received_at')
+            ->orderBy('received_at');
+
+        if ($search !== '') {
+            $batchesQuery->where(function ($query) use ($search) {
+                $query->where('batch_number', 'like', '%'.$search.'%')
+                    ->orWhere('storage_location', 'like', '%'.$search.'%')
+                    ->orWhereHas('delivery.supplier', fn ($q) => $q->where('name', 'like', '%'.$search.'%'));
+            });
+        }
+
+        if ($status !== 'all') {
+            $batchesQuery->where('status', $status);
+        }
+
+        if ($meatType !== 'all') {
+            $batchesQuery->where('meat_type', $meatType);
+        }
+
+        $batches = $batchesQuery
             ->paginate(20)
             ->withQueryString();
 
@@ -61,6 +89,13 @@ class ButcherInventoryController extends Controller
             'batches' => $batches,
             'outlets' => $business->butcherOutlets()->orderBy('name')->get(),
             'filterOutletId' => $outletId,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+                'meat_type' => $meatType,
+            ],
+            'statuses' => ButcherInventoryBatch::STATUSES,
+            'meatTypes' => ButcherInventoryBatch::MEAT_TYPES,
         ]);
     }
 

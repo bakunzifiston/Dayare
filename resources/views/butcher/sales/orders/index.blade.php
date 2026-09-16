@@ -1,112 +1,113 @@
 @php
+    $filters = $filters ?? ['q' => '', 'status' => 'all'];
+    $kpis = $kpis ?? ['total' => 0, 'pending' => 0, 'ready' => 0, 'confirmed' => 0];
     $fmtMoney = static fn ($v): string => 'RWF '.number_format((float) $v, 0);
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Orders') }}</h2>
-                <p class="mt-1 text-sm text-gray-500">{{ __('Pre-orders and wholesale order pipeline.') }}</p>
-            </div>
-            <a href="{{ route('butcher.sales.index') }}" class="text-sm font-semibold text-bucha-primary hover:underline">{{ __('Back to sales') }}</a>
-        </div>
-    </x-slot>
-
-    <div class="py-8">
+    <div class="py-6 sm:py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <div>
+                <a href="{{ route('butcher.sales.index') }}" class="inline-flex items-center gap-1 text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">
+                    <i class="ti ti-arrow-left text-base leading-none" aria-hidden="true"></i>
+                    {{ __('Sales') }}
+                </a>
+            </div>
+
             @if (session('status'))
                 <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{ session('status') }}</div>
             @endif
 
-            <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha" x-data="{ items: [{ product_id: '', quantity_kg: '', quantity_units: '' }] }">
-                <h3 class="text-sm font-semibold text-slate-900">{{ __('New order') }}</h3>
-                <form method="post" action="{{ route('butcher.sales.orders.store') }}" class="mt-4 space-y-4">
-                    @csrf
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-5">
+            <section class="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm">
+                <form method="get" action="{{ route('butcher.sales.orders.index') }}" class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Customer') }}</label>
-                            <select name="customer_id" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                                @foreach ($customers as $customer)
-                                    <option value="{{ $customer->id }}">{{ $customer->name }} ({{ ucfirst($customer->tier) }})</option>
+                            <label for="order_q" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Search') }}</label>
+                            <input id="order_q" type="search" name="q" value="{{ $filters['q'] }}" placeholder="{{ __('Order #, customer…') }}" class="mt-1 block w-full rounded-lg border-slate-200 text-sm shadow-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                        </div>
+                        <div>
+                            <label for="order_status" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Status') }}</label>
+                            <select id="order_status" name="status" class="mt-1 block w-full rounded-lg border-slate-200 text-sm shadow-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                                <option value="all" @selected($filters['status'] === 'all')>{{ __('All') }}</option>
+                                @foreach ($statuses as $status)
+                                    <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ ucfirst($status) }}</option>
                                 @endforeach
                             </select>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Outlet') }}</label>
-                            <select name="outlet_id" class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                                <option value="">{{ __('Select later') }}</option>
-                                @foreach ($outlets as $outlet)
-                                    <option value="{{ $outlet->id }}">{{ $outlet->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Order date') }}</label>
-                            <input type="date" name="order_date" value="{{ now()->toDateString() }}" class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Delivery date') }}</label>
-                            <input type="date" name="delivery_date" class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase text-slate-500">{{ __('Deposit paid') }}</label>
-                            <input type="number" name="deposit_paid" min="0" value="0" class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
                         </div>
                     </div>
-
-                    <template x-for="(item, index) in items" :key="index">
-                        <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
-                            <select :name="'items[' + index + '][product_id]'" required class="rounded-lg border-gray-300 text-sm">
-                                <option value="">{{ __('Product…') }}</option>
-                                @foreach ($products as $product)
-                                    <option value="{{ $product->id }}">{{ $product->name }}</option>
-                                @endforeach
-                            </select>
-                            <input type="number" step="0.001" min="0" :name="'items[' + index + '][quantity_kg]'" placeholder="kg" class="rounded-lg border-gray-300 text-sm">
-                            <input type="number" min="1" :name="'items[' + index + '][quantity_units]'" placeholder="{{ __('Units') }}" class="rounded-lg border-gray-300 text-sm">
-                            <button type="button" @click="items.splice(index, 1)" x-show="items.length > 1" class="text-sm text-red-600">{{ __('Remove') }}</button>
-                        </div>
-                    </template>
-                    <button type="button" @click="items.push({ product_id: '', quantity_kg: '', quantity_units: '' })" class="text-sm font-semibold text-bucha-primary">{{ __('Add line') }}</button>
-                    <div>
-                        <button type="submit" class="rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white">{{ __('Create order') }}</button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="submit" class="inline-flex items-center rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">{{ __('Apply') }}</button>
+                        <a href="{{ route('butcher.sales.orders.index') }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Reset') }}</a>
+                        <a href="{{ route('butcher.sales.orders.create') }}" class="inline-flex items-center gap-1.5 rounded-bucha border border-bucha-primary/30 bg-bucha-primary/5 px-4 py-2 text-sm font-semibold text-bucha-burgundy hover:bg-bucha-primary/10">
+                            <i class="ti ti-plus text-base leading-none" aria-hidden="true"></i>
+                            {{ __('New order') }}
+                        </a>
                     </div>
                 </form>
             </section>
 
-            <section class="rounded-bucha border border-slate-200/80 bg-white p-5 shadow-bucha overflow-x-auto">
-                <table class="min-w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
-                            <th class="py-2 pr-4">{{ __('Order') }}</th>
-                            <th class="py-2 pr-4">{{ __('Customer') }}</th>
-                            <th class="py-2 pr-4">{{ __('Total') }}</th>
-                            <th class="py-2 pr-4">{{ __('Delivery') }}</th>
-                            <th class="py-2 pr-4">{{ __('Status') }}</th>
-                            <th class="py-2"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($orders as $order)
-                            <tr class="border-b border-slate-100">
-                                <td class="py-3 pr-4 font-semibold">
-                                    <a href="{{ route('butcher.sales.orders.show', $order) }}" class="text-bucha-primary hover:underline">{{ $order->order_number }}</a>
-                                </td>
-                                <td class="py-3 pr-4">{{ $order->customer?->name }}</td>
-                                <td class="py-3 pr-4">{{ $fmtMoney($order->total_amount) }}</td>
-                                <td class="py-3 pr-4">{{ $order->delivery_date?->toDateString() ?? '—' }}</td>
-                                <td class="py-3 pr-4"><x-butcher.status-badge :status="$order->status" /></td>
-                                <td class="py-3 text-right">
-                                    <a href="{{ route('butcher.sales.orders.show', $order) }}" class="text-sm font-semibold text-bucha-primary hover:underline">{{ __('Open') }}</a>
-                                </td>
+            <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <x-butcher.kpi-card :label="__('Orders')" :value="(string) $kpis['total']" tone="bucha" icon="ti ti-clipboard-list" />
+                <x-butcher.kpi-card :label="__('Pending')" :value="(string) $kpis['pending']" tone="amber" icon="ti ti-clock" />
+                <x-butcher.kpi-card :label="__('Confirmed')" :value="(string) $kpis['confirmed']" tone="sky" icon="ti ti-circle-check" />
+                <x-butcher.kpi-card :label="__('Ready')" :value="(string) $kpis['ready']" tone="emerald" icon="ti ti-package" />
+            </div>
+
+            <section class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+                <div class="border-b border-slate-100 px-4 py-4 sm:px-5 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-sm font-semibold text-slate-900">{{ __('Orders') }}</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">{{ __('Pre-orders awaiting fulfillment.') }}</p>
+                    </div>
+                    <span class="text-xs text-slate-500">{{ trans_choice(':count order|:count orders', $orders->total(), ['count' => $orders->total()]) }}</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-100 text-sm">
+                        <thead class="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3 sm:px-5">{{ __('Order') }}</th>
+                                <th class="px-4 py-3 sm:px-5">{{ __('Customer') }}</th>
+                                <th class="px-4 py-3 sm:px-5 text-right">{{ __('Total') }}</th>
+                                <th class="hidden sm:table-cell px-4 py-3 sm:px-5">{{ __('Delivery') }}</th>
+                                <th class="px-4 py-3 sm:px-5">{{ __('Status') }}</th>
+                                <th class="px-4 py-3 sm:px-5 text-right">{{ __('Actions') }}</th>
                             </tr>
-                        @empty
-                            <tr><td colspan="6" class="py-6 text-center text-slate-500">{{ __('No orders yet.') }}</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-                <div class="mt-4">{{ $orders->links() }}</div>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            @forelse ($orders as $order)
+                                <tr class="hover:bg-slate-50/80">
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <div class="flex items-start gap-3">
+                                            <span class="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-bucha-burgundy ring-1 ring-inset ring-red-100" aria-hidden="true">
+                                                <i class="ti ti-clipboard-list text-[1.15rem] leading-none"></i>
+                                            </span>
+                                            <p class="font-medium text-slate-900">{{ $order->order_number }}</p>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 sm:px-5 text-slate-700">{{ $order->customer?->name ?: '—' }}</td>
+                                    <td class="px-4 py-3 sm:px-5 text-right tabular-nums font-semibold text-slate-900">{{ $fmtMoney($order->total_amount) }}</td>
+                                    <td class="hidden sm:table-cell px-4 py-3 sm:px-5 text-slate-700">{{ $order->delivery_date?->toDateString() ?? '—' }}</td>
+                                    <td class="px-4 py-3 sm:px-5"><x-butcher.status-badge :status="$order->status" /></td>
+                                    <td class="px-4 py-3 sm:px-5 text-right">
+                                        <a href="{{ route('butcher.sales.orders.show', $order) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                            <i class="ti ti-eye text-sm leading-none" aria-hidden="true"></i>
+                                            {{ __('View') }}
+                                        </a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="px-5 py-10 text-center text-slate-500">
+                                        {{ $filters['q'] !== '' || $filters['status'] !== 'all' ? __('No orders match your filters.') : __('No orders yet.') }}
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($orders->hasPages())
+                    <div class="border-t border-slate-100 px-4 py-4 sm:px-5">{{ $orders->links() }}</div>
+                @endif
             </section>
         </div>
     </div>

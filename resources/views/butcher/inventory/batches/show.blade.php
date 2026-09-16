@@ -5,23 +5,13 @@
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <a href="{{ route('butcher.inventory.batches.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Batches') }}</a>
-                <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">{{ $batch->batch_number }}</h2>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <x-butcher.status-badge :status="$batch->status" />
-                @if ($batch->hasTemperatureBreach())
-                    <span class="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">{{ __('Temperature Breach') }}</span>
-                @endif
-            </div>
-        </div>
-    </x-slot>
-
     <div class="py-8">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <!-- butcher-toolbar -->
+            <div class="mb-2">
+                <a href="{{ route('butcher.inventory.batches.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Batches') }}</a>
+            </div>
+
             @if ($batch->hasTemperatureBreach())
                 <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
                     {{ __('This batch is flagged for a temperature breach (:when). Cutting or selling from it requires a Manager/Owner override with a logged reason.', [

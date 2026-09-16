@@ -67,7 +67,7 @@ class ButcherProcessingTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.processing.index'))
             ->assertOk()
-            ->assertSee(__('Processing'));
+            ->assertSee(__('Open session'));
     }
 
     public function test_can_add_cut_type_via_http(): void

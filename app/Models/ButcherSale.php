@@ -108,6 +108,15 @@ class ButcherSale extends Model
 
     public function isCancellable(): bool
     {
-        return in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_PENDING], true);
+        if (! in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_PENDING], true)) {
+            return false;
+        }
+
+        // Returns already restored stock/credit; cancelling would double-restore.
+        if ($this->relationLoaded('items')) {
+            return $this->items->every(fn (ButcherSaleItem $item) => $item->returnedQuantityKg() <= 0.0005);
+        }
+
+        return ! $this->items()->whereHas('returns')->exists();
     }
 }

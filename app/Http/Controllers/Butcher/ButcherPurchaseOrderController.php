@@ -29,16 +29,68 @@ class ButcherPurchaseOrderController extends Controller
             return redirect()->route('butcher.dashboard');
         }
 
-        $orders = $business->butcherPurchaseOrders()
+        $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', 'all');
+        $meatType = (string) $request->query('meat_type', 'all');
+
+        if ($status !== 'all' && ! in_array($status, ButcherPurchaseOrder::STATUSES, true)) {
+            $status = 'all';
+        }
+        if ($meatType !== 'all' && ! in_array($meatType, ButcherPurchaseOrder::MEAT_TYPES, true)) {
+            $meatType = 'all';
+        }
+
+        $baseQuery = $business->butcherPurchaseOrders();
+        $openStatuses = [
+            ButcherPurchaseOrder::STATUS_DRAFT,
+            ButcherPurchaseOrder::STATUS_SENT,
+            ButcherPurchaseOrder::STATUS_CONFIRMED,
+        ];
+
+        $kpis = [
+            'total' => (int) (clone $baseQuery)->count(),
+            'open' => (int) (clone $baseQuery)->whereIn('status', $openStatuses)->count(),
+            'delivered' => (int) (clone $baseQuery)->where('status', ButcherPurchaseOrder::STATUS_DELIVERED)->count(),
+            'requested_kg' => (float) (clone $baseQuery)->sum('requested_weight_kg'),
+        ];
+
+        $ordersQuery = $business->butcherPurchaseOrders()
             ->with('supplier')
-            ->latest()
+            ->latest();
+
+        if ($search !== '') {
+            $ordersQuery->where(function ($query) use ($search) {
+                $query->where('po_number', 'like', '%'.$search.'%')
+                    ->orWhere('notes', 'like', '%'.$search.'%')
+                    ->orWhereHas('supplier', function ($supplierQuery) use ($search) {
+                        $supplierQuery->where('name', 'like', '%'.$search.'%');
+                    });
+            });
+        }
+
+        if ($status !== 'all') {
+            $ordersQuery->where('status', $status);
+        }
+
+        if ($meatType !== 'all') {
+            $ordersQuery->where('meat_type', $meatType);
+        }
+
+        $orders = $ordersQuery
             ->paginate(15)
             ->withQueryString();
 
         return view('butcher.purchase-orders.index', [
             'business' => $business,
             'orders' => $orders,
-            'summary' => $this->procurement->getProcurementSummary($business),
+            'kpis' => $kpis,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+                'meat_type' => $meatType,
+            ],
+            'statuses' => ButcherPurchaseOrder::STATUSES,
+            'meatTypes' => ButcherPurchaseOrder::MEAT_TYPES,
         ]);
     }
 

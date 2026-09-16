@@ -505,13 +505,17 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
 
         Route::prefix('outlets')->name('outlets.')->group(function () {
             Route::get('/', [ButcherOutletController::class, 'index'])->name('index');
+            Route::get('create', [ButcherOutletController::class, 'create'])->name('create');
             Route::post('/', [ButcherOutletController::class, 'store'])->name('store');
+            Route::get('{outlet}/edit', [ButcherOutletController::class, 'edit'])->name('edit');
             Route::put('{outlet}', [ButcherOutletController::class, 'update'])->name('update');
         });
 
         Route::prefix('permits')->name('permits.')->group(function () {
             Route::get('/', [ButcherPermitController::class, 'index'])->name('index');
+            Route::get('create', [ButcherPermitController::class, 'create'])->name('create');
             Route::post('/', [ButcherPermitController::class, 'store'])->name('store');
+            Route::get('{permit}/edit', [ButcherPermitController::class, 'edit'])->name('edit');
             Route::put('{permit}', [ButcherPermitController::class, 'update'])->name('update');
         });
 
@@ -544,14 +548,19 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
 
         Route::prefix('suppliers')->name('suppliers.')->group(function () {
             Route::get('/', [ButcherSupplierController::class, 'index'])->name('index');
+            Route::get('create', [ButcherSupplierController::class, 'create'])->name('create');
             Route::post('/', [ButcherSupplierController::class, 'store'])->name('store');
+            Route::get('{supplier}/edit', [ButcherSupplierController::class, 'edit'])->name('edit');
             Route::put('{supplier}', [ButcherSupplierController::class, 'update'])->name('update');
             Route::delete('{supplier}', [ButcherSupplierController::class, 'destroy'])->name('destroy');
         });
 
         Route::prefix('customers')->name('customers.')->group(function () {
             Route::get('/', [ButcherCustomerController::class, 'index'])->name('index');
+            Route::get('create', [ButcherCustomerController::class, 'create'])->name('create');
             Route::post('/', [ButcherCustomerController::class, 'store'])->name('store');
+            Route::get('{customer}/edit', [ButcherCustomerController::class, 'edit'])->name('edit');
+            Route::put('{customer}', [ButcherCustomerController::class, 'update'])->name('update');
         });
 
         Route::prefix('receiving')->name('receiving.')->group(function () {
@@ -564,6 +573,7 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
         Route::prefix('processing')->name('processing.')->group(function () {
             Route::get('/', [ButcherProcessingController::class, 'index'])->name('index');
             Route::get('cut-types', [ButcherProcessingController::class, 'typesIndex'])->name('types.index');
+            Route::get('cut-types/create', [ButcherProcessingController::class, 'typesCreate'])->name('types.create');
             Route::post('cut-types', [ButcherProcessingController::class, 'typesStore'])->name('types.store');
             Route::get('sessions', [ButcherProcessingController::class, 'sessionsIndex'])->name('sessions.index');
             Route::get('sessions/create', [ButcherProcessingController::class, 'sessionsCreate'])->name('sessions.create');
@@ -587,7 +597,9 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
 
         Route::prefix('waste')->name('waste.')->group(function () {
             Route::get('/', [ButcherWasteController::class, 'index'])->name('index');
+            Route::get('create', [ButcherWasteController::class, 'createWaste'])->name('create');
             Route::post('/', [ButcherWasteController::class, 'storeWaste'])->name('store');
+            Route::get('adjustments/create', [ButcherWasteController::class, 'createAdjustment'])->name('adjustments.create');
             Route::post('adjustments', [ButcherWasteController::class, 'storeAdjustment'])->name('adjustments.store');
         });
 
@@ -617,6 +629,7 @@ Route::middleware(['auth', 'verified', 'tenant', 'workspace:butcher', 'tenant.pe
             Route::get('pos', [ButcherSalesController::class, 'pos'])->name('pos');
             Route::post('/', [ButcherSalesController::class, 'store'])->name('store');
             Route::get('orders', [ButcherSalesController::class, 'ordersIndex'])->name('orders.index');
+            Route::get('orders/create', [ButcherSalesController::class, 'ordersCreate'])->name('orders.create');
             Route::post('orders', [ButcherSalesController::class, 'ordersStore'])->name('orders.store');
             Route::get('orders/{order}', [ButcherSalesController::class, 'ordersShow'])->name('orders.show');
             Route::patch('orders/{order}/status', [ButcherSalesController::class, 'ordersStatus'])->name('orders.status');

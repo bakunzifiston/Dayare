@@ -43,11 +43,15 @@ class SaleAnalyticsService
     {
         $start = now()->subMonths(5)->startOfMonth();
 
+        $periodExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', sale_date)"
+            : "DATE_FORMAT(sale_date, '%Y-%m')";
+
         $revenueTrend = Sale::query()
             ->whereIn('farm_id', $farmIds)
             ->where('sale_status', Sale::STATUS_COMPLETED)
             ->where('sale_date', '>=', $start)
-            ->selectRaw("DATE_FORMAT(sale_date, '%Y-%m') as period, SUM(total_amount) as total")
+            ->selectRaw("{$periodExpression} as period, SUM(total_amount) as total")
             ->groupBy('period')
             ->orderBy('period')
             ->pluck('total', 'period');

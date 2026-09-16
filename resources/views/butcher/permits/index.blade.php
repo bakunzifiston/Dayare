@@ -1,159 +1,116 @@
 @php
-    $editingPermit = $editing ?? null;
+    $filters = $filters ?? ['q' => '', 'status' => 'all'];
+    $kpis = $kpis ?? ['total' => 0, 'valid' => 0, 'expiring' => 0, 'expired' => 0];
+    $typeLabel = static fn (string $type): string => str_replace('_', ' ', ucfirst($type));
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Permits') }}</h2>
-            <p class="mt-1 text-sm text-gray-500">{{ __('Licenses and certificates for :name.', ['name' => $business->business_name]) }}</p>
-        </div>
-    </x-slot>
-
-    <div class="py-8">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+    <div class="py-6 sm:py-8">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             @if (session('status'))
-                <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{ session('status') }}</div>
             @endif
 
-            <section class="rounded-bucha border border-slate-200/80 bg-white p-6 shadow-bucha">
-                <h3 class="text-sm font-semibold text-slate-900">{{ __('Permit register') }}</h3>
-                <p class="mt-1 text-xs text-slate-500">{{ __('Track expiry dates and keep supporting documents on file.') }}</p>
-                <div class="mt-4 space-y-3">
-                    @forelse ($permits as $permit)
-                        <div class="rounded-lg border border-slate-200 px-4 py-3 text-sm">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <p class="font-semibold text-slate-900">{{ $permit->permit_number }}</p>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-slate-500">{{ str_replace('_', ' ', ucfirst($permit->permit_type)) }}</span>
-                                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{{ str_replace('_', ' ', ucfirst($permit->status)) }}</span>
-                                </div>
-                            </div>
-                            <p class="mt-1 text-slate-600">{{ $permit->issued_by }}</p>
-                            <p class="mt-1 text-slate-500">
-                                {{ optional($permit->issue_date)->format('Y-m-d') }}
-                                →
-                                {{ optional($permit->expiry_date)->format('Y-m-d') }}
-                            </p>
-                            <div class="mt-2 flex gap-3 text-xs font-semibold">
-                                <a href="{{ route('butcher.permits.index', ['edit' => $permit->id]) }}" class="text-bucha-primary hover:underline">{{ __('Edit') }}</a>
-                                @if ($permit->documentUrl())
-                                    <a href="{{ $permit->documentUrl() }}" target="_blank" rel="noopener" class="text-bucha-primary hover:underline">{{ __('Document') }}</a>
-                                @endif
-                            </div>
+            <section class="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm">
+                <form method="get" action="{{ route('butcher.permits.index') }}" class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label for="permit_q" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Search') }}</label>
+                            <input id="permit_q" type="search" name="q" value="{{ $filters['q'] }}" placeholder="{{ __('Number, issuer…') }}" class="mt-1 block w-full rounded-lg border-slate-200 text-sm shadow-sm focus:border-bucha-primary focus:ring-bucha-primary">
                         </div>
-                    @empty
-                        <p class="text-sm text-slate-500">{{ __('No permits yet.') }}</p>
-                    @endforelse
-                </div>
+                        <div>
+                            <label for="permit_status" class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Status') }}</label>
+                            <select id="permit_status" name="status" class="mt-1 block w-full rounded-lg border-slate-200 text-sm shadow-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                                <option value="all" @selected($filters['status'] === 'all')>{{ __('All') }}</option>
+                                @foreach ($statuses as $status)
+                                    <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ $typeLabel($status) }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="submit" class="inline-flex items-center rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">{{ __('Apply') }}</button>
+                        <a href="{{ route('butcher.permits.index') }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('Reset') }}</a>
+                        <a href="{{ route('butcher.permits.create') }}" class="inline-flex items-center gap-1.5 rounded-bucha border border-bucha-primary/30 bg-bucha-primary/5 px-4 py-2 text-sm font-semibold text-bucha-burgundy hover:bg-bucha-primary/10">
+                            <i class="ti ti-plus text-base leading-none" aria-hidden="true"></i>
+                            {{ __('Add permit') }}
+                        </a>
+                    </div>
+                </form>
             </section>
 
-            <form
-                method="post"
-                action="{{ $editingPermit ? route('butcher.permits.update', $editingPermit) : route('butcher.permits.store') }}"
-                enctype="multipart/form-data"
-                class="rounded-bucha border border-slate-200/80 bg-white p-6 shadow-bucha space-y-4"
-            >
-                @csrf
-                @if ($editingPermit)
-                    @method('PUT')
-                @endif
+            <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <x-butcher.kpi-card :label="__('Permits')" :value="(string) $kpis['total']" tone="bucha" icon="ti ti-certificate" />
+                <x-butcher.kpi-card :label="__('Valid')" :value="(string) $kpis['valid']" tone="emerald" icon="ti ti-circle-check" />
+                <x-butcher.kpi-card :label="__('Expiring (30d)')" :value="(string) $kpis['expiring']" tone="amber" icon="ti ti-clock" />
+                <x-butcher.kpi-card :label="__('Expired')" :value="(string) $kpis['expired']" tone="rose" icon="ti ti-alert-circle" />
+            </div>
 
-                <h3 class="text-sm font-semibold text-slate-900">
-                    {{ $editingPermit ? __('Edit permit') : __('Add permit') }}
-                </h3>
-
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <x-input-label for="permit_type" :value="__('Permit type')" />
-                        <select id="permit_type" name="permit_type" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                            @foreach ($permitTypes as $type)
-                                <option value="{{ $type }}" @selected(old('permit_type', $editingPermit?->permit_type) === $type)>
-                                    {{ str_replace('_', ' ', ucfirst($type)) }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <x-input-error :messages="$errors->get('permit_type')" class="mt-2" />
-                    </div>
-                    <div>
-                        <x-input-label for="permit_number" :value="__('Permit number')" />
-                        <x-text-input id="permit_number" name="permit_number" type="text" class="mt-1 block w-full" :value="old('permit_number', $editingPermit?->permit_number)" required />
-                        <x-input-error :messages="$errors->get('permit_number')" class="mt-2" />
-                    </div>
+            <section class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+                <div class="border-b border-slate-100 px-4 py-4 sm:px-5 flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold text-slate-900">{{ __('Permit register') }}</h3>
+                    <span class="text-xs text-slate-500">{{ trans_choice(':count permit|:count permits', $permits->count(), ['count' => $permits->count()]) }}</span>
                 </div>
-
-                <div>
-                    <x-input-label for="issued_by" :value="__('Issued by')" />
-                    <x-text-input id="issued_by" name="issued_by" type="text" class="mt-1 block w-full" :value="old('issued_by', $editingPermit?->issued_by)" required />
-                    <x-input-error :messages="$errors->get('issued_by')" class="mt-2" />
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-100 text-sm">
+                        <thead class="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3 sm:px-5">{{ __('Permit') }}</th>
+                                <th class="hidden md:table-cell px-4 py-3 sm:px-5">{{ __('Issued by') }}</th>
+                                <th class="px-4 py-3 sm:px-5">{{ __('Validity') }}</th>
+                                <th class="px-4 py-3 sm:px-5">{{ __('Status') }}</th>
+                                <th class="px-4 py-3 sm:px-5 text-right">{{ __('Actions') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            @forelse ($permits as $permit)
+                                <tr class="hover:bg-slate-50/80">
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <div class="flex items-start gap-3">
+                                            <span class="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-bucha-burgundy ring-1 ring-inset ring-red-100" aria-hidden="true">
+                                                <i class="ti ti-certificate text-[1.15rem] leading-none"></i>
+                                            </span>
+                                            <div>
+                                                <p class="font-medium text-slate-900">{{ $permit->permit_number }}</p>
+                                                <p class="mt-0.5 text-xs text-slate-500">{{ $typeLabel($permit->permit_type) }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="hidden md:table-cell px-4 py-3 sm:px-5 text-slate-700">{{ $permit->issued_by }}</td>
+                                    <td class="px-4 py-3 sm:px-5 tabular-nums text-slate-700">
+                                        {{ optional($permit->issue_date)->format('Y-m-d') }}
+                                        <span class="text-slate-400">→</span>
+                                        {{ optional($permit->expiry_date)->format('Y-m-d') }}
+                                    </td>
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">{{ $typeLabel($permit->status) }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 sm:px-5 text-right">
+                                        <div class="inline-flex items-center justify-end gap-2">
+                                            @if ($permit->documentUrl())
+                                                <a href="{{ $permit->documentUrl() }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                                    <i class="ti ti-file text-sm leading-none" aria-hidden="true"></i>
+                                                    {{ __('View') }}
+                                                </a>
+                                            @endif
+                                            <a href="{{ route('butcher.permits.edit', $permit) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                                <i class="ti ti-pencil text-sm leading-none" aria-hidden="true"></i>
+                                                {{ __('Edit') }}
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-5 py-10 text-center text-slate-500">
+                                        {{ $filters['q'] !== '' || $filters['status'] !== 'all' ? __('No permits match your filters.') : __('No permits yet.') }}
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
-
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <x-input-label for="issue_date" :value="__('Issue date')" />
-                        <x-text-input
-                            id="issue_date"
-                            name="issue_date"
-                            type="date"
-                            class="mt-1 block w-full"
-                            :value="old('issue_date', optional($editingPermit?->issue_date)->format('Y-m-d'))"
-                            required
-                        />
-                        <x-input-error :messages="$errors->get('issue_date')" class="mt-2" />
-                    </div>
-                    <div>
-                        <x-input-label for="expiry_date" :value="__('Expiry date')" />
-                        <x-text-input
-                            id="expiry_date"
-                            name="expiry_date"
-                            type="date"
-                            class="mt-1 block w-full"
-                            :value="old('expiry_date', optional($editingPermit?->expiry_date)->format('Y-m-d'))"
-                            required
-                        />
-                        <x-input-error :messages="$errors->get('expiry_date')" class="mt-2" />
-                    </div>
-                </div>
-
-                <div>
-                    <x-input-label for="document" :value="__('Document')" />
-                    <input id="document" name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:rounded-bucha file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200" />
-                    <p class="mt-1 text-xs text-slate-500">{{ __('PDF or image, max 5 MB.') }}</p>
-                    @if ($editingPermit?->documentUrl())
-                        <p class="mt-1 text-xs">
-                            <a href="{{ $editingPermit->documentUrl() }}" target="_blank" rel="noopener" class="font-semibold text-bucha-primary hover:underline">{{ __('View current document') }}</a>
-                        </p>
-                    @endif
-                    <x-input-error :messages="$errors->get('document')" class="mt-2" />
-                </div>
-
-                @if ($editingPermit)
-                    <div>
-                        <x-input-label for="status" :value="__('Status')" />
-                        <select id="status" name="status" class="mt-1 block w-full rounded-lg border-gray-300 text-sm">
-                            @foreach ($statuses as $status)
-                                <option value="{{ $status }}" @selected(old('status', $editingPermit->status) === $status)>
-                                    {{ str_replace('_', ' ', ucfirst($status)) }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <x-input-error :messages="$errors->get('status')" class="mt-2" />
-                    </div>
-                @endif
-
-                <div class="flex flex-wrap justify-between gap-3 pt-2">
-                    @if ($editingPermit)
-                        <a href="{{ route('butcher.permits.index') }}" class="inline-flex items-center rounded-bucha border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                            {{ __('Cancel edit') }}
-                        </a>
-                    @else
-                        <span></span>
-                    @endif
-                    <button type="submit" class="inline-flex items-center rounded-bucha bg-bucha-primary px-4 py-2 text-sm font-semibold text-white hover:bg-bucha-burgundy">
-                        {{ $editingPermit ? __('Update permit') : __('Add permit') }}
-                    </button>
-                </div>
-            </form>
+            </section>
         </div>
     </div>
 </x-app-layout>

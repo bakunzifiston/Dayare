@@ -64,7 +64,7 @@ class ButcherInventoryTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('butcher.inventory.index'))
             ->assertOk()
-            ->assertSee(__('Inventory'));
+            ->assertSee(__('Log temperature'));
     }
 
     public function test_delivery_creates_batch_with_best_before_and_in_storage_status(): void

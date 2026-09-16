@@ -19,7 +19,6 @@ class ReceivedUnitTest extends TestCase
         $this->actingAs($fixture['user'])
             ->post(route('delivery-confirmations.store'), [
                 'transport_trip_id' => $fixture['trip']->id,
-                'receiving_facility_id' => $fixture['origin']->id,
                 'received_quantity' => 5,
                 'received_unit' => 'invalid_unit',
                 'received_date' => now()->toDateString(),
@@ -36,7 +35,6 @@ class ReceivedUnitTest extends TestCase
         $this->actingAs($fixture['user'])
             ->post(route('delivery-confirmations.store'), [
                 'transport_trip_id' => $fixture['trip']->id,
-                'receiving_facility_id' => $fixture['origin']->id,
                 'received_quantity' => 5,
                 'received_date' => now()->toDateString(),
                 'receiver_name' => 'Receiver',

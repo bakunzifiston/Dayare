@@ -3,27 +3,13 @@
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <a href="{{ route('butcher.catalog.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Catalog') }}</a>
-                <h2 class="mt-1 font-semibold text-xl text-gray-800 leading-tight">{{ $product->name }}</h2>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                @if ($product->is_active)
-                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">{{ __('Active') }}</span>
-                @else
-                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">{{ __('Inactive') }}</span>
-                @endif
-                @if ($canManage)
-                    <a href="{{ route('butcher.catalog.products.edit', $product) }}" class="inline-flex items-center rounded-bucha border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">{{ __('Edit') }}</a>
-                @endif
-            </div>
-        </div>
-    </x-slot>
-
     <div class="py-8">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <!-- butcher-toolbar -->
+            <div class="mb-2">
+                <a href="{{ route('butcher.catalog.index') }}" class="text-sm font-medium text-bucha-primary hover:text-bucha-burgundy">{{ __('← Catalog') }}</a>
+            </div>
+
             @if (session('status'))
                 <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
             @endif
