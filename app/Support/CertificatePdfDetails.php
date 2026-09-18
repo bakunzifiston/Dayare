@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AdministrativeDivision;
 use App\Models\Facility;
 use Carbon\Carbon;
 
@@ -10,6 +11,10 @@ class CertificatePdfDetails
     /** @var list<string> */
     public const KEYS = [
         'facility_location',
+        'facility_province_id',
+        'facility_district_id',
+        'facility_sector_id',
+        'facility_cell_id',
         'facility_type',
         'facility_phone',
         'facility_registration',
@@ -17,6 +22,10 @@ class CertificatePdfDetails
         'species',
         'butcher_name',
         'selling_location',
+        'selling_province_id',
+        'selling_district_id',
+        'selling_sector_id',
+        'selling_cell_id',
         'owner_phone',
         'shop_name',
         'shop_phone',
@@ -27,10 +36,33 @@ class CertificatePdfDetails
         'vehicle_plate_number',
         'driver_name',
         'departure_destination',
+        'destination_place_name',
+        'destination_province_id',
+        'destination_district_id',
+        'destination_sector_id',
+        'destination_cell_id',
+        'destination_village_id',
         'destination_country',
         'destination_address',
         'departure_time',
         'transporter_phone',
+    ];
+
+    /** @var list<string> */
+    private const LOCATION_ID_KEYS = [
+        'facility_province_id',
+        'facility_district_id',
+        'facility_sector_id',
+        'facility_cell_id',
+        'selling_province_id',
+        'selling_district_id',
+        'selling_sector_id',
+        'selling_cell_id',
+        'destination_province_id',
+        'destination_district_id',
+        'destination_sector_id',
+        'destination_cell_id',
+        'destination_village_id',
     ];
 
     /**
@@ -39,11 +71,15 @@ class CertificatePdfDetails
     public static function validationRules(string $prefix = 'pdf_details'): array
     {
         $string = ['nullable', 'string', 'max:255'];
-        $numeric = ['nullable', 'numeric', 'min:0'];
+        $divisionId = ['nullable', 'integer', 'exists:administrative_divisions,id'];
 
         return [
             $prefix => ['nullable', 'array'],
             "{$prefix}.facility_location" => $string,
+            "{$prefix}.facility_province_id" => $divisionId,
+            "{$prefix}.facility_district_id" => $divisionId,
+            "{$prefix}.facility_sector_id" => $divisionId,
+            "{$prefix}.facility_cell_id" => $divisionId,
             "{$prefix}.facility_type" => $string,
             "{$prefix}.facility_phone" => $string,
             "{$prefix}.facility_registration" => $string,
@@ -51,6 +87,10 @@ class CertificatePdfDetails
             "{$prefix}.species" => $string,
             "{$prefix}.butcher_name" => $string,
             "{$prefix}.selling_location" => $string,
+            "{$prefix}.selling_province_id" => $divisionId,
+            "{$prefix}.selling_district_id" => $divisionId,
+            "{$prefix}.selling_sector_id" => $divisionId,
+            "{$prefix}.selling_cell_id" => $divisionId,
             "{$prefix}.owner_phone" => $string,
             "{$prefix}.shop_name" => $string,
             "{$prefix}.shop_phone" => $string,
@@ -61,6 +101,12 @@ class CertificatePdfDetails
             "{$prefix}.vehicle_plate_number" => $string,
             "{$prefix}.driver_name" => $string,
             "{$prefix}.departure_destination" => $string,
+            "{$prefix}.destination_place_name" => $string,
+            "{$prefix}.destination_province_id" => $divisionId,
+            "{$prefix}.destination_district_id" => $divisionId,
+            "{$prefix}.destination_sector_id" => $divisionId,
+            "{$prefix}.destination_cell_id" => $divisionId,
+            "{$prefix}.destination_village_id" => $divisionId,
             "{$prefix}.destination_country" => $string,
             "{$prefix}.destination_address" => ['nullable', 'string', 'max:500'],
             "{$prefix}.departure_time" => ['nullable', 'string', 'max:32', 'date_format:d/m/Y H:i'],
@@ -179,6 +225,11 @@ class CertificatePdfDetails
                 continue;
             }
 
+            if (in_array($key, self::LOCATION_ID_KEYS, true)) {
+                $normalized[$key] = (int) $value;
+                continue;
+            }
+
             if (in_array($key, ['carcass_meat_kg', 'other_meat_kg', 'temperature_celsius'], true)) {
                 $normalized[$key] = is_numeric($value) ? (float) $value : $value;
                 continue;
@@ -190,7 +241,86 @@ class CertificatePdfDetails
             }
         }
 
+        self::applyComposedLocation($normalized, 'selling', 'selling_location');
+        self::applyComposedLocation($normalized, 'facility', 'facility_location');
+        self::applyComposedDestination($normalized);
+
         return $normalized === [] ? null : $normalized;
+    }
+
+    /**
+     * @param  array<string, mixed>  $normalized
+     */
+    private static function applyComposedLocation(array &$normalized, string $prefix, string $targetKey): void
+    {
+        $line = self::composeLocationLine($normalized, $prefix);
+        if ($line !== null) {
+            $normalized[$targetKey] = $line;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $normalized
+     */
+    private static function applyComposedDestination(array &$normalized): void
+    {
+        $place = isset($normalized['destination_place_name'])
+            ? trim((string) $normalized['destination_place_name'])
+            : '';
+        $line = self::composeLocationLine($normalized, 'destination', includeVillage: true);
+
+        if ($place !== '' && $line !== null) {
+            $normalized['departure_destination'] = $place.' — '.$line;
+        } elseif ($place !== '') {
+            $normalized['departure_destination'] = $place;
+        } elseif ($line !== null) {
+            $normalized['departure_destination'] = $line;
+        }
+    }
+
+    /**
+     * Build "District, Sector, Cell" (optionally with village) from selected division IDs.
+     *
+     * @param  array<string, mixed>  $input
+     */
+    public static function composeLocationLine(array $input, string $prefix, bool $includeVillage = false): ?string
+    {
+        $districtId = self::intOrNull($input["{$prefix}_district_id"] ?? null);
+        $sectorId = self::intOrNull($input["{$prefix}_sector_id"] ?? null);
+        $cellId = self::intOrNull($input["{$prefix}_cell_id"] ?? null);
+        $villageId = $includeVillage ? self::intOrNull($input["{$prefix}_village_id"] ?? null) : null;
+
+        $ids = array_values(array_filter([$districtId, $sectorId, $cellId, $villageId]));
+        if ($ids === []) {
+            return null;
+        }
+
+        $names = AdministrativeDivision::query()
+            ->whereIn('id', $ids)
+            ->get(['id', 'name'])
+            ->keyBy('id');
+
+        $parts = [];
+        foreach ([$districtId, $sectorId, $cellId, $villageId] as $id) {
+            if ($id === null) {
+                continue;
+            }
+            $name = trim((string) ($names->get($id)?->name ?? ''));
+            if ($name !== '') {
+                $parts[] = $name;
+            }
+        }
+
+        return $parts !== [] ? implode(', ', $parts) : null;
+    }
+
+    private static function intOrNull(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     public static function facilityLocationIsComplete(?Facility $facility): bool

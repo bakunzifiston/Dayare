@@ -230,15 +230,17 @@ class CertificatePdfService
     ): array {
         $batch->loadMissing([
             'items.intakeItem',
+            'slaughterExecution.slaughterPlan.animalIntake.client.province',
             'slaughterExecution.slaughterPlan.animalIntake.client.districtDivision',
             'slaughterExecution.slaughterPlan.animalIntake.client.sectorDivision',
             'slaughterExecution.slaughterPlan.animalIntake.client.cell',
+            'slaughterExecution.slaughterPlan.animalIntake.province',
             'slaughterExecution.slaughterPlan.animalIntake.district',
             'slaughterExecution.slaughterPlan.animalIntake.sector',
             'slaughterExecution.slaughterPlan.animalIntake.cell',
         ]);
 
-        $facility?->loadMissing(['districtDivision', 'sectorDivision', 'cell', 'business']);
+        $facility?->loadMissing(['province', 'districtDivision', 'sectorDivision', 'cell', 'business']);
         $facility ??= $batch->slaughterExecution?->slaughterPlan?->facility;
 
         $animalIds = collect($animalIntakeItemIds ?? [])
@@ -282,14 +284,17 @@ class CertificatePdfService
     {
         return $certificate->load([
             'facility.business',
+            'facility.province',
             'facility.districtDivision',
             'facility.sectorDivision',
             'facility.cell',
             'inspector',
             'batch.items.intakeItem',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.client.province',
             'batch.slaughterExecution.slaughterPlan.animalIntake.client.districtDivision',
             'batch.slaughterExecution.slaughterPlan.animalIntake.client.sectorDivision',
             'batch.slaughterExecution.slaughterPlan.animalIntake.client.cell',
+            'batch.slaughterExecution.slaughterPlan.animalIntake.province',
             'batch.slaughterExecution.slaughterPlan.animalIntake.district',
             'batch.slaughterExecution.slaughterPlan.animalIntake.sector',
             'batch.slaughterExecution.slaughterPlan.animalIntake.cell',
@@ -386,6 +391,10 @@ class CertificatePdfService
                     $this->facilityCell($facility),
                 )
                 : '—',
+            'facility_province_id' => $facility?->province_id,
+            'facility_district_id' => $facility?->district_id,
+            'facility_sector_id' => $facility?->sector_id,
+            'facility_cell_id' => $facility?->cell_id,
             'facility_type' => $facility ? $this->facilityTypeLabel($facility) : '—',
             'facility_phone' => $facility?->phone ?: '',
             'facility_registration' => $facility?->registration_number ?: '',
@@ -395,6 +404,10 @@ class CertificatePdfService
                 ?: '',
             'butcher_name' => $owner->name ?: '',
             'selling_location' => $this->formatLocationLine($owner->district, $owner->sector, $owner->cell),
+            'selling_province_id' => $owner->province_id ?? null,
+            'selling_district_id' => $owner->district_id ?? null,
+            'selling_sector_id' => $owner->sector_id ?? null,
+            'selling_cell_id' => $owner->cell_id ?? null,
             'owner_phone' => $owner->phone ?: '',
             'shop_name' => $owner->business_name ?: $owner->name ?: '',
             'shop_phone' => $owner->phone ?: '',
@@ -405,6 +418,8 @@ class CertificatePdfService
             'vehicle_plate_number' => $transportTrip?->vehicle_plate_number ?: '',
             'driver_name' => $transportTrip?->driver_name ?: '',
             'departure_destination' => $transportTrip?->destination_display ?: '',
+            'destination_country' => $transportTrip?->destination_country ?: 'RW',
+            'destination_address' => $transportTrip?->destination_address ?: '',
             'departure_time' => $transportTrip?->departure_date?->format('d/m/Y H:i') ?: '',
             'transporter_phone' => $transportTrip?->driver_phone ?: '',
         ];
@@ -536,11 +551,17 @@ class CertificatePdfService
                 'district' => null,
                 'sector' => null,
                 'cell' => null,
+                'province_id' => null,
+                'district_id' => null,
+                'sector_id' => null,
+                'cell_id' => null,
             ];
         }
 
         $client = $intake->client;
         if ($client instanceof Client) {
+            $client->loadMissing(['province', 'districtDivision', 'sectorDivision', 'cell']);
+
             return (object) [
                 'name' => $client->contact_person ?: $client->name,
                 'business_name' => $client->name,
@@ -548,10 +569,15 @@ class CertificatePdfService
                 'district' => $client->districtDivision?->name,
                 'sector' => $client->sectorDivision?->name,
                 'cell' => $client->cell?->name,
+                'province_id' => $client->province_id,
+                'district_id' => $client->district_id,
+                'sector_id' => $client->sector_id,
+                'cell_id' => $client->cell_id,
             ];
         }
 
         $supplierName = trim((string) ($intake->supplier_firstname ?? '').' '.(string) ($intake->supplier_lastname ?? ''));
+        $intake->loadMissing(['province', 'district', 'sector', 'cell']);
 
         return (object) [
             'name' => $supplierName !== '' ? $supplierName : null,
@@ -560,6 +586,10 @@ class CertificatePdfService
             'district' => $intake->district?->name,
             'sector' => $intake->sector?->name,
             'cell' => $intake->cell?->name,
+            'province_id' => $intake->province_id,
+            'district_id' => $intake->district_id,
+            'sector_id' => $intake->sector_id,
+            'cell_id' => $intake->cell_id,
         ];
     }
 

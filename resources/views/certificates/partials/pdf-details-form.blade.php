@@ -14,10 +14,17 @@
         </x-wizard-field>
         <x-input-error class="mt-2" :messages="$errors->get('pdf_details.butcher_name')" />
 
-        <x-wizard-field for="pdf_details_selling_location" :label="__('Owner location (District, Sector, Cell)')" required>
-            <input id="pdf_details_selling_location" name="pdf_details[selling_location]" type="text" class="bucha-wizard-input" value="{{ $pdfValue('selling_location') }}" required />
-        </x-wizard-field>
+        @include('certificates.partials.rwanda-location-fields', [
+            'prefix' => 'selling',
+            'targetKey' => 'selling_location',
+            'label' => __('Owner location'),
+            'required' => true,
+            'includeVillage' => false,
+            'showPlaceName' => false,
+            'pdfValue' => $pdfValue,
+        ])
         <x-input-error class="mt-2" :messages="$errors->get('pdf_details.selling_location')" />
+        <x-input-error class="mt-2" :messages="$errors->get('pdf_details.selling_district_id')" />
 
         <x-wizard-field for="pdf_details_owner_phone" :label="__('Telephone')">
             <input id="pdf_details_owner_phone" name="pdf_details[owner_phone]" type="text" class="bucha-wizard-input" value="{{ $pdfValue('owner_phone') }}" />
@@ -119,15 +126,21 @@
             </div>
         </div>
 
-        <x-wizard-field for="pdf_details_departure_destination" :label="__('Destination')">
-            <input id="pdf_details_departure_destination" name="pdf_details[departure_destination]" type="text" class="bucha-wizard-input" value="{{ $pdfValue('departure_destination') }}" />
-        </x-wizard-field>
+        @include('certificates.partials.rwanda-location-fields', [
+            'prefix' => 'destination',
+            'targetKey' => 'departure_destination',
+            'label' => __('Destination'),
+            'required' => false,
+            'includeVillage' => true,
+            'showPlaceName' => true,
+            'pdfValue' => $pdfValue,
+        ])
         <x-input-error class="mt-2" :messages="$errors->get('pdf_details.departure_destination')" />
 
         <div class="bucha-wizard-grid">
             <div>
-                <x-wizard-field for="pdf_details_destination_country" :label="__('Country')">
-                    <input id="pdf_details_destination_country" name="pdf_details[destination_country]" type="text" class="bucha-wizard-input" value="{{ $pdfValue('destination_country') }}" placeholder="e.g. RW, KE, UG" />
+                <x-wizard-field for="pdf_details_destination_country" :label="__('Country code')">
+                    <input id="pdf_details_destination_country" name="pdf_details[destination_country]" type="text" class="bucha-wizard-input" value="{{ $pdfValue('destination_country') ?: 'RW' }}" placeholder="e.g. RW, KE, UG" />
                 </x-wizard-field>
                 <x-input-error class="mt-2" :messages="$errors->get('pdf_details.destination_country')" />
             </div>
@@ -141,10 +154,17 @@
     </x-wizard-section>
 
     <x-wizard-section :title="__('Slaughterhouse details')">
-        <x-wizard-field for="pdf_details_facility_location" :label="__('Location (District, Sector, Cell)')">
-            <input id="pdf_details_facility_location" name="pdf_details[facility_location]" type="text" class="bucha-wizard-input" value="{{ $pdfValue('facility_location') }}" />
-        </x-wizard-field>
+        @include('certificates.partials.rwanda-location-fields', [
+            'prefix' => 'facility',
+            'targetKey' => 'facility_location',
+            'label' => __('Slaughterhouse location'),
+            'required' => false,
+            'includeVillage' => false,
+            'showPlaceName' => false,
+            'pdfValue' => $pdfValue,
+        ])
         <x-input-error class="mt-2" :messages="$errors->get('pdf_details.facility_location')" />
+        <x-input-error class="mt-2" :messages="$errors->get('pdf_details.facility_district_id')" />
 
         <div class="bucha-wizard-grid">
             <div>
