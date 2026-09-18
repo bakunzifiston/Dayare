@@ -5,10 +5,9 @@
     <title>ICYEMEZO CYA VETERINERI KU BUGENZUZI BW'INYAMA</title>
     <style>
         @page { margin: 8mm 10mm; }
-        * { box-sizing: border-box; }
         body {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 9.5px;
+            font-size: 9px;
             color: #000;
             line-height: 1.25;
             margin: 0;
@@ -16,249 +15,229 @@
         table { border-collapse: collapse; width: 100%; }
         td, th { vertical-align: middle; }
 
-        .form-shell { width: 100%; border: 2px solid #000; }
-        .form-shell td { border: 1px solid #000; }
+        /* Outer frame: a single cell wrapper so DomPDF never has to resolve rowspans. */
+        .sheet { border: 2px solid #000; }
+        .sheet-cell { padding: 0; }
 
-        .seal-cell {
-            width: 72px;
+        .header-table .seal-cell {
+            width: 76px;
             text-align: center;
-            vertical-align: middle;
-            padding: 6px 4px;
+            padding: 5px 4px;
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
+        }
+        .header-table .header-main {
+            padding: 5px 8px 6px;
+            border-bottom: 1px solid #000;
         }
         .seal-placeholder {
-            width: 58px;
-            height: 58px;
+            width: 54px;
+            height: 34px;
             border: 1px solid #333;
             border-radius: 50%;
-            margin: 0 auto 4px;
-            font-size: 7px;
+            margin: 0 auto 3px;
+            font-size: 6.5px;
             color: #444;
             line-height: 1.1;
-            padding-top: 18px;
+            padding-top: 19px;
         }
         .republic-line {
-            font-size: 8px;
+            font-size: 7px;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .header-main {
-            padding: 6px 8px;
-            text-align: center;
+            letter-spacing: 0.03em;
         }
         .facility-name {
             font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.03em;
-            margin-bottom: 4px;
-        }
-        .division-row td {
-            font-size: 9px;
-            font-weight: bold;
-            text-transform: uppercase;
             text-align: center;
-            padding: 3px 6px;
+            margin-bottom: 5px;
         }
 
-        .title-sidebar {
-            width: 28px;
-            writing-mode: vertical-rl;
-            transform: rotate(180deg);
+        .division-table td {
+            border: 1px solid #000;
+            padding: 3px 6px;
+            font-size: 8.5px;
+            text-transform: uppercase;
+        }
+        .division-table .division-label {
+            width: 24%;
+            font-weight: bold;
+            background: #fafafa;
+        }
+        .division-table .division-value { font-weight: bold; }
+
+        .doc-title {
             text-align: center;
-            font-size: 8px;
+            font-size: 9.5px;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
-            padding: 8px 2px;
-            line-height: 1.2;
+            letter-spacing: 0.05em;
+            line-height: 1.3;
+            padding: 5px 10px;
+            border-bottom: 1px solid #000;
         }
 
         .section-title {
-            font-size: 9px;
-            font-weight: bold;
-            text-transform: uppercase;
-            padding: 4px 6px;
-            background: #f3f4f6;
-        }
-
-        .field-table { width: 100%; }
-        .field-table td {
-            border: 1px solid #000;
-            padding: 0;
-        }
-        .field-label {
-            width: 34%;
             font-size: 8.5px;
             font-weight: bold;
-            padding: 5px 6px;
-            background: #fafafa;
+            text-transform: uppercase;
+            padding: 3px 6px;
+            background: #f1f2f4;
+            border-bottom: 1px solid #000;
         }
-        .field-value {
-            font-size: 9.5px;
-            font-weight: 600;
-            padding: 5px 8px;
-            min-height: 22px;
+
+        /* Field rows draw only bottom/right rules; the sheet frame supplies the outer edges. */
+        .field-table td {
+            border-bottom: 1px solid #000;
+            padding: 4px 6px;
+            height: 18px;
+        }
+        .field-table .field-label {
+            width: 36%;
+            font-size: 8px;
+            font-weight: bold;
+            background: #fafafa;
+            border-right: 1px solid #000;
+        }
+        .field-table .field-value {
+            font-size: 9px;
+            font-weight: bold;
         }
 
         .meat-table th,
         .meat-table td {
-            border: 1px solid #000;
-            padding: 6px 4px;
+            border-bottom: 1px solid #000;
+            border-right: 1px solid #000;
+            padding: 4px 3px;
             text-align: center;
-            font-size: 8.5px;
+            font-size: 8px;
         }
         .meat-table th {
             font-weight: bold;
             background: #fafafa;
         }
         .meat-table td {
-            font-size: 10px;
-            font-weight: 600;
-            min-height: 26px;
+            font-size: 9px;
+            font-weight: bold;
+            height: 18px;
         }
+        .meat-table .last-col { border-right: none; }
 
         .cert-text {
-            padding: 8px 8px 6px;
+            padding: 7px 8px 5px;
             text-align: justify;
-            font-size: 8.5px;
-            line-height: 1.45;
+            font-size: 8px;
+            line-height: 1.4;
         }
         .name-line {
-            display: inline-block;
             border-bottom: 1px dotted #000;
-            min-width: 220px;
-            padding: 0 4px 1px;
-            font-weight: 600;
-            text-align: center;
+            padding: 0 6px 1px;
+            font-weight: bold;
         }
 
         .date-row td {
-            padding: 8px 8px 4px;
-            font-size: 9px;
-            border: none;
+            padding: 5px 8px 3px;
+            font-size: 8.5px;
         }
         .date-box {
-            display: inline-block;
             border-bottom: 1px dotted #000;
-            min-width: 36px;
-            text-align: center;
-            font-weight: 600;
-            padding: 0 4px 1px;
+            padding: 0 10px 1px;
+            font-weight: bold;
         }
 
         .signature-cell {
-            padding: 6px 8px 10px;
+            padding: 5px 8px 8px;
             vertical-align: top;
-            border: none;
         }
-        .signature-label {
-            font-size: 8.5px;
-            margin-bottom: 4px;
-        }
+        .signature-label { font-size: 8px; }
         .signature-line {
             border-bottom: 1px solid #000;
-            min-height: 36px;
-            margin-top: 8px;
+            height: 30px;
         }
         .inspector-name {
-            margin-top: 4px;
-            font-size: 9px;
-            font-weight: 600;
+            margin-top: 3px;
+            font-size: 8.5px;
+            font-weight: bold;
         }
         .stamp-instruction {
-            font-size: 9px;
+            font-size: 8.5px;
             font-weight: bold;
             text-align: right;
-            padding-top: 28px;
-            line-height: 1.35;
+            padding-top: 26px;
+            line-height: 1.3;
         }
 
-        .footer-row td {
-            border: none;
-            padding-top: 8px;
+        .footer-table { margin-top: 6px; }
+        .footer-table td {
             font-size: 7px;
             color: #555;
-            vertical-align: bottom;
+            vertical-align: top;
+            padding-top: 4px;
         }
-        .qr-wrap { text-align: right; }
+        .qr-wrap { text-align: right; width: 96px; }
         .qr-caption {
-            font-size: 6.5px;
+            font-size: 6px;
             color: #666;
-            margin-top: 2px;
+            margin-top: 1px;
         }
     </style>
 </head>
 <body>
 @php
     $blank = fn ($value) => ($value !== null && trim((string) $value) !== '') ? $value : '—';
+    $datePart = fn ($value) => ctype_digit(trim((string) $value)) ? trim((string) $value) : '';
     $ownerLocation = $sellingLocationLine;
-    $ownerName = $butcherName ?: ($owner->name ?? '—');
 @endphp
 
-<table class="form-shell">
-    {{-- Header: seal + slaughterhouse + divisions --}}
+<table class="sheet">
     <tr>
-        <td class="seal-cell" rowspan="4">
-            <div class="seal-placeholder">REPUBULIKA<br>Y'U RWANDA</div>
-            <div class="republic-line">Republika y'u Rwanda</div>
-        </td>
-        <td class="header-main" colspan="2">
-            <div class="facility-name">{{ $slaughterhouseDisplayName }}</div>
-        </td>
-    </tr>
-    <tr>
-        <td class="division-row" colspan="2">
-            <table class="field-table">
+        <td class="sheet-cell">
+            {{-- Header: seal, slaughterhouse name, administrative divisions --}}
+            <table class="header-table">
                 <tr>
-                    <td class="field-label" style="width: 22%;">District</td>
-                    <td class="field-value">{{ $headerDistrictLine }}</td>
+                    <td class="seal-cell">
+                        <div class="seal-placeholder">REPUBULIKA<br>Y'U RWANDA</div>
+                        <div class="republic-line">Republika y'u Rwanda</div>
+                    </td>
+                    <td class="header-main">
+                        <div class="facility-name">{{ $slaughterhouseDisplayName }}</div>
+                        <table class="division-table">
+                            <tr>
+                                <td class="division-label">District</td>
+                                <td class="division-value">{{ $headerDistrictLine }}</td>
+                            </tr>
+                            <tr>
+                                <td class="division-label">Sector</td>
+                                <td class="division-value">{{ $headerSectorLine }}</td>
+                            </tr>
+                            <tr>
+                                <td class="division-label">Cell</td>
+                                <td class="division-value">{{ $headerCellLine }}</td>
+                            </tr>
+                        </table>
+                    </td>
                 </tr>
             </table>
-        </td>
-    </tr>
-    <tr>
-        <td class="division-row" colspan="2">
-            <table class="field-table">
-                <tr>
-                    <td class="field-label" style="width: 22%;">Sector</td>
-                    <td class="field-value">{{ $headerSectorLine }}</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-    <tr>
-        <td class="division-row" colspan="2">
-            <table class="field-table">
-                <tr>
-                    <td class="field-label" style="width: 22%;">Cell</td>
-                    <td class="field-value">{{ $headerCellLine }}</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
 
-    {{-- Main body with vertical title --}}
-    <tr>
-        <td class="title-sidebar" rowspan="20">
-            INYITO: ICYEMEZO CYA VETERINERI KU BUGENZUZI BW'INYAMA
-        </td>
-        <td colspan="2" style="padding: 0;">
+            <div class="doc-title">Inyito: Icyemezo cya veterineri ku bugenzuzi bw'inyama</div>
+
             {{-- Section 1: IBAGIRO --}}
             <div class="section-title">1. IBAGIRO</div>
             <table class="field-table">
                 <tr>
                     <td class="field-label">IZINA RY'IBAGIRO</td>
-                    <td class="field-value">{{ $blank($ownerName) }}</td>
+                    <td class="field-value">{{ $blank($slaughterhouseDisplayName) }}</td>
                 </tr>
                 <tr>
                     <td class="field-label">Aho ribarizwa (District, Sector, Cell)</td>
-                    <td class="field-value">{{ $blank($ownerLocation) }}</td>
+                    <td class="field-value">{{ $blank($facilityLocationLine) }}</td>
                 </tr>
                 <tr>
                     <td class="field-label">TELEPHONE</td>
-                    <td class="field-value">{{ $blank($ownerPhone) }}</td>
+                    <td class="field-value">{{ $blank($facilityPhone) }}</td>
                 </tr>
             </table>
 
@@ -304,7 +283,7 @@
                         <th>Iherena n°</th>
                         <th>Inyama z'umubiri (Kg)</th>
                         <th>Izindi nyama (Kg)</th>
-                        <th>Igipimo cy'ubushyuhe (°C)</th>
+                        <th class="last-col">Igipimo cy'ubushyuhe (°C)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -314,15 +293,15 @@
                                 <td>{{ $releasedAnimal['ear_tag'] }}</td>
                                 <td>{{ number_format($releasedAnimal['quantity_kg'], 2) }}</td>
                                 <td>{{ $loop->first ? number_format($otherMeatKg, 2) : '—' }}</td>
-                                <td>{{ $loop->first && $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
+                                <td class="last-col">{{ $loop->first && $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
                             </tr>
                         @endforeach
                         @if (count($releasedAnimals) > 1)
                             <tr>
-                                <td style="font-weight: bold;">Igiteranyo</td>
-                                <td style="font-weight: bold;">{{ number_format($carcassMeatKg, 2) }}</td>
-                                <td style="font-weight: bold;">{{ number_format($otherMeatKg, 2) }}</td>
-                                <td>{{ $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
+                                <td>Igiteranyo</td>
+                                <td>{{ number_format($carcassMeatKg, 2) }}</td>
+                                <td>{{ number_format($otherMeatKg, 2) }}</td>
+                                <td class="last-col">{{ $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
                             </tr>
                         @endif
                     @else
@@ -330,7 +309,7 @@
                             <td>—</td>
                             <td>{{ number_format($carcassMeatKg, 2) }}</td>
                             <td>{{ number_format($otherMeatKg, 2) }}</td>
-                            <td>{{ $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
+                            <td class="last-col">{{ $temperatureCelsius !== null ? number_format($temperatureCelsius, 1) : '—' }}</td>
                         </tr>
                     @endif
                 </tbody>
@@ -352,6 +331,10 @@
                     <td class="field-value">{{ $blank($driverName) }}</td>
                 </tr>
                 <tr>
+                    <td class="field-label">Aho zigana</td>
+                    <td class="field-value">{{ $blank($departureDestination) }}</td>
+                </tr>
+                <tr>
                     <td class="field-label">Isaha ahagurukiye</td>
                     <td class="field-value">{{ $blank($departureTime) }}</td>
                 </tr>
@@ -364,29 +347,27 @@
             {{-- Section 6: Official veterinary declaration --}}
             <div class="section-title">6. KWEMEZA</div>
             <div class="cert-text">
-                Njyewe
-                <span class="name-line">{{ $certificate->inspector?->full_name ?: '' }}</span>
+                Njyewe <span class="name-line">{{ $certificate->inspector?->full_name ?: '&nbsp;' }}</span>
                 Veterineri ushinzwe ubugenzuzi bw'inyama ku ibagiro ryavuzwe haruguru, nshingiye ku bugenzuzi n'isuzuma nakoze ngendeye ku mategeko n'amabwiriza abigenga mu Rwanda, ndemeza ko inyama zivugwa muri iki cyemezo zateguriwe mu ibagiro nshinzwe hubahirizwa ibisabwa byose, kandi ko nta ndwara, ubwandu, cyangwa ikindi cyazibuza gucuruzwa no gukoreshwa mu mafunguro agenewe abantu.
             </div>
 
-            <table class="date-row" style="width: 100%;">
+            <table class="date-row">
                 <tr>
                     <td>
                         Tariki
-                        <span class="date-box">{{ $issuedDay !== '—' ? $issuedDay : '' }}</span>
-                        /
-                        <span class="date-box">{{ $issuedMonth !== '—' ? $issuedMonth : '' }}</span>
-                        / 20
-                        <span class="date-box">{{ $issuedYear !== '—' ? substr((string) $issuedYear, -2) : '' }}</span>
+                        <span class="date-box">{{ $datePart($issuedDay) }}</span> /
+                        <span class="date-box">{{ $datePart($issuedMonth) }}</span> / 20
+                        <span class="date-box">{{ substr($datePart($issuedYear), -2) }}</span>
                     </td>
                 </tr>
             </table>
 
-            <table style="width: 100%;">
+            <table>
                 <tr>
                     <td class="signature-cell" style="width: 55%;">
                         <div class="signature-label">Umukono na kashe bya veterineri.</div>
                         <div class="signature-line"></div>
+                        <div class="inspector-name">{{ $certificate->inspector?->full_name }}</div>
                     </td>
                     <td class="signature-cell" style="width: 45%;">
                         <div class="stamp-instruction">Tera muri aya magambo cashe y'ibagiro</div>
@@ -397,19 +378,16 @@
     </tr>
 </table>
 
-<table class="footer-row">
+<table class="footer-table">
     <tr>
         <td>
             {{ __('Batch') }}: {{ $batch->batch_code }}
             @if ($certificate->certificate_number)
                 · {{ __('Certificate No.') }} {{ $certificate->certificate_number }}
             @endif
-            @if ($departureDestination)
-                · {{ $departureDestination }}
-            @endif
         </td>
-        <td class="qr-wrap" width="100">
-            <img src="{{ $qrImage }}" width="72" height="72" alt="QR">
+        <td class="qr-wrap">
+            <img src="{{ $qrImage }}" width="64" height="64" alt="QR">
             <div class="qr-caption">{{ __('Scan to verify traceability') }}</div>
         </td>
     </tr>
