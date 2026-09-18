@@ -210,10 +210,16 @@ trait ValidatesCertificateIssue
             );
         }
 
-        if ($facility !== null && ! CertificatePdfDetails::facilityLocationIsComplete($facility)) {
+        $submittedDetails = $this->input('pdf_details');
+        $submittedFacilityLocation = CertificatePdfDetails::locationSelectionIsComplete(
+            is_array($submittedDetails) ? $submittedDetails : null,
+            'facility'
+        );
+
+        if ($facility !== null && ! $submittedFacilityLocation && ! CertificatePdfDetails::facilityLocationIsComplete($facility)) {
             $validator->errors()->add(
-                'pdf_details.facility_location',
-                __('Slaughterhouse location (District, Sector, Cell) must be complete before issuing a certificate.')
+                'pdf_details.facility_district_id',
+                __('Select the slaughterhouse District, Sector and Cell, or complete them on the facility record.')
             );
         }
 

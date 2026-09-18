@@ -16,6 +16,7 @@ use App\Models\TransportTrip;
 use App\Models\WarehouseStorage;
 use App\Support\BatchAnimalReleaseLookup;
 use App\Support\CertificateAnimalSelection;
+use App\Support\CertificatePdfDetails;
 use App\Support\DomPdf;
 use App\Support\PdfQrCode;
 use Barryvdh\DomPDF\PDF;
@@ -49,7 +50,7 @@ class CertificatePdfService
             throw new CertificatePdfException(__('Enter the slaughterhouse name on the certificate before generating the PDF.'));
         }
 
-        if (! $this->facilityLocationIsComplete($facility)) {
+        if (! $this->facilityLocationIsComplete($facility, $certificate->pdf_details)) {
             throw new CertificatePdfException(__('Slaughterhouse location (District, Sector, Cell) must be complete before issuing a certificate.'));
         }
 
@@ -108,6 +109,7 @@ class CertificatePdfService
         ]);
         $issuedAt = $certificate->issued_at;
         $auto = $this->autoPdfDetails($batch, $facility, $releasedStorages, $owner, $transportTrip);
+        $headerDivisions = $this->facilityDivisionNames($facility, $certificate->pdf_details);
 
         return [
             'certificate' => $certificate,
@@ -138,9 +140,9 @@ class CertificatePdfService
             'departureTime' => $this->pdfField($certificate, 'departure_time', $auto['departure_time']),
             'transporterPhone' => $this->pdfField($certificate, 'transporter_phone', $auto['transporter_phone']),
             'slaughterhouseDisplayName' => $this->resolvedSlaughterhouseDisplayName($certificate),
-            'headerDistrictLine' => $this->formatDivisionLine($this->facilityDistrict($facility), 'DISTRICT'),
-            'headerSectorLine' => $this->formatDivisionLine($this->facilitySector($facility), 'SECTOR'),
-            'headerCellLine' => $this->formatDivisionLine($this->facilityCell($facility), 'CELL'),
+            'headerDistrictLine' => $this->formatDivisionLine($headerDivisions['district'], 'DISTRICT'),
+            'headerSectorLine' => $this->formatDivisionLine($headerDivisions['sector'], 'SECTOR'),
+            'headerCellLine' => $this->formatDivisionLine($headerDivisions['cell'], 'CELL'),
             'facilityLocationLine' => $this->pdfField($certificate, 'facility_location', $auto['facility_location']),
             'sellingLocationLine' => $this->pdfField($certificate, 'selling_location', $auto['selling_location']),
             'facilityTypeLabel' => $this->pdfField($certificate, 'facility_type', $auto['facility_type']),
@@ -304,11 +306,33 @@ class CertificatePdfService
         ]);
     }
 
-    private function facilityLocationIsComplete(Facility $facility): bool
+    /**
+     * @param  array<string, mixed>|null  $details
+     */
+    private function facilityLocationIsComplete(Facility $facility, ?array $details = null): bool
     {
-        return $this->facilityDistrict($facility) !== null
-            && $this->facilitySector($facility) !== null
-            && $this->facilityCell($facility) !== null;
+        $names = $this->facilityDivisionNames($facility, $details);
+
+        return $names['district'] !== null
+            && $names['sector'] !== null
+            && $names['cell'] !== null;
+    }
+
+    /**
+     * Divisions chosen on the certificate win over the facility record defaults.
+     *
+     * @param  array<string, mixed>|null  $details
+     * @return array{district: ?string, sector: ?string, cell: ?string}
+     */
+    private function facilityDivisionNames(Facility $facility, ?array $details = null): array
+    {
+        $selected = CertificatePdfDetails::locationSelectionNames($details, 'facility');
+
+        return [
+            'district' => $selected['district'] ?? $this->facilityDistrict($facility),
+            'sector' => $selected['sector'] ?? $this->facilitySector($facility),
+            'cell' => $selected['cell'] ?? $this->facilityCell($facility),
+        ];
     }
 
     private function facilityDistrict(Facility $facility): ?string

@@ -314,6 +314,65 @@ class CertificatePdfDetails
         return $parts !== [] ? implode(', ', $parts) : null;
     }
 
+    /**
+     * True when District, Sector and Cell were all chosen for the given prefix.
+     *
+     * @param  array<string, mixed>|null  $details
+     */
+    public static function locationSelectionIsComplete(?array $details, string $prefix): bool
+    {
+        if ($details === null) {
+            return false;
+        }
+
+        foreach (['district', 'sector', 'cell'] as $level) {
+            if (self::intOrNull($details["{$prefix}_{$level}_id"] ?? null) === null) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * District/Sector/Cell names for a chosen location, keyed by level.
+     *
+     * @param  array<string, mixed>|null  $details
+     * @return array{district: ?string, sector: ?string, cell: ?string}
+     */
+    public static function locationSelectionNames(?array $details, string $prefix): array
+    {
+        $empty = ['district' => null, 'sector' => null, 'cell' => null];
+        if ($details === null) {
+            return $empty;
+        }
+
+        $ids = [];
+        foreach (['district', 'sector', 'cell'] as $level) {
+            $ids[$level] = self::intOrNull($details["{$prefix}_{$level}_id"] ?? null);
+        }
+
+        $present = array_values(array_filter($ids));
+        if ($present === []) {
+            return $empty;
+        }
+
+        $names = AdministrativeDivision::query()
+            ->whereIn('id', $present)
+            ->get(['id', 'name'])
+            ->keyBy('id');
+
+        $resolved = $empty;
+        foreach ($ids as $level => $id) {
+            if ($id === null) {
+                continue;
+            }
+            $resolved[$level] = self::nonEmptyString($names->get($id)?->name);
+        }
+
+        return $resolved;
+    }
+
     private static function intOrNull(mixed $value): ?int
     {
         if ($value === null || $value === '') {
