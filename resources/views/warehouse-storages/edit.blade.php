@@ -51,7 +51,7 @@
                             </div>
                             <div>
                                 <x-wizard-field for="quantity_stored" :label="__('Quantity stored')" required>
-                                    <input id="quantity_stored" name="quantity_stored" type="number" min="0" class="bucha-wizard-input" value="{{ old('quantity_stored', $warehouseStorage->quantity_stored) }}" required />
+                                    <input id="quantity_stored" name="quantity_stored" type="number" step="0.01" min="0" class="bucha-wizard-input" value="{{ old('quantity_stored', $warehouseStorage->quantity_stored) }}" required />
                                 </x-wizard-field>
                                 <x-input-error class="mt-2" :messages="$errors->get('quantity_stored')" />
                             </div>
