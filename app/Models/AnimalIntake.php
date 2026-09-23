@@ -150,9 +150,17 @@ class AnimalIntake extends Model
     public static function generateReference(): string
     {
         $year = now()->year;
-        $sequence = static::query()
-            ->whereYear('created_at', $year)
-            ->count() + 1;
+        $prefix = sprintf('INT-%d-', $year);
+
+        $latest = static::query()
+            ->where('reference', 'like', $prefix.'%')
+            ->orderByDesc('reference')
+            ->value('reference');
+
+        $sequence = 1;
+        if (is_string($latest) && preg_match('/^INT-\d+-(\d+)$/', $latest, $matches) === 1) {
+            $sequence = (int) $matches[1] + 1;
+        }
 
         return sprintf('INT-%d-%05d', $year, $sequence);
     }

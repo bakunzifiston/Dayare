@@ -20,9 +20,9 @@ class AnimalIntakeTest extends TestCase
         $business = Business::create([
             'user_id' => $user->id,
             'business_name' => 'Test Business',
-            'registration_number' => 'REG-INT',
+            'registration_number' => 'REG-INT-'.uniqid(),
             'contact_phone' => '+250788000004',
-            'email' => 'intake@test.com',
+            'email' => 'intake-'.uniqid().'@test.com',
             'status' => 'active',
         ]);
         $facility = Facility::create([
@@ -42,6 +42,30 @@ class AnimalIntakeTest extends TestCase
             'status' => AnimalIntake::STATUS_APPROVED,
             'health_certificate_expiry_date' => now()->addMonth(),
         ], $overrides));
+    }
+
+    public function test_generate_reference_skips_gaps_after_deleted_intakes(): void
+    {
+        $first = $this->createIntake();
+        $facilityId = $first->facility_id;
+
+        $second = $this->createIntake(['facility_id' => $facilityId]);
+        $third = $this->createIntake(['facility_id' => $facilityId]);
+
+        $year = now()->year;
+        $this->assertSame(sprintf('INT-%d-00001', $year), $first->reference);
+        $this->assertSame(sprintf('INT-%d-00002', $year), $second->reference);
+        $this->assertSame(sprintf('INT-%d-00003', $year), $third->reference);
+
+        $second->delete();
+
+        $next = AnimalIntake::generateReference();
+
+        $this->assertSame(sprintf('INT-%d-00004', $year), $next);
+        $this->assertFalse(AnimalIntake::query()->where('reference', $next)->exists());
+
+        $created = $this->createIntake(['facility_id' => $facilityId]);
+        $this->assertSame(sprintf('INT-%d-00004', $year), $created->reference);
     }
 
     public function test_is_health_certificate_expired_returns_true_when_expiry_in_past(): void

@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use App\Services\Processor\ProcessorFinanceSync;
 use App\Support\AnimalIntakeMovementPermitStorage;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class AnimalIntakeController extends Controller
 {
@@ -116,11 +118,17 @@ class AnimalIntakeController extends Controller
                     ->where('is_active', true)
                     ->first();
                 if (! $client || (int) $client->business_id !== (int) $facility->business_id) {
-                    abort(404);
+                    throw ValidationException::withMessages([
+                        'client_id' => __('The selected client does not belong to this facility’s business.'),
+                    ]);
                 }
                 $parts = preg_split('/\s+/', trim((string) $client->name), 2) ?: [];
-                $data['supplier_firstname'] = $data['supplier_firstname'] ?? ($parts[0] ?? '');
-                $data['supplier_lastname'] = $data['supplier_lastname'] ?? ($parts[1] ?? '');
+                $data['supplier_firstname'] = filled($data['supplier_firstname'] ?? null)
+                    ? $data['supplier_firstname']
+                    : ($parts[0] ?? 'Client');
+                $data['supplier_lastname'] = filled($data['supplier_lastname'] ?? null)
+                    ? $data['supplier_lastname']
+                    : ($parts[1] ?? $parts[0] ?? 'Client');
                 $data['supplier_contact'] = $data['supplier_contact'] ?? $client->phone;
                 $data['country_id'] = $data['country_id'] ?? $client->country_id;
                 $data['province_id'] = $data['province_id'] ?? $client->province_id;
@@ -130,8 +138,12 @@ class AnimalIntakeController extends Controller
                 $data['village_id'] = $data['village_id'] ?? $client->village_id;
             } else {
                 $data['client_id'] = null;
-                $data['supplier_firstname'] = $data['manual_client_firstname'] ?? $data['supplier_firstname'] ?? null;
-                $data['supplier_lastname'] = $data['manual_client_lastname'] ?? $data['supplier_lastname'] ?? null;
+                $data['supplier_firstname'] = filled($data['manual_client_firstname'] ?? null)
+                    ? $data['manual_client_firstname']
+                    : ($data['supplier_firstname'] ?? 'Client');
+                $data['supplier_lastname'] = filled($data['manual_client_lastname'] ?? null)
+                    ? $data['manual_client_lastname']
+                    : ($data['supplier_lastname'] ?? 'Client');
                 $data['supplier_contact'] = $data['manual_client_contact'] ?? $data['supplier_contact'] ?? null;
             }
 
@@ -414,23 +426,33 @@ class AnimalIntakeController extends Controller
         }
 
         try {
-            $intake = DB::transaction(function () use ($request, $validated, $isDraft): AnimalIntake {
-                $data = $this->buildIntakeHeaderData($request, $validated, $isDraft, null);
-                $intake = AnimalIntake::create($data);
+            $intake = $this->persistIntakeWithReferenceRetry(
+                function () use ($request, $validated, $isDraft): AnimalIntake {
+                    $data = $this->buildIntakeHeaderData($request, $validated, $isDraft, null);
+                    $intake = AnimalIntake::create($data);
 
-                foreach ($validated['animals'] as $animal) {
-                    $intake->items()->create($this->mapAnimalItemAttributes($animal));
+                    foreach ($validated['animals'] as $animal) {
+                        $intake->items()->create($this->mapAnimalItemAttributes($animal));
+                    }
+
+                    $this->syncLegacyIntakeColumns($intake, $validated['animals']);
+                    $intake->refresh()->load('items');
+
+                    if (! $isDraft) {
+                        $this->dispatchIntakeSubmitted($intake);
+                    }
+
+                    return $intake;
                 }
+            );
+        } catch (ValidationException|HttpExceptionInterface $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            Log::error('Animal intake store failed', ['exception' => $e]);
 
-                $this->syncLegacyIntakeColumns($intake, $validated['animals']);
-                $intake->refresh()->load('items');
-
-                if (! $isDraft) {
-                    $this->dispatchIntakeSubmitted($intake);
-                }
-
-                return $intake;
-            });
+            return back()->withInput()->withErrors([
+                'form' => $this->intakePersistenceErrorMessage($e),
+            ]);
         } catch (\Throwable $e) {
             Log::error('Animal intake store failed', ['exception' => $e]);
 
@@ -519,7 +541,7 @@ class AnimalIntakeController extends Controller
         $financeWarning = null;
 
         try {
-            DB::transaction(function () use ($request, $animalIntake, $validated, $isDraft, $wasDraft, &$skippedCount): void {
+            $this->persistIntakeWithReferenceRetry(function () use ($request, $animalIntake, $validated, $isDraft, $wasDraft, &$skippedCount): AnimalIntake {
                 $data = $this->buildIntakeHeaderData($request, $validated, $isDraft, $animalIntake);
                 $animalIntake->update($data);
 
@@ -555,7 +577,17 @@ class AnimalIntakeController extends Controller
                 if ($wasDraft && ! $isDraft) {
                     $this->dispatchIntakeSubmitted($animalIntake);
                 }
+
+                return $animalIntake;
             });
+        } catch (ValidationException|HttpExceptionInterface $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            Log::error('Animal intake update failed', ['intake_id' => $animalIntake->id, 'exception' => $e]);
+
+            return back()->withInput()->withErrors([
+                'form' => $this->intakePersistenceErrorMessage($e),
+            ]);
         } catch (\Throwable $e) {
             Log::error('Animal intake update failed', ['intake_id' => $animalIntake->id, 'exception' => $e]);
 
@@ -930,6 +962,53 @@ class AnimalIntakeController extends Controller
             ->sortDesc();
 
         return (string) $grouped->keys()->first();
+    }
+
+    /**
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    private function persistIntakeWithReferenceRetry(callable $callback): mixed
+    {
+        $attempts = 0;
+
+        beginning:
+        try {
+            return DB::transaction($callback);
+        } catch (QueryException $e) {
+            if ($attempts < 2 && $this->isUniqueConstraintFailure($e, 'animal_intakes_reference_unique')) {
+                $attempts++;
+                goto beginning;
+            }
+
+            throw $e;
+        }
+    }
+
+    private function intakePersistenceErrorMessage(QueryException $e): string
+    {
+        if ($this->isUniqueConstraintFailure($e, 'animal_intake_items_ear_tag_unique')
+            || $this->isUniqueConstraintFailure($e, 'ear_tag')) {
+            return __('One or more tag numbers are already registered. Please use unique tags and try again.');
+        }
+
+        if ($this->isUniqueConstraintFailure($e, 'animal_intakes_reference_unique')
+            || $this->isUniqueConstraintFailure($e, 'reference')) {
+            return __('Could not allocate an intake reference. Please try again.');
+        }
+
+        return __('Could not save intake. Please try again.');
+    }
+
+    private function isUniqueConstraintFailure(QueryException $e, string $needle): bool
+    {
+        $sqlState = (string) ($e->errorInfo[0] ?? '');
+        $message = $e->getMessage();
+
+        return ($sqlState === '23000' || str_contains($message, 'UNIQUE') || str_contains($message, 'Duplicate'))
+            && str_contains($message, $needle);
     }
 
     private function syncFinanceSafe(AnimalIntake $intake): ?string
