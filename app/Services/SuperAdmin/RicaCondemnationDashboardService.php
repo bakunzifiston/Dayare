@@ -58,25 +58,42 @@ class RicaCondemnationDashboardService
   private function condemnationRows(array $filters, ?int $districtId): array
   {
     $itemRows = PostMortemInspectionItem::query()
-      ->condemned()
       ->with([
         'intakeItem',
+        'condemnedOrgans',
         'inspection.batch.slaughterExecution.slaughterPlan.facility',
       ])
+      ->where(function (Builder $query): void {
+        $query->condemned()
+          ->orWhere('condemned_weight_kg', '>', 0)
+          ->orWhereHas('condemnedOrgans');
+      })
       ->whereHas('inspection', fn (Builder $query) => $this->applyInspectionScope($query, $filters, $districtId))
       ->get()
-      ->map(function (PostMortemInspectionItem $item): array {
+      ->flatMap(function (PostMortemInspectionItem $item) {
         $facility = $item->inspection?->batch?->slaughterExecution?->slaughterPlan?->facility;
-
-        return [
-          'kg' => round((float) ($item->condemned_weight_kg ?? $item->carcass_weight_kg ?? 0), 2),
+        $base = [
           'species' => $this->normalizeSpecies($item->intakeItem?->species ?? $item->inspection?->species),
-          'seized_part' => $this->normalizeOrgan($item->seized_part),
           'reason' => $this->normalizeReason($item->reason),
           'facility_id' => $facility?->id,
           'facility_name' => $facility?->facility_name ?? __('Unknown slaughterhouse'),
           'inspection_date' => $item->inspection?->inspection_date ?? now(),
         ];
+
+        $organs = $item->condemnedOrganEntries();
+        if ($organs === []) {
+          return [[
+            ...$base,
+            'kg' => round((float) ($item->condemned_weight_kg ?? $item->carcass_weight_kg ?? 0), 2),
+            'seized_part' => $this->normalizeOrgan($item->seized_part),
+          ]];
+        }
+
+        return collect($organs)->map(fn (array $organ) => [
+          ...$base,
+          'kg' => round((float) ($organ['weight_kg'] ?? 0), 2),
+          'seized_part' => $this->normalizeOrgan($organ['organ_name'] ?? null),
+        ]);
       });
 
     $legacyRows = PostMortemInspection::query()

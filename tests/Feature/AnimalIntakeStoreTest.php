@@ -257,6 +257,107 @@ class AnimalIntakeStoreTest extends TestCase
         Storage::disk('public')->assertExists($intake->receipt_document_path);
     }
 
+    public function test_destroy_blocks_intake_with_animals_assigned_to_plan(): void
+    {
+        [$user, $facility, $client] = $this->makeIntakeContext('REG-AIS-DEL-'.uniqid());
+
+        $intake = AnimalIntake::create([
+            'facility_id' => $facility->id,
+            'source_type' => AnimalIntake::SOURCE_TYPE_CLIENT,
+            'client_id' => $client->id,
+            'intake_date' => now(),
+            'supplier_firstname' => 'Docs',
+            'supplier_lastname' => 'Client',
+            'species' => 'Goats',
+            'number_of_animals' => 1,
+            'status' => AnimalIntake::STATUS_APPROVED,
+            'is_draft' => false,
+            'submitted_at' => now(),
+        ]);
+
+        $inspector = \App\Models\Inspector::create([
+            'facility_id' => $facility->id,
+            'first_name' => 'Insp',
+            'last_name' => 'Delete',
+            'national_id' => (string) random_int(100000000000, 999999999999),
+            'phone_number' => '+250788'.random_int(100000, 999999),
+            'email' => 'insp-del-'.uniqid().'@test.com',
+            'dob' => '1988-01-01',
+            'nationality' => 'Rwandan',
+            'country' => 'Rwanda',
+            'district' => 'Kigali',
+            'sector' => 'Gasabo',
+            'authorization_number' => 'AUTH-'.uniqid(),
+            'authorization_issue_date' => now()->subYear(),
+            'authorization_expiry_date' => now()->addYear(),
+            'species_allowed' => 'Goats',
+            'status' => 'active',
+        ]);
+
+        $plan = \App\Models\SlaughterPlan::create([
+            'facility_id' => $facility->id,
+            'animal_intake_id' => $intake->id,
+            'inspector_id' => $inspector->id,
+            'slaughter_date' => now()->addDay(),
+            'species' => 'Goats',
+            'number_of_animals_scheduled' => 1,
+            'status' => 'planned',
+        ]);
+
+        $intake->items()->create([
+            'ear_tag' => 'DEL-'.uniqid(),
+            'species' => 'Goats',
+            'sex' => AnimalIntake::SEX_MALE,
+            'unit_price' => 0,
+            'service_fee' => 0,
+            'health_status' => 'healthy',
+            'slaughter_plan_id' => $plan->id,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->from(route('animal-intakes.show', $intake))
+            ->delete(route('animal-intakes.destroy', $intake));
+
+        $response->assertRedirect(route('animal-intakes.show', $intake));
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('animal_intakes', ['id' => $intake->id]);
+    }
+
+    public function test_destroy_deletes_unassigned_intake(): void
+    {
+        [$user, $facility, $client] = $this->makeIntakeContext('REG-AIS-DELOK-'.uniqid());
+
+        $intake = AnimalIntake::create([
+            'facility_id' => $facility->id,
+            'source_type' => AnimalIntake::SOURCE_TYPE_CLIENT,
+            'client_id' => $client->id,
+            'intake_date' => now(),
+            'supplier_firstname' => 'Docs',
+            'supplier_lastname' => 'Client',
+            'species' => 'Goats',
+            'number_of_animals' => 1,
+            'status' => AnimalIntake::STATUS_APPROVED,
+            'is_draft' => false,
+            'submitted_at' => now(),
+        ]);
+
+        $intake->items()->create([
+            'ear_tag' => 'DEL-OK-'.uniqid(),
+            'species' => 'Goats',
+            'sex' => AnimalIntake::SEX_MALE,
+            'unit_price' => 0,
+            'service_fee' => 0,
+            'health_status' => 'healthy',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->delete(route('animal-intakes.destroy', $intake));
+
+        $response->assertRedirect(route('animal-intakes.hub'));
+        $response->assertSessionHas('status');
+        $this->assertDatabaseMissing('animal_intakes', ['id' => $intake->id]);
+    }
+
     /**
      * @return array{0: User, 1: Facility, 2: Client}
      */

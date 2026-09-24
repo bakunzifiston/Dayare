@@ -157,34 +157,65 @@
                             </tr>
 
                             <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $showCondemnation]) data-pm-condemnation-row>
-                                <td class="px-3 py-2 font-medium text-amber-900">{{ __('Condemned organ') }}</td>
+                                <td class="px-3 py-2 align-top font-medium text-amber-900">{{ __('Condemned organs') }}</td>
                                 <td class="px-3 py-2" colspan="2">
-                                    <select name="item_outcomes[{{ $index }}][seized_part]"
-                                            class="pm-condemned-organ block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
-                                        <option value="">{{ __('Select organ') }}</option>
-                                        @foreach ($organOptions as $organOption)
-                                            <option value="{{ $organOption }}" @selected($seizedPart === $organOption)>{{ $organOption }}</option>
+                                    @php
+                                        $organRows = old(
+                                            "item_outcomes.{$index}.condemned_organs",
+                                            $oldRow['condemned_organs']
+                                                ?? $existingData['condemned_organs']
+                                                ?? ($existing?->condemnedOrganEntries() ?? []),
+                                        );
+                                        if (! is_array($organRows) || $organRows === []) {
+                                            if ($seizedPart !== '' || ($condemnedWeightDefault !== '' && $condemnedWeightDefault !== null)) {
+                                                $organRows = [[
+                                                    'organ_name' => $seizedPart,
+                                                    'weight_kg' => $condemnedWeightDefault,
+                                                ]];
+                                            } else {
+                                                $organRows = [['organ_name' => '', 'weight_kg' => '']];
+                                            }
+                                        }
+                                    @endphp
+                                    <div class="pm-condemned-organs space-y-2" data-pm-condemned-organs data-animal-index="{{ $index }}">
+                                        @foreach ($organRows as $organIndex => $organRow)
+                                            <div class="pm-condemned-organ-row flex flex-wrap items-end gap-2" data-pm-organ-row>
+                                                <div class="min-w-[10rem] flex-1">
+                                                    <label class="mb-1 block text-[11px] font-medium uppercase tracking-wide text-amber-800/80">{{ __('Organ name') }}</label>
+                                                    <select name="item_outcomes[{{ $index }}][condemned_organs][{{ $organIndex }}][organ_name]"
+                                                            class="pm-condemned-organ block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                                                        <option value="">{{ __('Select organ') }}</option>
+                                                        @foreach ($organOptions as $organOption)
+                                                            <option value="{{ $organOption }}" @selected(($organRow['organ_name'] ?? '') === $organOption)>{{ $organOption }}</option>
+                                                        @endforeach
+                                                        @if (($organRow['organ_name'] ?? '') !== '' && ! in_array($organRow['organ_name'], $organOptions, true))
+                                                            <option value="{{ $organRow['organ_name'] }}" selected>{{ $organRow['organ_name'] }}</option>
+                                                        @endif
+                                                    </select>
+                                                </div>
+                                                <div class="w-32">
+                                                    <label class="mb-1 block text-[11px] font-medium uppercase tracking-wide text-amber-800/80">{{ __('Quantity (kg)') }}</label>
+                                                    <input type="number"
+                                                           name="item_outcomes[{{ $index }}][condemned_organs][{{ $organIndex }}][weight_kg]"
+                                                           value="{{ $organRow['weight_kg'] ?? '' }}"
+                                                           min="0.1" max="9999" step="0.01"
+                                                           placeholder="kg"
+                                                           class="pm-condemned-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
+                                                </div>
+                                                <button type="button"
+                                                        class="pm-remove-organ inline-flex h-9 items-center rounded-md border border-red-200 bg-white px-2.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                                                        data-pm-remove-organ>
+                                                    {{ __('Remove') }}
+                                                </button>
+                                            </div>
                                         @endforeach
-                                        @if ($seizedPart !== '' && ! in_array($seizedPart, $organOptions, true))
-                                            <option value="{{ $seizedPart }}" selected>{{ $seizedPart }}</option>
-                                        @endif
-                                    </select>
-                                    @error("item_outcomes.{$index}.seized_part")
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                    @enderror
-                                </td>
-                            </tr>
-
-                            <tr @class(['pm-condemnation-row bg-amber-50/70', 'hidden' => ! $showCondemnation]) data-pm-condemnation-row>
-                                <td class="px-3 py-2 font-medium text-amber-900">{{ __('Condemned weight (kg)') }}</td>
-                                <td class="px-3 py-2" colspan="2">
-                                    <input type="number"
-                                           name="item_outcomes[{{ $index }}][condemned_weight_kg]"
-                                           value="{{ old("item_outcomes.{$index}.condemned_weight_kg", $condemnedWeightDefault) }}"
-                                           min="0.1" max="9999" step="0.01"
-                                           placeholder="kg"
-                                           class="pm-condemned-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">
-                                    @error("item_outcomes.{$index}.condemned_weight_kg")
+                                    </div>
+                                    <button type="button"
+                                            class="pm-add-organ mt-2 inline-flex h-8 items-center rounded-md border border-amber-300 bg-white px-3 text-xs font-semibold text-amber-900 hover:bg-amber-50"
+                                            data-pm-add-organ>
+                                        {{ __('Add organ') }}
+                                    </button>
+                                    @error("item_outcomes.{$index}.condemned_organs")
                                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                     @enderror
                                 </td>

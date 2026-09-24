@@ -120,17 +120,21 @@
             var beforeKg = parseFloat(card.dataset.meatKg || '0');
             var select = card.querySelector('.pm-animal-outcome');
             var carcassInput = card.querySelector('.pm-carcass-weight');
-            var condemnedWeightInput = card.querySelector('.pm-condemned-weight');
             var outcome = select ? select.value : '';
             var afterKg = carcassInput ? parseFloat(carcassInput.value) : NaN;
-            var condemnedPartKg = condemnedWeightInput ? parseFloat(condemnedWeightInput.value) : NaN;
+            var condemnedPartKg = 0;
+            card.querySelectorAll('.pm-condemned-weight').forEach(function (input) {
+                if (input.disabled) return;
+                var part = parseFloat(input.value);
+                if (Number.isFinite(part) && part > 0) condemnedPartKg += part;
+            });
 
             examinedKg += Number.isFinite(beforeKg) ? beforeKg : 0;
 
             if (outcome === 'approved') {
                 var carcassPart = Number.isFinite(afterKg) && afterKg > 0 ? afterKg : beforeKg;
                 carcassApprovedKg += Number.isFinite(carcassPart) ? carcassPart : 0;
-                if (Number.isFinite(condemnedPartKg) && condemnedPartKg > 0) {
+                if (condemnedPartKg > 0) {
                     condemnedKg += condemnedPartKg;
                     if (Number.isFinite(beforeKg) && beforeKg > carcassPart + condemnedPartKg) {
                         otherApprovedKg += beforeKg - carcassPart - condemnedPartKg;
@@ -139,7 +143,7 @@
                     otherApprovedKg += beforeKg - afterKg;
                 }
             } else if (outcome === 'condemned') {
-                condemnedKg += Number.isFinite(condemnedPartKg) && condemnedPartKg > 0
+                condemnedKg += condemnedPartKg > 0
                     ? condemnedPartKg
                     : (Number.isFinite(beforeKg) ? beforeKg : 0);
             }
@@ -218,16 +222,52 @@
         container.querySelectorAll('[data-pm-animal-card]').forEach(function (card) {
             toggleCondemnationFields(card);
         });
-        container.querySelectorAll('.pm-carcass-weight').forEach(function (input) {
+        container.querySelectorAll('.pm-carcass-weight, .pm-condemned-weight').forEach(function (input) {
             if (input.dataset.bound === '1') return;
             input.dataset.bound = '1';
             input.addEventListener('input', syncAggregateCounts);
         });
-        container.querySelectorAll('.pm-condemned-weight').forEach(function (input) {
-            if (input.dataset.bound === '1') return;
-            input.dataset.bound = '1';
-            input.addEventListener('input', syncAggregateCounts);
+    }
+
+    function buildCondemnedOrganRowHtml(animalIndex, organIndex, organ) {
+        organ = organ || {};
+        var organName = organ.organ_name || '';
+        var weight = organ.weight_kg != null ? organ.weight_kg : '';
+        var selectName = 'item_outcomes[' + animalIndex + '][condemned_organs][' + organIndex + '][organ_name]';
+        var weightName = 'item_outcomes[' + animalIndex + '][condemned_organs][' + organIndex + '][weight_kg]';
+
+        return '<div class="pm-condemned-organ-row flex flex-wrap items-end gap-2" data-pm-organ-row>'
+            + '<div class="min-w-[10rem] flex-1">'
+            + '<label class="mb-1 block text-[11px] font-medium uppercase tracking-wide text-amber-800/80">' + @json(__('Organ name')) + '</label>'
+            + buildOrganSelectField(selectName, organName, 'pm-condemned-organ')
+            + '</div>'
+            + '<div class="w-32">'
+            + '<label class="mb-1 block text-[11px] font-medium uppercase tracking-wide text-amber-800/80">' + @json(__('Quantity (kg)')) + '</label>'
+            + '<input type="number" name="' + weightName + '" value="' + escapeHtml(weight) + '" min="0.1" max="9999" step="0.01" placeholder="kg" class="pm-condemned-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary">'
+            + '</div>'
+            + '<button type="button" class="pm-remove-organ inline-flex h-9 items-center rounded-md border border-red-200 bg-white px-2.5 text-xs font-medium text-red-700 hover:bg-red-50" data-pm-remove-organ>'
+            + @json(__('Remove'))
+            + '</button>'
+            + '</div>';
+    }
+
+    function reindexCondemnedOrganRows(list) {
+        if (!list) return;
+        var animalIndex = list.dataset.animalIndex;
+        list.querySelectorAll('[data-pm-organ-row]').forEach(function (row, organIndex) {
+            var select = row.querySelector('select');
+            var input = row.querySelector('input[type="number"]');
+            if (select) select.name = 'item_outcomes[' + animalIndex + '][condemned_organs][' + organIndex + '][organ_name]';
+            if (input) input.name = 'item_outcomes[' + animalIndex + '][condemned_organs][' + organIndex + '][weight_kg]';
         });
+    }
+
+    function addCondemnedOrganRow(list, organ) {
+        if (!list) return;
+        list.insertAdjacentHTML('beforeend', buildCondemnedOrganRowHtml(list.dataset.animalIndex, list.querySelectorAll('[data-pm-organ-row]').length, organ || {}));
+        reindexCondemnedOrganRows(list);
+        bindPerAnimalAggregateListeners(list.closest('#per-animal-outcomes-container') || list);
+        syncAggregateCounts();
     }
 
     function toggleAggregateCountsSection(hasSelectedAnimals) {
@@ -279,9 +319,7 @@
 
     function buildDecisionChecklistRows(index, existing, speciesName) {
         var currentOutcome = existing.outcome || '';
-        var seizedPart = existing.seized_part || '';
         var reason = existing.reason || '';
-        var condemnedWeight = existing.condemned_weight_kg || '';
         var isCondemned = currentOutcome === 'condemned';
         var showCondemnation = currentOutcome === 'approved' || currentOutcome === 'condemned';
         var outcomeOptions = '<option value="">' + @json(__('Select decision')) + '</option>'
@@ -296,6 +334,19 @@
             : @json(__('Partial condemnation (optional with approved)'));
 
         var carcassWeight = existing.carcass_weight_kg || '';
+        var organRows = Array.isArray(existing.condemned_organs) ? existing.condemned_organs.slice() : [];
+        if (organRows.length === 0 && (existing.seized_part || existing.condemned_weight_kg)) {
+            organRows = [{
+                organ_name: existing.seized_part || '',
+                weight_kg: existing.condemned_weight_kg || '',
+            }];
+        }
+        if (organRows.length === 0) {
+            organRows = [{}];
+        }
+        var organRowsHtml = organRows.map(function (organ, organIndex) {
+            return buildCondemnedOrganRowHtml(index, organIndex, organ);
+        }).join('');
 
         return '<tr class="bg-slate-50/80"><td class="px-3 py-2 font-medium text-slate-800">' + @json(__('Decision')) + '</td>'
             + '<td class="px-3 py-2" colspan="2"><select name="item_outcomes[' + index + '][outcome]" class="pm-animal-outcome block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary" required>'
@@ -303,10 +354,13 @@
             + '<tr class="pm-approved-weight-field bg-slate-50/80' + approvedHiddenClass + '"><td class="px-3 py-2 font-medium text-slate-800">' + @json(__('After PM (kg)')) + '</td>'
             + '<td class="px-3 py-2" colspan="2"><input type="number" name="item_outcomes[' + index + '][carcass_weight_kg]" value="' + escapeHtml(carcassWeight) + '" min="0.1" max="9999" step="0.01" placeholder="kg" class="pm-carcass-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"></td></tr>'
             + '<tr class="pm-condemnation-row bg-amber-50/70' + hiddenClass + '" data-pm-condemnation-row><td class="px-3 py-2 font-medium text-amber-900" colspan="3" data-pm-condemnation-heading>' + condemnationHeading + '</td></tr>'
-            + '<tr class="pm-condemnation-row bg-amber-50/70' + hiddenClass + '" data-pm-condemnation-row><td class="px-3 py-2 font-medium text-amber-900">' + @json(__('Condemned organ')) + '</td>'
-            + '<td class="px-3 py-2" colspan="2">' + buildOrganSelectField('item_outcomes[' + index + '][seized_part]', seizedPart, 'pm-condemned-organ') + '</td></tr>'
-            + '<tr class="pm-condemnation-row bg-amber-50/70' + hiddenClass + '" data-pm-condemnation-row><td class="px-3 py-2 font-medium text-amber-900">' + @json(__('Condemned weight (kg)')) + '</td>'
-            + '<td class="px-3 py-2" colspan="2"><input type="number" name="item_outcomes[' + index + '][condemned_weight_kg]" value="' + escapeHtml(condemnedWeight) + '" min="0.1" max="9999" step="0.01" placeholder="kg" class="pm-condemned-weight block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"></td></tr>'
+            + '<tr class="pm-condemnation-row bg-amber-50/70' + hiddenClass + '" data-pm-condemnation-row><td class="px-3 py-2 align-top font-medium text-amber-900">' + @json(__('Condemned organs')) + '</td>'
+            + '<td class="px-3 py-2" colspan="2">'
+            + '<div class="pm-condemned-organs space-y-2" data-pm-condemned-organs data-animal-index="' + index + '">' + organRowsHtml + '</div>'
+            + '<button type="button" class="pm-add-organ mt-2 inline-flex h-8 items-center rounded-md border border-amber-300 bg-white px-3 text-xs font-semibold text-amber-900 hover:bg-amber-50" data-pm-add-organ>'
+            + @json(__('Add organ'))
+            + '</button>'
+            + '</td></tr>'
             + '<tr class="pm-condemnation-row bg-amber-50/70' + hiddenClass + '" data-pm-condemnation-row><td class="px-3 py-2 font-medium text-amber-900">' + @json(__('Reason for condemnation')) + '</td>'
             + '<td class="px-3 py-2" colspan="2"><input type="text" name="item_outcomes[' + index + '][reason]" value="' + escapeHtml(reason) + '" placeholder=' + @json(__('e.g. Cysts, abscess')) + ' class="block w-full rounded-md border-gray-300 text-sm focus:border-bucha-primary focus:ring-bucha-primary"></td></tr>';
     }
@@ -810,6 +864,35 @@
             outcomesContainer.addEventListener('change', function (event) {
                 if (event.target.matches('.pm-animal-outcome')) {
                     toggleCondemnationFields(event.target.closest('[data-pm-animal-card]'));
+                    syncAggregateCounts();
+                }
+            });
+
+            outcomesContainer.addEventListener('click', function (event) {
+                var addButton = event.target.closest('[data-pm-add-organ]');
+                if (addButton) {
+                    event.preventDefault();
+                    var list = addButton.closest('td')
+                        ? addButton.closest('td').querySelector('[data-pm-condemned-organs]')
+                        : null;
+                    addCondemnedOrganRow(list, {});
+                    return;
+                }
+
+                var removeButton = event.target.closest('[data-pm-remove-organ]');
+                if (removeButton) {
+                    event.preventDefault();
+                    var row = removeButton.closest('[data-pm-organ-row]');
+                    var organList = removeButton.closest('[data-pm-condemned-organs]');
+                    if (!row || !organList) return;
+                    if (organList.querySelectorAll('[data-pm-organ-row]').length <= 1) {
+                        row.querySelectorAll('select, input').forEach(function (field) {
+                            field.value = '';
+                        });
+                    } else {
+                        row.remove();
+                        reindexCondemnedOrganRows(organList);
+                    }
                     syncAggregateCounts();
                 }
             });

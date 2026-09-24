@@ -12,6 +12,7 @@ use App\Models\Facility;
 use App\Models\Inspector;
 use App\Models\MobileApiToken;
 use App\Models\PostMortemInspection;
+use App\Models\PostMortemInspectionItem;
 use App\Models\SlaughterExecution;
 use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
@@ -590,11 +591,81 @@ class BatchTest extends TestCase
             'seized_part' => 'Liver',
             'reason' => 'Abscess detected',
         ]);
+        $this->assertDatabaseHas('post_mortem_condemned_organs', [
+            'organ_name' => 'Liver',
+            'weight_kg' => 18.50,
+        ]);
         $this->assertDatabaseHas('post_mortem_inspections', [
             'batch_id' => $batch->id,
             'approved_quantity' => 500.00,
             'condemned_quantity' => 18.50,
             'total_examined' => 625.00,
+        ]);
+    }
+
+    public function test_post_mortem_stores_multiple_condemned_organs_per_animal(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('batches.store'), $this->validStorePayload());
+
+        $batch = Batch::with('items')->firstOrFail();
+        $firstItem = $batch->items->first();
+        $perAnimalObservations = $this->validPerAnimalPmObservationsPayload();
+
+        $itemOutcomes = $batch->items->map(function ($bi, $index) use ($perAnimalObservations) {
+            if ($index === 0) {
+                return [
+                    'batch_item_id' => $bi->id,
+                    'animal_intake_item_id' => $bi->animal_intake_item_id,
+                    'outcome' => 'condemned',
+                    'carcass_weight_kg' => null,
+                    'reason' => 'Multiple organs condemned',
+                    'outcome_notes' => null,
+                    'condemned_organs' => [
+                        ['organ_name' => 'Liver', 'weight_kg' => 4.50],
+                        ['organ_name' => 'Lung', 'weight_kg' => 2.25],
+                        ['organ_name' => 'Heart', 'weight_kg' => 1.75],
+                    ],
+                    'observations' => $perAnimalObservations,
+                ];
+            }
+
+            return [
+                'batch_item_id' => $bi->id,
+                'animal_intake_item_id' => $bi->animal_intake_item_id,
+                'outcome' => 'approved',
+                'carcass_weight_kg' => 110.00,
+                'reason' => null,
+                'outcome_notes' => null,
+                'observations' => $perAnimalObservations,
+            ];
+        })->values()->toArray();
+
+        $animals = $batch->inspectableAnimalsForPostMortem();
+        $meatTotals = PostMortemMeatTotals::fromItemOutcomes($itemOutcomes, $animals->keyBy('animal_intake_item_id'));
+
+        $this->actingAs($this->user)
+            ->post(route('post-mortem-inspections.store'), $this->validPmPayload($batch, array_merge(
+                ['item_outcomes' => $itemOutcomes],
+                $meatTotals,
+            )))
+            ->assertRedirect(route('post-mortem-inspections.hub'));
+
+        $pmItem = PostMortemInspectionItem::query()
+            ->where('animal_intake_item_id', $firstItem->animal_intake_item_id)
+            ->firstOrFail();
+
+        $this->assertSame(8.50, (float) $pmItem->condemned_weight_kg);
+        $this->assertSame('Liver, Lung, Heart', $pmItem->seized_part);
+        $this->assertCount(3, $pmItem->condemnedOrgans);
+        $this->assertDatabaseHas('post_mortem_condemned_organs', [
+            'post_mortem_inspection_item_id' => $pmItem->id,
+            'organ_name' => 'Lung',
+            'weight_kg' => 2.25,
+        ]);
+        $this->assertDatabaseHas('post_mortem_inspections', [
+            'batch_id' => $batch->id,
+            'condemned_quantity' => 8.50,
         ]);
     }
 
@@ -1047,6 +1118,27 @@ class BatchTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true);
 
+        $this->assertDatabaseMissing('post_mortem_inspections', ['id' => $inspection->id]);
+    }
+
+    public function test_web_post_mortem_destroy_from_hub(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('batches.store'), $this->validStorePayload());
+
+        $batch = Batch::with('items')->firstOrFail();
+
+        $this->actingAs($this->user)
+            ->post(route('post-mortem-inspections.store'), $this->validPmPayload($batch));
+
+        $inspection = PostMortemInspection::query()->firstOrFail();
+
+        $response = $this->actingAs($this->user)
+            ->from(route('post-mortem-inspections.hub'))
+            ->delete(route('post-mortem-inspections.destroy', $inspection));
+
+        $response->assertRedirect(route('post-mortem-inspections.hub'));
+        $response->assertSessionHas('status');
         $this->assertDatabaseMissing('post_mortem_inspections', ['id' => $inspection->id]);
     }
 

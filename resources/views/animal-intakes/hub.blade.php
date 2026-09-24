@@ -17,6 +17,9 @@
                 @if (session('warning'))
                     <div class="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">{{ session('warning') }}</div>
                 @endif
+                @if (session('error'))
+                    <div class="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
+                @endif
 
                 <form method="get" action="{{ route('animal-intakes.hub') }}" class="hub-period-filter">
                     @if (request()->filled('reference'))

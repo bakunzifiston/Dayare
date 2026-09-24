@@ -15,12 +15,15 @@ use App\Models\SlaughterExecutionItem;
 use App\Models\SlaughterPlan;
 use App\Models\WarehouseStorage;
 use App\Support\PostMortemChecklist;
+use App\Support\PostMortemCondemnedOrgans;
 use App\Support\PostMortemMeatTotals;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class PostMortemInspectionController extends Controller
@@ -287,6 +290,7 @@ class PostMortemInspectionController extends Controller
     ): void {
         if ($mergeExisting) {
             $merged = $inspection->inspectionItems()
+                ->with('condemnedOrgans')
                 ->get()
                 ->mapWithKeys(fn (PostMortemInspectionItem $item) => [
                     $item->animal_intake_item_id => [
@@ -298,6 +302,7 @@ class PostMortemInspectionController extends Controller
                         'reason' => $item->reason,
                         'carcass_weight_kg' => $item->carcass_weight_kg,
                         'condemned_weight_kg' => $item->condemned_weight_kg,
+                        'condemned_organs' => $item->condemnedOrganEntries(),
                     ],
                 ]);
 
@@ -327,7 +332,8 @@ class PostMortemInspectionController extends Controller
 
             foreach ($itemOutcomes as $outcome) {
                 $normalized = $this->normalizeInspectionItemPayload($outcome, $animalsById);
-                $inspection->inspectionItems()->create($normalized);
+                $created = $inspection->inspectionItems()->create($normalized);
+                $this->syncCondemnedOrgans($created, $outcome);
             }
         }
 
@@ -355,21 +361,42 @@ class PostMortemInspectionController extends Controller
             $carcassKg = $beforeKg > 0 ? round($beforeKg, 2) : null;
         }
 
-        $condemnedRaw = $outcome['condemned_weight_kg'] ?? null;
-        $condemnedKg = ($condemnedRaw !== null && $condemnedRaw !== '' && (float) $condemnedRaw > 0)
-            ? round((float) $condemnedRaw, 2)
-            : null;
+        $condemnedOrgans = PostMortemCondemnedOrgans::normalizeFromOutcome($outcome);
+        $condemnedKg = PostMortemCondemnedOrgans::totalWeightKg($condemnedOrgans);
+        $seizedPart = PostMortemCondemnedOrgans::seizedPartSummary($condemnedOrgans);
 
         return [
             'batch_item_id' => $outcome['batch_item_id'] ?? null,
             'animal_intake_item_id' => $animalId,
             'outcome' => $outcome['outcome'],
             'outcome_notes' => $outcome['outcome_notes'] ?? null,
-            'seized_part' => $outcome['seized_part'] ?? null,
+            'seized_part' => $seizedPart,
             'reason' => $outcome['reason'] ?? null,
             'carcass_weight_kg' => $carcassKg,
-            'condemned_weight_kg' => $condemnedKg,
+            'condemned_weight_kg' => $condemnedKg > 0 ? $condemnedKg : null,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $outcome
+     */
+    private function syncCondemnedOrgans(PostMortemInspectionItem $item, array $outcome): void
+    {
+        $organs = PostMortemCondemnedOrgans::normalizeFromOutcome($outcome);
+
+        $item->condemnedOrgans()->delete();
+
+        foreach (array_values($organs) as $sortOrder => $organ) {
+            if (trim($organ['organ_name']) === '' || (float) $organ['weight_kg'] <= 0) {
+                continue;
+            }
+
+            $item->condemnedOrgans()->create([
+                'organ_name' => $organ['organ_name'],
+                'weight_kg' => $organ['weight_kg'],
+                'sort_order' => $sortOrder,
+            ]);
+        }
     }
 
     /**
@@ -399,8 +426,10 @@ class PostMortemInspectionController extends Controller
             $item = $existing->get($animalId);
             if ($item) {
                 $item->update($payload);
+                $this->syncCondemnedOrgans($item, $outcome);
             } else {
-                $inspection->inspectionItems()->create($payload);
+                $created = $inspection->inspectionItems()->create($payload);
+                $this->syncCondemnedOrgans($created, $outcome);
             }
         }
 
@@ -477,6 +506,9 @@ class PostMortemInspectionController extends Controller
                 'reason' => (string) ($row['reason'] ?? ''),
                 'carcass_weight_kg' => $row['carcass_weight_kg'] ?? null,
                 'condemned_weight_kg' => $row['condemned_weight_kg'] ?? null,
+                'condemned_organs' => is_array($row['condemned_organs'] ?? null)
+                    ? $row['condemned_organs']
+                    : [],
                 'observations' => is_array($row['observations'] ?? null) ? $row['observations'] : [],
             ];
         }
@@ -494,7 +526,10 @@ class PostMortemInspectionController extends Controller
             ->groupBy('animal_intake_item_id');
 
         return $inspection->inspectionItems
+            ->loadMissing('condemnedOrgans')
             ->mapWithKeys(function (PostMortemInspectionItem $item) use ($obsByAnimal) {
+                $organs = $item->condemnedOrganEntries();
+
                 return [
                     $item->animal_intake_item_id => [
                         'batch_item_id' => $item->batch_item_id,
@@ -504,6 +539,7 @@ class PostMortemInspectionController extends Controller
                         'reason' => $item->reason ?? '',
                         'carcass_weight_kg' => $item->carcass_weight_kg,
                         'condemned_weight_kg' => $item->condemned_weight_kg,
+                        'condemned_organs' => $organs,
                         'observations' => ($obsByAnimal->get($item->animal_intake_item_id) ?? collect())
                             ->mapWithKeys(fn ($obs) => [
                                 $obs->item => [
@@ -700,6 +736,7 @@ class PostMortemInspectionController extends Controller
                 'inspector',
                 'inspectionItems.intakeItem',
                 'inspectionItems.batchItem',
+                'inspectionItems.condemnedOrgans',
             ])
             ->where($scopeInspections)
             ->orderByDesc('inspection_date')
@@ -1049,6 +1086,7 @@ class PostMortemInspectionController extends Controller
             'inspector',
             'observations',
             'inspectionItems.batchItem.intakeItem',
+            'inspectionItems.condemnedOrgans',
         ]);
 
         $itemOutcomes = $postMortemInspection->inspectionItems->map(fn (PostMortemInspectionItem $item) => [
@@ -1056,6 +1094,7 @@ class PostMortemInspectionController extends Controller
             'outcome' => $item->outcome,
             'carcass_weight_kg' => $item->carcass_weight_kg,
             'condemned_weight_kg' => $item->condemned_weight_kg,
+            'condemned_organs' => $item->condemnedOrganEntries(),
         ])->all();
         $animalsById = $postMortemInspection->batch->inspectableAnimalsForPostMortem()->keyBy('animal_intake_item_id');
         $meatTotals = PostMortemMeatTotals::fromItemOutcomes($itemOutcomes, $animalsById);
@@ -1079,7 +1118,7 @@ class PostMortemInspectionController extends Controller
             ->groupBy('facility_id')
             ->map(fn ($inspectors) => $inspectors->map(fn (Inspector $i) => ['id' => $i->id, 'label' => $i->full_name])->values());
 
-        $postMortemInspection->load(['observations', 'inspectionItems', 'batch.slaughterExecution.slaughterPlan.facility']);
+        $postMortemInspection->load(['observations', 'inspectionItems.condemnedOrgans', 'batch.slaughterExecution.slaughterPlan.facility']);
 
         $executionId = (int) $postMortemInspection->batch->slaughter_execution_id;
         $executionAnimalsByExecutionId = $this->buildExecutionAnimalsByExecutionId(collect([$executionId]));
@@ -1105,6 +1144,7 @@ class PostMortemInspectionController extends Controller
             'outcome' => $item->outcome,
             'carcass_weight_kg' => $item->carcass_weight_kg,
             'condemned_weight_kg' => $item->condemned_weight_kg,
+            'condemned_organs' => $item->condemnedOrganEntries(),
         ])->all();
         $animalsById = $postMortemInspection->batch->inspectableAnimalsForPostMortem()->keyBy('animal_intake_item_id');
         $meatTotals = PostMortemMeatTotals::fromItemOutcomes($itemOutcomes, $animalsById);
@@ -1173,7 +1213,20 @@ class PostMortemInspectionController extends Controller
     public function destroy(Request $request, PostMortemInspection $postMortemInspection): RedirectResponse
     {
         $this->authorizeInspection($request, $postMortemInspection);
-        $postMortemInspection->delete();
+
+        try {
+            $postMortemInspection->delete();
+        } catch (QueryException $e) {
+            Log::warning('Post-mortem inspection delete failed', [
+                'inspection_id' => $postMortemInspection->id,
+                'exception' => $e,
+            ]);
+
+            return back()->with(
+                'error',
+                __('This post-mortem inspection cannot be deleted because related records still depend on it.'),
+            );
+        }
 
         return redirect()->route('post-mortem-inspections.hub')
             ->with('status', __('Post-mortem inspection removed.'));

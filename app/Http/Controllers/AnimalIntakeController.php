@@ -680,7 +680,12 @@ class AnimalIntakeController extends Controller
             ->count();
 
         if ($assignedCount > 0) {
-            abort(422, __('This intake cannot be deleted — some animals are assigned to a slaughter plan.'));
+            return back()->with(
+                'error',
+                __('This intake cannot be deleted — :count animal(s) are already assigned to a slaughter plan. Remove them from the plan first.', [
+                    'count' => $assignedCount,
+                ]),
+            );
         }
 
         $animalIntake->delete();

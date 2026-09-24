@@ -73,6 +73,63 @@ class PostMortemInspectionItem extends Model
         return $this->hasMany(WarehouseStorage::class, 'post_mortem_inspection_item_id');
     }
 
+    public function condemnedOrgans(): HasMany
+    {
+        return $this->hasMany(PostMortemCondemnedOrgan::class, 'post_mortem_inspection_item_id')
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    /**
+     * Organ rows for forms/display. Falls back to legacy seized_part / condemned_weight_kg.
+     *
+     * @return list<array{organ_name: string, weight_kg: float|null}>
+     */
+    public function condemnedOrganEntries(): array
+    {
+        $loaded = $this->relationLoaded('condemnedOrgans')
+            ? $this->condemnedOrgans
+            : $this->condemnedOrgans()->get();
+
+        if ($loaded->isNotEmpty()) {
+            return $loaded
+                ->map(fn (PostMortemCondemnedOrgan $organ) => [
+                    'organ_name' => (string) $organ->organ_name,
+                    'weight_kg' => $organ->weight_kg !== null ? (float) $organ->weight_kg : null,
+                ])
+                ->values()
+                ->all();
+        }
+
+        $organName = trim((string) ($this->seized_part ?? ''));
+        $weight = $this->condemned_weight_kg !== null ? (float) $this->condemned_weight_kg : null;
+        if ($organName === '' && ($weight === null || $weight <= 0)) {
+            return [];
+        }
+
+        return [[
+            'organ_name' => $organName,
+            'weight_kg' => $weight !== null && $weight > 0 ? $weight : null,
+        ]];
+    }
+
+    public function totalCondemnedWeightKg(): float
+    {
+        $loaded = $this->relationLoaded('condemnedOrgans')
+            ? $this->condemnedOrgans
+            : null;
+
+        if ($loaded !== null && $loaded->isNotEmpty()) {
+            return round((float) $loaded->sum('weight_kg'), 2);
+        }
+
+        if ($this->condemned_weight_kg !== null && (float) $this->condemned_weight_kg > 0) {
+            return round((float) $this->condemned_weight_kg, 2);
+        }
+
+        return round((float) $this->condemnedOrgans()->sum('weight_kg'), 2);
+    }
+
     /**
      * @param  Builder<PostMortemInspectionItem>  $query
      * @return Builder<PostMortemInspectionItem>

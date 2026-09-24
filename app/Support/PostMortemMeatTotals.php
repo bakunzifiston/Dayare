@@ -45,7 +45,7 @@ class PostMortemMeatTotals
             if ($result === 'approved') {
                 $carcassPart = $afterKg > 0 ? $afterKg : $beforeKg;
                 $carcassApprovedKg += $carcassPart;
-                $condemnedPartKg = (float) ($outcome['condemned_weight_kg'] ?? 0);
+                $condemnedPartKg = self::condemnedKgFromOutcome($outcome);
                 if ($condemnedPartKg > 0) {
                     $condemnedKg += $condemnedPartKg;
                     if ($beforeKg > $carcassPart + $condemnedPartKg) {
@@ -55,7 +55,7 @@ class PostMortemMeatTotals
                     $otherApprovedKg += $beforeKg - $afterKg;
                 }
             } elseif ($result === 'condemned') {
-                $condemnedPartKg = (float) ($outcome['condemned_weight_kg'] ?? 0);
+                $condemnedPartKg = self::condemnedKgFromOutcome($outcome);
                 $condemnedKg += $condemnedPartKg > 0 ? $condemnedPartKg : $beforeKg;
             }
         }
@@ -69,5 +69,15 @@ class PostMortemMeatTotals
             'approved_other_meat_kg' => round($otherApprovedKg, 2),
             'condemned_quantity' => round($condemnedKg, 2),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $outcome
+     */
+    private static function condemnedKgFromOutcome(array $outcome): float
+    {
+        return PostMortemCondemnedOrgans::totalWeightKg(
+            PostMortemCondemnedOrgans::normalizeFromOutcome($outcome),
+        );
     }
 }

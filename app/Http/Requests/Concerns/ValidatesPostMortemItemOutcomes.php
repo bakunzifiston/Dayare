@@ -124,26 +124,25 @@ trait ValidatesPostMortemItemOutcomes
         }
 
         foreach ($itemOutcomes as $index => $outcome) {
+            if (! is_array($outcome)) {
+                continue;
+            }
+
             $decision = (string) ($outcome['outcome'] ?? '');
-            $seizedPart = trim((string) ($outcome['seized_part'] ?? ''));
-            $condemnedWeight = $outcome['condemned_weight_kg'] ?? null;
             $reason = trim((string) ($outcome['reason'] ?? ''));
-            $hasAnyCondemnationDetail = $seizedPart !== ''
-                || $reason !== ''
-                || ($condemnedWeight !== null && $condemnedWeight !== '' && (float) $condemnedWeight > 0);
+            $organs = \App\Support\PostMortemCondemnedOrgans::normalizeFromOutcome($outcome);
+            $hasAnyOrganDetail = $organs !== [];
 
             if ($decision === PostMortemInspectionItem::OUTCOME_CONDEMNED) {
-                if ($seizedPart === '') {
+                if ($organs === []) {
                     $validator->errors()->add(
-                        "item_outcomes.{$index}.seized_part",
-                        __('Condemned organ is required when the decision is condemned.'),
+                        "item_outcomes.{$index}.condemned_organs",
+                        __('Add at least one condemned organ when the decision is condemned.'),
                     );
-                }
-
-                if ($condemnedWeight === null || $condemnedWeight === '' || (float) $condemnedWeight <= 0) {
+                } elseif (! \App\Support\PostMortemCondemnedOrgans::hasCompleteRows($organs)) {
                     $validator->errors()->add(
-                        "item_outcomes.{$index}.condemned_weight_kg",
-                        __('Condemned weight (kg) is required when the decision is condemned.'),
+                        "item_outcomes.{$index}.condemned_organs",
+                        __('Each condemned organ needs a name and a weight greater than zero.'),
                     );
                 }
 
@@ -157,18 +156,11 @@ trait ValidatesPostMortemItemOutcomes
                 continue;
             }
 
-            if ($decision === PostMortemInspectionItem::OUTCOME_APPROVED && $hasAnyCondemnationDetail) {
-                if ($seizedPart === '') {
+            if ($decision === PostMortemInspectionItem::OUTCOME_APPROVED && $hasAnyOrganDetail) {
+                if (! \App\Support\PostMortemCondemnedOrgans::hasCompleteRows($organs)) {
                     $validator->errors()->add(
-                        "item_outcomes.{$index}.seized_part",
-                        __('Condemned organ is required when recording partial condemnation.'),
-                    );
-                }
-
-                if ($condemnedWeight === null || $condemnedWeight === '' || (float) $condemnedWeight <= 0) {
-                    $validator->errors()->add(
-                        "item_outcomes.{$index}.condemned_weight_kg",
-                        __('Condemned weight (kg) is required when recording partial condemnation.'),
+                        "item_outcomes.{$index}.condemned_organs",
+                        __('Each condemned organ needs a name and a weight greater than zero.'),
                     );
                 }
 

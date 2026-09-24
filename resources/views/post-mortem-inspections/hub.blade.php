@@ -10,6 +10,9 @@
         @if (session('status'))
             <div class="rounded-bucha border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('status') }}</div>
         @endif
+        @if (session('error'))
+            <div class="rounded-bucha border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
+        @endif
 
         <section class="rounded-bucha border border-slate-200 bg-white px-4 py-3" aria-label="{{ __('Period and actions') }}">
             <form method="get" action="{{ route('post-mortem-inspections.hub') }}" class="flex flex-wrap items-center gap-2">
@@ -109,9 +112,14 @@
                                         @endif
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-2.5 text-right">
-                                        <span class="pm-actions inline-flex gap-1.5">
+                                        <span class="pm-actions inline-flex items-center gap-1.5">
                                             <a href="{{ route('post-mortem-inspections.show', $pm) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('View') }}</a>
                                             <a href="{{ route('post-mortem-inspections.edit', $pm) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Edit') }}</a>
+                                            <form method="POST" action="{{ route('post-mortem-inspections.destroy', $pm) }}" class="inline-flex" onsubmit="return confirm(@js(__('Are you sure you want to delete this post-mortem inspection? This cannot be undone.')));">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="inline-flex h-8 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700 hover:bg-red-100">{{ __('Delete') }}</button>
+                                            </form>
                                         </span>
                                     </td>
                                 </tr>
@@ -128,6 +136,7 @@
                                                             <th class="px-3 py-2">{{ __('Batch meat qty') }}</th>
                                                             <th class="px-3 py-2">{{ __('Outcome') }}</th>
                                                             <th class="px-3 py-2">{{ __('Carcass weight') }}</th>
+                                                            <th class="px-3 py-2">{{ __('Condemned organs') }}</th>
                                                             <th class="px-3 py-2">{{ __('Released (kg)') }}</th>
                                                             <th class="px-3 py-2">{{ __('Cold room') }}</th>
                                                             <th class="px-3 py-2">{{ __('Notes') }}</th>
@@ -144,6 +153,7 @@
                                                                 $carcassKg = $pmItem->displayCarcassWeightKg();
                                                                 $batchRelease = $releaseLookup->get($pm->batch_id, collect());
                                                                 $animalStorage = $batchRelease->get($pmItem->animal_intake_item_id);
+                                                                $organEntries = $pmItem->condemnedOrganEntries();
                                                             @endphp
                                                             <tr class="border-t border-slate-100">
                                                                 <td class="px-3 py-1.5 font-mono text-xs">
@@ -156,6 +166,22 @@
                                                                 <td class="px-3 py-1.5">{{ $pmItem->batchItem ? number_format($pmItem->batchItem->meat_quantity_kg, 2).' kg' : '—' }}</td>
                                                                 <td class="px-3 py-1.5"><span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $outcomeClass }}">{{ ucfirst($pmItem->outcome) }}</span></td>
                                                                 <td class="px-3 py-1.5">{{ $carcassKg !== null ? number_format($carcassKg, 2).' kg' : '—' }}</td>
+                                                                <td class="px-3 py-1.5">
+                                                                    @if ($organEntries !== [])
+                                                                        <ul class="space-y-0.5 text-xs">
+                                                                            @foreach ($organEntries as $organEntry)
+                                                                                <li>
+                                                                                    {{ $organEntry['organ_name'] !== '' ? $organEntry['organ_name'] : __('Organ') }}
+                                                                                    @if ($organEntry['weight_kg'] !== null)
+                                                                                        · {{ number_format((float) $organEntry['weight_kg'], 2) }} kg
+                                                                                    @endif
+                                                                                </li>
+                                                                            @endforeach
+                                                                        </ul>
+                                                                    @else
+                                                                        —
+                                                                    @endif
+                                                                </td>
                                                                 <x-batch.animal-release-cells :storage="$animalStorage" />
                                                                 <td class="px-3 py-1.5 text-slate-500">{{ $pmItem->outcome_notes ?? '—' }}</td>
                                                             </tr>

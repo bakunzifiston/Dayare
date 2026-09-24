@@ -4,6 +4,13 @@
     </x-slot>
 
     <div class="space-y-5">
+        @if (session('status'))
+            <div class="rounded-bucha border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('status') }}</div>
+        @endif
+        @if (session('error'))
+            <div class="rounded-bucha border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
+        @endif
+
         <section class="overflow-hidden rounded-bucha border border-slate-200 bg-white">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div>
@@ -13,6 +20,11 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <a href="{{ route('post-mortem-inspections.edit', $inspection) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Edit') }}</a>
                     <a href="{{ route('batches.show', $inspection->batch) }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('View batch') }}</a>
+                    <form method="POST" action="{{ route('post-mortem-inspections.destroy', $inspection) }}" class="inline-flex" onsubmit="return confirm(@js(__('Are you sure you want to delete this post-mortem inspection? This cannot be undone.')));">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="inline-flex h-8 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700 hover:bg-red-100">{{ __('Delete') }}</button>
+                    </form>
                     <a href="{{ route('post-mortem-inspections.hub') }}" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ __('Back') }}</a>
                 </div>
             </div>
@@ -80,13 +92,21 @@
                                 <th class="px-3 py-2 font-medium">{{ __('Outcome') }}</th>
                                 <th class="px-3 py-2 font-medium">{{ __('Before PM (kg)') }}</th>
                                 <th class="px-3 py-2 font-medium">{{ __('After PM (kg)') }}</th>
-                                <th class="px-3 py-2 font-medium">{{ __('Condemned organ') }}</th>
+                                <th class="px-3 py-2 font-medium">{{ __('Condemned organs') }}</th>
                                 <th class="px-3 py-2 font-medium">{{ __('Condemned (kg)') }}</th>
                                 <th class="px-3 py-2 font-medium">{{ __('Reason') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @foreach ($inspection->inspectionItems as $item)
+                                @php
+                                    $organEntries = $item->condemnedOrganEntries();
+                                    $organLabel = collect($organEntries)
+                                        ->map(fn ($row) => trim((string) ($row['organ_name'] ?? '')))
+                                        ->filter()
+                                        ->implode(', ');
+                                    $condemnedTotal = $item->totalCondemnedWeightKg();
+                                @endphp
                                 <tr>
                                     <td class="px-4 py-2 font-mono text-xs">{{ $item->intakeItem->ear_tag ?? '—' }}</td>
                                     <td class="px-3 py-2">{{ ucfirst($item->outcome) }}</td>
@@ -95,8 +115,23 @@
                                         @php $carcassKg = $item->displayCarcassWeightKg(); @endphp
                                         {{ $carcassKg !== null ? number_format($carcassKg, 2).' kg' : '—' }}
                                     </td>
-                                    <td class="px-3 py-2">{{ $item->seized_part ?: '—' }}</td>
-                                    <td class="px-3 py-2 tabular-nums">{{ $item->condemned_weight_kg ? number_format($item->condemned_weight_kg, 2).' kg' : '—' }}</td>
+                                    <td class="px-3 py-2">
+                                        @if ($organEntries !== [])
+                                            <ul class="space-y-0.5">
+                                                @foreach ($organEntries as $organEntry)
+                                                    <li>
+                                                        {{ $organEntry['organ_name'] !== '' ? $organEntry['organ_name'] : __('Organ') }}
+                                                        @if ($organEntry['weight_kg'] !== null)
+                                                            <span class="tabular-nums text-slate-500">({{ number_format((float) $organEntry['weight_kg'], 2) }} kg)</span>
+                                                        @endif
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            {{ $organLabel !== '' ? $organLabel : '—' }}
+                                        @endif
+                                    </td>
+                                    <td class="px-3 py-2 tabular-nums">{{ $condemnedTotal > 0 ? number_format($condemnedTotal, 2).' kg' : '—' }}</td>
                                     <td class="px-3 py-2">{{ $item->reason ?: ($item->outcome_notes ?: '—') }}</td>
                                 </tr>
                             @endforeach
